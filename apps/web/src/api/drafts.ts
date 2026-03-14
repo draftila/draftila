@@ -56,6 +56,14 @@ export function useDraft(projectId: string, draftId: string) {
   });
 }
 
+export function useDraftById(draftId: string) {
+  return useQuery({
+    queryKey: [...DRAFTS_KEY, 'detail', draftId],
+    queryFn: () => api.get<Draft>(`/api/drafts/${draftId}`),
+    enabled: !!draftId,
+  });
+}
+
 export function useCreateDraft(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({

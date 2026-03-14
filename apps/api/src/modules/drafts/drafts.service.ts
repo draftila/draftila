@@ -97,6 +97,21 @@ export async function getById(id: string) {
   return result ?? null;
 }
 
+export async function getByIdForOwner(draftId: string, ownerId: string) {
+  const [result] = await db
+    .select({
+      id: draft.id,
+      name: draft.name,
+      projectId: draft.projectId,
+      createdAt: draft.createdAt,
+      updatedAt: draft.updatedAt,
+    })
+    .from(draft)
+    .innerJoin(project, eq(draft.projectId, project.id))
+    .where(and(eq(draft.id, draftId), eq(project.ownerId, ownerId)));
+  return result ?? null;
+}
+
 export async function create(data: { name: string; projectId: string }) {
   const [created] = await db
     .insert(draft)

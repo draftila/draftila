@@ -198,6 +198,27 @@ describe('drafts', () => {
       expect(page2.nextCursor).toBeNull();
     });
 
+    test('getByIdForOwner returns draft for correct owner', async () => {
+      const created = await draftsService.create({ name: 'Owned Draft', projectId });
+      const result = await draftsService.getByIdForOwner(created.id, userId);
+
+      expect(result).not.toBeNull();
+      expect(result!.id).toBe(created.id);
+      expect(result!.name).toBe('Owned Draft');
+    });
+
+    test('getByIdForOwner returns null for wrong owner', async () => {
+      const created = await draftsService.create({ name: 'Not Yours', projectId });
+      const result = await draftsService.getByIdForOwner(created.id, 'other-user-id');
+
+      expect(result).toBeNull();
+    });
+
+    test('getByIdForOwner returns null for non-existent draft', async () => {
+      const result = await draftsService.getByIdForOwner('non-existent-id', userId);
+      expect(result).toBeNull();
+    });
+
     test('verifyProjectOwnership returns project for correct owner', async () => {
       const result = await draftsService.verifyProjectOwnership(projectId, userId);
       expect(result).not.toBeNull();
@@ -212,6 +233,57 @@ describe('drafts', () => {
     test('verifyProjectOwnership returns null for non-existent project', async () => {
       const result = await draftsService.verifyProjectOwnership('non-existent-id', userId);
       expect(result).toBeNull();
+    });
+  });
+
+  describe('GET /api/drafts/:draftId route', () => {
+    const draftUrl = (draftId: string) => `/api/drafts/${draftId}`;
+
+    test('returns 401 without auth', async () => {
+      const created = await draftsService.create({ name: 'Auth Test', projectId });
+      const res = await app.request(draftUrl(created.id));
+      expect(res.status).toBe(401);
+    });
+
+    test('returns the draft for the owner', async () => {
+      const created = await draftsService.create({ name: 'My Draft', projectId });
+      const res = await app.request(draftUrl(created.id), { headers: authHeaders });
+      expect(res.status).toBe(200);
+
+      const body = (await res.json()) as { id: string; name: string; projectId: string };
+      expect(body.id).toBe(created.id);
+      expect(body.name).toBe('My Draft');
+      expect(body.projectId).toBe(projectId);
+    });
+
+    test('returns 404 for non-existent draft', async () => {
+      const res = await app.request(draftUrl('non-existent'), { headers: authHeaders });
+      expect(res.status).toBe(404);
+
+      const body = (await res.json()) as { error: string };
+      expect(body.error).toBe('Draft not found');
+    });
+
+    test('returns 404 for draft owned by another user', async () => {
+      const otherUser = await createTestUser({
+        email: 'draft-owner-check@draftila.com',
+        password: 'password123',
+        name: 'Other Owner',
+      });
+      const otherProject = await projectsService.create({
+        name: 'Other Owner Project',
+        ownerId: otherUser.user.id,
+      });
+      const otherDraft = await draftsService.create({
+        name: 'Not My Draft',
+        projectId: otherProject.id,
+      });
+
+      const res = await app.request(draftUrl(otherDraft.id), { headers: authHeaders });
+      expect(res.status).toBe(404);
+
+      const body = (await res.json()) as { error: string };
+      expect(body.error).toBe('Draft not found');
     });
   });
 

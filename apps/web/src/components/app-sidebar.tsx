@@ -41,6 +41,7 @@ const NAV_ITEMS = [
 ] as const;
 
 function ProjectSwitcher() {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const { data: projectsResponse } = useProjects();
@@ -80,6 +81,7 @@ function ProjectSwitcher() {
                     onSelect={() => {
                       setSelectedProjectId(project.id);
                       setOpen(false);
+                      navigate('/');
                     }}
                   >
                     {project.name}
@@ -105,7 +107,10 @@ function ProjectSwitcher() {
       <CreateProjectDialog
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
-        onSuccess={(project) => setSelectedProjectId(project.id)}
+        onSuccess={(project) => {
+          setSelectedProjectId(project.id);
+          navigate('/');
+        }}
       />
     </>
   );

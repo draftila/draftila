@@ -132,6 +132,18 @@ const allDraftsRoutes = new Hono<DraftEnv>();
 
 allDraftsRoutes.use(requireAuth);
 
+allDraftsRoutes.get('/:draftId', async (c) => {
+  const user = c.get('user');
+  const draftId = c.req.param('draftId');
+
+  const draftRecord = await draftsService.getByIdForOwner(draftId, user.id);
+  if (!draftRecord) {
+    throw new NotFoundError('Draft');
+  }
+
+  return c.json(draftRecord);
+});
+
 allDraftsRoutes.get('/', async (c) => {
   const user = c.get('user');
 
