@@ -1,4 +1,4 @@
-import { index, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import { boolean, index, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 import { user } from './auth';
 
 export const project = pgTable(
@@ -6,6 +6,7 @@ export const project = pgTable(
   {
     id: text('id').primaryKey(),
     name: text('name').notNull(),
+    isPersonal: boolean('is_personal').notNull().default(false),
     ownerId: text('owner_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),

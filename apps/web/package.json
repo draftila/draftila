@@ -9,8 +9,6 @@
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "lint": "eslint .",
-    "test": "vitest run",
-    "test:watch": "vitest",
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
@@ -22,6 +20,7 @@
     "better-auth": "^1.1.14",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
     "lucide-react": "^0.577.0",
     "radix-ui": "^1.4.3",
     "react": "^19.0.0",
@@ -37,20 +36,14 @@
     "@draftila/eslint-config": "workspace:*",
     "@draftila/typescript-config": "workspace:*",
     "@tailwindcss/vite": "^4.0.0",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.2",
-    "@testing-library/user-event": "^14.6.1",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "@vitejs/plugin-react": "^4.3.4",
-    "@vitest/coverage-v8": "^4.1.0",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.16.0",
-    "jsdom": "^28.1.0",
     "prettier-plugin-tailwindcss": "^0.6.9",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.2",
-    "vite": "^6.0.5",
-    "vitest": "^4.1.0"
+    "vite": "^6.0.5"
   }
 }

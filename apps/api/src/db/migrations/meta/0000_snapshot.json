@@ -1,6 +1,6 @@
 {
-  "id": "254e7036-ab19-4008-93bd-c78cba0b4549",
-  "prevId": "5c498f75-2545-4129-bcb6-6e0febf9256b",
+  "id": "be4e64be-6476-443b-b6cd-812ce7605b38",
+  "prevId": "254e7036-ab19-4008-93bd-c78cba0b4549",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -333,6 +333,77 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.draft": {
+      "name": "draft",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "draft_project_id_idx": {
+          "name": "draft_project_id_idx",
+          "columns": [
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "draft_project_id_project_id_fk": {
+          "name": "draft_project_id_project_id_fk",
+          "tableFrom": "draft",
+          "tableTo": "project",
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.project": {
       "name": "project",
       "schema": "",
@@ -348,6 +419,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "is_personal": {
+          "name": "is_personal",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "owner_id": {
           "name": "owner_id",

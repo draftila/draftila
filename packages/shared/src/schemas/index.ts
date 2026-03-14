@@ -21,12 +21,29 @@ export const createUserSchema = userSchema.pick({
 export const projectSchema = z.object({
   id: z.string(),
   name: z.string().trim().min(1).max(255),
+  isPersonal: z.boolean(),
   ownerId: z.string(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });
 
 export const createProjectSchema = projectSchema.pick({
+  name: true,
+});
+
+export const draftSchema = z.object({
+  id: z.string(),
+  name: z.string().trim().min(1).max(255),
+  projectId: z.string(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+
+export const createDraftSchema = draftSchema.pick({
+  name: true,
+});
+
+export const updateDraftSchema = draftSchema.pick({
   name: true,
 });
 

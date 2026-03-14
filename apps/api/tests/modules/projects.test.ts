@@ -27,6 +27,7 @@ describe('projects', () => {
 
       expect(project.id).toBeDefined();
       expect(project.name).toBe('My Project');
+      expect(project.isPersonal).toBe(false);
       expect(project.ownerId).toBe(userId);
     });
 

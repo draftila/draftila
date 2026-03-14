@@ -47,6 +47,7 @@ packages/    shared (Zod schemas + types), eslint-config, typescript-config
 - Use the `@/*` path alias for imports.
 - Route guards via `AuthGuard` / `GuestGuard` components.
 - Auth via `better-auth` React client (`src/lib/auth-client.ts`).
+- Use shadcn Form components with Zod validation for any forms.
 
 ### Shared (`packages/shared`)
 

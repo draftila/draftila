@@ -4,12 +4,16 @@ import { db } from '../src/db';
 
 export async function cleanDatabase() {
   await db.execute(
-    sql`TRUNCATE TABLE "project", "session", "account", "verification", "user" CASCADE`,
+    sql`TRUNCATE TABLE "draft", "project", "session", "account", "verification", "user" CASCADE`,
   );
 }
 
 export async function cleanProjects() {
-  await db.execute(sql`TRUNCATE TABLE "project" CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE "draft", "project" CASCADE`);
+}
+
+export async function cleanDrafts() {
+  await db.execute(sql`TRUNCATE TABLE "draft" CASCADE`);
 }
 
 interface TestUserResponse {

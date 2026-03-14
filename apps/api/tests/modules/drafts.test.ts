@@ -1,0 +1,468 @@
+import { beforeAll, beforeEach, describe, expect, test } from 'bun:test';
+import { app } from '../../src/app';
+import { resetRateLimitStore } from '../../src/common/middleware/rate-limit';
+import * as draftsService from '../../src/modules/drafts/drafts.service';
+import * as projectsService from '../../src/modules/projects/projects.service';
+import { cleanDatabase, cleanDrafts, createTestUser, getAuthHeaders } from '../helpers';
+
+describe('drafts', () => {
+  let authHeaders: Headers;
+  let userId: string;
+  let projectId: string;
+
+  beforeAll(async () => {
+    await cleanDatabase();
+    resetRateLimitStore('sign-in');
+    resetRateLimitStore('sign-up');
+    const result = await createTestUser();
+    userId = result.user.id;
+    authHeaders = await getAuthHeaders('test@draftila.com', 'password123');
+    const proj = await projectsService.create({ name: 'Test Project', ownerId: userId });
+    projectId = proj.id;
+  });
+
+  beforeEach(async () => {
+    await cleanDrafts();
+  });
+
+  describe('drafts.service', () => {
+    test('create returns the created draft', async () => {
+      const draft = await draftsService.create({ name: 'My Draft', projectId });
+
+      expect(draft.id).toBeDefined();
+      expect(draft.name).toBe('My Draft');
+      expect(draft.projectId).toBe(projectId);
+    });
+
+    test('listByProject returns only drafts for the given project', async () => {
+      await draftsService.create({ name: 'D1', projectId });
+      await draftsService.create({ name: 'D2', projectId });
+
+      const result = await draftsService.listByProject(projectId);
+      expect(result.data).toHaveLength(2);
+      expect(result.nextCursor).toBeNull();
+      expect(
+        result.data
+          .map((d) => d.name)
+          .slice()
+          .sort(),
+      ).toEqual(['D1', 'D2']);
+    });
+
+    test('listByProject returns empty array for project with no drafts', async () => {
+      const result = await draftsService.listByProject(projectId);
+      expect(result.data).toEqual([]);
+      expect(result.nextCursor).toBeNull();
+    });
+
+    test('listByProject paginates with cursor and limit', async () => {
+      for (let i = 0; i < 5; i++) {
+        await draftsService.create({ name: `D${i}`, projectId });
+      }
+
+      const page1 = await draftsService.listByProject(projectId, undefined, 3);
+      expect(page1.data).toHaveLength(3);
+      expect(page1.nextCursor).not.toBeNull();
+
+      const page2 = await draftsService.listByProject(projectId, page1.nextCursor!, 3);
+      expect(page2.data).toHaveLength(2);
+      expect(page2.nextCursor).toBeNull();
+
+      const allNames = [...page1.data.map((d) => d.name), ...page2.data.map((d) => d.name)];
+      expect(allNames).toHaveLength(5);
+    });
+
+    test('listByProject returns results ordered by createdAt descending', async () => {
+      await draftsService.create({ name: 'First', projectId });
+      await draftsService.create({ name: 'Second', projectId });
+      await draftsService.create({ name: 'Third', projectId });
+
+      const result = await draftsService.listByProject(projectId);
+      expect(result.data[0]!.name).toBe('Third');
+      expect(result.data[2]!.name).toBe('First');
+    });
+
+    test('getById returns the draft', async () => {
+      const created = await draftsService.create({ name: 'Find Me', projectId });
+      const found = await draftsService.getById(created.id);
+
+      expect(found).not.toBeNull();
+      expect(found!.name).toBe('Find Me');
+    });
+
+    test('getById returns null for non-existent id', async () => {
+      const found = await draftsService.getById('non-existent-id');
+      expect(found).toBeNull();
+    });
+
+    test('update changes the draft name', async () => {
+      const created = await draftsService.create({ name: 'Old Name', projectId });
+      const updated = await draftsService.update(created.id, { name: 'New Name' });
+
+      expect(updated).not.toBeNull();
+      expect(updated!.name).toBe('New Name');
+    });
+
+    test('update returns null for non-existent id', async () => {
+      const updated = await draftsService.update('non-existent-id', { name: 'Nope' });
+      expect(updated).toBeNull();
+    });
+
+    test('remove deletes the draft', async () => {
+      const created = await draftsService.create({ name: 'Delete Me', projectId });
+      const deleted = await draftsService.remove(created.id);
+
+      expect(deleted).not.toBeNull();
+      expect(deleted!.name).toBe('Delete Me');
+
+      const found = await draftsService.getById(created.id);
+      expect(found).toBeNull();
+    });
+
+    test('remove returns null for non-existent id', async () => {
+      const deleted = await draftsService.remove('non-existent-id');
+      expect(deleted).toBeNull();
+    });
+
+    test('verifyProjectOwnership returns project for correct owner', async () => {
+      const result = await draftsService.verifyProjectOwnership(projectId, userId);
+      expect(result).not.toBeNull();
+      expect(result!.id).toBe(projectId);
+    });
+
+    test('verifyProjectOwnership returns null for wrong owner', async () => {
+      const result = await draftsService.verifyProjectOwnership(projectId, 'other-user-id');
+      expect(result).toBeNull();
+    });
+
+    test('verifyProjectOwnership returns null for non-existent project', async () => {
+      const result = await draftsService.verifyProjectOwnership('non-existent-id', userId);
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('routes', () => {
+    const url = (path = '') => `/api/projects/${projectId}/drafts${path}`;
+
+    test('GET /drafts returns 401 without auth', async () => {
+      const res = await app.request(url());
+      expect(res.status).toBe(401);
+    });
+
+    test('GET /drafts returns drafts for authenticated user', async () => {
+      await draftsService.create({ name: 'Route Draft', projectId });
+
+      const res = await app.request(url(), { headers: authHeaders });
+      expect(res.status).toBe(200);
+
+      const body = (await res.json()) as { data: { name: string }[]; nextCursor: string | null };
+      expect(body.data).toHaveLength(1);
+      expect(body.data[0]!.name).toBe('Route Draft');
+      expect(body.nextCursor).toBeNull();
+    });
+
+    test('GET /drafts supports cursor-based pagination', async () => {
+      for (let i = 0; i < 5; i++) {
+        await draftsService.create({ name: `Draft ${i}`, projectId });
+      }
+
+      const res1 = await app.request(url('?limit=3'), { headers: authHeaders });
+      expect(res1.status).toBe(200);
+      const page1 = (await res1.json()) as {
+        data: { name: string }[];
+        nextCursor: string | null;
+      };
+      expect(page1.data).toHaveLength(3);
+      expect(page1.nextCursor).not.toBeNull();
+
+      const res2 = await app.request(url(`?limit=3&cursor=${page1.nextCursor}`), {
+        headers: authHeaders,
+      });
+      expect(res2.status).toBe(200);
+      const page2 = (await res2.json()) as {
+        data: { name: string }[];
+        nextCursor: string | null;
+      };
+      expect(page2.data).toHaveLength(2);
+      expect(page2.nextCursor).toBeNull();
+    });
+
+    test('GET /drafts returns 400 for invalid limit', async () => {
+      const res = await app.request(url('?limit=0'), { headers: authHeaders });
+      expect(res.status).toBe(400);
+    });
+
+    test('GET /drafts returns 404 for non-existent project', async () => {
+      const res = await app.request('/api/projects/non-existent/drafts', {
+        headers: authHeaders,
+      });
+      expect(res.status).toBe(404);
+    });
+
+    test('GET /drafts returns 404 for another users project', async () => {
+      const otherUser = await createTestUser({
+        email: 'draft-other@draftila.com',
+        password: 'password123',
+        name: 'Other User',
+      });
+      const otherProject = await projectsService.create({
+        name: 'Other Project',
+        ownerId: otherUser.user.id,
+      });
+
+      const res = await app.request(`/api/projects/${otherProject.id}/drafts`, {
+        headers: authHeaders,
+      });
+      expect(res.status).toBe(404);
+    });
+
+    test('POST /drafts creates a draft', async () => {
+      const res = await app.request(url(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: authHeaders.get('Cookie')!,
+        },
+        body: JSON.stringify({ name: 'New Draft' }),
+      });
+
+      expect(res.status).toBe(201);
+      const body = (await res.json()) as { name: string; projectId: string };
+      expect(body.name).toBe('New Draft');
+      expect(body.projectId).toBe(projectId);
+    });
+
+    test('POST /drafts returns 400 for invalid body', async () => {
+      const res = await app.request(url(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: authHeaders.get('Cookie')!,
+        },
+        body: JSON.stringify({}),
+      });
+
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as { error: string; fieldErrors: Record<string, string[]> };
+      expect(body.error).toBe('Validation failed');
+      expect(body.fieldErrors).toBeDefined();
+    });
+
+    test('POST /drafts returns 400 for empty name', async () => {
+      const res = await app.request(url(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: authHeaders.get('Cookie')!,
+        },
+        body: JSON.stringify({ name: '' }),
+      });
+
+      expect(res.status).toBe(400);
+    });
+
+    test('POST /drafts returns 400 for whitespace-only name', async () => {
+      const res = await app.request(url(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: authHeaders.get('Cookie')!,
+        },
+        body: JSON.stringify({ name: '   ' }),
+      });
+
+      expect(res.status).toBe(400);
+    });
+
+    test('POST /drafts returns 400 for name exceeding max length', async () => {
+      const res = await app.request(url(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: authHeaders.get('Cookie')!,
+        },
+        body: JSON.stringify({ name: 'a'.repeat(256) }),
+      });
+
+      expect(res.status).toBe(400);
+    });
+
+    test('POST /drafts returns 400 for malformed JSON', async () => {
+      const res = await app.request(url(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: authHeaders.get('Cookie')!,
+        },
+        body: 'not json{{',
+      });
+
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as { error: string };
+      expect(body.error).toBe('Invalid JSON');
+    });
+
+    test('POST /drafts returns 404 for non-existent project', async () => {
+      const res = await app.request('/api/projects/non-existent/drafts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: authHeaders.get('Cookie')!,
+        },
+        body: JSON.stringify({ name: 'Orphan Draft' }),
+      });
+
+      expect(res.status).toBe(404);
+    });
+
+    test('GET /drafts/:draftId returns the draft', async () => {
+      const draft = await draftsService.create({ name: 'Get By Id', projectId });
+
+      const res = await app.request(url(`/${draft.id}`), { headers: authHeaders });
+      expect(res.status).toBe(200);
+
+      const body = (await res.json()) as { name: string };
+      expect(body.name).toBe('Get By Id');
+    });
+
+    test('GET /drafts/:draftId returns 404 for non-existent draft', async () => {
+      const res = await app.request(url('/non-existent'), { headers: authHeaders });
+      expect(res.status).toBe(404);
+
+      const body = (await res.json()) as { error: string };
+      expect(body.error).toBe('Draft not found');
+    });
+
+    test('GET /drafts/:draftId returns 404 for draft in another project', async () => {
+      const otherProject = await projectsService.create({
+        name: 'Other Project 2',
+        ownerId: userId,
+      });
+      const draft = await draftsService.create({
+        name: 'Wrong Project',
+        projectId: otherProject.id,
+      });
+
+      const res = await app.request(url(`/${draft.id}`), { headers: authHeaders });
+      expect(res.status).toBe(404);
+
+      const body = (await res.json()) as { error: string };
+      expect(body.error).toBe('Draft not found');
+    });
+
+    test('PATCH /drafts/:draftId updates the draft name', async () => {
+      const draft = await draftsService.create({ name: 'Old Name', projectId });
+
+      const res = await app.request(url(`/${draft.id}`), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: authHeaders.get('Cookie')!,
+        },
+        body: JSON.stringify({ name: 'Updated Name' }),
+      });
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { name: string };
+      expect(body.name).toBe('Updated Name');
+    });
+
+    test('PATCH /drafts/:draftId returns 404 for non-existent draft', async () => {
+      const res = await app.request(url('/non-existent'), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: authHeaders.get('Cookie')!,
+        },
+        body: JSON.stringify({ name: 'Nope' }),
+      });
+
+      expect(res.status).toBe(404);
+    });
+
+    test('PATCH /drafts/:draftId returns 400 for invalid body', async () => {
+      const draft = await draftsService.create({ name: 'Valid', projectId });
+
+      const res = await app.request(url(`/${draft.id}`), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: authHeaders.get('Cookie')!,
+        },
+        body: JSON.stringify({ name: '' }),
+      });
+
+      expect(res.status).toBe(400);
+    });
+
+    test('PATCH /drafts/:draftId returns 404 for draft in another project', async () => {
+      const otherProject = await projectsService.create({
+        name: 'Other Project 3',
+        ownerId: userId,
+      });
+      const draft = await draftsService.create({
+        name: 'Wrong Project',
+        projectId: otherProject.id,
+      });
+
+      const res = await app.request(url(`/${draft.id}`), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: authHeaders.get('Cookie')!,
+        },
+        body: JSON.stringify({ name: 'Nope' }),
+      });
+
+      expect(res.status).toBe(404);
+    });
+
+    test('DELETE /drafts/:draftId deletes the draft', async () => {
+      const draft = await draftsService.create({ name: 'To Delete', projectId });
+
+      const res = await app.request(url(`/${draft.id}`), {
+        method: 'DELETE',
+        headers: authHeaders,
+      });
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { ok: boolean };
+      expect(body.ok).toBe(true);
+
+      const found = await draftsService.getById(draft.id);
+      expect(found).toBeNull();
+    });
+
+    test('DELETE /drafts/:draftId returns 404 for non-existent draft', async () => {
+      const res = await app.request(url('/non-existent'), {
+        method: 'DELETE',
+        headers: authHeaders,
+      });
+
+      expect(res.status).toBe(404);
+    });
+
+    test('DELETE /drafts/:draftId returns 401 without auth', async () => {
+      const res = await app.request(url('/some-id'), { method: 'DELETE' });
+      expect(res.status).toBe(401);
+    });
+
+    test('DELETE /drafts/:draftId returns 404 for draft in another project', async () => {
+      const otherProject = await projectsService.create({
+        name: 'Other Project 4',
+        ownerId: userId,
+      });
+      const draft = await draftsService.create({
+        name: 'Wrong Project',
+        projectId: otherProject.id,
+      });
+
+      const res = await app.request(url(`/${draft.id}`), {
+        method: 'DELETE',
+        headers: authHeaders,
+      });
+
+      expect(res.status).toBe(404);
+    });
+  });
+});

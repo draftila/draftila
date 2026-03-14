@@ -16,7 +16,6 @@
     "api:build": "bun run --filter @draftila/api build",
     "api:start": "bun run --filter @draftila/api start",
     "api:test": "bun run --filter @draftila/api test",
-    "web:test": "bun run --filter @draftila/web test",
     "api:typecheck": "bun run --filter @draftila/api typecheck",
     "api:lint": "bun run --filter @draftila/api lint",
     "api:clean": "bun run --filter @draftila/api clean",

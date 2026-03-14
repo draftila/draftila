@@ -5,6 +5,9 @@ import type {
   createUserSchema,
   projectSchema,
   createProjectSchema,
+  draftSchema,
+  createDraftSchema,
+  updateDraftSchema,
   paginationSchema,
 } from '../schemas';
 
@@ -13,6 +16,9 @@ export type User = z.infer<typeof userSchema>;
 export type CreateUser = z.infer<typeof createUserSchema>;
 export type Project = z.infer<typeof projectSchema>;
 export type CreateProject = z.infer<typeof createProjectSchema>;
+export type Draft = z.infer<typeof draftSchema>;
+export type CreateDraft = z.infer<typeof createDraftSchema>;
+export type UpdateDraft = z.infer<typeof updateDraftSchema>;
 export type Pagination = z.infer<typeof paginationSchema>;
 
 export interface PaginatedResponse<T> {
