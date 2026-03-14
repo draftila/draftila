@@ -34,14 +34,48 @@ describe('projects', () => {
       await projectsService.create({ name: 'P1', ownerId: userId });
       await projectsService.create({ name: 'P2', ownerId: userId });
 
-      const projects = await projectsService.listByOwner(userId);
-      expect(projects).toHaveLength(2);
-      expect(projects.map((p) => p.name).sort()).toEqual(['P1', 'P2']);
+      const result = await projectsService.listByOwner(userId);
+      expect(result.data).toHaveLength(2);
+      expect(result.nextCursor).toBeNull();
+      expect(
+        result.data
+          .map((p) => p.name)
+          .slice()
+          .sort(),
+      ).toEqual(['P1', 'P2']);
     });
 
     test('listByOwner returns empty array for user with no projects', async () => {
-      const projects = await projectsService.listByOwner(userId);
-      expect(projects).toEqual([]);
+      const result = await projectsService.listByOwner(userId);
+      expect(result.data).toEqual([]);
+      expect(result.nextCursor).toBeNull();
+    });
+
+    test('listByOwner paginates with cursor and limit', async () => {
+      for (let i = 0; i < 5; i++) {
+        await projectsService.create({ name: `P${i}`, ownerId: userId });
+      }
+
+      const page1 = await projectsService.listByOwner(userId, undefined, 3);
+      expect(page1.data).toHaveLength(3);
+      expect(page1.nextCursor).not.toBeNull();
+
+      const page2 = await projectsService.listByOwner(userId, page1.nextCursor!, 3);
+      expect(page2.data).toHaveLength(2);
+      expect(page2.nextCursor).toBeNull();
+
+      const allNames = [...page1.data.map((p) => p.name), ...page2.data.map((p) => p.name)];
+      expect(allNames).toHaveLength(5);
+    });
+
+    test('listByOwner returns results ordered by createdAt descending', async () => {
+      await projectsService.create({ name: 'First', ownerId: userId });
+      await projectsService.create({ name: 'Second', ownerId: userId });
+      await projectsService.create({ name: 'Third', ownerId: userId });
+
+      const result = await projectsService.listByOwner(userId);
+      expect(result.data[0]!.name).toBe('Third');
+      expect(result.data[2]!.name).toBe('First');
     });
 
     test('getByIdAndOwner returns the project for the correct owner', async () => {
@@ -97,9 +131,46 @@ describe('projects', () => {
       const res = await app.request('/api/projects', { headers: authHeaders });
       expect(res.status).toBe(200);
 
-      const body = (await res.json()) as { name: string }[];
-      expect(body).toHaveLength(1);
-      expect(body[0]!.name).toBe('Route Project');
+      const body = (await res.json()) as { data: { name: string }[]; nextCursor: string | null };
+      expect(body.data).toHaveLength(1);
+      expect(body.data[0]!.name).toBe('Route Project');
+      expect(body.nextCursor).toBeNull();
+    });
+
+    test('GET /api/projects supports cursor-based pagination', async () => {
+      for (let i = 0; i < 5; i++) {
+        await projectsService.create({ name: `Project ${i}`, ownerId: userId });
+      }
+
+      const res1 = await app.request('/api/projects?limit=3', { headers: authHeaders });
+      expect(res1.status).toBe(200);
+      const page1 = (await res1.json()) as {
+        data: { name: string }[];
+        nextCursor: string | null;
+      };
+      expect(page1.data).toHaveLength(3);
+      expect(page1.nextCursor).not.toBeNull();
+
+      const res2 = await app.request(`/api/projects?limit=3&cursor=${page1.nextCursor}`, {
+        headers: authHeaders,
+      });
+      expect(res2.status).toBe(200);
+      const page2 = (await res2.json()) as {
+        data: { name: string }[];
+        nextCursor: string | null;
+      };
+      expect(page2.data).toHaveLength(2);
+      expect(page2.nextCursor).toBeNull();
+    });
+
+    test('GET /api/projects returns 400 for invalid limit', async () => {
+      const res = await app.request('/api/projects?limit=0', { headers: authHeaders });
+      expect(res.status).toBe(400);
+    });
+
+    test('GET /api/projects returns 400 for limit exceeding max', async () => {
+      const res = await app.request('/api/projects?limit=101', { headers: authHeaders });
+      expect(res.status).toBe(400);
     });
 
     test('POST /api/projects creates a project', async () => {

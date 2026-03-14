@@ -5,6 +5,7 @@ import type {
   createUserSchema,
   projectSchema,
   createProjectSchema,
+  paginationSchema,
 } from '../schemas';
 
 export type Login = z.infer<typeof loginSchema>;
@@ -12,6 +13,12 @@ export type User = z.infer<typeof userSchema>;
 export type CreateUser = z.infer<typeof createUserSchema>;
 export type Project = z.infer<typeof projectSchema>;
 export type CreateProject = z.infer<typeof createProjectSchema>;
+export type Pagination = z.infer<typeof paginationSchema>;
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  nextCursor: string | null;
+}
 
 export interface ApiErrorResponse {
   error: string;

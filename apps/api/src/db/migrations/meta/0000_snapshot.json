@@ -1,6 +1,6 @@
 {
-  "id": "5c498f75-2545-4129-bcb6-6e0febf9256b",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "254e7036-ab19-4008-93bd-c78cba0b4549",
+  "prevId": "5c498f75-2545-4129-bcb6-6e0febf9256b",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -89,7 +89,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "account_user_id_idx": {
+          "name": "account_user_id_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "account_user_id_user_id_fk": {
           "name": "account_user_id_user_id_fk",
@@ -162,7 +178,23 @@
           "notNull": true
         }
       },
-      "indexes": {},
+      "indexes": {
+        "session_user_id_idx": {
+          "name": "session_user_id_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "session_user_id_user_id_fk": {
           "name": "session_user_id_user_id_fk",
@@ -338,7 +370,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "project_owner_id_idx": {
+          "name": "project_owner_id_idx",
+          "columns": [
+            {
+              "expression": "owner_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "project_owner_id_user_id_fk": {
           "name": "project_owner_id_user_id_fk",
