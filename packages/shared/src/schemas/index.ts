@@ -47,7 +47,15 @@ export const updateDraftSchema = draftSchema.pick({
   name: true,
 });
 
+export const sortSchema = z
+  .enum(['last_edited', 'last_created', 'alphabetical'])
+  .default('last_edited');
+
 export const paginationSchema = z.object({
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+export const sortablePaginationSchema = paginationSchema.extend({
+  sort: sortSchema.optional(),
 });

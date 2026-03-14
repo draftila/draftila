@@ -6,7 +6,7 @@ import { AppError, ValidationError } from './common/errors';
 import { env } from './common/lib/env';
 import type { AuthEnv } from './common/middleware/auth';
 import { authRoutes } from './modules/auth/auth.routes';
-import { draftRoutes } from './modules/drafts/drafts.routes';
+import { allDraftsRoutes, draftRoutes } from './modules/drafts/drafts.routes';
 import { healthRoutes } from './modules/health/health.routes';
 import { projectRoutes } from './modules/projects/projects.routes';
 import { userRoutes } from './modules/user/user.routes';
@@ -25,6 +25,7 @@ app.route('/api/auth', authRoutes);
 app.route('/api/health', healthRoutes);
 app.route('/api', userRoutes);
 app.route('/api/projects', projectRoutes);
+app.route('/api/drafts', allDraftsRoutes);
 app.route('/api/projects/:projectId/drafts', draftRoutes);
 
 app.onError((err, c) => {

@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { createProjectSchema, paginationSchema } from '@draftila/shared';
+import { createProjectSchema, sortablePaginationSchema } from '@draftila/shared';
 import { NotFoundError, ValidationError } from '../../common/errors';
 import { requireAuth, type AuthEnv } from '../../common/middleware/auth';
 import * as projectsService from './projects.service';
@@ -10,9 +10,10 @@ projectRoutes.use(requireAuth);
 
 projectRoutes.get('/', async (c) => {
   const user = c.get('user');
-  const parsed = paginationSchema.safeParse({
+  const parsed = sortablePaginationSchema.safeParse({
     cursor: c.req.query('cursor'),
     limit: c.req.query('limit'),
+    sort: c.req.query('sort'),
   });
 
   if (!parsed.success) {
@@ -20,7 +21,12 @@ projectRoutes.get('/', async (c) => {
     throw new ValidationError(flattened.fieldErrors as Record<string, string[]>);
   }
 
-  const result = await projectsService.listByOwner(user.id, parsed.data.cursor, parsed.data.limit);
+  const result = await projectsService.listByOwner(
+    user.id,
+    parsed.data.cursor,
+    parsed.data.limit,
+    parsed.data.sort,
+  );
   return c.json(result);
 });
 

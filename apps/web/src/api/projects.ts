@@ -1,18 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CreateProject, PaginatedResponse, Project } from '@draftila/shared';
+import type { CreateProject, PaginatedResponse, Project, SortOrder } from '@draftila/shared';
 import { api } from '@/lib/api-client';
 
 const PROJECTS_KEY = ['projects'] as const;
 
-export function useProjects(cursor?: string, limit?: number) {
+interface UseProjectsOptions {
+  cursor?: string;
+  limit?: number;
+  sort?: SortOrder;
+}
+
+export function useProjects(options: UseProjectsOptions = {}) {
+  const { cursor, limit, sort } = options;
   const params = new URLSearchParams();
   if (cursor) params.set('cursor', cursor);
   if (limit) params.set('limit', String(limit));
+  if (sort) params.set('sort', sort);
   const query = params.toString();
   const url = query ? `/api/projects?${query}` : '/api/projects';
 
   return useQuery({
-    queryKey: [...PROJECTS_KEY, { cursor, limit }],
+    queryKey: [...PROJECTS_KEY, { cursor, limit, sort }],
     queryFn: () => api.get<PaginatedResponse<Project>>(url),
   });
 }

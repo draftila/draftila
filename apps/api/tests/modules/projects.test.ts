@@ -69,7 +69,7 @@ describe('projects', () => {
       expect(allNames).toHaveLength(5);
     });
 
-    test('listByOwner returns results ordered by createdAt descending', async () => {
+    test('listByOwner returns results ordered by updatedAt descending by default', async () => {
       await projectsService.create({ name: 'First', ownerId: userId });
       await projectsService.create({ name: 'Second', ownerId: userId });
       await projectsService.create({ name: 'Third', ownerId: userId });
@@ -77,6 +77,27 @@ describe('projects', () => {
       const result = await projectsService.listByOwner(userId);
       expect(result.data[0]!.name).toBe('Third');
       expect(result.data[2]!.name).toBe('First');
+    });
+
+    test('listByOwner sorts by createdAt descending with last_created', async () => {
+      await projectsService.create({ name: 'First', ownerId: userId });
+      await projectsService.create({ name: 'Second', ownerId: userId });
+      await projectsService.create({ name: 'Third', ownerId: userId });
+
+      const result = await projectsService.listByOwner(userId, undefined, 20, 'last_created');
+      expect(result.data[0]!.name).toBe('Third');
+      expect(result.data[2]!.name).toBe('First');
+    });
+
+    test('listByOwner sorts alphabetically with alphabetical', async () => {
+      await projectsService.create({ name: 'Cherry', ownerId: userId });
+      await projectsService.create({ name: 'Apple', ownerId: userId });
+      await projectsService.create({ name: 'Banana', ownerId: userId });
+
+      const result = await projectsService.listByOwner(userId, undefined, 20, 'alphabetical');
+      expect(result.data[0]!.name).toBe('Apple');
+      expect(result.data[1]!.name).toBe('Banana');
+      expect(result.data[2]!.name).toBe('Cherry');
     });
 
     test('getByIdAndOwner returns the project for the correct owner', async () => {
@@ -162,6 +183,25 @@ describe('projects', () => {
       };
       expect(page2.data).toHaveLength(2);
       expect(page2.nextCursor).toBeNull();
+    });
+
+    test('GET /api/projects supports sort parameter', async () => {
+      await projectsService.create({ name: 'Cherry', ownerId: userId });
+      await projectsService.create({ name: 'Apple', ownerId: userId });
+      await projectsService.create({ name: 'Banana', ownerId: userId });
+
+      const res = await app.request('/api/projects?sort=alphabetical', { headers: authHeaders });
+      expect(res.status).toBe(200);
+
+      const body = (await res.json()) as { data: { name: string }[] };
+      expect(body.data[0]!.name).toBe('Apple');
+      expect(body.data[1]!.name).toBe('Banana');
+      expect(body.data[2]!.name).toBe('Cherry');
+    });
+
+    test('GET /api/projects returns 400 for invalid sort value', async () => {
+      const res = await app.request('/api/projects?sort=invalid', { headers: authHeaders });
+      expect(res.status).toBe(400);
     });
 
     test('GET /api/projects returns 400 for invalid limit', async () => {

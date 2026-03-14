@@ -1,19 +1,50 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CreateDraft, Draft, PaginatedResponse, UpdateDraft } from '@draftila/shared';
+import type {
+  CreateDraft,
+  Draft,
+  SortOrder,
+  PaginatedResponse,
+  UpdateDraft,
+} from '@draftila/shared';
 import { api } from '@/lib/api-client';
 
 const DRAFTS_KEY = ['drafts'] as const;
 
-export function useDrafts(projectId: string, cursor?: string, limit?: number) {
+interface UseDraftsOptions {
+  cursor?: string;
+  limit?: number;
+  sort?: SortOrder;
+}
+
+export function useDrafts(projectId: string, options: UseDraftsOptions = {}) {
+  const { cursor, limit, sort } = options;
   const params = new URLSearchParams();
   if (cursor) params.set('cursor', cursor);
   if (limit) params.set('limit', String(limit));
+  if (sort) params.set('sort', sort);
   const query = params.toString();
   const base = `/api/projects/${projectId}/drafts`;
   const url = query ? `${base}?${query}` : base;
 
   return useQuery({
-    queryKey: [...DRAFTS_KEY, projectId, { cursor, limit }],
+    queryKey: [...DRAFTS_KEY, projectId, { cursor, limit, sort }],
+    queryFn: () => api.get<PaginatedResponse<Draft>>(url),
+    enabled: !!projectId,
+  });
+}
+
+export function useAllDrafts(options: UseDraftsOptions = {}) {
+  const { cursor, limit, sort } = options;
+  const params = new URLSearchParams();
+  if (cursor) params.set('cursor', cursor);
+  if (limit) params.set('limit', String(limit));
+  if (sort) params.set('sort', sort);
+  const query = params.toString();
+  const base = '/api/drafts';
+  const url = query ? `${base}?${query}` : base;
+
+  return useQuery({
+    queryKey: [...DRAFTS_KEY, 'all', { cursor, limit, sort }],
     queryFn: () => api.get<PaginatedResponse<Draft>>(url),
   });
 }

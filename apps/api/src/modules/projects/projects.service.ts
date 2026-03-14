@@ -1,22 +1,51 @@
-import { and, desc, eq, sql, SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, sql, SQL } from 'drizzle-orm';
+import type { SortOrder } from '@draftila/shared';
 import { db } from '../../db';
 import { project } from '../../db/schema';
 import { nanoid } from '../../common/lib/utils';
 
-export async function listByOwner(userId: string, cursor?: string, limit = 20) {
+function getSortConfig(sort: SortOrder) {
+  switch (sort) {
+    case 'alphabetical':
+      return {
+        orderBy: [asc(project.name), asc(project.id)],
+        cursorSql: (cursor: string) =>
+          sql`(${project.name}, ${project.id}) > (SELECT ${project.name}, ${project.id} FROM ${project} WHERE ${project.id} = ${cursor})`,
+      };
+    case 'last_created':
+      return {
+        orderBy: [desc(project.createdAt), desc(project.id)],
+        cursorSql: (cursor: string) =>
+          sql`(${project.createdAt}, ${project.id}) < (SELECT ${project.createdAt}, ${project.id} FROM ${project} WHERE ${project.id} = ${cursor})`,
+      };
+    case 'last_edited':
+    default:
+      return {
+        orderBy: [desc(project.updatedAt), desc(project.id)],
+        cursorSql: (cursor: string) =>
+          sql`(${project.updatedAt}, ${project.id}) < (SELECT ${project.updatedAt}, ${project.id} FROM ${project} WHERE ${project.id} = ${cursor})`,
+      };
+  }
+}
+
+export async function listByOwner(
+  userId: string,
+  cursor?: string,
+  limit = 20,
+  sort: SortOrder = 'last_edited',
+) {
   const conditions: SQL[] = [eq(project.ownerId, userId)];
+  const sortConfig = getSortConfig(sort);
 
   if (cursor) {
-    conditions.push(
-      sql`(${project.createdAt}, ${project.id}) < (SELECT ${project.createdAt}, ${project.id} FROM ${project} WHERE ${project.id} = ${cursor})`,
-    );
+    conditions.push(sortConfig.cursorSql(cursor));
   }
 
   const results = await db
     .select()
     .from(project)
     .where(and(...conditions))
-    .orderBy(desc(project.createdAt), desc(project.id))
+    .orderBy(...sortConfig.orderBy)
     .limit(limit + 1);
 
   const hasMore = results.length > limit;

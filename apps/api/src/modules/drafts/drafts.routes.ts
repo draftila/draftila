@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { createDraftSchema, paginationSchema, updateDraftSchema } from '@draftila/shared';
+import { createDraftSchema, sortablePaginationSchema, updateDraftSchema } from '@draftila/shared';
 import { NotFoundError, ValidationError } from '../../common/errors';
 import { requireAuth, type AuthEnv } from '../../common/middleware/auth';
 import * as draftsService from './drafts.service';
@@ -19,9 +19,10 @@ draftRoutes.get('/', async (c) => {
     throw new NotFoundError('Project');
   }
 
-  const parsed = paginationSchema.safeParse({
+  const parsed = sortablePaginationSchema.safeParse({
     cursor: c.req.query('cursor'),
     limit: c.req.query('limit'),
+    sort: c.req.query('sort'),
   });
 
   if (!parsed.success) {
@@ -33,6 +34,7 @@ draftRoutes.get('/', async (c) => {
     projectId,
     parsed.data.cursor,
     parsed.data.limit,
+    parsed.data.sort,
   );
   return c.json(result);
 });
@@ -126,4 +128,31 @@ draftRoutes.delete('/:draftId', async (c) => {
   return c.json({ ok: true });
 });
 
-export { draftRoutes };
+const allDraftsRoutes = new Hono<DraftEnv>();
+
+allDraftsRoutes.use(requireAuth);
+
+allDraftsRoutes.get('/', async (c) => {
+  const user = c.get('user');
+
+  const parsed = sortablePaginationSchema.safeParse({
+    cursor: c.req.query('cursor'),
+    limit: c.req.query('limit'),
+    sort: c.req.query('sort'),
+  });
+
+  if (!parsed.success) {
+    const flattened = parsed.error.flatten();
+    throw new ValidationError(flattened.fieldErrors as Record<string, string[]>);
+  }
+
+  const result = await draftsService.listByOwner(
+    user.id,
+    parsed.data.cursor,
+    parsed.data.limit,
+    parsed.data.sort,
+  );
+  return c.json(result);
+});
+
+export { draftRoutes, allDraftsRoutes };

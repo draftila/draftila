@@ -7,14 +7,18 @@ import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
 import { ProjectCard } from '@/components/project-card';
+import { ProjectListItem } from '@/components/project-list-item';
+import { ProjectsToolbar } from '@/components/projects-toolbar';
 import { CreateProjectDialog } from '@/components/create-project-dialog';
 
 export function ProjectsPage() {
   const navigate = useNavigate();
-  const { data: projectsResponse, isLoading } = useProjects();
   const setSelectedProjectId = useDashboardStore((s) => s.setSelectedProjectId);
+  const sortOrder = useDashboardStore((s) => s.projectsSortOrder);
+  const viewMode = useDashboardStore((s) => s.projectsViewMode);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
+  const { data: projectsResponse, isLoading } = useProjects({ sort: sortOrder });
   const projects = projectsResponse?.data ?? [];
 
   function handleSelectProject(projectId: string) {
@@ -40,13 +44,22 @@ export function ProjectsPage() {
           </Button>
         </div>
       </header>
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex flex-1 flex-col overflow-auto p-6">
+        <div className="mb-6">
+          <ProjectsToolbar />
+        </div>
         {isLoading ? null : projects.length === 0 ? (
           <EmptyState onCreateProject={() => setCreateDialogOpen(true)} />
-        ) : (
+        ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {projects.map((project) => (
               <ProjectCard key={project.id} project={project} onSelect={handleSelectProject} />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col">
+            {projects.map((project) => (
+              <ProjectListItem key={project.id} project={project} onSelect={handleSelectProject} />
             ))}
           </div>
         )}

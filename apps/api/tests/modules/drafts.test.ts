@@ -72,7 +72,7 @@ describe('drafts', () => {
       expect(allNames).toHaveLength(5);
     });
 
-    test('listByProject returns results ordered by createdAt descending', async () => {
+    test('listByProject returns results ordered by updatedAt descending by default', async () => {
       await draftsService.create({ name: 'First', projectId });
       await draftsService.create({ name: 'Second', projectId });
       await draftsService.create({ name: 'Third', projectId });
@@ -80,6 +80,38 @@ describe('drafts', () => {
       const result = await draftsService.listByProject(projectId);
       expect(result.data[0]!.name).toBe('Third');
       expect(result.data[2]!.name).toBe('First');
+    });
+
+    test('listByProject sorts by createdAt descending with last_created', async () => {
+      await draftsService.create({ name: 'First', projectId });
+      await draftsService.create({ name: 'Second', projectId });
+      await draftsService.create({ name: 'Third', projectId });
+
+      const result = await draftsService.listByProject(projectId, undefined, 20, 'last_created');
+      expect(result.data[0]!.name).toBe('Third');
+      expect(result.data[2]!.name).toBe('First');
+    });
+
+    test('listByProject sorts alphabetically with alphabetical', async () => {
+      await draftsService.create({ name: 'Cherry', projectId });
+      await draftsService.create({ name: 'Apple', projectId });
+      await draftsService.create({ name: 'Banana', projectId });
+
+      const result = await draftsService.listByProject(projectId, undefined, 20, 'alphabetical');
+      expect(result.data[0]!.name).toBe('Apple');
+      expect(result.data[1]!.name).toBe('Banana');
+      expect(result.data[2]!.name).toBe('Cherry');
+    });
+
+    test('listByProject sorts by updatedAt descending with last_edited', async () => {
+      const d1 = await draftsService.create({ name: 'First', projectId });
+      await draftsService.create({ name: 'Second', projectId });
+      await new Promise((r) => setTimeout(r, 50));
+      await draftsService.update(d1.id, { name: 'First Updated' });
+
+      const result = await draftsService.listByProject(projectId, undefined, 20, 'last_edited');
+      expect(result.data[0]!.name).toBe('First Updated');
+      expect(result.data[1]!.name).toBe('Second');
     });
 
     test('getById returns the draft', async () => {
@@ -124,6 +156,48 @@ describe('drafts', () => {
       expect(deleted).toBeNull();
     });
 
+    test('listByOwner returns drafts across all projects', async () => {
+      const project2 = await projectsService.create({ name: 'Second Project', ownerId: userId });
+      await draftsService.create({ name: 'D1', projectId });
+      await draftsService.create({ name: 'D2', projectId: project2.id });
+
+      const result = await draftsService.listByOwner(userId);
+      expect(result.data).toHaveLength(2);
+      expect(result.data.map((d) => d.name).sort()).toEqual(['D1', 'D2']);
+    });
+
+    test('listByOwner does not return drafts from other users', async () => {
+      await draftsService.create({ name: 'My Draft', projectId });
+
+      const result = await draftsService.listByOwner('other-user-id');
+      expect(result.data).toHaveLength(0);
+    });
+
+    test('listByOwner supports sorting', async () => {
+      await draftsService.create({ name: 'Cherry', projectId });
+      await draftsService.create({ name: 'Apple', projectId });
+      await draftsService.create({ name: 'Banana', projectId });
+
+      const result = await draftsService.listByOwner(userId, undefined, 20, 'alphabetical');
+      expect(result.data[0]!.name).toBe('Apple');
+      expect(result.data[1]!.name).toBe('Banana');
+      expect(result.data[2]!.name).toBe('Cherry');
+    });
+
+    test('listByOwner supports pagination', async () => {
+      for (let i = 0; i < 5; i++) {
+        await draftsService.create({ name: `D${i}`, projectId });
+      }
+
+      const page1 = await draftsService.listByOwner(userId, undefined, 3);
+      expect(page1.data).toHaveLength(3);
+      expect(page1.nextCursor).not.toBeNull();
+
+      const page2 = await draftsService.listByOwner(userId, page1.nextCursor!, 3);
+      expect(page2.data).toHaveLength(2);
+      expect(page2.nextCursor).toBeNull();
+    });
+
     test('verifyProjectOwnership returns project for correct owner', async () => {
       const result = await draftsService.verifyProjectOwnership(projectId, userId);
       expect(result).not.toBeNull();
@@ -138,6 +212,43 @@ describe('drafts', () => {
     test('verifyProjectOwnership returns null for non-existent project', async () => {
       const result = await draftsService.verifyProjectOwnership('non-existent-id', userId);
       expect(result).toBeNull();
+    });
+  });
+
+  describe('all drafts routes', () => {
+    const allUrl = (query = '') => `/api/drafts${query}`;
+
+    test('GET /api/drafts returns 401 without auth', async () => {
+      const res = await app.request(allUrl());
+      expect(res.status).toBe(401);
+    });
+
+    test('GET /api/drafts returns all drafts for the user', async () => {
+      await draftsService.create({ name: 'Draft A', projectId });
+
+      const res = await app.request(allUrl(), { headers: authHeaders });
+      expect(res.status).toBe(200);
+
+      const body = (await res.json()) as { data: { name: string }[]; nextCursor: string | null };
+      expect(body.data).toHaveLength(1);
+      expect(body.data[0]!.name).toBe('Draft A');
+    });
+
+    test('GET /api/drafts supports sort parameter', async () => {
+      await draftsService.create({ name: 'Cherry', projectId });
+      await draftsService.create({ name: 'Apple', projectId });
+
+      const res = await app.request(allUrl('?sort=alphabetical'), { headers: authHeaders });
+      expect(res.status).toBe(200);
+
+      const body = (await res.json()) as { data: { name: string }[] };
+      expect(body.data[0]!.name).toBe('Apple');
+      expect(body.data[1]!.name).toBe('Cherry');
+    });
+
+    test('GET /api/drafts returns 400 for invalid sort value', async () => {
+      const res = await app.request(allUrl('?sort=invalid'), { headers: authHeaders });
+      expect(res.status).toBe(400);
     });
   });
 
@@ -185,6 +296,38 @@ describe('drafts', () => {
       };
       expect(page2.data).toHaveLength(2);
       expect(page2.nextCursor).toBeNull();
+    });
+
+    test('GET /drafts supports sort parameter', async () => {
+      await draftsService.create({ name: 'Cherry', projectId });
+      await draftsService.create({ name: 'Apple', projectId });
+      await draftsService.create({ name: 'Banana', projectId });
+
+      const res = await app.request(url('?sort=alphabetical'), { headers: authHeaders });
+      expect(res.status).toBe(200);
+
+      const body = (await res.json()) as { data: { name: string }[] };
+      expect(body.data[0]!.name).toBe('Apple');
+      expect(body.data[1]!.name).toBe('Banana');
+      expect(body.data[2]!.name).toBe('Cherry');
+    });
+
+    test('GET /drafts returns 400 for invalid sort value', async () => {
+      const res = await app.request(url('?sort=invalid'), { headers: authHeaders });
+      expect(res.status).toBe(400);
+    });
+
+    test('GET /drafts defaults to last_edited sort', async () => {
+      const d1 = await draftsService.create({ name: 'First', projectId });
+      await draftsService.create({ name: 'Second', projectId });
+      await new Promise((r) => setTimeout(r, 50));
+      await draftsService.update(d1.id, { name: 'First Updated' });
+
+      const res = await app.request(url(), { headers: authHeaders });
+      expect(res.status).toBe(200);
+
+      const body = (await res.json()) as { data: { name: string }[] };
+      expect(body.data[0]!.name).toBe('First Updated');
     });
 
     test('GET /drafts returns 400 for invalid limit', async () => {

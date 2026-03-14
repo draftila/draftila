@@ -59,10 +59,10 @@ function ProjectSwitcher() {
             aria-label="Switch project"
           >
             <div className="bg-primary text-primary-foreground flex aspect-square size-4 items-center justify-center text-[10px] font-semibold">
-              {selectedProject?.name?.charAt(0)?.toUpperCase() ?? 'D'}
+              {selectedProject?.name?.charAt(0)?.toUpperCase() ?? 'A'}
             </div>
             <span className="truncate font-semibold">
-              {selectedProject?.name ?? 'Select Project'}
+              {selectedProject?.name ?? 'All Projects'}
             </span>
             <ChevronsUpDownIcon className="ml-auto" />
           </SidebarMenuButton>

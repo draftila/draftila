@@ -9,6 +9,7 @@ import type {
   createDraftSchema,
   updateDraftSchema,
   paginationSchema,
+  sortSchema,
 } from '../schemas';
 
 export type Login = z.infer<typeof loginSchema>;
@@ -20,6 +21,7 @@ export type Draft = z.infer<typeof draftSchema>;
 export type CreateDraft = z.infer<typeof createDraftSchema>;
 export type UpdateDraft = z.infer<typeof updateDraftSchema>;
 export type Pagination = z.infer<typeof paginationSchema>;
+export type SortOrder = z.infer<typeof sortSchema>;
 
 export interface PaginatedResponse<T> {
   data: T[];
