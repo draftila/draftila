@@ -2,7 +2,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { FileIcon, FolderIcon, ChevronsUpDownIcon, PlusIcon, LogOutIcon } from 'lucide-react';
 import { useSession, signOut } from '@/lib/auth-client';
 import { useProjects } from '@/api/projects';
-import { CreateProjectDialog } from '@/components/create-project-dialog';
+import { CreateProjectDialog } from '@/pages/projects/components/create-project-dialog';
 import { useDashboardStore } from '@/stores/dashboard-store';
 import {
   Sidebar,

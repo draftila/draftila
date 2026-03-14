@@ -6,10 +6,10 @@ import { useDashboardStore } from '@/stores/dashboard-store';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
-import { ProjectCard } from '@/components/project-card';
-import { ProjectListItem } from '@/components/project-list-item';
-import { ProjectsToolbar } from '@/components/projects-toolbar';
-import { CreateProjectDialog } from '@/components/create-project-dialog';
+import { ProjectCard } from './components/project-card';
+import { ProjectListItem } from './components/project-list-item';
+import { ProjectsToolbar } from './components/projects-toolbar';
+import { CreateProjectDialog } from './components/create-project-dialog';
 
 export function ProjectsPage() {
   const navigate = useNavigate();

@@ -4,9 +4,9 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { AuthGuard, GuestGuard } from '@/components/auth-guard';
 import { queryClient } from './lib/query-client';
 import { DashboardLayout } from './layouts/dashboard-layout';
-import { DraftsPage } from './pages/drafts';
-import { ProjectsPage } from './pages/projects';
-import { LoginPage } from './pages/login';
+import { DraftsPage } from './pages/drafts/index';
+import { ProjectsPage } from './pages/projects/index';
+import { LoginPage } from './pages/auth/login';
 
 export function App() {
   return (

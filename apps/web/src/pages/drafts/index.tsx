@@ -6,9 +6,9 @@ import { useDashboardStore } from '@/stores/dashboard-store';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
-import { DraftCard } from '@/components/draft-card';
-import { DraftListItem } from '@/components/draft-list-item';
-import { DraftsToolbar } from '@/components/drafts-toolbar';
+import { DraftCard } from './components/draft-card';
+import { DraftListItem } from './components/draft-list-item';
+import { DraftsToolbar } from './components/drafts-toolbar';
 
 export function DraftsPage() {
   const { data: projectsResponse, isLoading: projectsLoading } = useProjects();
