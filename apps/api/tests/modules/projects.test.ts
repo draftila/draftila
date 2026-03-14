@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { app } from '../../src/app';
+import { resetRateLimitStore } from '../../src/common/middleware/rate-limit';
 import * as projectsService from '../../src/modules/projects/projects.service';
 import { cleanDatabase, createTestUser, getAuthHeaders } from '../helpers';
 
@@ -9,6 +10,8 @@ describe('projects', () => {
 
   beforeEach(async () => {
     await cleanDatabase();
+    resetRateLimitStore('sign-in');
+    resetRateLimitStore('sign-up');
     const result = await createTestUser();
     userId = result.user.id;
     authHeaders = await getAuthHeaders('test@draftila.com', 'password123');
@@ -43,25 +46,44 @@ describe('projects', () => {
       expect(projects).toEqual([]);
     });
 
-    test('getById returns the project', async () => {
+    test('getByIdAndOwner returns the project for the correct owner', async () => {
       const created = await projectsService.create({ name: 'Find Me', ownerId: userId });
-      const found = await projectsService.getById(created.id);
+      const found = await projectsService.getByIdAndOwner(created.id, userId);
 
       expect(found).not.toBeNull();
       expect(found!.name).toBe('Find Me');
     });
 
-    test('getById returns null for non-existent id', async () => {
-      const found = await projectsService.getById('non-existent-id');
+    test('getByIdAndOwner returns null for non-existent id', async () => {
+      const found = await projectsService.getByIdAndOwner('non-existent-id', userId);
       expect(found).toBeNull();
     });
 
-    test('remove deletes the project', async () => {
-      const created = await projectsService.create({ name: 'Delete Me', ownerId: userId });
-      await projectsService.remove(created.id);
-
-      const found = await projectsService.getById(created.id);
+    test('getByIdAndOwner returns null for wrong owner', async () => {
+      const created = await projectsService.create({ name: 'Private', ownerId: userId });
+      const found = await projectsService.getByIdAndOwner(created.id, 'other-user-id');
       expect(found).toBeNull();
+    });
+
+    test('remove deletes the project for the correct owner', async () => {
+      const created = await projectsService.create({ name: 'Delete Me', ownerId: userId });
+      const deleted = await projectsService.remove(created.id, userId);
+
+      expect(deleted).not.toBeNull();
+      expect(deleted!.name).toBe('Delete Me');
+
+      const found = await projectsService.getByIdAndOwner(created.id, userId);
+      expect(found).toBeNull();
+    });
+
+    test('remove returns null for wrong owner', async () => {
+      const created = await projectsService.create({ name: 'Protected', ownerId: userId });
+      const deleted = await projectsService.remove(created.id, 'other-user-id');
+
+      expect(deleted).toBeNull();
+
+      const found = await projectsService.getByIdAndOwner(created.id, userId);
+      expect(found).not.toBeNull();
     });
   });
 
@@ -128,6 +150,32 @@ describe('projects', () => {
       expect(res.status).toBe(400);
     });
 
+    test('POST /api/projects returns 400 for whitespace-only name', async () => {
+      const res = await app.request('/api/projects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: authHeaders.get('Cookie')!,
+        },
+        body: JSON.stringify({ name: '   ' }),
+      });
+
+      expect(res.status).toBe(400);
+    });
+
+    test('POST /api/projects returns 400 for name exceeding max length', async () => {
+      const res = await app.request('/api/projects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: authHeaders.get('Cookie')!,
+        },
+        body: JSON.stringify({ name: 'a'.repeat(256) }),
+      });
+
+      expect(res.status).toBe(400);
+    });
+
     test('GET /api/projects/:id returns the project', async () => {
       const project = await projectsService.create({ name: 'Get By Id', ownerId: userId });
 
@@ -146,6 +194,24 @@ describe('projects', () => {
       expect(body.error).toBe('Project not found');
     });
 
+    test('GET /api/projects/:id returns 404 for another users project', async () => {
+      const otherUser = await createTestUser({
+        email: 'other@draftila.com',
+        password: 'password123',
+        name: 'Other User',
+      });
+      const project = await projectsService.create({
+        name: 'Private Project',
+        ownerId: otherUser.user.id,
+      });
+
+      const res = await app.request(`/api/projects/${project.id}`, { headers: authHeaders });
+      expect(res.status).toBe(404);
+
+      const body = await res.json();
+      expect(body.error).toBe('Project not found');
+    });
+
     test('DELETE /api/projects/:id deletes the project', async () => {
       const project = await projectsService.create({ name: 'To Delete', ownerId: userId });
 
@@ -158,9 +224,39 @@ describe('projects', () => {
       const body = await res.json();
       expect(body.ok).toBe(true);
 
-      // Verify deletion
-      const found = await projectsService.getById(project.id);
+      const found = await projectsService.getByIdAndOwner(project.id, userId);
       expect(found).toBeNull();
+    });
+
+    test('DELETE /api/projects/:id returns 404 for another users project', async () => {
+      const otherUser = await createTestUser({
+        email: 'other@draftila.com',
+        password: 'password123',
+        name: 'Other User',
+      });
+      const project = await projectsService.create({
+        name: 'Not Yours',
+        ownerId: otherUser.user.id,
+      });
+
+      const res = await app.request(`/api/projects/${project.id}`, {
+        method: 'DELETE',
+        headers: authHeaders,
+      });
+
+      expect(res.status).toBe(404);
+
+      const found = await projectsService.getByIdAndOwner(project.id, otherUser.user.id);
+      expect(found).not.toBeNull();
+    });
+
+    test('DELETE /api/projects/:id returns 404 for non-existent project', async () => {
+      const res = await app.request('/api/projects/non-existent', {
+        method: 'DELETE',
+        headers: authHeaders,
+      });
+
+      expect(res.status).toBe(404);
     });
 
     test('DELETE /api/projects/:id returns 401 without auth', async () => {

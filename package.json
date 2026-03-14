@@ -1,5 +1,6 @@
 {
   "name": "draftila",
+  "version": "0.0.0",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -23,6 +24,7 @@
     "api:db:seed": "bun run --filter @draftila/api db:seed",
     "api:db:reset": "bun run --filter @draftila/api db:reset",
     "api:db:refresh": "bun run --filter @draftila/api db:refresh",
+    "api:routes:list": "bun run --filter @draftila/api routes:list",
     "clean": "turbo clean && rm -rf node_modules",
     "pre-commit": "bash scripts/pre-commit.sh"
   },

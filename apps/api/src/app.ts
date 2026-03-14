@@ -8,8 +8,6 @@ import { projectRoutes } from './modules/projects/projects.routes';
 
 const app = new Hono<AuthEnv>();
 
-// ── Global middleware ───────────────────────────────────────────────────────
-
 app.use(logger());
 app.use(
   cors({
@@ -18,12 +16,8 @@ app.use(
   }),
 );
 
-// ── Public routes ───────────────────────────────────────────────────────────
-
 app.route('/api/auth', authRoutes);
 app.route('/api/health', healthRoutes);
-
-// ── Protected routes ────────────────────────────────────────────────────────
 
 app.get('/api/me', requireAuth, (c) => {
   const user = c.get('user');

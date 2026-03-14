@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '../../db';
 import { project } from '../../db/schema';
 import { nanoid } from '../../common/lib/utils';
@@ -7,8 +7,11 @@ export async function listByOwner(userId: string) {
   return db.select().from(project).where(eq(project.ownerId, userId));
 }
 
-export async function getById(id: string) {
-  const [result] = await db.select().from(project).where(eq(project.id, id));
+export async function getByIdAndOwner(id: string, ownerId: string) {
+  const [result] = await db
+    .select()
+    .from(project)
+    .where(and(eq(project.id, id), eq(project.ownerId, ownerId)));
   return result ?? null;
 }
 
@@ -25,6 +28,10 @@ export async function create(data: { name: string; ownerId: string }) {
   return created!;
 }
 
-export async function remove(id: string) {
-  await db.delete(project).where(eq(project.id, id));
+export async function remove(id: string, ownerId: string) {
+  const [deleted] = await db
+    .delete(project)
+    .where(and(eq(project.id, id), eq(project.ownerId, ownerId)))
+    .returning();
+  return deleted ?? null;
 }

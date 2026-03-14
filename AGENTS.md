@@ -52,6 +52,7 @@ packages/    shared (Zod schemas + types), eslint-config, typescript-config
 - Use `requireAuth` middleware for protected routes. User/session are on the Hono context.
 - IDs use the custom `nanoid()` from `src/common/lib/utils.ts`.
 - Schema changes require running `bun run api:db:generate` then `bun run api:db:migrate`.
+- as long as the app version in package.json is 0.0.0, Modify the existing migrations for altering or changing columns instead of creating new migrations
 
 ### Frontend (`apps/web`)
 

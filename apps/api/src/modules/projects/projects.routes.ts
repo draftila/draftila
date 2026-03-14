@@ -31,7 +31,8 @@ projectRoutes.post('/', async (c) => {
 });
 
 projectRoutes.get('/:id', async (c) => {
-  const project = await projectsService.getById(c.req.param('id'));
+  const user = c.get('user');
+  const project = await projectsService.getByIdAndOwner(c.req.param('id'), user.id);
 
   if (!project) {
     return c.json({ error: 'Project not found' }, 404);
@@ -41,7 +42,13 @@ projectRoutes.get('/:id', async (c) => {
 });
 
 projectRoutes.delete('/:id', async (c) => {
-  await projectsService.remove(c.req.param('id'));
+  const user = c.get('user');
+  const deleted = await projectsService.remove(c.req.param('id'), user.id);
+
+  if (!deleted) {
+    return c.json({ error: 'Project not found' }, 404);
+  }
+
   return c.json({ ok: true });
 });
 
