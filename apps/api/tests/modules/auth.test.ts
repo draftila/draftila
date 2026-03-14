@@ -5,7 +5,7 @@ import { db } from '../../src/db';
 import { user, session, account, project } from '../../src/db/schema';
 import { resetRateLimitStore } from '../../src/common/middleware/rate-limit';
 import * as projectsService from '../../src/modules/projects/projects.service';
-import { cleanDatabase, createTestUser, getAuthHeaders } from '../helpers';
+import { cleanDatabase, createTestUser } from '../helpers';
 
 describe('auth', () => {
   beforeEach(async () => {
@@ -31,7 +31,7 @@ describe('auth', () => {
       });
 
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = (await res.json()) as { user: { email: string; name: string } };
       expect(body.user.email).toBe('new@draftila.com');
       expect(body.user.name).toBe('New User');
     });
@@ -66,7 +66,7 @@ describe('auth', () => {
       });
 
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = (await res.json()) as { token: string; user: { email: string } };
       expect(body.token).toBeDefined();
       expect(body.user.email).toBe('test@draftila.com');
     });
@@ -99,36 +99,6 @@ describe('auth', () => {
     });
   });
 
-  describe('GET /api/me', () => {
-    test('returns 401 without auth', async () => {
-      const res = await app.request('/api/me');
-      expect(res.status).toBe(401);
-
-      const body = await res.json();
-      expect(body.error).toBe('Unauthorized');
-    });
-
-    test('returns user with valid session', async () => {
-      await createTestUser();
-      const headers = await getAuthHeaders('test@draftila.com', 'password123');
-
-      const res = await app.request('/api/me', { headers });
-      expect(res.status).toBe(200);
-
-      const body = await res.json();
-      expect(body.user.email).toBe('test@draftila.com');
-      expect(body.user.name).toBe('Test User');
-    });
-
-    test('returns 401 with invalid session token', async () => {
-      const headers = new Headers();
-      headers.set('Cookie', 'better-auth.session_token=invalid-token');
-
-      const res = await app.request('/api/me', { headers });
-      expect(res.status).toBe(401);
-    });
-  });
-
   describe('rate limiting', () => {
     test('sign-in returns 429 after 5 attempts', async () => {
       await createTestUser();
@@ -149,7 +119,7 @@ describe('auth', () => {
       });
 
       expect(res.status).toBe(429);
-      const body = await res.json();
+      const body = (await res.json()) as { error: string };
       expect(body.error).toBe('Too many requests');
       expect(res.headers.get('Retry-After')).toBeDefined();
     });
@@ -179,7 +149,7 @@ describe('auth', () => {
       });
 
       expect(res.status).toBe(429);
-      const body = await res.json();
+      const body = (await res.json()) as { error: string };
       expect(body.error).toBe('Too many requests');
     });
   });

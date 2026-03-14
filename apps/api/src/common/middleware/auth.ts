@@ -1,5 +1,6 @@
 import type { Env } from 'hono';
 import { createMiddleware } from 'hono/factory';
+import { UnauthorizedError } from '../errors';
 import { auth } from '../../modules/auth/auth.service';
 
 type AuthSession = typeof auth.$Infer.Session;
@@ -11,17 +12,13 @@ export type AuthEnv = Env & {
   };
 };
 
-/**
- * Middleware that validates the session and attaches user/session to the context.
- * Returns 401 if no valid session is found.
- */
 export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
   const session = await auth.api.getSession({
     headers: c.req.raw.headers,
   });
 
   if (!session) {
-    return c.json({ error: 'Unauthorized' }, 401);
+    throw new UnauthorizedError();
   }
 
   c.set('user', session.user);

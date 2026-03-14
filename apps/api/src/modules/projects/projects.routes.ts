@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { createProjectSchema } from '@draftila/shared';
+import { NotFoundError, ValidationError } from '../../common/errors';
 import { requireAuth, type AuthEnv } from '../../common/middleware/auth';
 import * as projectsService from './projects.service';
 
@@ -19,7 +20,8 @@ projectRoutes.post('/', async (c) => {
   const parsed = createProjectSchema.safeParse(body);
 
   if (!parsed.success) {
-    return c.json({ error: parsed.error.flatten() }, 400);
+    const flattened = parsed.error.flatten();
+    throw new ValidationError(flattened.fieldErrors as Record<string, string[]>);
   }
 
   const project = await projectsService.create({
@@ -35,7 +37,7 @@ projectRoutes.get('/:id', async (c) => {
   const project = await projectsService.getByIdAndOwner(c.req.param('id'), user.id);
 
   if (!project) {
-    return c.json({ error: 'Project not found' }, 404);
+    throw new NotFoundError('Project');
   }
 
   return c.json(project);
@@ -46,7 +48,7 @@ projectRoutes.delete('/:id', async (c) => {
   const deleted = await projectsService.remove(c.req.param('id'), user.id);
 
   if (!deleted) {
-    return c.json({ error: 'Project not found' }, 404);
+    throw new NotFoundError('Project');
   }
 
   return c.json({ ok: true });

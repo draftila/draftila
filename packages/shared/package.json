@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "NOTE": "This package exports raw .ts files. Consumers must support TypeScript resolution (Bun, Vite).",
   "exports": {
     ".": "./src/index.ts",
     "./schemas": "./src/schemas/index.ts",

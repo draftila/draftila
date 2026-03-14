@@ -8,6 +8,7 @@
     "build": "bun build src/index.ts --outdir dist --target bun",
     "start": "bun run dist/index.js",
     "test": "bun test",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "clean": "rm -rf dist .turbo",
     "db:generate": "drizzle-kit generate",

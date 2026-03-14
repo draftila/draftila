@@ -4,6 +4,9 @@ set -euo pipefail
 echo "==> Formatting..."
 bun run format:check
 
+echo "==> Type checking..."
+bun run --filter @draftila/api typecheck
+
 echo "==> Linting..."
 bun run lint
 

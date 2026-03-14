@@ -21,8 +21,6 @@ describe('projects', () => {
     await cleanDatabase();
   });
 
-  // ── Service tests ───────────────────────────────────────────────────────
-
   describe('projects.service', () => {
     test('create returns the created project', async () => {
       const project = await projectsService.create({ name: 'My Project', ownerId: userId });
@@ -87,8 +85,6 @@ describe('projects', () => {
     });
   });
 
-  // ── Route tests ─────────────────────────────────────────────────────────
-
   describe('routes', () => {
     test('GET /api/projects returns 401 without auth', async () => {
       const res = await app.request('/api/projects');
@@ -101,9 +97,9 @@ describe('projects', () => {
       const res = await app.request('/api/projects', { headers: authHeaders });
       expect(res.status).toBe(200);
 
-      const body = await res.json();
+      const body = (await res.json()) as { name: string }[];
       expect(body).toHaveLength(1);
-      expect(body[0].name).toBe('Route Project');
+      expect(body[0]!.name).toBe('Route Project');
     });
 
     test('POST /api/projects creates a project', async () => {
@@ -117,7 +113,7 @@ describe('projects', () => {
       });
 
       expect(res.status).toBe(201);
-      const body = await res.json();
+      const body = (await res.json()) as { name: string; ownerId: string };
       expect(body.name).toBe('New Project');
       expect(body.ownerId).toBe(userId);
     });
@@ -133,8 +129,9 @@ describe('projects', () => {
       });
 
       expect(res.status).toBe(400);
-      const body = await res.json();
-      expect(body.error).toBeDefined();
+      const body = (await res.json()) as { error: string; fieldErrors: Record<string, string[]> };
+      expect(body.error).toBe('Validation failed');
+      expect(body.fieldErrors).toBeDefined();
     });
 
     test('POST /api/projects returns 400 for empty name', async () => {
@@ -182,7 +179,7 @@ describe('projects', () => {
       const res = await app.request(`/api/projects/${project.id}`, { headers: authHeaders });
       expect(res.status).toBe(200);
 
-      const body = await res.json();
+      const body = (await res.json()) as { name: string };
       expect(body.name).toBe('Get By Id');
     });
 
@@ -190,7 +187,7 @@ describe('projects', () => {
       const res = await app.request('/api/projects/non-existent', { headers: authHeaders });
       expect(res.status).toBe(404);
 
-      const body = await res.json();
+      const body = (await res.json()) as { error: string };
       expect(body.error).toBe('Project not found');
     });
 
@@ -208,7 +205,7 @@ describe('projects', () => {
       const res = await app.request(`/api/projects/${project.id}`, { headers: authHeaders });
       expect(res.status).toBe(404);
 
-      const body = await res.json();
+      const body = (await res.json()) as { error: string };
       expect(body.error).toBe('Project not found');
     });
 
@@ -221,7 +218,7 @@ describe('projects', () => {
       });
 
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = (await res.json()) as { ok: boolean };
       expect(body.ok).toBe(true);
 
       const found = await projectsService.getByIdAndOwner(project.id, userId);

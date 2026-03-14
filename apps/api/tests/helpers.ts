@@ -13,6 +13,11 @@ export async function cleanDatabase() {
   await db.delete(user);
 }
 
+interface TestUserResponse {
+  user: { id: string; email: string; name: string };
+  token: string;
+}
+
 /**
  * Create a user via the HTTP sign-up endpoint and return the parsed response body.
  */
@@ -22,14 +27,14 @@ export async function createTestUser(
     password: 'password123',
     name: 'Test User',
   },
-) {
+): Promise<TestUserResponse> {
   const res = await app.request('/api/auth/sign-up/email', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
 
-  return res.json();
+  return res.json() as Promise<TestUserResponse>;
 }
 
 /**
