@@ -1,0 +1,24 @@
+{
+  "name": "@draftila/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schemas": "./src/schemas/index.ts",
+    "./types": "./src/types/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@draftila/eslint-config": "workspace:*",
+    "@draftila/typescript-config": "workspace:*",
+    "eslint": "^9.16.0",
+    "typescript": "^5.7.2"
+  }
+}

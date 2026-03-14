@@ -1,0 +1,32 @@
+{
+  "name": "@draftila/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "start": "bun run dist/index.js",
+    "lint": "eslint .",
+    "clean": "rm -rf dist .turbo",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@draftila/shared": "workspace:*",
+    "better-auth": "^1.1.14",
+    "drizzle-orm": "^0.38.3",
+    "hono": "^4.6.14",
+    "postgres": "^3.4.5",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@draftila/eslint-config": "workspace:*",
+    "@draftila/typescript-config": "workspace:*",
+    "@types/bun": "^1.1.14",
+    "drizzle-kit": "^0.30.1",
+    "eslint": "^9.16.0",
+    "typescript": "^5.7.2"
+  }
+}

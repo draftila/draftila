@@ -1,0 +1,28 @@
+import { z } from 'zod';
+
+// User schemas
+export const userSchema = z.object({
+  id: z.string(),
+  email: z.string().email(),
+  name: z.string().min(1),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+
+export const createUserSchema = userSchema.pick({
+  email: true,
+  name: true,
+});
+
+// Project schemas
+export const projectSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1),
+  ownerId: z.string(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+
+export const createProjectSchema = projectSchema.pick({
+  name: true,
+});
