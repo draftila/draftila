@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from '@tanstack/react-form';
 import { loginSchema } from '@draftila/shared';
 import { signIn } from '@/lib/auth-client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
+import { AuthLayout } from '@/layouts/auth-layout';
+import { FieldGroup } from '@/components/ui/field';
+import { FormField } from '@/components/ui/form-field';
+import { ServerError } from '@/components/ui/server-error';
+import { SubmitButton } from '@/components/ui/submit-button';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -37,73 +39,44 @@ export function LoginPage() {
   });
 
   return (
-    <div className="flex h-screen items-center justify-center">
-      <div className="flex w-full max-w-sm flex-col gap-6">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
-          <p className="text-muted-foreground text-sm">Enter your email and password to sign in</p>
-        </div>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            form.handleSubmit();
-          }}
-        >
-          <FieldGroup>
-            <form.Field name="email">
-              {(field) => {
-                const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
-                return (
-                  <Field data-invalid={isInvalid}>
-                    <FieldLabel htmlFor={field.name}>Email</FieldLabel>
-                    <Input
-                      id={field.name}
-                      name={field.name}
-                      type="email"
-                      placeholder="you@example.com"
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      aria-invalid={isInvalid}
-                      autoFocus
-                    />
-                    {isInvalid && <FieldError errors={field.state.meta.errors} />}
-                  </Field>
-                );
-              }}
-            </form.Field>
-            <form.Field name="password">
-              {(field) => {
-                const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
-                return (
-                  <Field data-invalid={isInvalid}>
-                    <FieldLabel htmlFor={field.name}>Password</FieldLabel>
-                    <Input
-                      id={field.name}
-                      name={field.name}
-                      type="password"
-                      placeholder="Enter your password"
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      aria-invalid={isInvalid}
-                    />
-                    {isInvalid && <FieldError errors={field.state.meta.errors} />}
-                  </Field>
-                );
-              }}
-            </form.Field>
-            {serverError && <p className="text-destructive text-sm">{serverError}</p>}
-            <form.Subscribe selector={(state) => state.isSubmitting}>
-              {(isSubmitting) => (
-                <Button type="submit" disabled={isSubmitting} className="w-full">
-                  {isSubmitting ? 'Signing in...' : 'Sign in'}
-                </Button>
-              )}
-            </form.Subscribe>
-          </FieldGroup>
-        </form>
-      </div>
-    </div>
+    <AuthLayout title="Sign in" description="Enter your email and password to sign in">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          form.handleSubmit();
+        }}
+      >
+        <FieldGroup>
+          <form.Field name="email">
+            {(field) => (
+              <FormField
+                field={field}
+                label="Email"
+                type="email"
+                placeholder="you@example.com"
+                autoFocus
+              />
+            )}
+          </form.Field>
+          <form.Field name="password">
+            {(field) => (
+              <FormField
+                field={field}
+                label="Password"
+                type="password"
+                placeholder="Enter your password"
+              />
+            )}
+          </form.Field>
+          <ServerError message={serverError} />
+          <SubmitButton
+            form={form}
+            label="Sign in"
+            submittingLabel="Signing in..."
+            className="w-full"
+          />
+        </FieldGroup>
+      </form>
+    </AuthLayout>
   );
 }
