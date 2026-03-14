@@ -1,17 +1,30 @@
 {
   "name": "draftila",
   "private": true,
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
     "lint": "turbo lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "db:generate": "turbo db:generate",
-    "db:migrate": "turbo db:migrate",
-    "db:studio": "bun run --filter @draftila/api db:studio",
-    "clean": "turbo clean && rm -rf node_modules"
+    "api:dev": "bun run --filter @draftila/api dev",
+    "api:build": "bun run --filter @draftila/api build",
+    "api:start": "bun run --filter @draftila/api start",
+    "api:test": "bun run --filter @draftila/api test",
+    "api:lint": "bun run --filter @draftila/api lint",
+    "api:clean": "bun run --filter @draftila/api clean",
+    "api:db:generate": "bun run --filter @draftila/api db:generate",
+    "api:db:migrate": "bun run --filter @draftila/api db:migrate",
+    "api:db:studio": "bun run --filter @draftila/api db:studio",
+    "api:db:seed": "bun run --filter @draftila/api db:seed",
+    "api:db:reset": "bun run --filter @draftila/api db:reset",
+    "api:db:refresh": "bun run --filter @draftila/api db:refresh",
+    "clean": "turbo clean && rm -rf node_modules",
+    "pre-commit": "bash scripts/pre-commit.sh"
   },
   "devDependencies": {
     "prettier": "^3.4.2",

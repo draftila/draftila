@@ -1,5 +1,11 @@
 import { z } from 'zod';
 
+// Auth schemas
+export const loginSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(1, 'Password is required'),
+});
+
 // User schemas
 export const userSchema = z.object({
   id: z.string(),

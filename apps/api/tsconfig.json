@@ -2,7 +2,7 @@
   "extends": "@draftila/typescript-config/node.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "types": ["bun-types"]
+    "types": ["@types/bun"]
   },
-  "include": ["src"]
+  "include": ["src", "tests"]
 }

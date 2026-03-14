@@ -14,6 +14,7 @@
     "@draftila/shared": "workspace:*",
     "@fontsource-variable/inter": "^5.2.8",
     "@radix-ui/react-slot": "^1.1.1",
+    "@tanstack/react-form": "^1.28.5",
     "@tanstack/react-query": "^5.62.8",
     "better-auth": "^1.1.14",
     "class-variance-authority": "^0.7.1",
