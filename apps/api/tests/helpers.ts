@@ -8,6 +8,10 @@ export async function cleanDatabase() {
   );
 }
 
+export async function cleanProjects() {
+  await db.execute(sql`TRUNCATE TABLE "project" CASCADE`);
+}
+
 interface TestUserResponse {
   user: { id: string; email: string; name: string };
   token: string;

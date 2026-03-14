@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import { app } from '../../src/app';
 import { resetRateLimitStore } from '../../src/common/middleware/rate-limit';
 import * as userService from '../../src/modules/user/user.service';
@@ -9,10 +9,6 @@ describe('user', () => {
     await cleanDatabase();
     resetRateLimitStore('sign-in');
     resetRateLimitStore('sign-up');
-  });
-
-  afterEach(async () => {
-    await cleanDatabase();
   });
 
   describe('user.service', () => {

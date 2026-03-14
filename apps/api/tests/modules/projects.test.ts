@@ -1,20 +1,24 @@
-import { beforeEach, describe, expect, test } from 'bun:test';
+import { beforeAll, beforeEach, describe, expect, test } from 'bun:test';
 import { app } from '../../src/app';
 import { resetRateLimitStore } from '../../src/common/middleware/rate-limit';
 import * as projectsService from '../../src/modules/projects/projects.service';
-import { cleanDatabase, createTestUser, getAuthHeaders } from '../helpers';
+import { cleanDatabase, cleanProjects, createTestUser, getAuthHeaders } from '../helpers';
 
 describe('projects', () => {
   let authHeaders: Headers;
   let userId: string;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     await cleanDatabase();
     resetRateLimitStore('sign-in');
     resetRateLimitStore('sign-up');
     const result = await createTestUser();
     userId = result.user.id;
     authHeaders = await getAuthHeaders('test@draftila.com', 'password123');
+  });
+
+  beforeEach(async () => {
+    await cleanProjects();
   });
 
   describe('projects.service', () => {
@@ -309,7 +313,7 @@ describe('projects', () => {
 
     test('DELETE /api/projects/:id returns 404 for another users project', async () => {
       const otherUser = await createTestUser({
-        email: 'other@draftila.com',
+        email: 'other-delete@draftila.com',
         password: 'password123',
         name: 'Other User',
       });
