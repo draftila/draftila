@@ -12,22 +12,6 @@ apps/web     React 19, Vite, Tailwind v4, shadcn/ui, Zustand, TanStack Query
 packages/    shared (Zod schemas + types), eslint-config, typescript-config
 ```
 
-## Commands
-
-| Task        | Command                   |
-| ----------- | ------------------------- |
-| Install     | `bun install`             |
-| Dev (all)   | `bun run dev`             |
-| Dev (API)   | `bun run api:dev`         |
-| Build       | `bun run build`           |
-| Lint        | `bun run lint`            |
-| Format      | `bun run format`          |
-| Test        | `bun run api:test`        |
-| DB migrate  | `bun run api:db:migrate`  |
-| DB generate | `bun run api:db:generate` |
-| DB refresh  | `bun run api:db:refresh`  |
-| Pre-commit  | `bun run pre-commit`      |
-
 ## Rules
 
 ### General
@@ -37,7 +21,8 @@ packages/    shared (Zod schemas + types), eslint-config, typescript-config
 - No `any`. Use strict TypeScript. The codebase has `strict: true` and `noUncheckedIndexedAccess: true`.
 - Prefix unused variables with `_`.
 - Use the existing Prettier config (single quotes, semicolons, trailing commas, 100 print width).
-- Run `bun run pre-commit` after every task. It must pass before considering work complete.
+- Run `bun run checks` after every task. It must pass before considering work complete.
+- Follow the existing code style and patterns.
 
 ### API (`apps/api`)
 
@@ -56,6 +41,7 @@ packages/    shared (Zod schemas + types), eslint-config, typescript-config
 
 ### Frontend (`apps/web`)
 
+- 100% test coverage.
 - Use shadcn/ui components from `src/components/ui/`. Do not install alternative UI libraries.
 - State: Zustand for client state, TanStack Query for server state. No prop drilling.
 - Use the `@/*` path alias for imports.
@@ -67,13 +53,3 @@ packages/    shared (Zod schemas + types), eslint-config, typescript-config
 - All data shapes shared between API and frontend must be Zod schemas here.
 - Export both the Zod schema and the inferred TypeScript type.
 - WebSocket event types live here.
-
-## Adding a New API Module
-
-1. Create `src/modules/{name}/{name}.routes.ts` and `{name}.service.ts`.
-2. Add Zod schemas and types to `packages/shared`.
-3. Add DB schema to `src/db/schema/`, re-export from `src/db/schema/index.ts`.
-4. Generate and run migration.
-5. Mount routes in `src/app.ts`.
-6. Write tests in `tests/modules/{name}.test.ts` covering all routes and service functions.
-7. Verify 100% coverage with `bun run api:test`.

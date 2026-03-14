@@ -1,16 +1,11 @@
+import { sql } from 'drizzle-orm';
 import { app } from '../src/app';
 import { db } from '../src/db';
-import { user, session, account, verification, project } from '../src/db/schema';
 
-/**
- * Delete all rows from application tables (respects FK order).
- */
 export async function cleanDatabase() {
-  await db.delete(project);
-  await db.delete(session);
-  await db.delete(account);
-  await db.delete(verification);
-  await db.delete(user);
+  await db.execute(
+    sql`TRUNCATE TABLE "project", "session", "account", "verification", "user" CASCADE`,
+  );
 }
 
 interface TestUserResponse {

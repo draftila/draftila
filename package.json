@@ -16,6 +16,7 @@
     "api:build": "bun run --filter @draftila/api build",
     "api:start": "bun run --filter @draftila/api start",
     "api:test": "bun run --filter @draftila/api test",
+    "web:test": "bun run --filter @draftila/web test",
     "api:typecheck": "bun run --filter @draftila/api typecheck",
     "api:lint": "bun run --filter @draftila/api lint",
     "api:clean": "bun run --filter @draftila/api clean",
@@ -27,7 +28,7 @@
     "api:db:refresh": "bun run --filter @draftila/api db:refresh",
     "api:routes:list": "bun run --filter @draftila/api routes:list",
     "clean": "turbo clean && rm -rf node_modules",
-    "pre-commit": "bash scripts/pre-commit.sh"
+    "checks": "bash scripts/checks.sh"
   },
   "devDependencies": {
     "prettier": "^3.4.2",
