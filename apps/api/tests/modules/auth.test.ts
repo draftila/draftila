@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import { eq } from 'drizzle-orm';
 import { app } from '../../src/app';
 import { db } from '../../src/db';
@@ -12,10 +12,6 @@ describe('auth', () => {
     await cleanDatabase();
     resetRateLimitStore('sign-in');
     resetRateLimitStore('sign-up');
-  });
-
-  afterEach(async () => {
-    await cleanDatabase();
   });
 
   describe('POST /api/auth/sign-up/email', () => {

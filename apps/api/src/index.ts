@@ -1,10 +1,9 @@
 import { app } from './app';
-
-const port = parseInt(process.env.PORT ?? '3001', 10);
+import { env } from './common/lib/env';
 
 Bun.serve({
-  port,
+  port: env.PORT,
   fetch: app.fetch,
 });
 
-console.log(`API server running at http://localhost:${port}`);
+console.log(`API server running at http://localhost:${env.PORT}`);

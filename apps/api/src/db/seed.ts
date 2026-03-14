@@ -1,14 +1,12 @@
 import { auth } from '../modules/auth/auth.service';
 import { client } from './index';
 
-/**
- * Seed the database with a test user via better-auth's API,
- * which ensures the password is hashed correctly.
- *
- * Credentials:
- *   email:    test@draftila.com
- *   password: password123
- */
+const allowedEnvs = ['development', 'test'];
+if (!allowedEnvs.includes(process.env.NODE_ENV ?? 'development')) {
+  console.error('Refusing to run seed in production environment');
+  process.exit(1);
+}
+
 async function seed() {
   const result = await auth.api.signUpEmail({
     body: {

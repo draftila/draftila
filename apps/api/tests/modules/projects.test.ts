@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import { app } from '../../src/app';
 import { resetRateLimitStore } from '../../src/common/middleware/rate-limit';
 import * as projectsService from '../../src/modules/projects/projects.service';
@@ -15,10 +15,6 @@ describe('projects', () => {
     const result = await createTestUser();
     userId = result.user.id;
     authHeaders = await getAuthHeaders('test@draftila.com', 'password123');
-  });
-
-  afterEach(async () => {
-    await cleanDatabase();
   });
 
   describe('projects.service', () => {
@@ -242,6 +238,21 @@ describe('projects', () => {
       });
 
       expect(res.status).toBe(400);
+    });
+
+    test('POST /api/projects returns 400 for malformed JSON', async () => {
+      const res = await app.request('/api/projects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: authHeaders.get('Cookie')!,
+        },
+        body: 'not json{{',
+      });
+
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as { error: string };
+      expect(body.error).toBe('Invalid JSON');
     });
 
     test('GET /api/projects/:id returns the project', async () => {

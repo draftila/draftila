@@ -1,10 +1,12 @@
 import { sql } from 'drizzle-orm';
 import { db, client } from './index';
 
-/**
- * Drops all tables and the drizzle migration tracking schema,
- * so that migrations can be re-applied from scratch.
- */
+const allowedEnvs = ['development', 'test'];
+if (!allowedEnvs.includes(process.env.NODE_ENV ?? 'development')) {
+  console.error('Refusing to run reset in production environment');
+  process.exit(1);
+}
+
 async function reset() {
   console.log('Dropping all tables...');
 

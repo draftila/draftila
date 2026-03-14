@@ -45,7 +45,8 @@ export async function create(data: { name: string; ownerId: string }) {
     })
     .returning();
 
-  return created!;
+  if (!created) throw new Error('Failed to create project');
+  return created;
 }
 
 export async function remove(id: string, ownerId: string) {

@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { env } from '../../common/lib/env';
 import { db } from '../../db';
 import * as schema from '../../db/schema';
 
@@ -11,5 +12,5 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
-  trustedOrigins: [process.env.FRONTEND_URL ?? 'http://localhost:5173'],
+  trustedOrigins: [env.FRONTEND_URL],
 });
