@@ -166,6 +166,27 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
       }
     }
 
+    for (const shape of shapes) {
+      if (shape.type !== 'frame') continue;
+      let displayShape: Shape = shape;
+      const resized = resizePreview?.get(shape.id);
+      if (endpointPreview?.shapeId === shape.id) {
+        displayShape = applyEndpointPreviewToShape(shape);
+      } else if (resized) {
+        displayShape = applyResizeToShape(shape, resized);
+      } else if (dragPositions?.has(shape.id)) {
+        displayShape = applyDragToShape(shape);
+      }
+      const isSelected = selectedSet.has(shape.id);
+      renderer.drawFrameLabel(
+        displayShape.x,
+        displayShape.y,
+        displayShape.name,
+        camera.zoom,
+        isSelected,
+      );
+    }
+
     if (selectedShapes.length > 0 && activeTool === 'move' && !editingTextId) {
       const bounds = getSelectionBounds(selectedShapes);
       if (bounds) {

@@ -264,6 +264,42 @@ export function getAllShapes(ydoc: Y.Doc): Shape[] {
   return result;
 }
 
+export function nudgeShapes(ydoc: Y.Doc, ids: string[], dx: number, dy: number) {
+  const shapes = getShapesMap(ydoc);
+
+  ydoc.transact(() => {
+    for (const id of ids) {
+      const shapeData = shapes.get(id);
+      if (!shapeData) continue;
+
+      const shapeType = shapeData.get('type') as string;
+
+      shapeData.set('x', (shapeData.get('x') as number) + dx);
+      shapeData.set('y', (shapeData.get('y') as number) + dy);
+
+      if (shapeType === 'line' || shapeType === 'arrow') {
+        shapeData.set('x1', (shapeData.get('x1') as number) + dx);
+        shapeData.set('y1', (shapeData.get('y1') as number) + dy);
+        shapeData.set('x2', (shapeData.get('x2') as number) + dx);
+        shapeData.set('y2', (shapeData.get('y2') as number) + dy);
+      }
+
+      if (shapeType === 'path') {
+        const points = shapeData.get('points');
+        if (points instanceof Y.Array) {
+          for (let i = 0; i < points.length; i++) {
+            const point = points.get(i);
+            if (point instanceof Y.Map) {
+              point.set('x', (point.get('x') as number) + dx);
+              point.set('y', (point.get('y') as number) + dy);
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
 export function getShapeCount(ydoc: Y.Doc): number {
   return getShapesMap(ydoc).size;
 }

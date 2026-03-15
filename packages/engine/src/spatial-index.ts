@@ -10,12 +10,14 @@ export interface ShapeBBox {
 }
 
 const HIT_PADDING = 8;
+const FRAME_LABEL_TOP_PADDING = 20;
 
 function shapeToBBox(shape: Shape): ShapeBBox {
   const pad = needsPadding(shape.type) ? HIT_PADDING : 0;
+  const topPad = shape.type === 'frame' ? FRAME_LABEL_TOP_PADDING : pad;
   return {
     minX: shape.x - pad,
-    minY: shape.y - pad,
+    minY: shape.y - topPad,
     maxX: shape.x + shape.width + pad,
     maxY: shape.y + shape.height + pad,
     id: shape.id,

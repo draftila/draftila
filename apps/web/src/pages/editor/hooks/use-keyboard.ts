@@ -4,7 +4,7 @@ import type { ToolType } from '@draftila/shared';
 import { undo, redo } from '@draftila/engine/history';
 import { copyShapes, pasteShapes, cutShapes, duplicateShapes } from '@draftila/engine/clipboard';
 import { handlePaste as handleExternalPaste } from '@draftila/engine/figma-clipboard';
-import { deleteShapes, getAllShapes } from '@draftila/engine/scene-graph';
+import { deleteShapes, getAllShapes, nudgeShapes } from '@draftila/engine/scene-graph';
 import { useEditorStore } from '@/stores/editor-store';
 
 const TOOL_SHORTCUTS: Record<string, ToolType> = {
@@ -128,6 +128,17 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
           deleteShapes(ydoc, selectedIds);
           useEditorStore.getState().clearSelection();
         }
+        return;
+      }
+
+      if (key === 'arrowup' || key === 'arrowdown' || key === 'arrowleft' || key === 'arrowright') {
+        e.preventDefault();
+        const { selectedIds } = useEditorStore.getState();
+        if (selectedIds.length === 0) return;
+        const step = e.shiftKey ? 10 : 1;
+        const dx = key === 'arrowleft' ? -step : key === 'arrowright' ? step : 0;
+        const dy = key === 'arrowup' ? -step : key === 'arrowdown' ? step : 0;
+        nudgeShapes(ydoc, selectedIds, dx, dy);
         return;
       }
 

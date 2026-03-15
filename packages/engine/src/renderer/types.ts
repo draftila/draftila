@@ -118,6 +118,8 @@ export interface Renderer {
     zoom: number,
   ): void;
 
+  drawFrameLabel(x: number, y: number, name: string, zoom: number, selected: boolean): void;
+
   drawLayoutGuides(transform: RenderTransform, guides: LayoutGuide[]): void;
 
   measureText(
@@ -126,4 +128,6 @@ export interface Renderer {
     fontFamily: string,
     fontWeight: number,
   ): { width: number; height: number };
+
+  measureFrameLabel(name: string, zoom: number): { width: number; height: number };
 }

@@ -574,6 +574,20 @@ export class Canvas2DRenderer implements Renderer {
     ctx.restore();
   }
 
+  drawFrameLabel(x: number, y: number, name: string, zoom: number, selected: boolean) {
+    const { ctx } = this;
+    const fontSize = 11 / zoom;
+    const offsetY = 4 / zoom;
+
+    ctx.save();
+    ctx.font = `500 ${fontSize}px Inter, system-ui, sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+    ctx.fillStyle = selected ? SELECTION_COLOR : '#999999';
+    ctx.fillText(name, x, y - offsetY);
+    ctx.restore();
+  }
+
   drawLayoutGuides(transform: RenderTransform, guides: LayoutGuide[]) {
     const { ctx } = this;
     for (const guide of guides) {
@@ -632,6 +646,16 @@ export class Canvas2DRenderer implements Renderer {
       width: maxWidth,
       height: lines.length * fontSize * 1.2,
     };
+  }
+
+  measureFrameLabel(name: string, zoom: number): { width: number; height: number } {
+    const { ctx } = this;
+    const fontSize = 11 / zoom;
+    ctx.save();
+    ctx.font = `500 ${fontSize}px Inter, system-ui, sans-serif`;
+    const metrics = ctx.measureText(name);
+    ctx.restore();
+    return { width: metrics.width, height: fontSize };
   }
 
   private applyTransform(transform: RenderTransform) {

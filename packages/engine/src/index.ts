@@ -20,6 +20,7 @@ export {
   updateShape,
   deleteShape,
   deleteShapes,
+  nudgeShapes,
   getShape,
   getAllShapes,
   getShapeCount,

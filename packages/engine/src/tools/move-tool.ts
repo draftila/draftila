@@ -1,6 +1,6 @@
 import type { Shape } from '@draftila/shared';
 import { BaseTool, getToolStore, type ToolContext, type ToolResult } from './base-tool';
-import { hitTestPoint } from '../hit-test';
+import { hitTestPoint, hitTestFrameLabel } from '../hit-test';
 import { getAllShapes, getShape, updateShape } from '../scene-graph';
 import { SpatialIndex } from '../spatial-index';
 import {
@@ -265,6 +265,33 @@ export class MoveTool extends BaseTool {
       return { cursor: 'move' };
     }
 
+    const selectedFrameHit = this.hitSelectedFrame(
+      ctx.canvasPoint.x,
+      ctx.canvasPoint.y,
+      shapes,
+      store.selectedIds,
+    );
+
+    if (selectedFrameHit) {
+      const selectedIds = store.selectedIds;
+      const initialData = new Map<string, InitialShapeData>();
+      for (const id of selectedIds) {
+        const shape = shapes.find((s) => s.id === id);
+        if (shape) initialData.set(id, captureShapeData(shape));
+      }
+      this.dragInitialData = initialData;
+      const selectedIdSet = new Set(selectedIds);
+      this.dragShapesCache = shapes.filter(
+        (s) => !selectedIdSet.has(s.id) && s.visible && !s.locked,
+      );
+      this.state = {
+        type: 'dragging',
+        startCanvas: { x: ctx.canvasPoint.x, y: ctx.canvasPoint.y },
+        initialData,
+      };
+      return { cursor: 'move' };
+    }
+
     if (!ctx.shiftKey) {
       store.clearSelection();
     }
@@ -514,6 +541,27 @@ export class MoveTool extends BaseTool {
 
   onDeactivate(): void {
     this.resetState();
+  }
+
+  private hitSelectedFrame(
+    px: number,
+    py: number,
+    shapes: Shape[],
+    selectedIds: string[],
+  ): Shape | null {
+    for (const id of selectedIds) {
+      const shape = shapes.find((s) => s.id === id);
+      if (!shape || shape.type !== 'frame') continue;
+      if (
+        px >= shape.x &&
+        px <= shape.x + shape.width &&
+        py >= shape.y &&
+        py <= shape.y + shape.height
+      ) {
+        return shape;
+      }
+    }
+    return null;
   }
 
   private resetState() {

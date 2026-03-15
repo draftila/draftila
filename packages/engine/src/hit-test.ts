@@ -3,6 +3,9 @@ import type { SpatialIndex } from './spatial-index';
 import { generatePolygonPoints, generateStarPoints } from './shape-renderer';
 
 const LINE_HIT_TOLERANCE = 8;
+const FRAME_BORDER_TOLERANCE = 6;
+const FRAME_LABEL_FONT_SIZE = 11;
+const FRAME_LABEL_OFFSET_Y = 4;
 
 function rotatePointAroundCenter(
   px: number,
@@ -113,14 +116,54 @@ function pointNearPath(
   return pointInRect(px, py, shape);
 }
 
+function pointOnFrameBorder(px: number, py: number, shape: Shape, zoom: number): boolean {
+  const tolerance = FRAME_BORDER_TOLERANCE / zoom;
+  const inside = pointInRect(px, py, shape);
+  if (!inside) return false;
+
+  const distLeft = Math.abs(px - shape.x);
+  const distRight = Math.abs(px - (shape.x + shape.width));
+  const distTop = Math.abs(py - shape.y);
+  const distBottom = Math.abs(py - (shape.y + shape.height));
+
+  return (
+    distLeft <= tolerance ||
+    distRight <= tolerance ||
+    distTop <= tolerance ||
+    distBottom <= tolerance
+  );
+}
+
+export function hitTestFrameLabel(
+  px: number,
+  py: number,
+  shape: Shape,
+  zoom: number,
+  labelWidth?: number,
+): boolean {
+  if (shape.type !== 'frame') return false;
+  const fontSize = FRAME_LABEL_FONT_SIZE / zoom;
+  const offsetY = FRAME_LABEL_OFFSET_Y / zoom;
+  const estimatedWidth = labelWidth ?? shape.name.length * fontSize * 0.6;
+
+  const labelX = shape.x;
+  const labelY = shape.y - offsetY - fontSize;
+  const labelW = estimatedWidth;
+  const labelH = fontSize + offsetY;
+
+  return px >= labelX && px <= labelX + labelW && py >= labelY && py <= labelY + labelH;
+}
+
 function narrowPhaseHitTest(px: number, py: number, shape: Shape, zoom: number): boolean {
   switch (shape.type) {
     case 'rectangle':
-    case 'frame':
     case 'text':
     case 'image':
     case 'group':
       return pointInRect(px, py, shape);
+
+    case 'frame':
+      return pointOnFrameBorder(px, py, shape, zoom) || hitTestFrameLabel(px, py, shape, zoom);
 
     case 'ellipse':
       return pointInEllipse(px, py, shape);
@@ -184,7 +227,20 @@ export function hitTestPoint(
     const shape = shapes[i];
     if (!shape || !candidateIds.has(shape.id)) continue;
     if (shape.locked || !shape.visible) continue;
+    if (shape.type === 'frame') continue;
     if (narrowPhaseHitTest(px, py, shape, zoom)) {
+      return shape;
+    }
+  }
+
+  for (let i = shapes.length - 1; i >= 0; i--) {
+    const shape = shapes[i];
+    if (!shape || shape.type !== 'frame') continue;
+    if (shape.locked || !shape.visible) continue;
+    if (hitTestFrameLabel(px, py, shape, zoom)) {
+      return shape;
+    }
+    if (candidateIds.has(shape.id) && pointOnFrameBorder(px, py, shape, zoom)) {
       return shape;
     }
   }
