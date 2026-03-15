@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ChevronDown, Minus, Plus, Settings2, X } from 'lucide-react';
+import { ChevronDown, Eye, EyeOff, Minus, Plus, Settings2, X } from 'lucide-react';
 import type {
   Stroke,
   StrokeAlign,
@@ -426,6 +426,7 @@ function StrokeEntry({
   const [dashOpen, setDashOpen] = useState(false);
 
   const opacityPercent = Math.round(stroke.opacity * 100);
+  const visible = stroke.visible !== false;
   const cap = stroke.cap ?? 'butt';
   const join = stroke.join ?? 'miter';
   const align = stroke.align ?? 'center';
@@ -440,7 +441,9 @@ function StrokeEntry({
           onChange={(color) => onUpdate({ color })}
           onOpacityChange={(opacity) => onUpdate({ opacity })}
         >
-          <button className="hover:bg-muted/50 flex min-w-0 flex-1 items-center gap-2.5 rounded py-0.5">
+          <button
+            className={`hover:bg-muted/50 flex min-w-0 flex-1 items-center gap-2.5 rounded py-0.5 ${!visible ? 'opacity-50' : ''}`}
+          >
             <div className="border-border relative h-[36px] w-[36px] shrink-0 overflow-hidden rounded border">
               <div className="absolute inset-0" style={{ background: CHECKERBOARD }} />
               <div
@@ -469,6 +472,12 @@ function StrokeEntry({
           </button>
         </ColorPicker>
 
+        <button
+          onClick={() => onUpdate({ visible: !visible })}
+          className="text-muted-foreground hover:text-foreground shrink-0 transition-colors"
+        >
+          {visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+        </button>
         <button
           onClick={onRemove}
           className="text-muted-foreground hover:text-foreground shrink-0 transition-colors"

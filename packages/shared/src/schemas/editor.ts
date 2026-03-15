@@ -76,11 +76,13 @@ export const shadowSchema = z.object({
   blur: z.number().default(8),
   spread: z.number().default(0),
   color: colorSchema.default('#00000040'),
+  visible: z.boolean().default(true),
 });
 
 export const blurSchema = z.object({
   type: z.enum(['layer', 'background']),
   radius: z.number().default(4),
+  visible: z.boolean().default(true),
 });
 
 export const baseShapeSchema = z.object({
@@ -118,6 +120,7 @@ export const ellipseShapeSchema = baseShapeSchema.extend({
   fills: z.array(fillSchema).default([{ color: '#D9D9D9', opacity: 1, visible: true }]),
   strokes: z.array(strokeSchema).default([]),
   shadows: z.array(shadowSchema).default([]),
+  blurs: z.array(blurSchema).default([]),
 });
 
 export const frameShapeSchema = baseShapeSchema.extend({
@@ -125,6 +128,8 @@ export const frameShapeSchema = baseShapeSchema.extend({
   fills: z.array(fillSchema).default([{ color: '#FFFFFF', opacity: 1, visible: true }]),
   strokes: z.array(strokeSchema).default([]),
   clip: z.boolean().default(true),
+  shadows: z.array(shadowSchema).default([]),
+  blurs: z.array(blurSchema).default([]),
 });
 
 export const textShapeSchema = baseShapeSchema.extend({
@@ -141,6 +146,8 @@ export const textShapeSchema = baseShapeSchema.extend({
   textDecoration: z.enum(['none', 'underline', 'strikethrough']).default('none'),
   textTransform: z.enum(['none', 'uppercase', 'lowercase', 'capitalize']).default('none'),
   fills: z.array(fillSchema).default([{ color: '#000000', opacity: 1, visible: true }]),
+  shadows: z.array(shadowSchema).default([]),
+  blurs: z.array(blurSchema).default([]),
 });
 
 export const pathShapeSchema = baseShapeSchema.extend({
@@ -148,6 +155,8 @@ export const pathShapeSchema = baseShapeSchema.extend({
   points: z.array(pressurePointSchema).default([]),
   fills: z.array(fillSchema).default([{ color: '#000000', opacity: 1, visible: true }]),
   strokes: z.array(strokeSchema).default([]),
+  shadows: z.array(shadowSchema).default([]),
+  blurs: z.array(blurSchema).default([]),
 });
 
 export const lineShapeSchema = baseShapeSchema.extend({
@@ -159,6 +168,8 @@ export const lineShapeSchema = baseShapeSchema.extend({
   strokes: z
     .array(strokeSchema)
     .default([{ color: '#000000', width: 2, opacity: 1, visible: true }]),
+  shadows: z.array(shadowSchema).default([]),
+  blurs: z.array(blurSchema).default([]),
 });
 
 export const polygonShapeSchema = baseShapeSchema.extend({
@@ -166,6 +177,8 @@ export const polygonShapeSchema = baseShapeSchema.extend({
   sides: z.number().min(3).default(6),
   fills: z.array(fillSchema).default([{ color: '#D9D9D9', opacity: 1, visible: true }]),
   strokes: z.array(strokeSchema).default([]),
+  shadows: z.array(shadowSchema).default([]),
+  blurs: z.array(blurSchema).default([]),
 });
 
 export const starShapeSchema = baseShapeSchema.extend({
@@ -174,6 +187,8 @@ export const starShapeSchema = baseShapeSchema.extend({
   innerRadius: z.number().min(0).max(1).default(0.38),
   fills: z.array(fillSchema).default([{ color: '#D9D9D9', opacity: 1, visible: true }]),
   strokes: z.array(strokeSchema).default([]),
+  shadows: z.array(shadowSchema).default([]),
+  blurs: z.array(blurSchema).default([]),
 });
 
 export const arrowShapeSchema = baseShapeSchema.extend({
@@ -187,16 +202,22 @@ export const arrowShapeSchema = baseShapeSchema.extend({
     .default([{ color: '#000000', width: 2, opacity: 1, visible: true }]),
   startArrowhead: z.boolean().default(false),
   endArrowhead: z.boolean().default(true),
+  shadows: z.array(shadowSchema).default([]),
+  blurs: z.array(blurSchema).default([]),
 });
 
 export const imageShapeSchema = baseShapeSchema.extend({
   type: z.literal('image'),
   src: z.string().default(''),
   fit: z.enum(['fill', 'fit', 'crop']).default('fill'),
+  shadows: z.array(shadowSchema).default([]),
+  blurs: z.array(blurSchema).default([]),
 });
 
 export const groupShapeSchema = baseShapeSchema.extend({
   type: z.literal('group'),
+  shadows: z.array(shadowSchema).default([]),
+  blurs: z.array(blurSchema).default([]),
 });
 
 export const shapeSchema = z.discriminatedUnion('type', [

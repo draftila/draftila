@@ -1,4 +1,4 @@
-import type { Fill, Shape, Stroke } from '@draftila/shared';
+import type { Blur, Fill, Shadow, Shape, Stroke } from '@draftila/shared';
 import type { Renderer, RenderStyle, RenderTransform } from './renderer/types';
 import { simpleStyle } from './renderer/types';
 import getStroke from 'perfect-freehand';
@@ -13,10 +13,14 @@ function getTransform(shape: Shape): RenderTransform {
   };
 }
 
-function getStyle(shape: Shape & { fills?: Fill[]; strokes?: Stroke[] }): RenderStyle {
+function getStyle(
+  shape: Shape & { fills?: Fill[]; strokes?: Stroke[]; shadows?: Shadow[]; blurs?: Blur[] },
+): RenderStyle {
   return {
     fills: shape.fills ?? [],
     strokes: shape.strokes ?? [],
+    shadows: shape.shadows ?? [],
+    blurs: shape.blurs ?? [],
     opacity: shape.opacity,
   };
 }
@@ -137,6 +141,8 @@ export function renderShape(renderer: Renderer, shape: Shape) {
         textDecoration: shape.textDecoration,
         textTransform: shape.textTransform,
         fills: shape.fills,
+        shadows: shape.shadows ?? [],
+        blurs: shape.blurs ?? [],
       });
       break;
     }
@@ -158,6 +164,8 @@ export function renderShape(renderer: Renderer, shape: Shape) {
         renderer.drawPath(outlinePoints, {
           fills: shape.fills,
           strokes: [],
+          shadows: shape.shadows ?? [],
+          blurs: shape.blurs ?? [],
           opacity: shape.opacity,
         });
       }
@@ -173,6 +181,8 @@ export function renderShape(renderer: Renderer, shape: Shape) {
         {
           fills: [],
           strokes: shape.strokes,
+          shadows: shape.shadows ?? [],
+          blurs: shape.blurs ?? [],
           opacity: shape.opacity,
         },
         false,
@@ -214,6 +224,8 @@ export function renderShape(renderer: Renderer, shape: Shape) {
       const arrowStyle: RenderStyle = {
         fills: [],
         strokes: shape.strokes,
+        shadows: shape.shadows ?? [],
+        blurs: shape.blurs ?? [],
         opacity: shape.opacity,
       };
       renderer.drawPath(shaftPoints, arrowStyle, false);

@@ -1,4 +1,4 @@
-import type { Camera, StrokeDashPattern, Viewport } from '@draftila/shared';
+import type { Camera, Shadow, StrokeDashPattern, Viewport } from '@draftila/shared';
 import type { Renderer, RenderStyle, RenderTransform, TextRenderOptions } from './types';
 
 const SELECTION_COLOR = '#0D99FF';
@@ -68,6 +68,14 @@ function colorWithOpacity(hex: string, opacity: number): string {
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+}
+
+function shadowColorToRgba(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const a = hex.length === 9 ? parseInt(hex.slice(7, 9), 16) / 255 : 1;
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
 }
 
 export class Canvas2DRenderer implements Renderer {
@@ -140,6 +148,7 @@ export class Canvas2DRenderer implements Renderer {
     ctx.save();
     this.applyTransform(transform);
     ctx.globalAlpha = style.opacity;
+    this.applyLayerBlur(style);
 
     const hasRadius = Array.isArray(cornerRadius)
       ? cornerRadius.some((r) => r > 0)
@@ -157,6 +166,7 @@ export class Canvas2DRenderer implements Renderer {
       ctx.closePath();
     }
 
+    this.clearFilter();
     ctx.restore();
   }
 
@@ -165,6 +175,7 @@ export class Canvas2DRenderer implements Renderer {
     ctx.save();
     this.applyTransform(transform);
     ctx.globalAlpha = style.opacity;
+    this.applyLayerBlur(style);
 
     const cx = transform.width / 2;
     const cy = transform.height / 2;
@@ -176,6 +187,7 @@ export class Canvas2DRenderer implements Renderer {
     this.applyFillStroke(style);
     ctx.closePath();
 
+    this.clearFilter();
     ctx.restore();
   }
 
@@ -185,6 +197,7 @@ export class Canvas2DRenderer implements Renderer {
 
     ctx.save();
     ctx.globalAlpha = style.opacity;
+    this.applyLayerBlur(style);
 
     const path = new Path2D();
     const [firstPoint] = points;
@@ -200,11 +213,31 @@ export class Canvas2DRenderer implements Renderer {
       path.closePath();
     }
 
+    const dropShadows = style.shadows.filter((s) => s.type === 'drop' && s.visible !== false);
+
     for (const fill of style.fills) {
       if (!fill.visible) continue;
       ctx.fillStyle = colorWithOpacity(fill.color, fill.opacity);
-      ctx.fill(path);
+      if (dropShadows.length > 0) {
+        for (const shadow of dropShadows) {
+          this.applyDropShadow(shadow);
+          ctx.fill(path);
+        }
+        this.clearShadow();
+      } else {
+        ctx.fill(path);
+      }
     }
+
+    if (style.fills.length === 0 && dropShadows.length > 0) {
+      for (const shadow of dropShadows) {
+        this.applyDropShadow(shadow);
+        ctx.fillStyle = 'rgba(0,0,0,0)';
+        ctx.fill(path);
+      }
+      this.clearShadow();
+    }
+
     for (const stroke of style.strokes) {
       if (!stroke.visible || stroke.width <= 0) continue;
       ctx.strokeStyle = colorWithOpacity(stroke.color, stroke.opacity);
@@ -218,6 +251,20 @@ export class Canvas2DRenderer implements Renderer {
       ctx.setLineDash([]);
     }
 
+    const innerShadows = style.shadows.filter((s) => s.type === 'inner' && s.visible !== false);
+    if (innerShadows.length > 0 && closed) {
+      ctx.save();
+      ctx.clip(path);
+      for (const shadow of innerShadows) {
+        this.applyDropShadow(shadow);
+        ctx.fillStyle = 'rgba(0,0,0,0)';
+        ctx.fillRect(-1e5, -1e5, 2e5, 2e5);
+      }
+      this.clearShadow();
+      ctx.restore();
+    }
+
+    this.clearFilter();
     ctx.restore();
   }
 
@@ -225,6 +272,16 @@ export class Canvas2DRenderer implements Renderer {
     const { ctx } = this;
     ctx.save();
     this.applyTransform(transform);
+
+    const layerBlur = options.blurs.find((b) => b.type === 'layer' && b.visible !== false);
+    if (layerBlur && layerBlur.radius > 0) {
+      ctx.filter = `blur(${layerBlur.radius}px)`;
+    }
+
+    const dropShadow = options.shadows.find((s) => s.type === 'drop' && s.visible !== false);
+    if (dropShadow) {
+      this.applyDropShadow(dropShadow);
+    }
 
     const fontStyle = options.fontStyle === 'italic' ? 'italic' : '';
     ctx.font =
@@ -401,13 +458,60 @@ export class Canvas2DRenderer implements Renderer {
     }
   }
 
+  private applyDropShadow(shadow: Shadow) {
+    const { ctx } = this;
+    ctx.shadowColor = shadowColorToRgba(shadow.color);
+    ctx.shadowOffsetX = shadow.x;
+    ctx.shadowOffsetY = shadow.y;
+    ctx.shadowBlur = shadow.blur;
+  }
+
+  private clearShadow() {
+    const { ctx } = this;
+    ctx.shadowColor = 'transparent';
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.shadowBlur = 0;
+  }
+
+  private applyLayerBlur(style: RenderStyle) {
+    const layerBlur = style.blurs.find((b) => b.type === 'layer' && b.visible !== false);
+    if (layerBlur && layerBlur.radius > 0) {
+      this.ctx.filter = `blur(${layerBlur.radius}px)`;
+    }
+  }
+
+  private clearFilter() {
+    this.ctx.filter = 'none';
+  }
+
   private applyFillStroke(style: RenderStyle) {
     const { ctx } = this;
+    const dropShadows = style.shadows.filter((s) => s.type === 'drop' && s.visible !== false);
+
     for (const fill of style.fills) {
       if (!fill.visible) continue;
       ctx.fillStyle = colorWithOpacity(fill.color, fill.opacity);
-      ctx.fill();
+      if (dropShadows.length > 0) {
+        for (const shadow of dropShadows) {
+          this.applyDropShadow(shadow);
+          ctx.fill();
+        }
+        this.clearShadow();
+      } else {
+        ctx.fill();
+      }
     }
+
+    if (style.fills.length === 0 && dropShadows.length > 0) {
+      for (const shadow of dropShadows) {
+        this.applyDropShadow(shadow);
+        ctx.fillStyle = 'rgba(0,0,0,0)';
+        ctx.fill();
+      }
+      this.clearShadow();
+    }
+
     for (const stroke of style.strokes) {
       if (!stroke.visible || stroke.width <= 0) continue;
       ctx.strokeStyle = colorWithOpacity(stroke.color, stroke.opacity);
@@ -419,6 +523,19 @@ export class Canvas2DRenderer implements Renderer {
       ctx.lineDashOffset = stroke.dashOffset ?? 0;
       ctx.stroke();
       ctx.setLineDash([]);
+    }
+
+    const innerShadows = style.shadows.filter((s) => s.type === 'inner' && s.visible !== false);
+    if (innerShadows.length > 0) {
+      ctx.save();
+      ctx.clip();
+      for (const shadow of innerShadows) {
+        this.applyDropShadow(shadow);
+        ctx.fillStyle = 'rgba(0,0,0,0)';
+        ctx.fillRect(-1e5, -1e5, 2e5, 2e5);
+      }
+      this.clearShadow();
+      ctx.restore();
     }
   }
 }

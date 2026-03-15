@@ -1,8 +1,10 @@
-import type { Camera, Fill, Stroke, Viewport } from '@draftila/shared';
+import type { Blur, Camera, Fill, Shadow, Stroke, Viewport } from '@draftila/shared';
 
 export interface RenderStyle {
   fills: Fill[];
   strokes: Stroke[];
+  shadows: Shadow[];
+  blurs: Blur[];
   opacity: number;
 }
 
@@ -27,6 +29,8 @@ export interface TextRenderOptions {
   textDecoration: 'none' | 'underline' | 'strikethrough';
   textTransform: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
   fills: Fill[];
+  shadows: Shadow[];
+  blurs: Blur[];
 }
 
 export function solidFill(color: string, opacity = 1): Fill {
@@ -59,7 +63,7 @@ export function simpleStyle(options: {
     options.stroke && (options.strokeWidth ?? 1) > 0
       ? [solidStroke(options.stroke, options.strokeWidth ?? 1)]
       : [];
-  return { fills, strokes, opacity: options.opacity ?? 1 };
+  return { fills, strokes, shadows: [], blurs: [], opacity: options.opacity ?? 1 };
 }
 
 export interface Renderer {

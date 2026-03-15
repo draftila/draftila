@@ -36,15 +36,21 @@ const SHAPE_DEFAULTS: Record<ShapeType, Omit<Record<string, unknown>, 'id' | 'ty
     strokes: [],
     cornerRadius: 0,
     cornerSmoothing: 0,
+    shadows: [],
+    blurs: [],
   },
   ellipse: {
     fills: [{ color: '#D9D9D9', opacity: 1, visible: true }],
     strokes: [],
+    shadows: [],
+    blurs: [],
   },
   frame: {
     fills: [{ color: '#FFFFFF', opacity: 1, visible: true }],
     strokes: [],
     clip: true,
+    shadows: [],
+    blurs: [],
   },
   text: {
     content: '',
@@ -59,11 +65,15 @@ const SHAPE_DEFAULTS: Record<ShapeType, Omit<Record<string, unknown>, 'id' | 'ty
     textDecoration: 'none',
     textTransform: 'none',
     fills: [{ color: '#000000', opacity: 1, visible: true }],
+    shadows: [],
+    blurs: [],
   },
   path: {
     points: [],
     fills: [{ color: '#000000', opacity: 1, visible: true }],
     strokes: [],
+    shadows: [],
+    blurs: [],
   },
   line: {
     x1: 0,
@@ -71,17 +81,23 @@ const SHAPE_DEFAULTS: Record<ShapeType, Omit<Record<string, unknown>, 'id' | 'ty
     x2: 100,
     y2: 0,
     strokes: [{ color: '#000000', width: 2, opacity: 1, visible: true }],
+    shadows: [],
+    blurs: [],
   },
   polygon: {
     sides: 6,
     fills: [{ color: '#D9D9D9', opacity: 1, visible: true }],
     strokes: [],
+    shadows: [],
+    blurs: [],
   },
   star: {
     points: 5,
     innerRadius: 0.38,
     fills: [{ color: '#D9D9D9', opacity: 1, visible: true }],
     strokes: [],
+    shadows: [],
+    blurs: [],
   },
   arrow: {
     x1: 0,
@@ -91,12 +107,19 @@ const SHAPE_DEFAULTS: Record<ShapeType, Omit<Record<string, unknown>, 'id' | 'ty
     strokes: [{ color: '#000000', width: 2, opacity: 1, visible: true }],
     startArrowhead: false,
     endArrowhead: true,
+    shadows: [],
+    blurs: [],
   },
   image: {
     src: '',
     fit: 'fill',
+    shadows: [],
+    blurs: [],
   },
-  group: {},
+  group: {
+    shadows: [],
+    blurs: [],
+  },
 };
 
 const BASE_DEFAULTS = {

@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { ChevronDown, Minus, Plus } from 'lucide-react';
+import { ChevronDown, Eye, EyeOff, Minus, Plus } from 'lucide-react';
 import type { Fill, Shape } from '@draftila/shared';
 import type { PropertySectionProps } from '../types';
 import { ColorPicker } from '../../color-picker';
@@ -66,6 +66,7 @@ export function FillSection({ shape, onUpdate }: PropertySectionProps) {
               fill={fill}
               onColorChange={(color) => updateFill(index, { color })}
               onOpacityChange={(opacity) => updateFill(index, { opacity })}
+              onVisibleChange={(visible) => updateFill(index, { visible })}
               onRemove={() => removeFill(index)}
             />
           );
@@ -79,11 +80,13 @@ function FillRow({
   fill,
   onColorChange,
   onOpacityChange,
+  onVisibleChange,
   onRemove,
 }: {
   fill: Fill;
   onColorChange: (color: string) => void;
   onOpacityChange: (opacity: number) => void;
+  onVisibleChange: (visible: boolean) => void;
   onRemove: () => void;
 }) {
   const opacityPercent = Math.round(fill.opacity * 100);
@@ -96,7 +99,9 @@ function FillRow({
         onChange={onColorChange}
         onOpacityChange={onOpacityChange}
       >
-        <button className="hover:bg-muted/50 flex min-w-0 flex-1 items-center gap-2.5 rounded py-0.5">
+        <button
+          className={`hover:bg-muted/50 flex min-w-0 flex-1 items-center gap-2.5 rounded py-0.5 ${!fill.visible ? 'opacity-50' : ''}`}
+        >
           <div className="border-border relative h-[36px] w-[36px] shrink-0 overflow-hidden rounded border">
             <div className="absolute inset-0" style={{ background: CHECKERBOARD }} />
             <div
@@ -125,6 +130,12 @@ function FillRow({
         </button>
       </ColorPicker>
 
+      <button
+        onClick={() => onVisibleChange(!fill.visible)}
+        className="text-muted-foreground hover:text-foreground shrink-0 transition-colors"
+      >
+        {fill.visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+      </button>
       <button
         onClick={onRemove}
         className="text-muted-foreground hover:text-foreground shrink-0 transition-colors"
