@@ -1,10 +1,11 @@
 import { useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useDraftById } from '@/api/drafts';
+import { useDraftById, useUpdateDraft } from '@/api/drafts';
 import { useSession } from '@/lib/auth-client';
 import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { InlineEditableText } from '@/components/inline-editable-text';
 import { UserMenu } from '@/components/user-menu';
 import { initUndoManager, destroyUndoManager } from '@draftila/engine/history';
 import { useEditorStore } from '@/stores/editor-store';
@@ -24,6 +25,16 @@ export function EditorPage() {
 
   const userId = session?.user?.id ?? 'anonymous';
   const userName = session?.user?.name ?? 'Anonymous';
+
+  const updateDraft = useUpdateDraft(draft?.projectId ?? '');
+
+  const handleRenameDraft = useCallback(
+    (name: string) => {
+      if (!draftId) return;
+      updateDraft.mutate({ draftId, data: { name } });
+    },
+    [draftId, updateDraft],
+  );
 
   const { remoteUsers, updateCursor, updateSelection, updateActiveTool } = useAwareness(
     provider,
@@ -50,7 +61,7 @@ export function EditorPage() {
     return unsubscribe;
   }, [updateSelection, updateActiveTool]);
 
-  const handleCursorMove = useCallback(
+  const handleActiveInteraction = useCallback(
     (cursor: { x: number; y: number } | null) => {
       updateCursor(cursor);
     },
@@ -84,7 +95,11 @@ export function EditorPage() {
       <header className="flex h-12 shrink-0 items-center gap-2 border-b px-2">
         <SidebarTrigger />
         <Separator orientation="vertical" className="data-[orientation=vertical]:h-full" />
-        <span className="text-sm font-medium">{draft.name}</span>
+        <InlineEditableText
+          value={draft.name}
+          onSave={handleRenameDraft}
+          className="text-sm font-medium"
+        />
         <Tooltip>
           <TooltipTrigger>
             <div className={`h-2 w-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
@@ -114,7 +129,11 @@ export function EditorPage() {
       </header>
       <div className="flex flex-1 overflow-hidden">
         <LeftPanel ydoc={ydoc} />
-        <Canvas ydoc={ydoc} remoteUsers={remoteUsers} onCursorMove={handleCursorMove} />
+        <Canvas
+          ydoc={ydoc}
+          remoteUsers={remoteUsers}
+          onActiveInteraction={handleActiveInteraction}
+        />
         <RightPanel ydoc={ydoc} />
       </div>
     </div>

@@ -9,6 +9,7 @@ import { useEditorStore } from '@/stores/editor-store';
 interface UseToolOptions {
   ydoc: Y.Doc;
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  onActiveInteraction?: (cursor: { x: number; y: number } | null) => void;
 }
 
 function buildContext(
@@ -42,9 +43,10 @@ function buildContext(
   };
 }
 
-export function useTool({ ydoc, canvasRef }: UseToolOptions) {
+export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions) {
   const spaceHeldRef = useRef(false);
   const middleClickPanRef = useRef(false);
+  const pointerDownRef = useRef(false);
 
   const isPanningRef = useRef(false);
 
@@ -69,6 +71,8 @@ export function useTool({ ydoc, canvasRef }: UseToolOptions) {
       const rect = canvas.getBoundingClientRect();
       const ctx = buildContext(e, ydoc, rect);
       canvas.setPointerCapture(e.pointerId);
+      pointerDownRef.current = true;
+      onActiveInteraction?.(ctx.canvasPoint);
 
       if (e.button === 1) {
         middleClickPanRef.current = true;
@@ -89,7 +93,7 @@ export function useTool({ ydoc, canvasRef }: UseToolOptions) {
       const tool = getTool(activeTool);
       tool.onPointerDown(ctx);
     },
-    [ydoc, canvasRef, startPan],
+    [ydoc, canvasRef, startPan, onActiveInteraction],
   );
 
   const handlePointerMove = useCallback(
@@ -98,6 +102,10 @@ export function useTool({ ydoc, canvasRef }: UseToolOptions) {
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
       const ctx = buildContext(e, ydoc, rect);
+
+      if (pointerDownRef.current) {
+        onActiveInteraction?.(ctx.canvasPoint);
+      }
 
       if (isPanningRef.current) {
         const handTool = getTool('hand') as HandTool;
@@ -109,7 +117,7 @@ export function useTool({ ydoc, canvasRef }: UseToolOptions) {
       const tool = getTool(activeTool);
       tool.onPointerMove(ctx);
     },
-    [ydoc, canvasRef],
+    [ydoc, canvasRef, onActiveInteraction],
   );
 
   const handlePointerUp = useCallback(
@@ -119,6 +127,8 @@ export function useTool({ ydoc, canvasRef }: UseToolOptions) {
       const rect = canvas.getBoundingClientRect();
       const ctx = buildContext(e, ydoc, rect);
       canvas.releasePointerCapture(e.pointerId);
+      pointerDownRef.current = false;
+      onActiveInteraction?.(null);
 
       if (e.button === 1) {
         middleClickPanRef.current = false;
@@ -143,7 +153,7 @@ export function useTool({ ydoc, canvasRef }: UseToolOptions) {
       const tool = getTool(activeTool);
       tool.onPointerUp(ctx);
     },
-    [ydoc, canvasRef, stopPan],
+    [ydoc, canvasRef, stopPan, onActiveInteraction],
   );
 
   useEffect(() => {

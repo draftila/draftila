@@ -77,7 +77,12 @@ export function useUpdateDraft(projectId: string) {
   return useMutation({
     mutationFn: ({ draftId, data }: { draftId: string; data: UpdateDraft }) =>
       api.patch<Draft>(`/api/projects/${projectId}/drafts/${draftId}`, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [...DRAFTS_KEY, projectId] }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: [...DRAFTS_KEY, projectId] });
+      queryClient.invalidateQueries({
+        queryKey: [...DRAFTS_KEY, 'detail', variables.draftId],
+      });
+    },
   });
 }
 

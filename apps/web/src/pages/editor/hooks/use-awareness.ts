@@ -1,6 +1,8 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import type { WebsocketProvider } from 'y-websocket';
 import type { ToolType, Point } from '@draftila/shared';
+
+const CURSOR_THROTTLE_MS = 33;
 
 export interface RemoteUser {
   clientId: number;
@@ -71,10 +73,33 @@ export function useAwareness(provider: WebsocketProvider | null, userId: string,
     };
   }, [provider, userId, userName]);
 
+  const cursorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingCursorRef = useRef<Point | null>(null);
+
   const updateCursor = useCallback(
     (cursor: Point | null) => {
       if (!provider) return;
+
+      if (cursor === null) {
+        if (cursorTimerRef.current) {
+          clearTimeout(cursorTimerRef.current);
+          cursorTimerRef.current = null;
+        }
+        pendingCursorRef.current = null;
+        provider.awareness.setLocalStateField('cursor', null);
+        return;
+      }
+
+      pendingCursorRef.current = cursor;
+      if (cursorTimerRef.current) return;
+
       provider.awareness.setLocalStateField('cursor', cursor);
+      cursorTimerRef.current = setTimeout(() => {
+        cursorTimerRef.current = null;
+        if (pendingCursorRef.current) {
+          provider.awareness.setLocalStateField('cursor', pendingCursorRef.current);
+        }
+      }, CURSOR_THROTTLE_MS);
     },
     [provider],
   );
@@ -94,6 +119,14 @@ export function useAwareness(provider: WebsocketProvider | null, userId: string,
     },
     [provider],
   );
+
+  useEffect(() => {
+    return () => {
+      if (cursorTimerRef.current) {
+        clearTimeout(cursorTimerRef.current);
+      }
+    };
+  }, []);
 
   return {
     remoteUsers,

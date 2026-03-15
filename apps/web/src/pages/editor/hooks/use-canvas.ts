@@ -97,6 +97,7 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
     const dragPositions = moveTool.getDragPositions();
     const dragEndpointOffset = moveTool.getDragEndpointOffsets();
     const resizePreview = moveTool.getResizePreview();
+    const rotationPreview = moveTool.getRotationPreview();
     const endpointPreview = moveTool.getEndpointPreview();
 
     const applyDragToShape = (s: Shape): Shape => {
@@ -130,6 +131,12 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
     const applyResizeToShape = (s: Shape, entry: ResizePreviewEntry): Shape =>
       ({ ...s, ...entry }) as unknown as Shape;
 
+    const applyRotationToShape = (s: Shape): Shape => {
+      const angle = rotationPreview?.get(s.id);
+      if (angle === undefined) return s;
+      return { ...s, rotation: angle } as Shape;
+    };
+
     const applyEndpointPreviewToShape = (s: Shape): Shape => {
       if (!endpointPreview || endpointPreview.shapeId !== s.id) return s;
       const ep = endpointPreview;
@@ -157,6 +164,8 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
         renderShape(renderer, applyResizeToShape(shape, resized));
       } else if (dragPositions?.has(shape.id)) {
         renderShape(renderer, applyDragToShape(shape));
+      } else if (rotationPreview?.has(shape.id)) {
+        renderShape(renderer, applyRotationToShape(shape));
       } else {
         renderShape(renderer, shape);
       }
@@ -175,6 +184,8 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
           displayShape = applyResizeToShape(shape, resized);
         } else if (dragPositions?.has(shape.id)) {
           displayShape = applyDragToShape(shape);
+        } else if (rotationPreview?.has(shape.id)) {
+          displayShape = applyRotationToShape(shape);
         }
         renderSelectionForShape(renderer, displayShape);
         selectedShapes.push(displayShape);
@@ -192,6 +203,8 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
         displayShape = applyResizeToShape(shape, resized);
       } else if (dragPositions?.has(shape.id)) {
         displayShape = applyDragToShape(shape);
+      } else if (rotationPreview?.has(shape.id)) {
+        displayShape = applyRotationToShape(shape);
       }
       const isSelected = selectedSet.has(shape.id);
       renderer.drawFrameLabel(

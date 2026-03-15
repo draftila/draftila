@@ -17,14 +17,18 @@ import type { RemoteUser } from '../hooks/use-awareness';
 interface CanvasProps {
   ydoc: Y.Doc;
   remoteUsers: RemoteUser[];
-  onCursorMove?: (cursor: { x: number; y: number } | null) => void;
+  onActiveInteraction?: (cursor: { x: number; y: number } | null) => void;
 }
 
 const ZOOM_SENSITIVITY = 0.002;
 
-export function Canvas({ ydoc, remoteUsers, onCursorMove }: CanvasProps) {
+export function Canvas({ ydoc, remoteUsers, onActiveInteraction }: CanvasProps) {
   const { canvasRef } = useCanvas({ ydoc });
-  const { handlePointerDown, handlePointerMove, handlePointerUp } = useTool({ ydoc, canvasRef });
+  const { handlePointerDown, handlePointerMove, handlePointerUp } = useTool({
+    ydoc,
+    canvasRef,
+    onActiveInteraction,
+  });
   const activeTool = useEditorStore((s) => s.activeTool);
   const isPanning = useEditorStore((s) => s.isPanning);
   const camera = useEditorStore((s) => s.camera);
@@ -99,24 +103,9 @@ export function Canvas({ ydoc, remoteUsers, onCursorMove }: CanvasProps) {
   const wrappedPointerMove = useCallback(
     (e: React.PointerEvent) => {
       handlePointerMove(e);
-
-      if (onCursorMove) {
-        const rect = canvasRef.current?.getBoundingClientRect();
-        if (rect) {
-          const cam = useEditorStore.getState().camera;
-          const sx = e.clientX - rect.left;
-          const sy = e.clientY - rect.top;
-          const canvasPoint = screenToCanvas(sx, sy, cam);
-          onCursorMove(canvasPoint);
-        }
-      }
     },
-    [handlePointerMove, onCursorMove, canvasRef],
+    [handlePointerMove],
   );
-
-  const handlePointerLeave = useCallback(() => {
-    onCursorMove?.(null);
-  }, [onCursorMove]);
 
   const cursor = getCursorForTool(activeTool, isPanning);
 
@@ -130,7 +119,6 @@ export function Canvas({ ydoc, remoteUsers, onCursorMove }: CanvasProps) {
         onPointerDown={wrappedPointerDown}
         onPointerMove={wrappedPointerMove}
         onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerLeave}
         onDoubleClick={handleDoubleClick}
         onContextMenu={(e) => e.preventDefault()}
       />

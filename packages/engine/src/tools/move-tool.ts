@@ -155,6 +155,7 @@ export class MoveTool extends BaseTool {
   marqueeRect: { x: number; y: number; width: number; height: number } | null = null;
   dragOffset: { dx: number; dy: number } | null = null;
   resizePreview: Map<string, ResizePreviewEntry> | null = null;
+  rotationPreview: Map<string, number> | null = null;
   endpointPreview: { shapeId: string; x1: number; y1: number; x2: number; y2: number } | null =
     null;
   activeSnapLines: SnapLine[] = [];
@@ -420,9 +421,11 @@ export class MoveTool extends BaseTool {
 
     if (this.state.type === 'rotating') {
       const angle = computeRotation(this.state.center, ctx.canvasPoint, ctx.shiftKey);
+      const preview = new Map<string, number>();
       for (const [id] of this.state.initialRotations) {
-        updateShape(ctx.ydoc, id, { rotation: angle } as Partial<Shape>);
+        preview.set(id, angle);
       }
+      this.rotationPreview = preview;
       return { cursor: 'grab' };
     }
 
@@ -509,6 +512,11 @@ export class MoveTool extends BaseTool {
     }
 
     if (this.state.type === 'rotating') {
+      if (this.rotationPreview) {
+        for (const [id, angle] of this.rotationPreview) {
+          updateShape(ctx.ydoc, id, { rotation: angle } as Partial<Shape>);
+        }
+      }
       this.resetState();
       return { cursor: 'default' };
     }
@@ -571,6 +579,7 @@ export class MoveTool extends BaseTool {
     this.marqueeRect = null;
     this.dragOffset = null;
     this.resizePreview = null;
+    this.rotationPreview = null;
     this.endpointPreview = null;
     this.dragInitialData = null;
     this.dragShapesCache = [];
@@ -596,6 +605,10 @@ export class MoveTool extends BaseTool {
 
   getResizePreview(): Map<string, ResizePreviewEntry> | null {
     return this.resizePreview;
+  }
+
+  getRotationPreview(): Map<string, number> | null {
+    return this.rotationPreview;
   }
 
   getEndpointPreview(): { shapeId: string; x1: number; y1: number; x2: number; y2: number } | null {
