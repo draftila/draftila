@@ -8,15 +8,66 @@ import { SidesSection } from './sections/sides-section';
 import { StarSection } from './sections/star-section';
 import { TypographySection } from './sections/typography-section';
 import { EffectsSection } from './sections/effects-section';
+import { LayoutGuideSection } from './sections/layout-guide-section';
+import { ExportSection } from './sections/export-section';
+import { PreviewSection } from './sections/preview-section';
 
 const sectionRegistry: Record<ShapeType, PropertySection[]> = {
-  rectangle: [TransformSection, AppearanceSection, FillSection, StrokeSection, EffectsSection],
-  ellipse: [TransformSection, AppearanceSection, FillSection, StrokeSection, EffectsSection],
-  frame: [TransformSection, AppearanceSection, FillSection, StrokeSection, EffectsSection],
-  text: [TransformSection, AppearanceSection, FillSection, TypographySection, EffectsSection],
-  path: [TransformSection, AppearanceSection, FillSection, StrokeSection, EffectsSection],
-  group: [TransformSection, AppearanceSection, EffectsSection],
-  line: [TransformSection, AppearanceSection, StrokeSection, EffectsSection],
+  rectangle: [
+    TransformSection,
+    AppearanceSection,
+    FillSection,
+    StrokeSection,
+    EffectsSection,
+    ExportSection,
+    PreviewSection,
+  ],
+  ellipse: [
+    TransformSection,
+    AppearanceSection,
+    FillSection,
+    StrokeSection,
+    EffectsSection,
+    ExportSection,
+    PreviewSection,
+  ],
+  frame: [
+    TransformSection,
+    AppearanceSection,
+    FillSection,
+    StrokeSection,
+    EffectsSection,
+    LayoutGuideSection,
+    ExportSection,
+    PreviewSection,
+  ],
+  text: [
+    TransformSection,
+    AppearanceSection,
+    FillSection,
+    TypographySection,
+    EffectsSection,
+    ExportSection,
+    PreviewSection,
+  ],
+  path: [
+    TransformSection,
+    AppearanceSection,
+    FillSection,
+    StrokeSection,
+    EffectsSection,
+    ExportSection,
+    PreviewSection,
+  ],
+  group: [TransformSection, AppearanceSection, EffectsSection, ExportSection, PreviewSection],
+  line: [
+    TransformSection,
+    AppearanceSection,
+    StrokeSection,
+    EffectsSection,
+    ExportSection,
+    PreviewSection,
+  ],
   polygon: [
     TransformSection,
     AppearanceSection,
@@ -24,6 +75,8 @@ const sectionRegistry: Record<ShapeType, PropertySection[]> = {
     StrokeSection,
     SidesSection,
     EffectsSection,
+    ExportSection,
+    PreviewSection,
   ],
   star: [
     TransformSection,
@@ -32,9 +85,25 @@ const sectionRegistry: Record<ShapeType, PropertySection[]> = {
     StrokeSection,
     StarSection,
     EffectsSection,
+    ExportSection,
+    PreviewSection,
   ],
-  arrow: [TransformSection, AppearanceSection, StrokeSection, EffectsSection],
-  image: [TransformSection, AppearanceSection, FillSection, EffectsSection],
+  arrow: [
+    TransformSection,
+    AppearanceSection,
+    StrokeSection,
+    EffectsSection,
+    ExportSection,
+    PreviewSection,
+  ],
+  image: [
+    TransformSection,
+    AppearanceSection,
+    FillSection,
+    EffectsSection,
+    ExportSection,
+    PreviewSection,
+  ],
 };
 
 export function getSectionsForShape(shapeType: ShapeType): PropertySection[] {

@@ -1,4 +1,4 @@
-import type { Blur, Camera, Fill, Shadow, Stroke, Viewport } from '@draftila/shared';
+import type { Blur, Camera, Fill, LayoutGuide, Shadow, Stroke, Viewport } from '@draftila/shared';
 
 export interface RenderStyle {
   fills: Fill[];
@@ -100,6 +100,8 @@ export interface Renderer {
   drawRotationHandle(x: number, y: number, zoom: number): void;
 
   drawSnapLine(axis: 'x' | 'y', position: number, viewportSize: number): void;
+
+  drawLayoutGuides(transform: RenderTransform, guides: LayoutGuide[]): void;
 
   measureText(
     content: string,

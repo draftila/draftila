@@ -13,7 +13,7 @@ function generateId(): string {
   return id;
 }
 
-const ARRAY_OF_OBJECTS_KEYS = new Set(['points', 'fills', 'strokes', 'shadows', 'blurs']);
+const ARRAY_OF_OBJECTS_KEYS = new Set(['points', 'fills', 'strokes', 'shadows', 'blurs', 'guides']);
 
 function valueToYjs(key: string, value: unknown): unknown {
   if (ARRAY_OF_OBJECTS_KEYS.has(key) && Array.isArray(value)) {
@@ -51,6 +51,7 @@ const SHAPE_DEFAULTS: Record<ShapeType, Omit<Record<string, unknown>, 'id' | 'ty
     clip: true,
     shadows: [],
     blurs: [],
+    guides: [],
   },
   text: {
     content: '',

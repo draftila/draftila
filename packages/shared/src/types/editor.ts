@@ -25,6 +25,7 @@ import type {
   strokeDashPatternSchema,
   shadowSchema,
   blurSchema,
+  layoutGuideSchema,
 } from '../schemas/editor';
 
 export type ShapeType = z.infer<typeof shapeTypeSchema>;
@@ -52,6 +53,7 @@ export type StrokeAlign = z.infer<typeof strokeAlignSchema>;
 export type StrokeDashPattern = z.infer<typeof strokeDashPatternSchema>;
 export type Shadow = z.infer<typeof shadowSchema>;
 export type Blur = z.infer<typeof blurSchema>;
+export type LayoutGuide = z.infer<typeof layoutGuideSchema>;
 
 export interface Camera {
   x: number;

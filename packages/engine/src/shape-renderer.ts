@@ -125,6 +125,10 @@ export function renderShape(renderer: Renderer, shape: Shape) {
     }
     case 'frame': {
       renderer.drawRect(getTransform(shape), getStyle(shape), 0);
+      const guides = shape.guides ?? [];
+      if (guides.length > 0) {
+        renderer.drawLayoutGuides(getTransform(shape), guides);
+      }
       break;
     }
     case 'text': {

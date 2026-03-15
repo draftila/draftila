@@ -85,6 +85,13 @@ export const blurSchema = z.object({
   visible: z.boolean().default(true),
 });
 
+export const layoutGuideSchema = z.object({
+  type: z.enum(['grid', 'columns', 'rows']),
+  size: z.number().min(1).default(10),
+  color: colorSchema.default('#FF000019'),
+  visible: z.boolean().default(true),
+});
+
 export const baseShapeSchema = z.object({
   id: z.string(),
   type: shapeTypeSchema,
@@ -130,6 +137,7 @@ export const frameShapeSchema = baseShapeSchema.extend({
   clip: z.boolean().default(true),
   shadows: z.array(shadowSchema).default([]),
   blurs: z.array(blurSchema).default([]),
+  guides: z.array(layoutGuideSchema).default([]),
 });
 
 export const textShapeSchema = baseShapeSchema.extend({

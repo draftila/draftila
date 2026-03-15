@@ -165,7 +165,12 @@ export function EffectsSection({ shape, onUpdate }: PropertySectionProps) {
             : 'flex items-center justify-between'
         }
       >
-        <h4 className="text-muted-foreground text-[11px] font-medium">Effects</h4>
+        <button
+          onClick={() => addShadow('drop')}
+          className="text-muted-foreground hover:text-foreground text-[11px] font-medium transition-colors"
+        >
+          Effects
+        </button>
         <div className="flex items-center gap-0.5">
           <button
             onClick={() => addShadow('drop')}

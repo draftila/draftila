@@ -1,4 +1,4 @@
-import type { Camera, Shadow, StrokeDashPattern, Viewport } from '@draftila/shared';
+import type { Camera, LayoutGuide, Shadow, StrokeDashPattern, Viewport } from '@draftila/shared';
 import type { Renderer, RenderStyle, RenderTransform, TextRenderOptions } from './types';
 
 const SELECTION_COLOR = '#0D99FF';
@@ -419,6 +419,42 @@ export class Canvas2DRenderer implements Renderer {
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
+  }
+
+  drawLayoutGuides(transform: RenderTransform, guides: LayoutGuide[]) {
+    const { ctx } = this;
+    for (const guide of guides) {
+      if (guide.visible === false) continue;
+      ctx.save();
+      this.applyTransform(transform);
+
+      const color = shadowColorToRgba(guide.color);
+      const { width, height } = transform;
+
+      if (guide.type === 'grid') {
+        ctx.fillStyle = color;
+        for (let x = 0; x < width; x += guide.size) {
+          for (let y = 0; y < height; y += guide.size) {
+            ctx.fillRect(x, y, guide.size, guide.size);
+            ctx.clearRect(x + 0.5, y + 0.5, guide.size - 1, guide.size - 1);
+          }
+        }
+      } else if (guide.type === 'columns') {
+        ctx.fillStyle = color;
+        for (let x = 0; x < width; x += guide.size) {
+          ctx.fillRect(x, 0, guide.size, height);
+          x += guide.size;
+        }
+      } else if (guide.type === 'rows') {
+        ctx.fillStyle = color;
+        for (let y = 0; y < height; y += guide.size) {
+          ctx.fillRect(0, y, width, guide.size);
+          y += guide.size;
+        }
+      }
+
+      ctx.restore();
+    }
   }
 
   measureText(
