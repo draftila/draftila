@@ -11,6 +11,7 @@ import {
   getResizeCursor,
   type HandlePosition,
 } from '../selection';
+import { snapPosition, type SnapLine, type DistanceIndicator } from '../snap';
 
 interface InitialShapeData {
   x: number;
@@ -156,7 +157,10 @@ export class MoveTool extends BaseTool {
   resizePreview: Map<string, ResizePreviewEntry> | null = null;
   endpointPreview: { shapeId: string; x1: number; y1: number; x2: number; y2: number } | null =
     null;
+  activeSnapLines: SnapLine[] = [];
+  activeDistanceIndicators: DistanceIndicator[] = [];
   private dragInitialData: Map<string, InitialShapeData> | null = null;
+  private dragShapesCache: Shape[] = [];
 
   onPointerDown(ctx: ToolContext): ToolResult | void {
     const shapes = getAllShapes(ctx.ydoc);
@@ -249,6 +253,10 @@ export class MoveTool extends BaseTool {
       }
 
       this.dragInitialData = initialData;
+      const selectedIdSet = new Set(getToolStore().selectedIds);
+      this.dragShapesCache = shapes.filter(
+        (s) => !selectedIdSet.has(s.id) && s.visible && !s.locked,
+      );
       this.state = {
         type: 'dragging',
         startCanvas: { x: ctx.canvasPoint.x, y: ctx.canvasPoint.y },
@@ -270,9 +278,46 @@ export class MoveTool extends BaseTool {
 
   onPointerMove(ctx: ToolContext): ToolResult | void {
     if (this.state.type === 'dragging') {
-      const dx = ctx.canvasPoint.x - this.state.startCanvas.x;
-      const dy = ctx.canvasPoint.y - this.state.startCanvas.y;
+      const rawDx = ctx.canvasPoint.x - this.state.startCanvas.x;
+      const rawDy = ctx.canvasPoint.y - this.state.startCanvas.y;
+
+      const initialEntries = Array.from(this.state.initialData.values());
+      const firstInitial = initialEntries[0];
+      if (!firstInitial) {
+        this.dragOffset = { dx: rawDx, dy: rawDy };
+        return { cursor: 'move' };
+      }
+
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      for (const init of initialEntries) {
+        minX = Math.min(minX, init.x);
+        minY = Math.min(minY, init.y);
+        maxX = Math.max(maxX, init.x + init.width);
+        maxY = Math.max(maxY, init.y + init.height);
+      }
+
+      const boundsX = minX + rawDx;
+      const boundsY = minY + rawDy;
+      const boundsW = maxX - minX;
+      const boundsH = maxY - minY;
+
+      const result = snapPosition(
+        boundsX,
+        boundsY,
+        boundsW,
+        boundsH,
+        this.dragShapesCache,
+        ctx.camera.zoom,
+      );
+
+      const dx = rawDx + (result.x - boundsX);
+      const dy = rawDy + (result.y - boundsY);
       this.dragOffset = { dx, dy };
+      this.activeSnapLines = result.snapLines;
+      this.activeDistanceIndicators = result.distanceIndicators;
       return { cursor: 'move' };
     }
 
@@ -478,6 +523,9 @@ export class MoveTool extends BaseTool {
     this.resizePreview = null;
     this.endpointPreview = null;
     this.dragInitialData = null;
+    this.dragShapesCache = [];
+    this.activeSnapLines = [];
+    this.activeDistanceIndicators = [];
   }
 
   getDragPositions(): Map<string, { x: number; y: number }> | null {
@@ -502,5 +550,13 @@ export class MoveTool extends BaseTool {
 
   getEndpointPreview(): { shapeId: string; x1: number; y1: number; x2: number; y2: number } | null {
     return this.endpointPreview;
+  }
+
+  getSnapLines(): SnapLine[] {
+    return this.activeSnapLines;
+  }
+
+  getDistanceIndicators(): DistanceIndicator[] {
+    return this.activeDistanceIndicators;
   }
 }

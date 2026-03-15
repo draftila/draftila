@@ -99,7 +99,15 @@ export interface Renderer {
 
   drawRotationHandle(x: number, y: number, zoom: number): void;
 
-  drawSnapLine(axis: 'x' | 'y', position: number, viewportSize: number): void;
+  drawSnapLine(axis: 'x' | 'y', position: number, start: number, end: number): void;
+
+  drawDistanceIndicator(
+    axis: 'x' | 'y',
+    from: number,
+    to: number,
+    position: number,
+    zoom: number,
+  ): void;
 
   drawLayoutGuides(transform: RenderTransform, guides: LayoutGuide[]): void;
 

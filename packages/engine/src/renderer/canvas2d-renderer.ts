@@ -402,22 +402,101 @@ export class Canvas2DRenderer implements Renderer {
     ctx.restore();
   }
 
-  drawSnapLine(axis: 'x' | 'y', position: number, _viewportSize: number) {
+  drawSnapLine(axis: 'x' | 'y', position: number, start: number, end: number) {
     const { ctx } = this;
+    const GUIDE_COLOR = '#FF00FF';
+    const EXTENSION = 8;
+
     ctx.save();
-    ctx.strokeStyle = '#FF00FF';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = GUIDE_COLOR;
+    ctx.lineWidth = 0.5;
+    ctx.setLineDash([]);
     ctx.beginPath();
     if (axis === 'x') {
-      ctx.moveTo(position, -100000);
-      ctx.lineTo(position, 100000);
+      ctx.moveTo(position, start - EXTENSION);
+      ctx.lineTo(position, end + EXTENSION);
     } else {
-      ctx.moveTo(-100000, position);
-      ctx.lineTo(100000, position);
+      ctx.moveTo(start - EXTENSION, position);
+      ctx.lineTo(end + EXTENSION, position);
     }
     ctx.stroke();
+    ctx.restore();
+  }
+
+  drawDistanceIndicator(axis: 'x' | 'y', from: number, to: number, position: number, zoom: number) {
+    const { ctx } = this;
+    const INDICATOR_COLOR = '#FF00FF';
+    const distance = Math.abs(to - from);
+    if (distance < 1) return;
+
+    const label = Math.round(distance).toString();
+    const fontSize = 10 / zoom;
+    const tickSize = 3 / zoom;
+    const paddingX = 3 / zoom;
+    const paddingY = 1.5 / zoom;
+
+    ctx.save();
+    ctx.strokeStyle = INDICATOR_COLOR;
+    ctx.fillStyle = INDICATOR_COLOR;
+    ctx.lineWidth = 0.5;
     ctx.setLineDash([]);
+
+    if (axis === 'x') {
+      ctx.beginPath();
+      ctx.moveTo(from, position);
+      ctx.lineTo(to, position);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(from, position - tickSize);
+      ctx.lineTo(from, position + tickSize);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(to, position - tickSize);
+      ctx.lineTo(to, position + tickSize);
+      ctx.stroke();
+
+      ctx.font = `${fontSize}px Inter, system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      const midX = (from + to) / 2;
+      const textMetrics = ctx.measureText(label);
+      const bgW = textMetrics.width + paddingX * 2;
+      const bgH = fontSize + paddingY * 2;
+      ctx.fillStyle = INDICATOR_COLOR;
+      ctx.fillRect(midX - bgW / 2, position - bgH - tickSize, bgW, bgH);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(label, midX, position - tickSize - paddingY);
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(position, from);
+      ctx.lineTo(position, to);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(position - tickSize, from);
+      ctx.lineTo(position + tickSize, from);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(position - tickSize, to);
+      ctx.lineTo(position + tickSize, to);
+      ctx.stroke();
+
+      ctx.font = `${fontSize}px Inter, system-ui, sans-serif`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      const midY = (from + to) / 2;
+      const textMetrics = ctx.measureText(label);
+      const bgW = textMetrics.width + paddingX * 2;
+      const bgH = fontSize + paddingY * 2;
+      ctx.fillStyle = INDICATOR_COLOR;
+      ctx.fillRect(position + tickSize, midY - bgH / 2, bgW, bgH);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(label, position + tickSize + paddingX, midY);
+    }
+
     ctx.restore();
   }
 

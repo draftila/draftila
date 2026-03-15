@@ -186,6 +186,20 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
       renderer.drawMarquee(x, y, width, height);
     }
 
+    for (const line of moveTool.getSnapLines()) {
+      renderer.drawSnapLine(line.axis, line.position, line.start, line.end);
+    }
+
+    for (const indicator of moveTool.getDistanceIndicators()) {
+      renderer.drawDistanceIndicator(
+        indicator.axis,
+        indicator.from,
+        indicator.to,
+        indicator.position,
+        camera.zoom,
+      );
+    }
+
     const previewStroke = 1 / camera.zoom;
 
     const rectPreview = getRectangleTool().previewRect;
