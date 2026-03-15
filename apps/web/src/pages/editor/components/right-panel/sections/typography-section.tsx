@@ -116,13 +116,15 @@ export function TypographySection({ shape, onUpdate }: PropertySectionProps) {
         <NumberInput
           label="Sz"
           value={text.fontSize}
-          onChange={(v) => onUpdate({ fontSize: Math.max(1, v) } as Partial<Shape>)}
+          onChange={(v) => onUpdate({ fontSize: v } as Partial<Shape>)}
+          min={1}
         />
         <NumberInput
           label="LH"
           value={text.lineHeight}
-          onChange={(v) => onUpdate({ lineHeight: Math.max(0.5, v) } as Partial<Shape>)}
+          onChange={(v) => onUpdate({ lineHeight: v } as Partial<Shape>)}
           step={0.1}
+          min={0.5}
         />
       </div>
 

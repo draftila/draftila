@@ -1,4 +1,5 @@
 import type * as Y from 'yjs';
+import type { Fill, Stroke } from '@draftila/shared';
 import { inflate } from 'pako';
 import { addShape } from './scene-graph';
 import { computeArrowHead } from './shape-renderer';
@@ -70,15 +71,24 @@ function extractSvgFromHtml(html: string): string | null {
   return svgMatch?.[0] ?? null;
 }
 
+function svgColorToFill(color: string | null, fallback: string): Fill[] {
+  if (!color || color === 'none') return [];
+  return [{ color, opacity: 1, visible: true }];
+}
+
+function svgStrokeToStrokes(color: string | null, width: number): Stroke[] {
+  if (!color || color === 'none' || width <= 0) return [];
+  return [{ color, width, opacity: 1, visible: true }];
+}
+
 interface ParsedSvgShape {
   type: 'rectangle' | 'ellipse' | 'text' | 'path';
   x: number;
   y: number;
   width: number;
   height: number;
-  fill: string | null;
-  stroke: string | null;
-  strokeWidth: number;
+  fills: Fill[];
+  strokes: Stroke[];
   content?: string;
   cornerRadius?: number;
 }
@@ -90,15 +100,17 @@ function parseSvgShapes(svg: string): ParsedSvgShape[] {
 
   const rects = doc.querySelectorAll('rect');
   for (const rect of rects) {
+    const fillAttr = rect.getAttribute('fill');
+    const strokeAttr = rect.getAttribute('stroke');
+    const sw = parseFloat(rect.getAttribute('stroke-width') ?? '0');
     shapes.push({
       type: 'rectangle',
       x: parseFloat(rect.getAttribute('x') ?? '0'),
       y: parseFloat(rect.getAttribute('y') ?? '0'),
       width: parseFloat(rect.getAttribute('width') ?? '100'),
       height: parseFloat(rect.getAttribute('height') ?? '100'),
-      fill: rect.getAttribute('fill') ?? '#D9D9D9',
-      stroke: rect.getAttribute('stroke'),
-      strokeWidth: parseFloat(rect.getAttribute('stroke-width') ?? '0'),
+      fills: svgColorToFill(fillAttr, '#D9D9D9'),
+      strokes: svgStrokeToStrokes(strokeAttr, sw),
       cornerRadius: parseFloat(rect.getAttribute('rx') ?? '0'),
     });
   }
@@ -109,29 +121,31 @@ function parseSvgShapes(svg: string): ParsedSvgShape[] {
     const cy = parseFloat(el.getAttribute('cy') ?? '0');
     const rx = parseFloat(el.getAttribute('rx') ?? el.getAttribute('r') ?? '50');
     const ry = parseFloat(el.getAttribute('ry') ?? el.getAttribute('r') ?? '50');
+    const fillAttr = el.getAttribute('fill');
+    const strokeAttr = el.getAttribute('stroke');
+    const sw = parseFloat(el.getAttribute('stroke-width') ?? '0');
     shapes.push({
       type: 'ellipse',
       x: cx - rx,
       y: cy - ry,
       width: rx * 2,
       height: ry * 2,
-      fill: el.getAttribute('fill') ?? '#D9D9D9',
-      stroke: el.getAttribute('stroke'),
-      strokeWidth: parseFloat(el.getAttribute('stroke-width') ?? '0'),
+      fills: svgColorToFill(fillAttr, '#D9D9D9'),
+      strokes: svgStrokeToStrokes(strokeAttr, sw),
     });
   }
 
   const texts = doc.querySelectorAll('text');
   for (const text of texts) {
+    const fillAttr = text.getAttribute('fill');
     shapes.push({
       type: 'text',
       x: parseFloat(text.getAttribute('x') ?? '0'),
       y: parseFloat(text.getAttribute('y') ?? '0'),
       width: 200,
       height: 24,
-      fill: text.getAttribute('fill') ?? '#000000',
-      stroke: null,
-      strokeWidth: 0,
+      fills: svgColorToFill(fillAttr, '#000000'),
+      strokes: [],
       content: text.textContent ?? '',
     });
   }
@@ -149,9 +163,8 @@ export function importSvgShapes(ydoc: Y.Doc, svg: string): string[] {
       y: shape.y,
       width: shape.width,
       height: shape.height,
-      fill: shape.fill,
-      stroke: shape.stroke,
-      strokeWidth: shape.strokeWidth,
+      fills: shape.fills,
+      ...(shape.type !== 'text' ? { strokes: shape.strokes } : {}),
       ...(shape.content !== undefined ? { content: shape.content } : {}),
       ...(shape.cornerRadius !== undefined ? { cornerRadius: shape.cornerRadius } : {}),
     });
@@ -231,6 +244,21 @@ export function handlePaste(ydoc: Y.Doc, html: string | null, text: string | nul
   }
 }
 
+function primaryFillColor(fills: Fill[]): string {
+  const visible = fills.find((f) => f.visible);
+  return visible?.color ?? 'none';
+}
+
+function primaryStrokeColor(strokes: Stroke[]): string {
+  const visible = strokes.find((s) => s.visible);
+  return visible?.color ?? 'none';
+}
+
+function primaryStrokeWidth(strokes: Stroke[]): number {
+  const visible = strokes.find((s) => s.visible);
+  return visible?.width ?? 0;
+}
+
 export function shapesToSvg(
   shapes: Array<{
     type: string;
@@ -238,9 +266,8 @@ export function shapesToSvg(
     y: number;
     width: number;
     height: number;
-    fill?: string | null;
-    stroke?: string | null;
-    strokeWidth?: number;
+    fills?: Fill[];
+    strokes?: Stroke[];
     cornerRadius?: number;
     content?: string;
     x1?: number;
@@ -269,9 +296,9 @@ export function shapesToSvg(
   for (const s of shapes) {
     const rx = s.x - minX;
     const ry = s.y - minY;
-    const fill = s.fill ?? 'none';
-    const stroke = s.stroke ?? 'none';
-    const sw = s.strokeWidth ?? 0;
+    const fill = primaryFillColor(s.fills ?? []);
+    const stroke = primaryStrokeColor(s.strokes ?? []);
+    const sw = primaryStrokeWidth(s.strokes ?? []);
 
     switch (s.type) {
       case 'rectangle':

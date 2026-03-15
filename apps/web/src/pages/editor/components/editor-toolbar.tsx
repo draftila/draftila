@@ -51,7 +51,7 @@ function ToolButton({ tool, icon, label, shortcut }: ToolButtonProps) {
 
 export function EditorToolbar() {
   return (
-    <div className="bg-background flex h-10 items-center gap-0.5 rounded-lg border px-1.5 shadow-sm">
+    <div className="bg-background flex items-center gap-1 rounded-lg border p-1 shadow-sm">
       <ToolButton
         tool="move"
         icon={<MousePointer2 className="h-4 w-4" />}
@@ -59,7 +59,7 @@ export function EditorToolbar() {
         shortcut="V"
       />
       <ToolButton tool="hand" icon={<Hand className="h-4 w-4" />} label="Hand" shortcut="H" />
-      <Separator orientation="vertical" className="mx-1 h-5" />
+      <Separator orientation="vertical" className="mx-1 h-full" />
       <ToolButton tool="frame" icon={<Frame className="h-4 w-4" />} label="Frame" shortcut="F" />
       <ToolButton
         tool="rectangle"
@@ -80,7 +80,7 @@ export function EditorToolbar() {
         shortcut="Y"
       />
       <ToolButton tool="star" icon={<Star className="h-4 w-4" />} label="Star" shortcut="S" />
-      <Separator orientation="vertical" className="mx-1 h-5" />
+      <Separator orientation="vertical" className="mx-1 h-full" />
       <ToolButton tool="line" icon={<Minus className="h-4 w-4" />} label="Line" shortcut="L" />
       <ToolButton
         tool="arrow"
@@ -88,7 +88,7 @@ export function EditorToolbar() {
         label="Arrow"
         shortcut="A"
       />
-      <Separator orientation="vertical" className="mx-1 h-5" />
+      <Separator orientation="vertical" className="mx-1 h-full" />
       <ToolButton tool="text" icon={<Type className="h-4 w-4" />} label="Text" shortcut="T" />
       <ToolButton tool="pen" icon={<Pen className="h-4 w-4" />} label="Pen" shortcut="P" />
     </div>

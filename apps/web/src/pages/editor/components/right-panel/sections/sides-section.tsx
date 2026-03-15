@@ -11,7 +11,8 @@ export function SidesSection({ shape, onUpdate }: PropertySectionProps) {
       <NumberInput
         label="N"
         value={polygon.sides}
-        onChange={(v) => onUpdate({ sides: Math.max(3, Math.round(v)) } as Partial<Shape>)}
+        onChange={(v) => onUpdate({ sides: Math.round(v) } as Partial<Shape>)}
+        min={3}
       />
     </section>
   );

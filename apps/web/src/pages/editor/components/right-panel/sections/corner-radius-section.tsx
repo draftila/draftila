@@ -11,7 +11,8 @@ export function CornerRadiusSection({ shape, onUpdate }: PropertySectionProps) {
       <NumberInput
         label="R"
         value={rect.cornerRadius}
-        onChange={(v) => onUpdate({ cornerRadius: Math.max(0, v) } as Partial<Shape>)}
+        onChange={(v) => onUpdate({ cornerRadius: v } as Partial<Shape>)}
+        min={0}
       />
     </section>
   );

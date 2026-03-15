@@ -13,22 +13,36 @@ function generateId(): string {
   return id;
 }
 
+const ARRAY_OF_OBJECTS_KEYS = new Set(['points', 'fills', 'strokes', 'shadows', 'blurs']);
+
+function valueToYjs(key: string, value: unknown): unknown {
+  if (ARRAY_OF_OBJECTS_KEYS.has(key) && Array.isArray(value)) {
+    const yArray = new Y.Array();
+    for (const item of value) {
+      const yMap = new Y.Map();
+      for (const [k, v] of Object.entries(item as Record<string, unknown>)) {
+        yMap.set(k, v);
+      }
+      yArray.push([yMap]);
+    }
+    return yArray;
+  }
+  return value;
+}
+
 const SHAPE_DEFAULTS: Record<ShapeType, Omit<Record<string, unknown>, 'id' | 'type'>> = {
   rectangle: {
-    fill: '#D9D9D9',
-    stroke: null,
-    strokeWidth: 0,
+    fills: [{ color: '#D9D9D9', opacity: 1, visible: true }],
+    strokes: [],
     cornerRadius: 0,
   },
   ellipse: {
-    fill: '#D9D9D9',
-    stroke: null,
-    strokeWidth: 0,
+    fills: [{ color: '#D9D9D9', opacity: 1, visible: true }],
+    strokes: [],
   },
   frame: {
-    fill: '#FFFFFF',
-    stroke: null,
-    strokeWidth: 0,
+    fills: [{ color: '#FFFFFF', opacity: 1, visible: true }],
+    strokes: [],
     clip: true,
   },
   text: {
@@ -43,42 +57,37 @@ const SHAPE_DEFAULTS: Record<ShapeType, Omit<Record<string, unknown>, 'id' | 'ty
     letterSpacing: 0,
     textDecoration: 'none',
     textTransform: 'none',
-    fill: '#000000',
+    fills: [{ color: '#000000', opacity: 1, visible: true }],
   },
   path: {
     points: [],
-    fill: '#000000',
-    stroke: null,
-    strokeWidth: 0,
+    fills: [{ color: '#000000', opacity: 1, visible: true }],
+    strokes: [],
   },
   line: {
     x1: 0,
     y1: 0,
     x2: 100,
     y2: 0,
-    stroke: '#000000',
-    strokeWidth: 2,
+    strokes: [{ color: '#000000', width: 2, opacity: 1, visible: true }],
   },
   polygon: {
     sides: 6,
-    fill: '#D9D9D9',
-    stroke: null,
-    strokeWidth: 0,
+    fills: [{ color: '#D9D9D9', opacity: 1, visible: true }],
+    strokes: [],
   },
   star: {
     points: 5,
     innerRadius: 0.38,
-    fill: '#D9D9D9',
-    stroke: null,
-    strokeWidth: 0,
+    fills: [{ color: '#D9D9D9', opacity: 1, visible: true }],
+    strokes: [],
   },
   arrow: {
     x1: 0,
     y1: 0,
     x2: 100,
     y2: 0,
-    stroke: '#000000',
-    strokeWidth: 2,
+    strokes: [{ color: '#000000', width: 2, opacity: 1, visible: true }],
     startArrowhead: false,
     endArrowhead: true,
   },
@@ -135,19 +144,7 @@ export function addShape(ydoc: Y.Doc, type: ShapeType, props: Partial<Shape> = {
     };
 
     for (const [key, value] of Object.entries(merged)) {
-      if (key === 'points' && Array.isArray(value)) {
-        const yPoints = new Y.Array();
-        for (const point of value) {
-          const yPoint = new Y.Map();
-          for (const [pk, pv] of Object.entries(point as Record<string, unknown>)) {
-            yPoint.set(pk, pv);
-          }
-          yPoints.push([yPoint]);
-        }
-        shapeData.set(key, yPoints);
-      } else {
-        shapeData.set(key, value);
-      }
+      shapeData.set(key, valueToYjs(key, value));
     }
 
     shapes.set(id, shapeData);
@@ -165,19 +162,7 @@ export function updateShape(ydoc: Y.Doc, id: string, props: Partial<Shape>) {
   ydoc.transact(() => {
     for (const [key, value] of Object.entries(props)) {
       if (key === 'id' || key === 'type') continue;
-      if (key === 'points' && Array.isArray(value)) {
-        const yPoints = new Y.Array();
-        for (const point of value) {
-          const yPoint = new Y.Map();
-          for (const [pk, pv] of Object.entries(point as Record<string, unknown>)) {
-            yPoint.set(pk, pv);
-          }
-          yPoints.push([yPoint]);
-        }
-        shapeData.set(key, yPoints);
-      } else {
-        shapeData.set(key, value);
-      }
+      shapeData.set(key, valueToYjs(key, value));
     }
   });
 }

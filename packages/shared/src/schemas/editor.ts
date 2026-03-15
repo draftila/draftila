@@ -46,10 +46,16 @@ export const pressurePointSchema = z.object({
 export const colorSchema = z.string().regex(/^#[0-9a-fA-F]{6,8}$/);
 
 export const fillSchema = z.object({
-  type: z.enum(['solid', 'linear-gradient', 'radial-gradient']),
-  color: colorSchema.optional(),
-  stops: z.array(z.object({ offset: z.number(), color: colorSchema })).optional(),
-  angle: z.number().optional(),
+  color: colorSchema,
+  opacity: z.number().min(0).max(1).default(1),
+  visible: z.boolean().default(true),
+});
+
+export const strokeSchema = z.object({
+  color: colorSchema,
+  width: z.number().min(0).default(1),
+  opacity: z.number().min(0).max(1).default(1),
+  visible: z.boolean().default(true),
 });
 
 export const shadowSchema = z.object({
@@ -84,9 +90,8 @@ export const baseShapeSchema = z.object({
 
 export const rectangleShapeSchema = baseShapeSchema.extend({
   type: z.literal('rectangle'),
-  fill: colorSchema.nullable().default('#D9D9D9'),
-  stroke: colorSchema.nullable().default(null),
-  strokeWidth: z.number().min(0).default(0),
+  fills: z.array(fillSchema).default([{ color: '#D9D9D9', opacity: 1, visible: true }]),
+  strokes: z.array(strokeSchema).default([]),
   cornerRadius: z.number().min(0).default(0),
   shadows: z.array(shadowSchema).default([]),
   blurs: z.array(blurSchema).default([]),
@@ -94,17 +99,15 @@ export const rectangleShapeSchema = baseShapeSchema.extend({
 
 export const ellipseShapeSchema = baseShapeSchema.extend({
   type: z.literal('ellipse'),
-  fill: colorSchema.nullable().default('#D9D9D9'),
-  stroke: colorSchema.nullable().default(null),
-  strokeWidth: z.number().min(0).default(0),
+  fills: z.array(fillSchema).default([{ color: '#D9D9D9', opacity: 1, visible: true }]),
+  strokes: z.array(strokeSchema).default([]),
   shadows: z.array(shadowSchema).default([]),
 });
 
 export const frameShapeSchema = baseShapeSchema.extend({
   type: z.literal('frame'),
-  fill: colorSchema.nullable().default('#FFFFFF'),
-  stroke: colorSchema.nullable().default(null),
-  strokeWidth: z.number().min(0).default(0),
+  fills: z.array(fillSchema).default([{ color: '#FFFFFF', opacity: 1, visible: true }]),
+  strokes: z.array(strokeSchema).default([]),
   clip: z.boolean().default(true),
 });
 
@@ -121,15 +124,14 @@ export const textShapeSchema = baseShapeSchema.extend({
   letterSpacing: z.number().default(0),
   textDecoration: z.enum(['none', 'underline', 'strikethrough']).default('none'),
   textTransform: z.enum(['none', 'uppercase', 'lowercase', 'capitalize']).default('none'),
-  fill: colorSchema.nullable().default('#000000'),
+  fills: z.array(fillSchema).default([{ color: '#000000', opacity: 1, visible: true }]),
 });
 
 export const pathShapeSchema = baseShapeSchema.extend({
   type: z.literal('path'),
   points: z.array(pressurePointSchema).default([]),
-  fill: colorSchema.nullable().default('#000000'),
-  stroke: colorSchema.nullable().default(null),
-  strokeWidth: z.number().min(0).default(0),
+  fills: z.array(fillSchema).default([{ color: '#000000', opacity: 1, visible: true }]),
+  strokes: z.array(strokeSchema).default([]),
 });
 
 export const lineShapeSchema = baseShapeSchema.extend({
@@ -138,25 +140,24 @@ export const lineShapeSchema = baseShapeSchema.extend({
   y1: z.number().default(0),
   x2: z.number().default(100),
   y2: z.number().default(0),
-  stroke: colorSchema.nullable().default('#000000'),
-  strokeWidth: z.number().min(0).default(2),
+  strokes: z
+    .array(strokeSchema)
+    .default([{ color: '#000000', width: 2, opacity: 1, visible: true }]),
 });
 
 export const polygonShapeSchema = baseShapeSchema.extend({
   type: z.literal('polygon'),
   sides: z.number().min(3).default(6),
-  fill: colorSchema.nullable().default('#D9D9D9'),
-  stroke: colorSchema.nullable().default(null),
-  strokeWidth: z.number().min(0).default(0),
+  fills: z.array(fillSchema).default([{ color: '#D9D9D9', opacity: 1, visible: true }]),
+  strokes: z.array(strokeSchema).default([]),
 });
 
 export const starShapeSchema = baseShapeSchema.extend({
   type: z.literal('star'),
   points: z.number().min(3).default(5),
   innerRadius: z.number().min(0).max(1).default(0.38),
-  fill: colorSchema.nullable().default('#D9D9D9'),
-  stroke: colorSchema.nullable().default(null),
-  strokeWidth: z.number().min(0).default(0),
+  fills: z.array(fillSchema).default([{ color: '#D9D9D9', opacity: 1, visible: true }]),
+  strokes: z.array(strokeSchema).default([]),
 });
 
 export const arrowShapeSchema = baseShapeSchema.extend({
@@ -165,8 +166,9 @@ export const arrowShapeSchema = baseShapeSchema.extend({
   y1: z.number().default(0),
   x2: z.number().default(100),
   y2: z.number().default(0),
-  stroke: colorSchema.nullable().default('#000000'),
-  strokeWidth: z.number().min(0).default(2),
+  strokes: z
+    .array(strokeSchema)
+    .default([{ color: '#000000', width: 2, opacity: 1, visible: true }]),
   startArrowhead: z.boolean().default(false),
   endArrowhead: z.boolean().default(true),
 });

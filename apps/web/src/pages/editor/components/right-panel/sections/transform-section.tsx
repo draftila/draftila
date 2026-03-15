@@ -38,10 +38,10 @@ export function TransformSection({ shape, onUpdate }: PropertySectionProps) {
         <NumberInput
           label="%"
           value={Math.round(shape.opacity * 100)}
-          onChange={(v) =>
-            onUpdate({ opacity: Math.min(1, Math.max(0, v / 100)) } as Partial<Shape>)
-          }
+          onChange={(v) => onUpdate({ opacity: v / 100 } as Partial<Shape>)}
           step={10}
+          min={0}
+          max={100}
         />
       </div>
     </section>

@@ -119,7 +119,7 @@ function computeStyle(shape: TextShape, camera: Camera): React.CSSProperties {
     margin: 0,
     whiteSpace: 'pre-wrap',
     wordBreak: 'break-word',
-    caretColor: shape.fill ?? '#000000',
+    caretColor: shape.fills.find((f) => f.visible)?.color ?? '#000000',
     zIndex: 50,
     boxSizing: 'border-box',
   };

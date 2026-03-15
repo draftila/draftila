@@ -47,6 +47,9 @@ export {
   type RenderTransform,
   type TextRenderOptions,
   type Renderer,
+  simpleStyle,
+  solidFill,
+  solidStroke,
 } from './renderer/types';
 
 export { Canvas2DRenderer } from './renderer/canvas2d-renderer';

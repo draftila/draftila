@@ -1,5 +1,6 @@
-import type { Shape } from '@draftila/shared';
+import type { Fill, Shape, Stroke } from '@draftila/shared';
 import type { Renderer, RenderStyle, RenderTransform } from './renderer/types';
+import { simpleStyle } from './renderer/types';
 import getStroke from 'perfect-freehand';
 
 function getTransform(shape: Shape): RenderTransform {
@@ -12,13 +13,10 @@ function getTransform(shape: Shape): RenderTransform {
   };
 }
 
-function getStyle(
-  shape: Shape & { fill?: string | null; stroke?: string | null; strokeWidth?: number },
-): RenderStyle {
+function getStyle(shape: Shape & { fills?: Fill[]; strokes?: Stroke[] }): RenderStyle {
   return {
-    fill: shape.fill ?? null,
-    stroke: shape.stroke ?? null,
-    strokeWidth: shape.strokeWidth ?? 0,
+    fills: shape.fills ?? [],
+    strokes: shape.strokes ?? [],
     opacity: shape.opacity,
   };
 }
@@ -91,6 +89,11 @@ export function computeArrowHead(
   };
 }
 
+function primaryStrokeWidth(strokes: Stroke[]): number {
+  const visible = strokes.find((s) => s.visible);
+  return visible?.width ?? 0;
+}
+
 export function renderShape(renderer: Renderer, shape: Shape) {
   if (!shape.visible) return;
 
@@ -120,7 +123,7 @@ export function renderShape(renderer: Renderer, shape: Shape) {
         letterSpacing: shape.letterSpacing,
         textDecoration: shape.textDecoration,
         textTransform: shape.textTransform,
-        fill: shape.fill,
+        fills: shape.fills,
       });
       break;
     }
@@ -129,8 +132,9 @@ export function renderShape(renderer: Renderer, shape: Shape) {
       const inputPoints = shape.points.map(
         (p) => [p.x, p.y, p.pressure] as [number, number, number],
       );
+      const strokeWidth = primaryStrokeWidth(shape.strokes);
       const strokePoints = getStroke(inputPoints, {
-        size: shape.strokeWidth > 0 ? shape.strokeWidth : 4,
+        size: strokeWidth > 0 ? strokeWidth : 4,
         thinning: 0.5,
         smoothing: 0.5,
         streamline: 0.5,
@@ -139,9 +143,8 @@ export function renderShape(renderer: Renderer, shape: Shape) {
       const outlinePoints = getSvgPathFromStroke(strokePoints);
       if (outlinePoints.length > 0) {
         renderer.drawPath(outlinePoints, {
-          fill: shape.fill,
-          stroke: null,
-          strokeWidth: 0,
+          fills: shape.fills,
+          strokes: [],
           opacity: shape.opacity,
         });
       }
@@ -155,9 +158,8 @@ export function renderShape(renderer: Renderer, shape: Shape) {
       renderer.drawPath(
         linePoints,
         {
-          fill: null,
-          stroke: shape.stroke,
-          strokeWidth: shape.strokeWidth,
+          fills: [],
+          strokes: shape.strokes,
           opacity: shape.opacity,
         },
         false,
@@ -197,20 +199,20 @@ export function renderShape(renderer: Renderer, shape: Shape) {
         [shape.x2, shape.y2],
       ];
       const arrowStyle: RenderStyle = {
-        fill: null,
-        stroke: shape.stroke,
-        strokeWidth: shape.strokeWidth,
+        fills: [],
+        strokes: shape.strokes,
         opacity: shape.opacity,
       };
       renderer.drawPath(shaftPoints, arrowStyle, false);
 
+      const sw = primaryStrokeWidth(shape.strokes);
       if (shape.endArrowhead) {
-        const head = computeArrowHead(shape.x2, shape.y2, shape.x1, shape.y1, shape.strokeWidth);
+        const head = computeArrowHead(shape.x2, shape.y2, shape.x1, shape.y1, sw);
         renderer.drawPath([head.left, head.tip, head.right], arrowStyle, false);
       }
 
       if (shape.startArrowhead) {
-        const head = computeArrowHead(shape.x1, shape.y1, shape.x2, shape.y2, shape.strokeWidth);
+        const head = computeArrowHead(shape.x1, shape.y1, shape.x2, shape.y2, sw);
         renderer.drawPath([head.left, head.tip, head.right], arrowStyle, false);
       }
       break;
@@ -218,12 +220,7 @@ export function renderShape(renderer: Renderer, shape: Shape) {
     case 'image': {
       renderer.drawRect(
         getTransform(shape),
-        {
-          fill: '#E0E0E0',
-          stroke: '#BDBDBD',
-          strokeWidth: 1,
-          opacity: shape.opacity,
-        },
+        simpleStyle({ fill: '#E0E0E0', stroke: '#BDBDBD', strokeWidth: 1, opacity: shape.opacity }),
         0,
       );
       break;
@@ -242,7 +239,7 @@ export function renderSelectionForShape(renderer: Renderer, shape: Shape) {
         [s.x1, s.y1],
         [s.x2, s.y2],
       ],
-      { fill: null, stroke: '#0D99FF', strokeWidth: 2, opacity: 1 },
+      simpleStyle({ fill: null, stroke: '#0D99FF', strokeWidth: 2, opacity: 1 }),
       false,
     );
     return;

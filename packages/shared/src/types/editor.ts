@@ -18,6 +18,7 @@ import type {
   groupShapeSchema,
   shapeSchema,
   fillSchema,
+  strokeSchema,
   shadowSchema,
   blurSchema,
 } from '../schemas/editor';
@@ -40,6 +41,7 @@ export type ImageShape = z.infer<typeof imageShapeSchema>;
 export type GroupShape = z.infer<typeof groupShapeSchema>;
 export type Shape = z.infer<typeof shapeSchema>;
 export type Fill = z.infer<typeof fillSchema>;
+export type Stroke = z.infer<typeof strokeSchema>;
 export type Shadow = z.infer<typeof shadowSchema>;
 export type Blur = z.infer<typeof blurSchema>;
 

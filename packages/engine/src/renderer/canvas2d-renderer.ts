@@ -48,6 +48,15 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number)
   return result;
 }
 
+function colorWithOpacity(hex: string, opacity: number): string {
+  if (opacity >= 1) return hex;
+  if (opacity <= 0) return 'transparent';
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+}
+
 export class Canvas2DRenderer implements Renderer {
   private ctx: CanvasRenderingContext2D;
   private canvas: HTMLCanvasElement;
@@ -170,13 +179,15 @@ export class Canvas2DRenderer implements Renderer {
       path.closePath();
     }
 
-    if (style.fill) {
-      ctx.fillStyle = style.fill;
+    for (const fill of style.fills) {
+      if (!fill.visible) continue;
+      ctx.fillStyle = colorWithOpacity(fill.color, fill.opacity);
       ctx.fill(path);
     }
-    if (style.stroke && style.strokeWidth > 0) {
-      ctx.strokeStyle = style.stroke;
-      ctx.lineWidth = style.strokeWidth;
+    for (const stroke of style.strokes) {
+      if (!stroke.visible || stroke.width <= 0) continue;
+      ctx.strokeStyle = colorWithOpacity(stroke.color, stroke.opacity);
+      ctx.lineWidth = stroke.width;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.stroke(path);
@@ -196,8 +207,11 @@ export class Canvas2DRenderer implements Renderer {
     ctx.textAlign = options.textAlign;
     ctx.textBaseline = 'top';
 
-    if (options.fill) {
-      ctx.fillStyle = options.fill;
+    const visibleFill = options.fills.find((f) => f.visible);
+    const fillColor = visibleFill ? colorWithOpacity(visibleFill.color, visibleFill.opacity) : null;
+
+    if (fillColor) {
+      ctx.fillStyle = fillColor;
     }
 
     const content = applyTextTransform(options.content, options.textTransform);
@@ -225,7 +239,7 @@ export class Canvas2DRenderer implements Renderer {
       const line = lines[i];
       if (line === undefined) continue;
       const y = offsetY + i * lineHeight;
-      if (options.fill) {
+      if (fillColor) {
         ctx.fillText(line, textX, y);
       }
 
@@ -239,7 +253,7 @@ export class Canvas2DRenderer implements Renderer {
             ? y + options.fontSize * 0.55
             : y + options.fontSize * 0.95;
         ctx.beginPath();
-        ctx.strokeStyle = options.fill ?? '#000000';
+        ctx.strokeStyle = fillColor ?? '#000000';
         ctx.lineWidth = Math.max(1, options.fontSize / 16);
         ctx.moveTo(lineStartX, decoY);
         ctx.lineTo(lineStartX + metrics.width, decoY);
@@ -364,13 +378,15 @@ export class Canvas2DRenderer implements Renderer {
 
   private applyFillStroke(style: RenderStyle) {
     const { ctx } = this;
-    if (style.fill) {
-      ctx.fillStyle = style.fill;
+    for (const fill of style.fills) {
+      if (!fill.visible) continue;
+      ctx.fillStyle = colorWithOpacity(fill.color, fill.opacity);
       ctx.fill();
     }
-    if (style.stroke && style.strokeWidth > 0) {
-      ctx.strokeStyle = style.stroke;
-      ctx.lineWidth = style.strokeWidth;
+    for (const stroke of style.strokes) {
+      if (!stroke.visible || stroke.width <= 0) continue;
+      ctx.strokeStyle = colorWithOpacity(stroke.color, stroke.opacity);
+      ctx.lineWidth = stroke.width;
       ctx.stroke();
     }
   }

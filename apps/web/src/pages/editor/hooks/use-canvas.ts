@@ -8,6 +8,7 @@ import {
   renderSelectionForShape,
   computeArrowHead,
 } from '@draftila/engine/shape-renderer';
+import { simpleStyle } from '@draftila/engine/renderer';
 import {
   getMoveTool,
   getRectangleTool,
@@ -185,24 +186,47 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
       renderer.drawMarquee(x, y, width, height);
     }
 
-    const previewStyle = { stroke: '#0D99FF', strokeWidth: 1 / camera.zoom, opacity: 0.7 };
+    const previewStroke = 1 / camera.zoom;
 
     const rectPreview = getRectangleTool().previewRect;
     if (activeTool === 'rectangle' && rectPreview) {
-      renderer.drawRect({ ...rectPreview, rotation: 0 }, { fill: '#D9D9D9', ...previewStyle }, 0);
+      renderer.drawRect(
+        { ...rectPreview, rotation: 0 },
+        simpleStyle({
+          fill: '#D9D9D9',
+          stroke: '#0D99FF',
+          strokeWidth: previewStroke,
+          opacity: 0.7,
+        }),
+        0,
+      );
     }
 
     const ellipsePreview = getEllipseTool().previewRect;
     if (activeTool === 'ellipse' && ellipsePreview) {
       renderer.drawEllipse(
         { ...ellipsePreview, rotation: 0 },
-        { fill: '#D9D9D9', ...previewStyle },
+        simpleStyle({
+          fill: '#D9D9D9',
+          stroke: '#0D99FF',
+          strokeWidth: previewStroke,
+          opacity: 0.7,
+        }),
       );
     }
 
     const framePreview = getFrameTool().previewRect;
     if (activeTool === 'frame' && framePreview) {
-      renderer.drawRect({ ...framePreview, rotation: 0 }, { fill: '#FFFFFF', ...previewStyle }, 0);
+      renderer.drawRect(
+        { ...framePreview, rotation: 0 },
+        simpleStyle({
+          fill: '#FFFFFF',
+          stroke: '#0D99FF',
+          strokeWidth: previewStroke,
+          opacity: 0.7,
+        }),
+        0,
+      );
     }
 
     const linePreview = getLineTool().previewLine;
@@ -212,20 +236,24 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
           [linePreview.x1, linePreview.y1],
           [linePreview.x2, linePreview.y2],
         ],
-        { fill: null, stroke: '#000000', strokeWidth: 2, opacity: 0.7 },
+        simpleStyle({ stroke: '#000000', strokeWidth: 2, opacity: 0.7 }),
         false,
       );
     }
 
     const arrowPreview = getArrowTool().previewLine;
     if (activeTool === 'arrow' && arrowPreview) {
-      const arrowPreviewStyle = { fill: null, stroke: '#000000', strokeWidth: 2, opacity: 0.7 };
+      const arrowPreviewRenderStyle = simpleStyle({
+        stroke: '#000000',
+        strokeWidth: 2,
+        opacity: 0.7,
+      });
       renderer.drawPath(
         [
           [arrowPreview.x1, arrowPreview.y1],
           [arrowPreview.x2, arrowPreview.y2],
         ],
-        arrowPreviewStyle,
+        arrowPreviewRenderStyle,
         false,
       );
       const head = computeArrowHead(
@@ -235,7 +263,7 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
         arrowPreview.y1,
         2,
       );
-      renderer.drawPath([head.left, head.tip, head.right], arrowPreviewStyle, false);
+      renderer.drawPath([head.left, head.tip, head.right], arrowPreviewRenderStyle, false);
     }
 
     const polygonPreview = getPolygonTool().previewRect;
@@ -249,7 +277,15 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
         polygonPreview.height / 2,
         6,
       );
-      renderer.drawPath(pts, { fill: '#D9D9D9', ...previewStyle });
+      renderer.drawPath(
+        pts,
+        simpleStyle({
+          fill: '#D9D9D9',
+          stroke: '#0D99FF',
+          strokeWidth: previewStroke,
+          opacity: 0.7,
+        }),
+      );
     }
 
     const starPreview = getStarTool().previewRect;
@@ -264,14 +300,22 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
         5,
         0.38,
       );
-      renderer.drawPath(pts, { fill: '#D9D9D9', ...previewStyle });
+      renderer.drawPath(
+        pts,
+        simpleStyle({
+          fill: '#D9D9D9',
+          stroke: '#0D99FF',
+          strokeWidth: previewStroke,
+          opacity: 0.7,
+        }),
+      );
     }
 
     const textPreview = getTextTool().previewRect;
     if (activeTool === 'text' && textPreview) {
       renderer.drawRect(
         { ...textPreview, rotation: 0 },
-        { fill: null, stroke: '#0D99FF', strokeWidth: 1 / camera.zoom, opacity: 0.5 },
+        simpleStyle({ stroke: '#0D99FF', strokeWidth: previewStroke, opacity: 0.5 }),
         0,
       );
     }
@@ -290,12 +334,7 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
       });
       if (strokePoints.length > 0) {
         const outlinePoints = strokePoints.map((p) => [p[0]!, p[1]!] as [number, number]);
-        renderer.drawPath(outlinePoints, {
-          fill: '#000000',
-          stroke: null,
-          strokeWidth: 0,
-          opacity: 0.7,
-        });
+        renderer.drawPath(outlinePoints, simpleStyle({ fill: '#000000', opacity: 0.7 }));
       }
     }
 

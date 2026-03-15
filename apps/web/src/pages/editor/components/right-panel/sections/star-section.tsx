@@ -12,17 +12,16 @@ export function StarSection({ shape, onUpdate }: PropertySectionProps) {
         <NumberInput
           label="Pt"
           value={star.points}
-          onChange={(v) => onUpdate({ points: Math.max(3, Math.round(v)) } as Partial<Shape>)}
+          onChange={(v) => onUpdate({ points: Math.round(v) } as Partial<Shape>)}
+          min={3}
         />
         <NumberInput
           label="In"
           value={star.innerRadius}
-          onChange={(v) =>
-            onUpdate({
-              innerRadius: Math.min(1, Math.max(0.01, v)),
-            } as Partial<Shape>)
-          }
+          onChange={(v) => onUpdate({ innerRadius: v } as Partial<Shape>)}
           step={0.05}
+          min={0.01}
+          max={1}
         />
       </div>
     </section>
