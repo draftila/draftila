@@ -8,7 +8,7 @@ const PREVIEW_WIDTH = 216;
 const PREVIEW_PADDING = 8;
 const CHECKERBOARD = 'repeating-conic-gradient(#808080 0% 25%, transparent 0% 50%) 0 0 / 8px 8px';
 
-export function PreviewSection({ shape, shapeScope }: PropertySectionProps) {
+export function PreviewSection({ shapeScope }: PropertySectionProps) {
   const [expanded, setExpanded] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<Canvas2DRenderer | null>(null);
@@ -23,7 +23,15 @@ export function PreviewSection({ shape, shapeScope }: PropertySectionProps) {
     }
     const renderer = rendererRef.current;
 
-    const previewShapes = shapeScope.length > 0 ? shapeScope : [shape];
+    const previewShapes = shapeScope;
+
+    if (previewShapes.length === 0) {
+      const emptyHeight = 120;
+      renderer.resize(PREVIEW_WIDTH, emptyHeight, window.devicePixelRatio);
+      renderer.clear();
+      canvas.style.height = `${emptyHeight}px`;
+      return;
+    }
 
     let minX = Infinity;
     let minY = Infinity;
@@ -58,7 +66,7 @@ export function PreviewSection({ shape, shapeScope }: PropertySectionProps) {
     renderer.restore();
 
     canvas.style.height = `${previewHeight}px`;
-  }, [expanded, shape, shapeScope]);
+  }, [expanded, shapeScope]);
 
   return (
     <section>

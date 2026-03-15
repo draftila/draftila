@@ -23,6 +23,7 @@ interface ExportConfig {
 
 export function ExportSection({ shape, shapeScope }: PropertySectionProps) {
   const [exports, setExports] = useState<ExportConfig[]>([]);
+  const hasExportableShapes = shapeScope.length > 0;
 
   const addExport = useCallback(() => {
     setExports((prev) => [...prev, { scale: '1x', format: 'PNG' }]);
@@ -40,7 +41,11 @@ export function ExportSection({ shape, shapeScope }: PropertySectionProps) {
     async (config: ExportConfig) => {
       const filename = shape.name || shape.type;
       const scale = SCALE_VALUES[config.scale];
-      const exportShapes = shapeScope.length > 0 ? shapeScope : [shape];
+      const exportShapes = shapeScope;
+
+      if (exportShapes.length === 0) {
+        return;
+      }
 
       if (config.format === 'PNG' || config.format === 'JPG') {
         await exportAndDownloadPng(exportShapes, `${filename}.png`, scale);
@@ -68,14 +73,16 @@ export function ExportSection({ shape, shapeScope }: PropertySectionProps) {
       >
         <button
           onClick={addExport}
-          className="text-muted-foreground hover:text-foreground text-[11px] font-medium transition-colors"
+          disabled={!hasExportableShapes}
+          className="text-muted-foreground hover:text-foreground text-[11px] font-medium transition-colors disabled:pointer-events-none disabled:opacity-50"
         >
           Export
         </button>
         <div className="flex items-center gap-0.5">
           <button
             onClick={addExport}
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            disabled={!hasExportableShapes}
+            className="text-muted-foreground hover:text-foreground transition-colors disabled:pointer-events-none disabled:opacity-50"
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
@@ -98,7 +105,8 @@ export function ExportSection({ shape, shapeScope }: PropertySectionProps) {
       {exports.length > 0 && (
         <button
           onClick={handleExportAll}
-          className="bg-muted hover:bg-muted/80 mt-2 flex w-full items-center justify-center gap-1.5 rounded-md py-1.5 text-[11px] font-medium transition-colors"
+          disabled={!hasExportableShapes}
+          className="bg-muted hover:bg-muted/80 mt-2 flex w-full items-center justify-center gap-1.5 rounded-md py-1.5 text-[11px] font-medium transition-colors disabled:pointer-events-none disabled:opacity-50"
         >
           <Download className="h-3 w-3" />
           Export {shape.name || shape.type}
