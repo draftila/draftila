@@ -500,6 +500,80 @@ export class Canvas2DRenderer implements Renderer {
     ctx.restore();
   }
 
+  drawSizeLabel(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    rotation: number,
+    zoom: number,
+  ) {
+    const { ctx } = this;
+    const roundedW = Math.round(width);
+    const roundedH = Math.round(height);
+    const label = `${roundedW} \u00D7 ${roundedH}`;
+
+    const fontSize = 11 / zoom;
+    const paddingX = 6 / zoom;
+    const paddingY = 3 / zoom;
+    const offsetY = 8 / zoom;
+    const borderRadius = 3 / zoom;
+
+    ctx.save();
+    ctx.font = `${fontSize}px Inter, system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const textMetrics = ctx.measureText(label);
+    const bgW = textMetrics.width + paddingX * 2;
+    const bgH = fontSize + paddingY * 2;
+
+    let labelX: number;
+    let labelY: number;
+
+    if (rotation !== 0) {
+      const cx = x + width / 2;
+      const cy = y + height / 2;
+      const rad = (rotation * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      const hw = width / 2;
+      const hh = height / 2;
+      const corners = [
+        { rx: -hw, ry: -hh },
+        { rx: hw, ry: -hh },
+        { rx: hw, ry: hh },
+        { rx: -hw, ry: hh },
+      ];
+      let maxY = -Infinity;
+      let bottomCenterX = cx;
+      for (const corner of corners) {
+        const worldY = cy + corner.rx * sin + corner.ry * cos;
+        if (worldY > maxY) {
+          maxY = worldY;
+        }
+      }
+      const bottomMidRx = 0;
+      const bottomMidRy = hh;
+      bottomCenterX = cx + bottomMidRx * cos - bottomMidRy * sin;
+      labelX = bottomCenterX;
+      labelY = maxY + offsetY + bgH / 2;
+    } else {
+      labelX = x + width / 2;
+      labelY = y + height + offsetY + bgH / 2;
+    }
+
+    ctx.beginPath();
+    ctx.roundRect(labelX - bgW / 2, labelY - bgH / 2, bgW, bgH, borderRadius);
+    ctx.fillStyle = SELECTION_COLOR;
+    ctx.fill();
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(label, labelX, labelY);
+
+    ctx.restore();
+  }
+
   drawLayoutGuides(transform: RenderTransform, guides: LayoutGuide[]) {
     const { ctx } = this;
     for (const guide of guides) {

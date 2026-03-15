@@ -178,6 +178,14 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
             renderer.drawHandle(handle.x, handle.y, camera.zoom);
           }
         }
+        renderer.drawSizeLabel(
+          bounds.x,
+          bounds.y,
+          bounds.width,
+          bounds.height,
+          bounds.rotation,
+          camera.zoom,
+        );
       }
     }
 

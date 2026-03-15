@@ -109,6 +109,15 @@ export interface Renderer {
     zoom: number,
   ): void;
 
+  drawSizeLabel(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    rotation: number,
+    zoom: number,
+  ): void;
+
   drawLayoutGuides(transform: RenderTransform, guides: LayoutGuide[]): void;
 
   measureText(
