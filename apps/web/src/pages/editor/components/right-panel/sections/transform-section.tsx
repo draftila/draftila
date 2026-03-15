@@ -28,20 +28,12 @@ export function TransformSection({ shape, onUpdate }: PropertySectionProps) {
           onChange={(v) => onUpdate({ height: v } as Partial<Shape>)}
         />
       </div>
-      <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+      <div className="mt-1.5">
         <NumberInput
           label="R"
           value={shape.rotation}
           onChange={(v) => onUpdate({ rotation: v } as Partial<Shape>)}
           step={15}
-        />
-        <NumberInput
-          label="%"
-          value={Math.round(shape.opacity * 100)}
-          onChange={(v) => onUpdate({ opacity: v / 100 } as Partial<Shape>)}
-          step={10}
-          min={0}
-          max={100}
         />
       </div>
     </section>

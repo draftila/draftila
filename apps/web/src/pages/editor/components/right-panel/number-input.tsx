@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 
 interface NumberInputProps {
   label: string;
+  icon?: ReactNode;
   value: number;
   onChange: (v: number) => void;
   step?: number;
@@ -10,10 +11,12 @@ interface NumberInputProps {
   max?: number;
   suffix?: ReactNode;
   dragSensitivity?: number;
+  borderless?: boolean;
 }
 
 export function NumberInput({
   label,
+  icon,
   value,
   onChange,
   step = 1,
@@ -21,6 +24,7 @@ export function NumberInput({
   max,
   suffix,
   dragSensitivity = 1,
+  borderless = false,
 }: NumberInputProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -117,20 +121,25 @@ export function NumberInput({
   return (
     <div
       className={cn(
-        'border-input flex h-6 items-center rounded-md border transition-colors',
-        'focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-1',
-        isDragging && 'border-ring ring-ring/50 ring-1',
+        'flex h-6 items-center transition-colors',
+        !borderless && 'border-input rounded-md border',
+        !borderless && 'focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-1',
+        !borderless && isDragging && 'border-ring ring-ring/50 ring-1',
       )}
     >
-      <span
-        onPointerDown={handlePointerDown}
-        className={cn(
-          'text-muted-foreground flex h-full shrink-0 cursor-ew-resize select-none items-center pl-1.5 pr-1.5 text-[11px]',
-          isDragging && 'text-foreground',
-        )}
-      >
-        {label}
-      </span>
+      {(label || icon) && (
+        <span
+          onPointerDown={handlePointerDown}
+          className={cn(
+            'text-muted-foreground flex h-full shrink-0 cursor-ew-resize select-none items-center text-[11px]',
+            !borderless && 'pl-1.5 pr-1.5',
+            borderless && 'pr-1',
+            isDragging && 'text-foreground',
+          )}
+        >
+          {icon ?? label}
+        </span>
+      )}
       {isEditing ? (
         <input
           ref={inputRef}

@@ -78,7 +78,20 @@ function svgColorToFill(color: string | null, fallback: string): Fill[] {
 
 function svgStrokeToStrokes(color: string | null, width: number): Stroke[] {
   if (!color || color === 'none' || width <= 0) return [];
-  return [{ color, width, opacity: 1, visible: true }];
+  return [
+    {
+      color,
+      width,
+      opacity: 1,
+      visible: true,
+      cap: 'butt',
+      join: 'miter',
+      align: 'center',
+      dashPattern: 'solid',
+      dashOffset: 0,
+      miterLimit: 4,
+    },
+  ];
 }
 
 interface ParsedSvgShape {

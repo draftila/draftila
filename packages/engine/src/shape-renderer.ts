@@ -99,7 +99,20 @@ export function renderShape(renderer: Renderer, shape: Shape) {
 
   switch (shape.type) {
     case 'rectangle': {
-      renderer.drawRect(getTransform(shape), getStyle(shape), shape.cornerRadius);
+      const hasIndependentCorners =
+        shape.cornerRadiusTL !== undefined ||
+        shape.cornerRadiusTR !== undefined ||
+        shape.cornerRadiusBL !== undefined ||
+        shape.cornerRadiusBR !== undefined;
+      const radii: number | [number, number, number, number] = hasIndependentCorners
+        ? [
+            shape.cornerRadiusTL ?? shape.cornerRadius,
+            shape.cornerRadiusTR ?? shape.cornerRadius,
+            shape.cornerRadiusBR ?? shape.cornerRadius,
+            shape.cornerRadiusBL ?? shape.cornerRadius,
+          ]
+        : shape.cornerRadius;
+      renderer.drawRect(getTransform(shape), getStyle(shape), radii);
       break;
     }
     case 'ellipse': {

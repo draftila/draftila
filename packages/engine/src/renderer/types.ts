@@ -34,7 +34,18 @@ export function solidFill(color: string, opacity = 1): Fill {
 }
 
 export function solidStroke(color: string, width = 1, opacity = 1): Stroke {
-  return { color, width, opacity, visible: true };
+  return {
+    color,
+    width,
+    opacity,
+    visible: true,
+    cap: 'butt',
+    join: 'miter',
+    align: 'center',
+    dashPattern: 'solid',
+    dashOffset: 0,
+    miterLimit: 4,
+  };
 }
 
 export function simpleStyle(options: {
@@ -64,7 +75,11 @@ export interface Renderer {
   applyCamera(camera: Camera): void;
   getViewport(camera: Camera): Viewport;
 
-  drawRect(transform: RenderTransform, style: RenderStyle, cornerRadius: number): void;
+  drawRect(
+    transform: RenderTransform,
+    style: RenderStyle,
+    cornerRadius: number | [number, number, number, number],
+  ): void;
 
   drawEllipse(transform: RenderTransform, style: RenderStyle): void;
 

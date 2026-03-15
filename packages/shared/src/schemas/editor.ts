@@ -51,11 +51,22 @@ export const fillSchema = z.object({
   visible: z.boolean().default(true),
 });
 
+export const strokeCapSchema = z.enum(['butt', 'round', 'square']);
+export const strokeJoinSchema = z.enum(['miter', 'round', 'bevel']);
+export const strokeAlignSchema = z.enum(['center', 'inside', 'outside']);
+export const strokeDashPatternSchema = z.enum(['solid', 'dash', 'dot', 'dash-dot']);
+
 export const strokeSchema = z.object({
   color: colorSchema,
   width: z.number().min(0).default(1),
   opacity: z.number().min(0).max(1).default(1),
   visible: z.boolean().default(true),
+  cap: strokeCapSchema.default('butt'),
+  join: strokeJoinSchema.default('miter'),
+  align: strokeAlignSchema.default('center'),
+  dashPattern: strokeDashPatternSchema.default('solid'),
+  dashOffset: z.number().default(0),
+  miterLimit: z.number().min(0).default(4),
 });
 
 export const shadowSchema = z.object({
@@ -93,6 +104,11 @@ export const rectangleShapeSchema = baseShapeSchema.extend({
   fills: z.array(fillSchema).default([{ color: '#D9D9D9', opacity: 1, visible: true }]),
   strokes: z.array(strokeSchema).default([]),
   cornerRadius: z.number().min(0).default(0),
+  cornerRadiusTL: z.number().min(0).optional(),
+  cornerRadiusTR: z.number().min(0).optional(),
+  cornerRadiusBL: z.number().min(0).optional(),
+  cornerRadiusBR: z.number().min(0).optional(),
+  cornerSmoothing: z.number().min(0).max(1).default(0),
   shadows: z.array(shadowSchema).default([]),
   blurs: z.array(blurSchema).default([]),
 });

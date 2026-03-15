@@ -1,4 +1,4 @@
-import type { Camera, Viewport } from '@draftila/shared';
+import type { Camera, StrokeDashPattern, Viewport } from '@draftila/shared';
 import type { Renderer, RenderStyle, RenderTransform, TextRenderOptions } from './types';
 
 const SELECTION_COLOR = '#0D99FF';
@@ -46,6 +46,19 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number)
   }
   if (result.length === 0) result.push('');
   return result;
+}
+
+function dashPatternToArray(pattern: StrokeDashPattern, strokeWidth: number): number[] {
+  switch (pattern) {
+    case 'dash':
+      return [strokeWidth * 4, strokeWidth * 2];
+    case 'dot':
+      return [strokeWidth, strokeWidth * 2];
+    case 'dash-dot':
+      return [strokeWidth * 4, strokeWidth * 2, strokeWidth, strokeWidth * 2];
+    default:
+      return [];
+  }
 }
 
 function colorWithOpacity(hex: string, opacity: number): string {
@@ -118,13 +131,21 @@ export class Canvas2DRenderer implements Renderer {
     };
   }
 
-  drawRect(transform: RenderTransform, style: RenderStyle, cornerRadius: number) {
+  drawRect(
+    transform: RenderTransform,
+    style: RenderStyle,
+    cornerRadius: number | [number, number, number, number],
+  ) {
     const { ctx } = this;
     ctx.save();
     this.applyTransform(transform);
     ctx.globalAlpha = style.opacity;
 
-    if (cornerRadius > 0) {
+    const hasRadius = Array.isArray(cornerRadius)
+      ? cornerRadius.some((r) => r > 0)
+      : cornerRadius > 0;
+
+    if (hasRadius) {
       ctx.beginPath();
       ctx.roundRect(0, 0, transform.width, transform.height, cornerRadius);
       this.applyFillStroke(style);
@@ -188,9 +209,13 @@ export class Canvas2DRenderer implements Renderer {
       if (!stroke.visible || stroke.width <= 0) continue;
       ctx.strokeStyle = colorWithOpacity(stroke.color, stroke.opacity);
       ctx.lineWidth = stroke.width;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
+      ctx.lineCap = stroke.cap ?? 'round';
+      ctx.lineJoin = stroke.join ?? 'round';
+      ctx.miterLimit = stroke.miterLimit ?? 4;
+      ctx.setLineDash(dashPatternToArray(stroke.dashPattern ?? 'solid', stroke.width));
+      ctx.lineDashOffset = stroke.dashOffset ?? 0;
       ctx.stroke(path);
+      ctx.setLineDash([]);
     }
 
     ctx.restore();
@@ -387,7 +412,13 @@ export class Canvas2DRenderer implements Renderer {
       if (!stroke.visible || stroke.width <= 0) continue;
       ctx.strokeStyle = colorWithOpacity(stroke.color, stroke.opacity);
       ctx.lineWidth = stroke.width;
+      ctx.lineCap = stroke.cap ?? 'butt';
+      ctx.lineJoin = stroke.join ?? 'miter';
+      ctx.miterLimit = stroke.miterLimit ?? 4;
+      ctx.setLineDash(dashPatternToArray(stroke.dashPattern ?? 'solid', stroke.width));
+      ctx.lineDashOffset = stroke.dashOffset ?? 0;
       ctx.stroke();
+      ctx.setLineDash([]);
     }
   }
 }

@@ -35,6 +35,7 @@ const SHAPE_DEFAULTS: Record<ShapeType, Omit<Record<string, unknown>, 'id' | 'ty
     fills: [{ color: '#D9D9D9', opacity: 1, visible: true }],
     strokes: [],
     cornerRadius: 0,
+    cornerSmoothing: 0,
   },
   ellipse: {
     fills: [{ color: '#D9D9D9', opacity: 1, visible: true }],

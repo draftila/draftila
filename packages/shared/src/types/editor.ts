@@ -19,6 +19,10 @@ import type {
   shapeSchema,
   fillSchema,
   strokeSchema,
+  strokeCapSchema,
+  strokeJoinSchema,
+  strokeAlignSchema,
+  strokeDashPatternSchema,
   shadowSchema,
   blurSchema,
 } from '../schemas/editor';
@@ -42,6 +46,10 @@ export type GroupShape = z.infer<typeof groupShapeSchema>;
 export type Shape = z.infer<typeof shapeSchema>;
 export type Fill = z.infer<typeof fillSchema>;
 export type Stroke = z.infer<typeof strokeSchema>;
+export type StrokeCap = z.infer<typeof strokeCapSchema>;
+export type StrokeJoin = z.infer<typeof strokeJoinSchema>;
+export type StrokeAlign = z.infer<typeof strokeAlignSchema>;
+export type StrokeDashPattern = z.infer<typeof strokeDashPatternSchema>;
 export type Shadow = z.infer<typeof shadowSchema>;
 export type Blur = z.infer<typeof blurSchema>;
 
