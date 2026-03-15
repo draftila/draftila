@@ -1,3 +1,5 @@
+export * from './editor';
+
 import type { z } from 'zod';
 import type {
   loginSchema,

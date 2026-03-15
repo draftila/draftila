@@ -28,6 +28,15 @@ function getSortConfig(sort: SortOrder) {
   }
 }
 
+const draftListColumns = {
+  id: draft.id,
+  name: draft.name,
+  projectId: draft.projectId,
+  thumbnail: draft.thumbnail,
+  createdAt: draft.createdAt,
+  updatedAt: draft.updatedAt,
+};
+
 export async function listByProject(
   projectId: string,
   cursor?: string,
@@ -42,7 +51,7 @@ export async function listByProject(
   }
 
   const results = await db
-    .select()
+    .select(draftListColumns)
     .from(draft)
     .where(and(...conditions))
     .orderBy(...sortConfig.orderBy)
@@ -93,7 +102,7 @@ export async function listByOwner(
 }
 
 export async function getById(id: string) {
-  const [result] = await db.select().from(draft).where(eq(draft.id, id));
+  const [result] = await db.select(draftListColumns).from(draft).where(eq(draft.id, id));
   return result ?? null;
 }
 
@@ -113,32 +122,44 @@ export async function getByIdForOwner(draftId: string, ownerId: string) {
 }
 
 export async function create(data: { name: string; projectId: string }) {
-  const [created] = await db
-    .insert(draft)
-    .values({
-      id: nanoid(),
-      name: data.name,
-      projectId: data.projectId,
-    })
-    .returning();
+  const id = nanoid();
+  await db.insert(draft).values({
+    id,
+    name: data.name,
+    projectId: data.projectId,
+  });
 
+  const created = await getById(id);
   if (!created) throw new Error('Failed to create draft');
   return created;
 }
 
 export async function update(id: string, data: { name: string }) {
-  const [updated] = await db
+  await db
     .update(draft)
     .set({ name: data.name, updatedAt: sql`now()` })
-    .where(eq(draft.id, id))
-    .returning();
+    .where(eq(draft.id, id));
 
-  return updated ?? null;
+  return getById(id);
 }
 
 export async function remove(id: string) {
-  const [deleted] = await db.delete(draft).where(eq(draft.id, id)).returning();
-  return deleted ?? null;
+  const existing = await getById(id);
+  if (!existing) return null;
+  await db.delete(draft).where(eq(draft.id, id));
+  return existing;
+}
+
+export async function loadYjsState(id: string) {
+  const [result] = await db
+    .select({ yjsState: draft.yjsState })
+    .from(draft)
+    .where(eq(draft.id, id));
+  return result?.yjsState ?? null;
+}
+
+export async function saveYjsState(id: string, state: Buffer) {
+  await db.update(draft).set({ yjsState: state }).where(eq(draft.id, id));
 }
 
 export async function verifyProjectOwnership(projectId: string, ownerId: string) {

@@ -1,13 +1,11 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FileIcon, FolderIcon, ChevronsUpDownIcon, PlusIcon, LogOutIcon } from 'lucide-react';
-import { useSession, signOut } from '@/lib/auth-client';
+import { FileIcon, FolderIcon, ChevronsUpDownIcon, PlusIcon } from 'lucide-react';
 import { useProjects } from '@/api/projects';
 import { CreateProjectDialog } from '@/pages/projects/components/create-project-dialog';
 import { useDashboardStore } from '@/stores/dashboard-store';
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarHeader,
@@ -16,12 +14,6 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from '@/components/ui/sidebar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Command,
@@ -32,7 +24,6 @@ import {
   CommandList,
   CommandSeparator,
 } from '@/components/ui/command';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useState } from 'react';
 
 const NAV_ITEMS = [
@@ -116,54 +107,6 @@ function ProjectSwitcher() {
   );
 }
 
-function UserMenu() {
-  const navigate = useNavigate();
-  const { data: session } = useSession();
-  const userName = session?.user?.name ?? 'User';
-  const userEmail = session?.user?.email ?? '';
-  const initials = userName
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-
-  async function handleSignOut() {
-    await signOut();
-    navigate('/login');
-  }
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <SidebarMenuButton
-          size="lg"
-          className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-          aria-label="User menu"
-        >
-          <Avatar className="size-8 rounded-none">
-            <AvatarFallback className="rounded-none text-xs">{initials}</AvatarFallback>
-          </Avatar>
-          <div className="grid flex-1 text-left text-sm leading-tight">
-            <span className="truncate font-semibold">{userName}</span>
-            <span className="text-muted-foreground truncate text-xs">{userEmail}</span>
-          </div>
-        </SidebarMenuButton>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        className="w-[--radix-dropdown-menu-trigger-width]"
-        side="top"
-        align="start"
-      >
-        <DropdownMenuItem onClick={handleSignOut}>
-          <LogOutIcon />
-          Sign out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
 export function AppSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -197,13 +140,6 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <UserMenu />
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   );

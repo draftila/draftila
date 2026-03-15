@@ -1,16 +1,61 @@
+import { useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDraftById } from '@/api/drafts';
+import { useSession } from '@/lib/auth-client';
 import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { EditorToolbar } from './components/editor-toolbar';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { UserMenu } from '@/components/user-menu';
+import { initUndoManager, destroyUndoManager } from '@draftila/engine/history';
+import { useEditorStore } from '@/stores/editor-store';
 import { LeftPanel } from './components/left-panel';
 import { RightPanel } from './components/right-panel';
 import { Canvas } from './components/canvas';
+import { useYjs } from './hooks/use-yjs';
+import { useKeyboard } from './hooks/use-keyboard';
+import { useAwareness } from './hooks/use-awareness';
 
 export function EditorPage() {
   const { draftId } = useParams<{ draftId: string }>();
   const navigate = useNavigate();
   const { data: draft, isLoading, isError } = useDraftById(draftId ?? '');
+  const { ydoc, provider, connected } = useYjs({ draftId: draftId ?? '', enabled: !!draft });
+  const { data: session } = useSession();
+
+  const userId = session?.user?.id ?? 'anonymous';
+  const userName = session?.user?.name ?? 'Anonymous';
+
+  const { remoteUsers, updateCursor, updateSelection, updateActiveTool } = useAwareness(
+    provider,
+    userId,
+    userName,
+  );
+
+  useKeyboard({ ydoc });
+
+  useEffect(() => {
+    initUndoManager(ydoc);
+    return () => destroyUndoManager();
+  }, [ydoc]);
+
+  useEffect(() => {
+    const unsubscribe = useEditorStore.subscribe((state, prev) => {
+      if (state.selectedIds !== prev.selectedIds) {
+        updateSelection(state.selectedIds);
+      }
+      if (state.activeTool !== prev.activeTool) {
+        updateActiveTool(state.activeTool);
+      }
+    });
+    return unsubscribe;
+  }, [updateSelection, updateActiveTool]);
+
+  const handleCursorMove = useCallback(
+    (cursor: { x: number; y: number } | null) => {
+      updateCursor(cursor);
+    },
+    [updateCursor],
+  );
 
   if (isLoading) {
     return (
@@ -36,20 +81,41 @@ export function EditorPage() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b pl-2 pr-4">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-2">
         <SidebarTrigger />
         <Separator orientation="vertical" className="data-[orientation=vertical]:h-full" />
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">{draft.name}</span>
-        </div>
-        <div className="ml-auto">
-          <EditorToolbar />
-        </div>
+        <span className="text-sm font-medium">{draft.name}</span>
+        <Tooltip>
+          <TooltipTrigger>
+            <div className={`h-2 w-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
+          </TooltipTrigger>
+          <TooltipContent>{connected ? 'Connected' : 'Disconnected'}</TooltipContent>
+        </Tooltip>
+        <div className="flex-1" />
+        {remoteUsers.length > 0 && (
+          <div className="flex -space-x-1.5">
+            {remoteUsers.map((user) => (
+              <Tooltip key={user.clientId}>
+                <TooltipTrigger>
+                  <div
+                    className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white text-[10px] font-bold text-white"
+                    style={{ backgroundColor: user.user.color }}
+                  >
+                    {user.user.name.charAt(0).toUpperCase()}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>{user.user.name}</TooltipContent>
+              </Tooltip>
+            ))}
+          </div>
+        )}
+        <Separator orientation="vertical" className="data-[orientation=vertical]:h-full" />
+        <UserMenu />
       </header>
       <div className="flex flex-1 overflow-hidden">
-        <LeftPanel />
-        <Canvas />
-        <RightPanel />
+        <LeftPanel ydoc={ydoc} />
+        <Canvas ydoc={ydoc} remoteUsers={remoteUsers} onCursorMove={handleCursorMove} />
+        <RightPanel ydoc={ydoc} />
       </div>
     </div>
   );
