@@ -15,6 +15,14 @@ function generateId(): string {
 
 const ARRAY_OF_OBJECTS_KEYS = new Set(['points', 'fills', 'strokes', 'shadows', 'blurs', 'guides']);
 
+export interface LayerTreeNode {
+  shape: Shape;
+  children: LayerTreeNode[];
+}
+
+export type StackMoveDirection = 'forward' | 'backward' | 'front' | 'back';
+export type LayerDropPlacement = 'before' | 'after' | 'inside';
+
 function valueToYjs(key: string, value: unknown): unknown {
   if (ARRAY_OF_OBJECTS_KEYS.has(key) && Array.isArray(value)) {
     const yArray = new Y.Array();
@@ -150,6 +158,285 @@ export function getZOrder(ydoc: Y.Doc): Y.Array<string> {
   return ydoc.getArray<string>('zOrder');
 }
 
+function ymapToObject(ymap: Y.Map<unknown>): Record<string, unknown> {
+  const obj: Record<string, unknown> = {};
+  ymap.forEach((value, key) => {
+    if (value instanceof Y.Map) {
+      obj[key] = ymapToObject(value);
+    } else if (value instanceof Y.Array) {
+      obj[key] = value.toArray().map((item) => {
+        if (item instanceof Y.Map) return ymapToObject(item);
+        return item;
+      });
+    } else {
+      obj[key] = value;
+    }
+  });
+  return obj;
+}
+
+function getShapeSnapshotMap(ydoc: Y.Doc): Map<string, Shape> {
+  const shapes = getShapesMap(ydoc);
+  const result = new Map<string, Shape>();
+  shapes.forEach((shapeData, id) => {
+    result.set(id, ymapToObject(shapeData) as Shape);
+  });
+  return result;
+}
+
+function getOrderedIds(shapeMap: Map<string, Shape>, zOrderIds: string[]): string[] {
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+
+  for (const id of zOrderIds) {
+    if (!shapeMap.has(id) || seen.has(id)) continue;
+    ordered.push(id);
+    seen.add(id);
+  }
+
+  for (const id of shapeMap.keys()) {
+    if (seen.has(id)) continue;
+    ordered.push(id);
+    seen.add(id);
+  }
+
+  return ordered;
+}
+
+function getValidParentId(shapeMap: Map<string, Shape>, parentId: string | null): string | null {
+  if (!parentId) return null;
+  if (!shapeMap.has(parentId)) return null;
+  return parentId;
+}
+
+function buildChildrenByParent(
+  shapeMap: Map<string, Shape>,
+  orderedIds: string[],
+): Map<string | null, string[]> {
+  const childrenByParent = new Map<string | null, string[]>();
+
+  const pushChild = (parentId: string | null, childId: string) => {
+    const children = childrenByParent.get(parentId);
+    if (children) {
+      children.push(childId);
+      return;
+    }
+    childrenByParent.set(parentId, [childId]);
+  };
+
+  for (const id of orderedIds) {
+    const shape = shapeMap.get(id);
+    if (!shape) continue;
+    const parentId = getValidParentId(shapeMap, shape.parentId ?? null);
+    pushChild(parentId, id);
+  }
+
+  return childrenByParent;
+}
+
+function flattenHierarchy(
+  shapeMap: Map<string, Shape>,
+  childrenByParent: Map<string | null, string[]>,
+): Shape[] {
+  const flattened: Shape[] = [];
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+
+  const visit = (id: string) => {
+    if (visited.has(id) || visiting.has(id)) return;
+    const shape = shapeMap.get(id);
+    if (!shape) return;
+
+    visiting.add(id);
+    flattened.push(shape);
+
+    const children = childrenByParent.get(id) ?? [];
+    for (const childId of children) {
+      visit(childId);
+    }
+
+    visiting.delete(id);
+    visited.add(id);
+  };
+
+  const roots = childrenByParent.get(null) ?? [];
+  for (const rootId of roots) {
+    visit(rootId);
+  }
+
+  for (const id of shapeMap.keys()) {
+    visit(id);
+  }
+
+  return flattened;
+}
+
+function getSiblingIdsForParent(
+  parentId: string | null,
+  shapeMap: Map<string, Shape>,
+  orderedIds: string[],
+): string[] {
+  const siblingIds: string[] = [];
+  for (const id of orderedIds) {
+    const shape = shapeMap.get(id);
+    if (!shape) continue;
+    const shapeParentId = getValidParentId(shapeMap, shape.parentId ?? null);
+    if (shapeParentId === parentId) {
+      siblingIds.push(id);
+    }
+  }
+  return siblingIds;
+}
+
+function getTopLevelIds(ids: string[], shapeMap: Map<string, Shape>): string[] {
+  const selected = new Set(ids);
+  const topLevel: string[] = [];
+
+  for (const id of ids) {
+    if (!shapeMap.has(id)) continue;
+    let current = shapeMap.get(id)?.parentId ?? null;
+    let hasSelectedAncestor = false;
+
+    while (current) {
+      if (selected.has(current)) {
+        hasSelectedAncestor = true;
+        break;
+      }
+      current = shapeMap.get(current)?.parentId ?? null;
+    }
+
+    if (!hasSelectedAncestor) {
+      topLevel.push(id);
+    }
+  }
+
+  return topLevel;
+}
+
+function getDescendantsForId(id: string, childrenByParent: Map<string | null, string[]>): string[] {
+  const descendants: string[] = [];
+  const stack = [...(childrenByParent.get(id) ?? [])];
+
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current) continue;
+    descendants.push(current);
+    const children = childrenByParent.get(current) ?? [];
+    for (const childId of children) {
+      stack.push(childId);
+    }
+  }
+
+  return descendants;
+}
+
+function canContainChildren(shape: Shape): boolean {
+  return shape.type === 'group' || shape.type === 'frame';
+}
+
+function wouldCreateParentCycle(
+  shapeMap: Map<string, Shape>,
+  movingIds: Set<string>,
+  targetParentId: string | null,
+): boolean {
+  let current = targetParentId;
+  while (current) {
+    if (movingIds.has(current)) return true;
+    const parent = shapeMap.get(current);
+    if (!parent) return false;
+    current = parent.parentId ?? null;
+  }
+  return false;
+}
+
+function replaceZOrder(zOrder: Y.Array<string>, nextOrder: string[]) {
+  if (zOrder.length > 0) {
+    zOrder.delete(0, zOrder.length);
+  }
+  if (nextOrder.length > 0) {
+    zOrder.push(nextOrder);
+  }
+}
+
+function reorderSiblingIds(
+  siblingIds: string[],
+  selectedSiblingSet: Set<string>,
+  direction: StackMoveDirection,
+): string[] {
+  if (selectedSiblingSet.size === 0) return siblingIds;
+
+  const siblings = [...siblingIds];
+
+  if (direction === 'front') {
+    return [
+      ...siblings.filter((id) => !selectedSiblingSet.has(id)),
+      ...siblings.filter((id) => selectedSiblingSet.has(id)),
+    ];
+  }
+
+  if (direction === 'back') {
+    return [
+      ...siblings.filter((id) => selectedSiblingSet.has(id)),
+      ...siblings.filter((id) => !selectedSiblingSet.has(id)),
+    ];
+  }
+
+  if (direction === 'forward') {
+    for (let i = siblings.length - 2; i >= 0; i--) {
+      const current = siblings[i];
+      const next = siblings[i + 1];
+      if (!current || !next) continue;
+      if (selectedSiblingSet.has(current) && !selectedSiblingSet.has(next)) {
+        siblings[i] = next;
+        siblings[i + 1] = current;
+      }
+    }
+    return siblings;
+  }
+
+  for (let i = 1; i < siblings.length; i++) {
+    const prev = siblings[i - 1];
+    const current = siblings[i];
+    if (!prev || !current) continue;
+    if (selectedSiblingSet.has(current) && !selectedSiblingSet.has(prev)) {
+      siblings[i - 1] = current;
+      siblings[i] = prev;
+    }
+  }
+
+  return siblings;
+}
+
+function applySiblingOrder(
+  orderedIds: string[],
+  siblingIds: string[],
+  nextSiblingIds: string[],
+): string[] {
+  const siblingSet = new Set(siblingIds);
+  const positions: number[] = [];
+
+  for (let i = 0; i < orderedIds.length; i++) {
+    const id = orderedIds[i];
+    if (id && siblingSet.has(id)) {
+      positions.push(i);
+    }
+  }
+
+  if (positions.length !== nextSiblingIds.length) {
+    return orderedIds;
+  }
+
+  const nextOrdered = [...orderedIds];
+  for (let i = 0; i < positions.length; i++) {
+    const targetIndex = positions[i];
+    const nextId = nextSiblingIds[i];
+    if (targetIndex === undefined || !nextId) continue;
+    nextOrdered[targetIndex] = nextId;
+  }
+
+  return nextOrdered;
+}
+
 export function addShape(ydoc: Y.Doc, type: ShapeType, props: Partial<Shape> = {}): string {
   const id = generateId();
   const shapes = getShapesMap(ydoc);
@@ -179,6 +466,31 @@ export function addShape(ydoc: Y.Doc, type: ShapeType, props: Partial<Shape> = {
   return id;
 }
 
+function getShapeBoundingRect(
+  shapes: Shape[],
+): { x: number; y: number; width: number; height: number } | null {
+  if (shapes.length === 0) return null;
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+
+  for (const shape of shapes) {
+    minX = Math.min(minX, shape.x);
+    minY = Math.min(minY, shape.y);
+    maxX = Math.max(maxX, shape.x + shape.width);
+    maxY = Math.max(maxY, shape.y + shape.height);
+  }
+
+  return {
+    x: minX,
+    y: minY,
+    width: Math.max(1, maxX - minX),
+    height: Math.max(1, maxY - minY),
+  };
+}
+
 export function updateShape(ydoc: Y.Doc, id: string, props: Partial<Shape>) {
   const shapes = getShapesMap(ydoc);
   const shapeData = shapes.get(id);
@@ -193,52 +505,39 @@ export function updateShape(ydoc: Y.Doc, id: string, props: Partial<Shape>) {
 }
 
 export function deleteShape(ydoc: Y.Doc, id: string) {
-  const shapes = getShapesMap(ydoc);
-  const zOrder = getZOrder(ydoc);
-
-  ydoc.transact(() => {
-    shapes.delete(id);
-    for (let i = 0; i < zOrder.length; i++) {
-      if (zOrder.get(i) === id) {
-        zOrder.delete(i, 1);
-        break;
-      }
-    }
-  });
+  deleteShapes(ydoc, [id]);
 }
 
 export function deleteShapes(ydoc: Y.Doc, ids: string[]) {
   const shapes = getShapesMap(ydoc);
   const zOrder = getZOrder(ydoc);
-  const idSet = new Set(ids);
+  const shapeMap = getShapeSnapshotMap(ydoc);
+  const orderedIds = getOrderedIds(shapeMap, zOrder.toArray());
+  const childrenByParent = buildChildrenByParent(shapeMap, orderedIds);
+  const topLevelIds = getTopLevelIds(ids, shapeMap);
+
+  const idSet = new Set<string>();
+  for (const id of topLevelIds) {
+    idSet.add(id);
+    const descendants = getDescendantsForId(id, childrenByParent);
+    for (const descendantId of descendants) {
+      idSet.add(descendantId);
+    }
+  }
+
+  if (idSet.size === 0) return;
 
   ydoc.transact(() => {
-    for (const id of ids) {
+    for (const id of idSet) {
       shapes.delete(id);
     }
     for (let i = zOrder.length - 1; i >= 0; i--) {
-      if (idSet.has(zOrder.get(i))) {
+      const currentId = zOrder.get(i);
+      if (currentId && idSet.has(currentId)) {
         zOrder.delete(i, 1);
       }
     }
   });
-}
-
-function ymapToObject(ymap: Y.Map<unknown>): Record<string, unknown> {
-  const obj: Record<string, unknown> = {};
-  ymap.forEach((value, key) => {
-    if (value instanceof Y.Map) {
-      obj[key] = ymapToObject(value);
-    } else if (value instanceof Y.Array) {
-      obj[key] = value.toArray().map((item) => {
-        if (item instanceof Y.Map) return ymapToObject(item);
-        return item;
-      });
-    } else {
-      obj[key] = value;
-    }
-  });
-  return obj;
 }
 
 export function getShape(ydoc: Y.Doc, id: string): Shape | null {
@@ -249,26 +548,334 @@ export function getShape(ydoc: Y.Doc, id: string): Shape | null {
 }
 
 export function getAllShapes(ydoc: Y.Doc): Shape[] {
-  const shapes = getShapesMap(ydoc);
-  const zOrder = getZOrder(ydoc);
-  const result: Shape[] = [];
+  const shapeMap = getShapeSnapshotMap(ydoc);
+  const zOrderIds = getZOrder(ydoc).toArray();
+  const orderedIds = getOrderedIds(shapeMap, zOrderIds);
+  const childrenByParent = buildChildrenByParent(shapeMap, orderedIds);
+  return flattenHierarchy(shapeMap, childrenByParent);
+}
 
-  for (let i = 0; i < zOrder.length; i++) {
-    const id = zOrder.get(i);
-    const shapeData = shapes.get(id);
-    if (shapeData) {
-      result.push(ymapToObject(shapeData) as Shape);
+export function getLayerTree(ydoc: Y.Doc): LayerTreeNode[] {
+  const shapeMap = getShapeSnapshotMap(ydoc);
+  const zOrderIds = getZOrder(ydoc).toArray();
+  const orderedIds = getOrderedIds(shapeMap, zOrderIds);
+  const childrenByParent = buildChildrenByParent(shapeMap, orderedIds);
+
+  const buildNode = (id: string): LayerTreeNode | null => {
+    const shape = shapeMap.get(id);
+    if (!shape) return null;
+
+    const children = childrenByParent.get(id) ?? [];
+    const childNodes: LayerTreeNode[] = [];
+    for (const childId of children) {
+      const childNode = buildNode(childId);
+      if (childNode) {
+        childNodes.push(childNode);
+      }
+    }
+
+    return { shape, children: childNodes };
+  };
+
+  const rootIds = childrenByParent.get(null) ?? [];
+  const tree: LayerTreeNode[] = [];
+  for (const rootId of rootIds) {
+    const node = buildNode(rootId);
+    if (node) {
+      tree.push(node);
     }
   }
 
-  return result;
+  return tree;
+}
+
+export function getTopLevelSelectedShapeIds(ydoc: Y.Doc, ids: string[]): string[] {
+  const shapeMap = getShapeSnapshotMap(ydoc);
+  return getTopLevelIds(ids, shapeMap);
+}
+
+export function getExpandedShapeIds(ydoc: Y.Doc, ids: string[]): string[] {
+  const shapeMap = getShapeSnapshotMap(ydoc);
+  const orderedIds = getOrderedIds(shapeMap, getZOrder(ydoc).toArray());
+  const childrenByParent = buildChildrenByParent(shapeMap, orderedIds);
+  const topLevelIds = getTopLevelIds(ids, shapeMap);
+
+  const expanded: string[] = [];
+  for (const id of topLevelIds) {
+    expanded.push(id);
+    const descendants = getDescendantsForId(id, childrenByParent);
+    for (const descendantId of descendants) {
+      expanded.push(descendantId);
+    }
+  }
+
+  return expanded;
+}
+
+export function getDescendantShapeIds(ydoc: Y.Doc, id: string): string[] {
+  const shapeMap = getShapeSnapshotMap(ydoc);
+  const orderedIds = getOrderedIds(shapeMap, getZOrder(ydoc).toArray());
+  const childrenByParent = buildChildrenByParent(shapeMap, orderedIds);
+  return getDescendantsForId(id, childrenByParent);
+}
+
+export function groupShapes(ydoc: Y.Doc, ids: string[]): string | null {
+  const shapeMap = getShapeSnapshotMap(ydoc);
+  const orderedIds = getOrderedIds(shapeMap, getZOrder(ydoc).toArray());
+  const topLevelIds = getTopLevelIds(ids, shapeMap);
+
+  if (topLevelIds.length < 2) return null;
+
+  const selectedShapes = topLevelIds
+    .map((id) => shapeMap.get(id))
+    .filter((shape): shape is Shape => Boolean(shape));
+
+  if (selectedShapes.length < 2) return null;
+
+  const bounds = getShapeBoundingRect(selectedShapes);
+  if (!bounds) return null;
+
+  const firstParentId = getValidParentId(shapeMap, selectedShapes[0]?.parentId ?? null);
+  const sameParent = selectedShapes.every(
+    (shape) => getValidParentId(shapeMap, shape.parentId ?? null) === firstParentId,
+  );
+  const groupParentId = sameParent ? firstParentId : null;
+
+  const groupId = addShape(ydoc, 'group', {
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
+    parentId: groupParentId,
+    name: 'Group',
+  });
+
+  const shapes = getShapesMap(ydoc);
+  const zOrder = getZOrder(ydoc);
+
+  ydoc.transact(() => {
+    for (const id of topLevelIds) {
+      const shapeData = shapes.get(id);
+      if (!shapeData) continue;
+      shapeData.set('parentId', groupId);
+    }
+
+    const currentOrder = getOrderedIds(getShapeSnapshotMap(ydoc), zOrder.toArray());
+    const maxSelectedIndex = Math.max(
+      ...topLevelIds.map((id) => currentOrder.indexOf(id)).filter((index) => index >= 0),
+    );
+
+    const withoutGroup = currentOrder.filter((id) => id !== groupId);
+    const insertionIndex = maxSelectedIndex >= 0 ? maxSelectedIndex : withoutGroup.length;
+    withoutGroup.splice(Math.min(insertionIndex, withoutGroup.length), 0, groupId);
+    replaceZOrder(zOrder, withoutGroup);
+  });
+
+  return groupId;
+}
+
+export function ungroupShapes(ydoc: Y.Doc, ids: string[]): string[] {
+  const shapeMap = getShapeSnapshotMap(ydoc);
+  const orderedIds = getOrderedIds(shapeMap, getZOrder(ydoc).toArray());
+  const childrenByParent = buildChildrenByParent(shapeMap, orderedIds);
+  const topLevelIds = getTopLevelIds(ids, shapeMap);
+
+  const groupIds = topLevelIds.filter((id) => shapeMap.get(id)?.type === 'group');
+  if (groupIds.length === 0) return [];
+
+  const shapes = getShapesMap(ydoc);
+  const zOrder = getZOrder(ydoc);
+  const selectedChildIds: string[] = [];
+
+  ydoc.transact(() => {
+    let nextOrder = getOrderedIds(getShapeSnapshotMap(ydoc), zOrder.toArray());
+
+    for (const groupId of groupIds) {
+      const group = shapeMap.get(groupId);
+      if (!group || group.type !== 'group') continue;
+
+      const groupChildren = childrenByParent.get(groupId) ?? [];
+      if (groupChildren.length === 0) {
+        shapes.delete(groupId);
+        nextOrder = nextOrder.filter((id) => id !== groupId);
+        continue;
+      }
+
+      const groupParentId = getValidParentId(shapeMap, group.parentId ?? null);
+
+      for (const childId of groupChildren) {
+        const childData = shapes.get(childId);
+        if (!childData) continue;
+        childData.set('parentId', groupParentId);
+      }
+
+      const groupIndex = nextOrder.indexOf(groupId);
+      const removeSet = new Set<string>([groupId, ...groupChildren]);
+      const removedBeforeGroup = nextOrder.reduce((count, id, index) => {
+        if (index < groupIndex && removeSet.has(id)) {
+          return count + 1;
+        }
+        return count;
+      }, 0);
+
+      const filtered = nextOrder.filter((id) => !removeSet.has(id));
+
+      if (groupIndex >= 0) {
+        const insertionIndex = Math.max(0, groupIndex - removedBeforeGroup);
+        filtered.splice(Math.min(insertionIndex, filtered.length), 0, ...groupChildren);
+      } else {
+        filtered.push(...groupChildren);
+      }
+
+      shapes.delete(groupId);
+      selectedChildIds.push(...groupChildren);
+      nextOrder = filtered;
+    }
+
+    replaceZOrder(zOrder, nextOrder);
+  });
+
+  return selectedChildIds;
+}
+
+export function moveShapesInStack(
+  ydoc: Y.Doc,
+  ids: string[],
+  direction: StackMoveDirection,
+): string[] {
+  const shapeMap = getShapeSnapshotMap(ydoc);
+  const zOrder = getZOrder(ydoc);
+  const orderedIds = getOrderedIds(shapeMap, zOrder.toArray());
+  const topLevelIds = getTopLevelIds(ids, shapeMap);
+
+  if (topLevelIds.length === 0) return [];
+
+  const selectedByParent = new Map<string | null, Set<string>>();
+
+  for (const id of topLevelIds) {
+    const shape = shapeMap.get(id);
+    if (!shape) continue;
+    const parentId = getValidParentId(shapeMap, shape.parentId ?? null);
+    const set = selectedByParent.get(parentId);
+    if (set) {
+      set.add(id);
+    } else {
+      selectedByParent.set(parentId, new Set([id]));
+    }
+  }
+
+  ydoc.transact(() => {
+    let nextOrder = [...orderedIds];
+
+    for (const [parentId, selectedSet] of selectedByParent) {
+      const siblingIds = getSiblingIdsForParent(parentId, shapeMap, nextOrder);
+      if (siblingIds.length <= 1) continue;
+
+      const selectedSiblings = siblingIds.filter((id) => selectedSet.has(id));
+      if (selectedSiblings.length === 0 || selectedSiblings.length === siblingIds.length) continue;
+
+      const nextSiblingIds = reorderSiblingIds(siblingIds, selectedSet, direction);
+      nextOrder = applySiblingOrder(nextOrder, siblingIds, nextSiblingIds);
+    }
+
+    replaceZOrder(zOrder, nextOrder);
+  });
+
+  return topLevelIds;
+}
+
+export function moveShapesByDrop(
+  ydoc: Y.Doc,
+  ids: string[],
+  targetId: string,
+  placement: LayerDropPlacement,
+): string[] {
+  const shapeMap = getShapeSnapshotMap(ydoc);
+  const zOrder = getZOrder(ydoc);
+  const orderedIds = getOrderedIds(shapeMap, zOrder.toArray());
+  const movingIds = getTopLevelIds(ids, shapeMap);
+
+  if (movingIds.length === 0) return [];
+
+  const targetShape = shapeMap.get(targetId);
+  if (!targetShape) return [];
+
+  const movingSet = new Set(movingIds);
+  if (movingSet.has(targetId) && placement !== 'inside') return movingIds;
+
+  let nextParentId: string | null;
+  let siblingInsertionIndex = 0;
+
+  if (placement === 'inside') {
+    if (!canContainChildren(targetShape)) return [];
+    nextParentId = targetShape.id;
+    const siblingIds = getSiblingIdsForParent(nextParentId, shapeMap, orderedIds).filter(
+      (id) => !movingSet.has(id),
+    );
+    siblingInsertionIndex = siblingIds.length;
+  } else {
+    nextParentId = getValidParentId(shapeMap, targetShape.parentId ?? null);
+    const siblingIds = getSiblingIdsForParent(nextParentId, shapeMap, orderedIds);
+    const remainingSiblings = siblingIds.filter((id) => !movingSet.has(id));
+    const targetIndex = remainingSiblings.indexOf(targetId);
+    if (targetIndex < 0) return [];
+    siblingInsertionIndex = placement === 'before' ? targetIndex + 1 : targetIndex;
+  }
+
+  if (wouldCreateParentCycle(shapeMap, movingSet, nextParentId)) return [];
+
+  const movingOrdered = orderedIds.filter((id) => movingSet.has(id));
+  const remainingOrder = orderedIds.filter((id) => !movingSet.has(id));
+  const targetSiblings = getSiblingIdsForParent(nextParentId, shapeMap, remainingOrder);
+
+  let globalInsertionIndex = remainingOrder.length;
+
+  if (targetSiblings.length > 0) {
+    if (siblingInsertionIndex <= 0) {
+      const firstSiblingId = targetSiblings[0];
+      globalInsertionIndex = firstSiblingId ? remainingOrder.indexOf(firstSiblingId) : 0;
+    } else if (siblingInsertionIndex >= targetSiblings.length) {
+      const lastSiblingId = targetSiblings[targetSiblings.length - 1];
+      const lastSiblingIndex = lastSiblingId ? remainingOrder.lastIndexOf(lastSiblingId) : -1;
+      globalInsertionIndex = lastSiblingIndex >= 0 ? lastSiblingIndex + 1 : remainingOrder.length;
+    } else {
+      const siblingIdAtIndex = targetSiblings[siblingInsertionIndex];
+      globalInsertionIndex = siblingIdAtIndex
+        ? remainingOrder.indexOf(siblingIdAtIndex)
+        : remainingOrder.length;
+    }
+  }
+
+  if (globalInsertionIndex < 0) {
+    globalInsertionIndex = remainingOrder.length;
+  }
+
+  const nextOrder = [
+    ...remainingOrder.slice(0, globalInsertionIndex),
+    ...movingOrdered,
+    ...remainingOrder.slice(globalInsertionIndex),
+  ];
+
+  const shapes = getShapesMap(ydoc);
+
+  ydoc.transact(() => {
+    for (const id of movingIds) {
+      const shapeData = shapes.get(id);
+      if (!shapeData) continue;
+      shapeData.set('parentId', nextParentId);
+    }
+    replaceZOrder(zOrder, nextOrder);
+  });
+
+  return movingIds;
 }
 
 export function nudgeShapes(ydoc: Y.Doc, ids: string[], dx: number, dy: number) {
   const shapes = getShapesMap(ydoc);
+  const movableIds = getExpandedShapeIds(ydoc, ids);
 
   ydoc.transact(() => {
-    for (const id of ids) {
+    for (const id of movableIds) {
       const shapeData = shapes.get(id);
       if (!shapeData) continue;
 
@@ -312,6 +919,7 @@ export type ShapeChangeCallback = (changes: {
 
 export function observeShapes(ydoc: Y.Doc, callback: ShapeChangeCallback): () => void {
   const shapes = getShapesMap(ydoc);
+  const zOrder = getZOrder(ydoc);
 
   const handleShapeMapChange = (events: Y.YEvent<Y.Map<unknown>>[]) => {
     const added: string[] = [];
@@ -338,6 +946,14 @@ export function observeShapes(ydoc: Y.Doc, callback: ShapeChangeCallback): () =>
     }
   };
 
+  const handleZOrderChange = () => {
+    callback({ added: [], updated: zOrder.toArray(), deleted: [] });
+  };
+
   shapes.observeDeep(handleShapeMapChange);
-  return () => shapes.unobserveDeep(handleShapeMapChange);
+  zOrder.observe(handleZOrderChange);
+  return () => {
+    shapes.unobserveDeep(handleShapeMapChange);
+    zOrder.unobserve(handleZOrderChange);
+  };
 }

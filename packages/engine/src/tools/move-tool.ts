@@ -1,7 +1,7 @@
 import type { Shape } from '@draftila/shared';
 import { BaseTool, getToolStore, type ToolContext, type ToolResult } from './base-tool';
 import { hitTestPoint, hitTestFrameLabel } from '../hit-test';
-import { getAllShapes, getShape, updateShape } from '../scene-graph';
+import { getAllShapes, getExpandedShapeIds, updateShape } from '../scene-graph';
 import { SpatialIndex } from '../spatial-index';
 import {
   getSelectionBounds,
@@ -246,14 +246,15 @@ export class MoveTool extends BaseTool {
       }
 
       const selectedIds = getToolStore().selectedIds;
+      const movableIds = getExpandedShapeIds(ctx.ydoc, selectedIds);
       const initialData = new Map<string, InitialShapeData>();
-      for (const id of selectedIds) {
+      for (const id of movableIds) {
         const shape = shapes.find((s) => s.id === id);
         if (shape) initialData.set(id, captureShapeData(shape));
       }
 
       this.dragInitialData = initialData;
-      const selectedIdSet = new Set(getToolStore().selectedIds);
+      const selectedIdSet = new Set(movableIds);
       this.dragShapesCache = shapes.filter(
         (s) => !selectedIdSet.has(s.id) && s.visible && !s.locked,
       );
@@ -274,13 +275,14 @@ export class MoveTool extends BaseTool {
 
     if (selectedFrameHit) {
       const selectedIds = store.selectedIds;
+      const movableIds = getExpandedShapeIds(ctx.ydoc, selectedIds);
       const initialData = new Map<string, InitialShapeData>();
-      for (const id of selectedIds) {
+      for (const id of movableIds) {
         const shape = shapes.find((s) => s.id === id);
         if (shape) initialData.set(id, captureShapeData(shape));
       }
       this.dragInitialData = initialData;
-      const selectedIdSet = new Set(selectedIds);
+      const selectedIdSet = new Set(movableIds);
       this.dragShapesCache = shapes.filter(
         (s) => !selectedIdSet.has(s.id) && s.visible && !s.locked,
       );

@@ -1,18 +1,22 @@
 import type * as Y from 'yjs';
 import type { Shape } from '@draftila/shared';
-import { getShape, addShape, deleteShapes } from './scene-graph';
-import { shapesToSvg, handlePaste as handleFigmaPaste } from './figma-clipboard';
+import {
+  addShape,
+  deleteShapes,
+  getAllShapes,
+  getExpandedShapeIds,
+  getTopLevelSelectedShapeIds,
+} from './scene-graph';
+import { shapesToSvg } from './figma-clipboard';
 
 const PASTE_OFFSET = 20;
 
 let clipboardShapes: Shape[] = [];
 
 export function copyShapes(ydoc: Y.Doc, ids: string[]): Shape[] {
-  const shapes: Shape[] = [];
-  for (const id of ids) {
-    const shape = getShape(ydoc, id);
-    if (shape) shapes.push(shape);
-  }
+  const topLevelIds = getTopLevelSelectedShapeIds(ydoc, ids);
+  const expandedIds = new Set(getExpandedShapeIds(ydoc, topLevelIds));
+  const shapes = getAllShapes(ydoc).filter((shape) => expandedIds.has(shape.id));
   clipboardShapes = shapes;
 
   try {
@@ -41,17 +45,32 @@ export function copyShapes(ydoc: Y.Doc, ids: string[]): Shape[] {
 export function pasteShapes(ydoc: Y.Doc): string[] {
   if (clipboardShapes.length === 0) return [];
 
+  const clipboardById = new Map<string, Shape>(clipboardShapes.map((shape) => [shape.id, shape]));
+  const topLevelShapes = clipboardShapes.filter(
+    (shape) => !shape.parentId || !clipboardById.has(shape.parentId),
+  );
+
+  const oldToNewIds = new Map<string, string>();
   const newIds: string[] = [];
 
   for (const shape of clipboardShapes) {
+    const parentId = shape.parentId ? (oldToNewIds.get(shape.parentId) ?? null) : null;
     const { id: _id, ...rest } = shape;
     const newId = addShape(ydoc, shape.type, {
       ...rest,
+      parentId,
       x: shape.x + PASTE_OFFSET,
       y: shape.y + PASTE_OFFSET,
       name: shape.name,
     });
-    newIds.push(newId);
+    oldToNewIds.set(shape.id, newId);
+  }
+
+  for (const shape of topLevelShapes) {
+    const newId = oldToNewIds.get(shape.id);
+    if (newId) {
+      newIds.push(newId);
+    }
   }
 
   clipboardShapes = clipboardShapes.map((s) => ({

@@ -4,7 +4,14 @@ import type { ToolType } from '@draftila/shared';
 import { undo, redo } from '@draftila/engine/history';
 import { copyShapes, pasteShapes, cutShapes, duplicateShapes } from '@draftila/engine/clipboard';
 import { handlePaste as handleExternalPaste } from '@draftila/engine/figma-clipboard';
-import { deleteShapes, getAllShapes, nudgeShapes } from '@draftila/engine/scene-graph';
+import {
+  deleteShapes,
+  getAllShapes,
+  groupShapes,
+  moveShapesInStack,
+  nudgeShapes,
+  ungroupShapes,
+} from '@draftila/engine/scene-graph';
 import { useEditorStore } from '@/stores/editor-store';
 
 const TOOL_SHORTCUTS: Record<string, ToolType> = {
@@ -33,6 +40,7 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
 
       const isMod = e.metaKey || e.ctrlKey;
       const key = e.key.toLowerCase();
+      const code = e.code;
 
       if (!isMod && TOOL_SHORTCUTS[key]) {
         e.preventDefault();
@@ -49,6 +57,46 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
       if (isMod && key === 'z' && e.shiftKey) {
         e.preventDefault();
         redo();
+        return;
+      }
+
+      if (isMod && key === 'g' && !e.shiftKey) {
+        e.preventDefault();
+        const { selectedIds, setSelectedIds } = useEditorStore.getState();
+        const groupId = groupShapes(ydoc, selectedIds);
+        if (groupId) {
+          setSelectedIds([groupId]);
+        }
+        return;
+      }
+
+      if (isMod && key === 'g' && e.shiftKey) {
+        e.preventDefault();
+        const { selectedIds, setSelectedIds } = useEditorStore.getState();
+        const childIds = ungroupShapes(ydoc, selectedIds);
+        if (childIds.length > 0) {
+          setSelectedIds(childIds);
+        }
+        return;
+      }
+
+      if (isMod && (code === 'BracketLeft' || code === 'BracketRight')) {
+        e.preventDefault();
+        const toExtreme = e.altKey || (e.ctrlKey && e.shiftKey && !e.metaKey);
+        const direction =
+          code === 'BracketRight'
+            ? toExtreme
+              ? 'front'
+              : 'forward'
+            : toExtreme
+              ? 'back'
+              : 'backward';
+
+        const { selectedIds, setSelectedIds } = useEditorStore.getState();
+        const movedIds = moveShapesInStack(ydoc, selectedIds, direction);
+        if (movedIds.length > 0) {
+          setSelectedIds(movedIds);
+        }
         return;
       }
 

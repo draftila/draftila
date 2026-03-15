@@ -3,6 +3,7 @@ import type { ComponentType } from 'react';
 
 export interface PropertySectionProps {
   shape: Shape;
+  shapeScope: Shape[];
   onUpdate: (props: Partial<Shape>) => void;
 }
 

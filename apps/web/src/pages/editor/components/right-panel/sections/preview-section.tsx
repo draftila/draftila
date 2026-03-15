@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
-import type { Shape } from '@draftila/shared';
 import { Canvas2DRenderer } from '@draftila/engine/renderer/canvas2d';
 import { renderShape } from '@draftila/engine/shape-renderer';
 import type { PropertySectionProps } from '../types';
@@ -9,7 +8,7 @@ const PREVIEW_WIDTH = 216;
 const PREVIEW_PADDING = 8;
 const CHECKERBOARD = 'repeating-conic-gradient(#808080 0% 25%, transparent 0% 50%) 0 0 / 8px 8px';
 
-export function PreviewSection({ shape }: PropertySectionProps) {
+export function PreviewSection({ shape, shapeScope }: PropertySectionProps) {
   const [expanded, setExpanded] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<Canvas2DRenderer | null>(null);
@@ -24,8 +23,22 @@ export function PreviewSection({ shape }: PropertySectionProps) {
     }
     const renderer = rendererRef.current;
 
-    const contentWidth = shape.width;
-    const contentHeight = shape.height;
+    const previewShapes = shapeScope.length > 0 ? shapeScope : [shape];
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    for (const currentShape of previewShapes) {
+      minX = Math.min(minX, currentShape.x);
+      minY = Math.min(minY, currentShape.y);
+      maxX = Math.max(maxX, currentShape.x + currentShape.width);
+      maxY = Math.max(maxY, currentShape.y + currentShape.height);
+    }
+
+    const contentWidth = Math.max(1, maxX - minX);
+    const contentHeight = Math.max(1, maxY - minY);
     const availableWidth = PREVIEW_WIDTH - PREVIEW_PADDING * 2;
     const scale = Math.min(1, availableWidth / contentWidth);
     const previewHeight = contentHeight * scale + PREVIEW_PADDING * 2;
@@ -34,16 +47,18 @@ export function PreviewSection({ shape }: PropertySectionProps) {
     renderer.clear();
     renderer.save();
     renderer.applyCamera({
-      x: -shape.x * scale + (PREVIEW_WIDTH - contentWidth * scale) / 2,
-      y: -shape.y * scale + PREVIEW_PADDING,
+      x: -minX * scale + (PREVIEW_WIDTH - contentWidth * scale) / 2,
+      y: -minY * scale + PREVIEW_PADDING,
       zoom: scale,
     });
 
-    renderShape(renderer, shape);
+    for (const currentShape of previewShapes) {
+      renderShape(renderer, currentShape);
+    }
     renderer.restore();
 
     canvas.style.height = `${previewHeight}px`;
-  }, [expanded, shape]);
+  }, [expanded, shape, shapeScope]);
 
   return (
     <section>

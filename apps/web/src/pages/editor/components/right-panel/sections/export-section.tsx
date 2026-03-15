@@ -21,7 +21,7 @@ interface ExportConfig {
   format: ExportFormat;
 }
 
-export function ExportSection({ shape }: PropertySectionProps) {
+export function ExportSection({ shape, shapeScope }: PropertySectionProps) {
   const [exports, setExports] = useState<ExportConfig[]>([]);
 
   const addExport = useCallback(() => {
@@ -40,14 +40,15 @@ export function ExportSection({ shape }: PropertySectionProps) {
     async (config: ExportConfig) => {
       const filename = shape.name || shape.type;
       const scale = SCALE_VALUES[config.scale];
+      const exportShapes = shapeScope.length > 0 ? shapeScope : [shape];
 
       if (config.format === 'PNG' || config.format === 'JPG') {
-        await exportAndDownloadPng([shape], `${filename}.png`, scale);
+        await exportAndDownloadPng(exportShapes, `${filename}.png`, scale);
       } else if (config.format === 'SVG') {
-        await exportAndDownloadSvg([shape], `${filename}.svg`);
+        await exportAndDownloadSvg(exportShapes, `${filename}.svg`);
       }
     },
-    [shape],
+    [shape, shapeScope],
   );
 
   const handleExportAll = useCallback(async () => {

@@ -134,6 +134,33 @@ function pointOnFrameBorder(px: number, py: number, shape: Shape, zoom: number):
   );
 }
 
+function hasAncestorMatch(
+  shape: Shape,
+  shapeMap: Map<string, Shape>,
+  predicate: (ancestor: Shape) => boolean,
+): boolean {
+  let currentParentId = shape.parentId ?? null;
+
+  while (currentParentId) {
+    const parent = shapeMap.get(currentParentId);
+    if (!parent) return false;
+    if (predicate(parent)) return true;
+    currentParentId = parent.parentId ?? null;
+  }
+
+  return false;
+}
+
+function isEffectivelyVisible(shape: Shape, shapeMap: Map<string, Shape>): boolean {
+  if (!shape.visible) return false;
+  return !hasAncestorMatch(shape, shapeMap, (ancestor) => !ancestor.visible);
+}
+
+function isEffectivelyLocked(shape: Shape, shapeMap: Map<string, Shape>): boolean {
+  if (shape.locked) return true;
+  return hasAncestorMatch(shape, shapeMap, (ancestor) => ancestor.locked);
+}
+
 export function hitTestFrameLabel(
   px: number,
   py: number,
@@ -222,11 +249,12 @@ export function hitTestPoint(
 ): Shape | null {
   const candidates = spatialIndex.queryPoint(px, py);
   const candidateIds = new Set(candidates.map((c) => c.id));
+  const shapeMap = new Map(shapes.map((shape) => [shape.id, shape]));
 
   for (let i = shapes.length - 1; i >= 0; i--) {
     const shape = shapes[i];
     if (!shape || !candidateIds.has(shape.id)) continue;
-    if (shape.locked || !shape.visible) continue;
+    if (isEffectivelyLocked(shape, shapeMap) || !isEffectivelyVisible(shape, shapeMap)) continue;
     if (shape.type === 'frame') continue;
     if (narrowPhaseHitTest(px, py, shape, zoom)) {
       return shape;
@@ -236,7 +264,7 @@ export function hitTestPoint(
   for (let i = shapes.length - 1; i >= 0; i--) {
     const shape = shapes[i];
     if (!shape || shape.type !== 'frame') continue;
-    if (shape.locked || !shape.visible) continue;
+    if (isEffectivelyLocked(shape, shapeMap) || !isEffectivelyVisible(shape, shapeMap)) continue;
     if (hitTestFrameLabel(px, py, shape, zoom)) {
       return shape;
     }
@@ -260,11 +288,12 @@ export function hitTestRect(
   if (candidates.length === 0) return [];
 
   const candidateIds = new Set(candidates.map((c) => c.id));
+  const shapeMap = new Map(shapes.map((shape) => [shape.id, shape]));
   const result: Shape[] = [];
 
   for (const shape of shapes) {
     if (!candidateIds.has(shape.id)) continue;
-    if (shape.locked || !shape.visible) continue;
+    if (isEffectivelyLocked(shape, shapeMap) || !isEffectivelyVisible(shape, shapeMap)) continue;
 
     const shapeMinX = shape.x;
     const shapeMinY = shape.y;

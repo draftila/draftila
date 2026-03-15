@@ -75,6 +75,19 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
 
     const { camera, selectedIds, activeTool } = useEditorStore.getState();
     const shapes = shapeCacheRef.current;
+    const shapeMap = new Map(shapes.map((shape) => [shape.id, shape]));
+
+    const isShapeVisible = (shape: Shape): boolean => {
+      if (!shape.visible) return false;
+      let currentParentId = shape.parentId ?? null;
+      while (currentParentId) {
+        const parent = shapeMap.get(currentParentId);
+        if (!parent) return false;
+        if (!parent.visible) return false;
+        currentParentId = parent.parentId ?? null;
+      }
+      return true;
+    };
 
     renderer.clear();
     renderer.save();
@@ -136,6 +149,7 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
     const { editingTextId } = useEditorStore.getState();
 
     for (const shape of shapes) {
+      if (!isShapeVisible(shape)) continue;
       const resized = resizePreview?.get(shape.id);
       if (endpointPreview?.shapeId === shape.id) {
         renderShape(renderer, applyEndpointPreviewToShape(shape));
@@ -151,6 +165,7 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
     const selectedSet = new Set(selectedIds);
     const selectedShapes: Shape[] = [];
     for (const shape of shapes) {
+      if (!isShapeVisible(shape)) continue;
       if (selectedSet.has(shape.id)) {
         const resized = resizePreview?.get(shape.id);
         let displayShape = shape;
@@ -168,6 +183,7 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
 
     for (const shape of shapes) {
       if (shape.type !== 'frame') continue;
+      if (!isShapeVisible(shape)) continue;
       let displayShape: Shape = shape;
       const resized = resizePreview?.get(shape.id);
       if (endpointPreview?.shapeId === shape.id) {
