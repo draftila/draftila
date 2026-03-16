@@ -16,6 +16,7 @@ interface UseYjsReturn {
   awareness: WebsocketProvider['awareness'] | null;
   connected: boolean;
   synced: boolean;
+  applyingRemoteChanges: boolean;
 }
 
 function getWebSocketUrl(): string {
@@ -69,6 +70,7 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
   const providerRef = useRef<WebsocketProvider | null>(null);
   const [connected, setConnected] = useState(false);
   const [synced, setSynced] = useState(false);
+  const [applyingRemoteChanges, setApplyingRemoteChanges] = useState(false);
 
   useEffect(() => {
     if (!enabled) return;
@@ -82,6 +84,22 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
       connect: true,
     });
     providerRef.current = wsProvider;
+
+    let remoteChangeTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const handleRemoteUpdate = (_update: Uint8Array, origin: unknown) => {
+      if (origin !== wsProvider) return;
+      setApplyingRemoteChanges(true);
+      if (remoteChangeTimer) {
+        clearTimeout(remoteChangeTimer);
+      }
+      remoteChangeTimer = setTimeout(() => {
+        setApplyingRemoteChanges(false);
+        remoteChangeTimer = null;
+      }, 1200);
+    };
+
+    ydoc.on('update', handleRemoteUpdate);
 
     const cleanupDebounce = installDebouncedSync(wsProvider);
 
@@ -97,10 +115,15 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
       cleanupDebounce();
       wsProvider.disconnect();
       wsProvider.destroy();
+      ydoc.off('update', handleRemoteUpdate);
+      if (remoteChangeTimer) {
+        clearTimeout(remoteChangeTimer);
+      }
       ydoc.destroy();
       providerRef.current = null;
       setConnected(false);
       setSynced(false);
+      setApplyingRemoteChanges(false);
     };
   }, [draftId, enabled]);
 
@@ -110,5 +133,6 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
     awareness: providerRef.current?.awareness ?? null,
     connected,
     synced,
+    applyingRemoteChanges,
   };
 }

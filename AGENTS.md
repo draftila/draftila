@@ -21,7 +21,6 @@ packages/    shared (Zod schemas + types), eslint-config, typescript-config
 - No `any`. Use strict TypeScript. The codebase has `strict: true` and `noUncheckedIndexedAccess: true`.
 - Prefix unused variables with `_`.
 - Use the existing Prettier config (single quotes, semicolons, trailing commas, 100 print width).
-- Run `bun run checks` after every task. It must pass before considering work complete.
 - Follow the existing code style and patterns.
 
 ### API (`apps/api`)

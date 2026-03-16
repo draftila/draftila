@@ -21,6 +21,7 @@
     "routes:list": "bun run src/routes-list.ts"
   },
   "dependencies": {
+    "@draftila/engine": "workspace:*",
     "@draftila/shared": "workspace:*",
     "better-auth": "^1.1.14",
     "hono": "^4.6.14",

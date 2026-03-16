@@ -11,6 +11,7 @@ async function reset() {
 
   await safeDeleteMany(() => db.draft.deleteMany());
   await safeDeleteMany(() => db.project.deleteMany());
+  await safeDeleteMany(() => db.mcpAccessToken.deleteMany());
   await safeDeleteMany(() => db.session.deleteMany());
   await safeDeleteMany(() => db.account.deleteMany());
   await safeDeleteMany(() => db.verification.deleteMany());
