@@ -1,5 +1,8 @@
 import { beforeAll, beforeEach, describe, expect, test } from 'bun:test';
+import { eq } from 'drizzle-orm';
 import { app } from '../../src/app';
+import { db } from '../../src/db';
+import { project } from '../../src/db/schema';
 import { resetRateLimitStore } from '../../src/common/middleware/rate-limit';
 import * as projectsService from '../../src/modules/projects/projects.service';
 import { cleanDatabase, cleanProjects, createTestUser, getAuthHeaders } from '../helpers';
@@ -135,6 +138,16 @@ describe('projects', () => {
       const deleted = await projectsService.remove(created.id, 'other-user-id');
 
       expect(deleted).toBeNull();
+
+      const found = await projectsService.getByIdAndOwner(created.id, userId);
+      expect(found).not.toBeNull();
+    });
+
+    test('remove throws ForbiddenError for personal project', async () => {
+      const created = await projectsService.create({ name: 'Personal', ownerId: userId });
+      await db.update(project).set({ isPersonal: true }).where(eq(project.id, created.id));
+
+      await expect(projectsService.remove(created.id, userId)).rejects.toThrow('Forbidden');
 
       const found = await projectsService.getByIdAndOwner(created.id, userId);
       expect(found).not.toBeNull();
@@ -386,6 +399,23 @@ describe('projects', () => {
     test('DELETE /api/projects/:id returns 401 without auth', async () => {
       const res = await app.request('/api/projects/some-id', { method: 'DELETE' });
       expect(res.status).toBe(401);
+    });
+
+    test('DELETE /api/projects/:id returns 403 for personal project', async () => {
+      const created = await projectsService.create({ name: 'Personal', ownerId: userId });
+      await db.update(project).set({ isPersonal: true }).where(eq(project.id, created.id));
+
+      const res = await app.request(`/api/projects/${created.id}`, {
+        method: 'DELETE',
+        headers: authHeaders,
+      });
+
+      expect(res.status).toBe(403);
+      const body = (await res.json()) as { error: string };
+      expect(body.error).toBe('Forbidden');
+
+      const found = await projectsService.getByIdAndOwner(created.id, userId);
+      expect(found).not.toBeNull();
     });
   });
 });

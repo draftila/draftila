@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, sql, SQL } from 'drizzle-orm';
 import type { SortOrder } from '@draftila/shared';
+import { ForbiddenError } from '../../common/errors';
 import { db } from '../../db';
 import { project } from '../../db/schema';
 import { nanoid } from '../../common/lib/utils';
@@ -79,6 +80,13 @@ export async function create(data: { name: string; ownerId: string }) {
 }
 
 export async function remove(id: string, ownerId: string) {
+  const existing = await getByIdAndOwner(id, ownerId);
+  if (!existing) return null;
+
+  if (existing.isPersonal) {
+    throw new ForbiddenError();
+  }
+
   const [deleted] = await db
     .delete(project)
     .where(and(eq(project.id, id), eq(project.ownerId, ownerId)))

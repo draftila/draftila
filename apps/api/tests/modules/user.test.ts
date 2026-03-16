@@ -43,9 +43,12 @@ describe('user', () => {
       const res = await app.request('/api/me', { headers });
       expect(res.status).toBe(200);
 
-      const body = (await res.json()) as { user: { email: string; name: string } };
+      const body = (await res.json()) as {
+        user: { id: string; email: string; name: string; image: string | null };
+      };
       expect(body.user.email).toBe('test@draftila.com');
       expect(body.user.name).toBe('Test User');
+      expect(Object.keys(body.user).sort()).toEqual(['email', 'id', 'image', 'name']);
     });
 
     test('returns 401 with invalid session token', async () => {
