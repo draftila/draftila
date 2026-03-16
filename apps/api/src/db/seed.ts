@@ -1,5 +1,5 @@
 import { auth } from '../modules/auth/auth.service';
-import { client } from './index';
+import { db } from './index';
 
 const allowedEnvs = ['development', 'test'];
 if (!allowedEnvs.includes(process.env.NODE_ENV ?? 'development')) {
@@ -23,7 +23,7 @@ async function seed() {
 
   console.log('Seed completed successfully!');
 
-  await client.end();
+  await db.$disconnect();
 }
 
 seed().catch((err) => {

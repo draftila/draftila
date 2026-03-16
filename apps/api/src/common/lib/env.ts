@@ -8,6 +8,16 @@ function requireEnv(name: string): string {
   return value;
 }
 
+function parseDbDriver(value: string | undefined): 'postgresql' | 'sqlite' {
+  if (!value) {
+    return 'postgresql';
+  }
+  if (value === 'postgresql' || value === 'sqlite') {
+    return value;
+  }
+  throw new Error('DB_DRIVER must be either "postgresql" or "sqlite"');
+}
+
 function parseTrustedProxies(value: string | undefined): Set<string> | '*' | null {
   if (!value) return null;
   const trimmed = value.trim();
@@ -20,10 +30,10 @@ function parseTrustedProxies(value: string | undefined): Set<string> | '*' | nul
 }
 
 export const env = {
+  DB_DRIVER: parseDbDriver(process.env.DB_DRIVER),
   DATABASE_URL: requireEnv('DATABASE_URL'),
   BETTER_AUTH_SECRET: requireEnv('BETTER_AUTH_SECRET'),
   BETTER_AUTH_URL: requireEnv('BETTER_AUTH_URL'),
-  DB_POOL_MAX: parseInt(process.env.DB_POOL_MAX ?? '10', 10),
   PORT: parseInt(process.env.PORT ?? '3001', 10),
   FRONTEND_URL: process.env.FRONTEND_URL ?? 'http://localhost:5173',
   TRUSTED_PROXY_IPS: parseTrustedProxies(process.env.TRUSTED_PROXY_IPS),

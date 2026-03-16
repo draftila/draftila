@@ -40,6 +40,9 @@ export {
   type LayerDropPlacement,
   observeShapes,
   type ShapeChangeCallback,
+  getChildShapes,
+  applyAutoLayout,
+  applyAutoLayoutForAncestors,
 } from './scene-graph';
 
 export {
@@ -122,13 +125,11 @@ export {
 } from './image-manager';
 
 export {
-  type LayoutDirection,
-  type LayoutAlign,
-  type SizingMode,
-  type AutoLayoutConfig,
-  DEFAULT_AUTO_LAYOUT,
+  type LayoutChild,
+  type LayoutResult,
+  isAutoLayoutFrame,
+  getAutoLayoutConfig,
   computeAutoLayout,
-  computeHugSize,
 } from './auto-layout';
 
 export {
@@ -193,3 +194,10 @@ export { LineTool } from './tools/line-tool';
 export { ArrowTool } from './tools/arrow-tool';
 export { PolygonTool } from './tools/polygon-tool';
 export { StarTool } from './tools/star-tool';
+
+export {
+  ensureFontsLoaded,
+  onFontsLoaded,
+  isFontLoaded,
+  collectFontFamilies,
+} from './font-manager';

@@ -294,7 +294,7 @@ export class Canvas2DRenderer implements Renderer {
     ctx.font =
       `${fontStyle} ${options.fontWeight} ${options.fontSize}px ${options.fontFamily}`.trim();
     ctx.textAlign = options.textAlign;
-    ctx.textBaseline = 'top';
+    ctx.textBaseline = 'middle';
 
     const visibleFill = options.fills.find((f) => f.visible);
     const fillColor = visibleFill ? colorWithOpacity(visibleFill.color, visibleFill.opacity) : null;
@@ -327,7 +327,7 @@ export class Canvas2DRenderer implements Renderer {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       if (line === undefined) continue;
-      const y = offsetY + i * lineHeight;
+      const y = offsetY + i * lineHeight + lineHeight / 2;
       if (fillColor) {
         ctx.fillText(line, textX, y);
       }
@@ -337,10 +337,11 @@ export class Canvas2DRenderer implements Renderer {
         let lineStartX = textX;
         if (options.textAlign === 'center') lineStartX = textX - metrics.width / 2;
         else if (options.textAlign === 'right') lineStartX = textX - metrics.width;
+        const lineTopY = y - lineHeight / 2;
         const decoY =
           options.textDecoration === 'strikethrough'
-            ? y + options.fontSize * 0.55
-            : y + options.fontSize * 0.95;
+            ? lineTopY + options.fontSize * 0.55
+            : lineTopY + options.fontSize * 0.95;
         ctx.beginPath();
         ctx.strokeStyle = fillColor ?? '#000000';
         ctx.lineWidth = Math.max(1, options.fontSize / 16);

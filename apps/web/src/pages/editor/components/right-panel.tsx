@@ -7,7 +7,10 @@ import {
   getShape,
   observeShapes,
   updateShape,
+  applyAutoLayout,
+  applyAutoLayoutForAncestors,
 } from '@draftila/engine/scene-graph';
+import { isAutoLayoutFrame } from '@draftila/engine/auto-layout';
 import { useEditorStore } from '@/stores/editor-store';
 import { ExportSection } from './right-panel/sections/export-section';
 import { PreviewSection } from './right-panel/sections/preview-section';
@@ -60,6 +63,8 @@ function createCanvasScopeShape(scopeShapes: Shape[]): Shape {
       cornerSmoothing: 0,
       shadows: [],
       blurs: [],
+      layoutSizingHorizontal: 'fixed',
+      layoutSizingVertical: 'fixed',
     };
   }
 
@@ -95,6 +100,8 @@ function createCanvasScopeShape(scopeShapes: Shape[]): Shape {
     cornerSmoothing: 0,
     shadows: [],
     blurs: [],
+    layoutSizingHorizontal: 'fixed',
+    layoutSizingVertical: 'fixed',
   };
 }
 
@@ -139,7 +146,19 @@ export function RightPanel({ ydoc }: RightPanelProps) {
   const handleUpdate = useCallback(
     (props: Partial<Shape>) => {
       if (selectedIds.length !== 1) return;
-      updateShape(ydoc, selectedIds[0]!, props);
+      const shapeId = selectedIds[0]!;
+      updateShape(ydoc, shapeId, props);
+
+      requestAnimationFrame(() => {
+        const updatedShape = getShape(ydoc, shapeId);
+        if (!updatedShape) return;
+
+        if (isAutoLayoutFrame(updatedShape)) {
+          applyAutoLayout(ydoc, shapeId);
+        }
+
+        applyAutoLayoutForAncestors(ydoc, shapeId);
+      });
     },
     [ydoc, selectedIds],
   );

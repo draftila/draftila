@@ -15,12 +15,16 @@ import { Canvas } from './components/canvas';
 import { useYjs } from './hooks/use-yjs';
 import { useKeyboard } from './hooks/use-keyboard';
 import { useAwareness } from './hooks/use-awareness';
+import { useMcpRpc } from './hooks/use-mcp-rpc';
 
 export function EditorPage() {
   const { draftId } = useParams<{ draftId: string }>();
   const navigate = useNavigate();
   const { data: draft, isLoading, isError } = useDraftById(draftId ?? '');
-  const { ydoc, provider, connected } = useYjs({ draftId: draftId ?? '', enabled: !!draft });
+  const { ydoc, provider, connected, applyingRemoteChanges } = useYjs({
+    draftId: draftId ?? '',
+    enabled: !!draft,
+  });
   const { data: session } = useSession();
 
   const userId = session?.user?.id ?? 'anonymous';
@@ -42,6 +46,7 @@ export function EditorPage() {
     userName,
   );
 
+  useMcpRpc(ydoc, provider);
   useKeyboard({ ydoc });
 
   useEffect(() => {
@@ -106,6 +111,15 @@ export function EditorPage() {
           </TooltipTrigger>
           <TooltipContent>{connected ? 'Connected' : 'Disconnected'}</TooltipContent>
         </Tooltip>
+        {applyingRemoteChanges && (
+          <div className="bg-muted/60 border-border text-muted-foreground inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs">
+            <span className="relative flex size-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+              <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+            </span>
+            Applying changes...
+          </div>
+        )}
         <div className="flex-1" />
         {remoteUsers.length > 0 && (
           <div className="flex gap-1">

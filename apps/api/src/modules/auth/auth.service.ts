@@ -1,10 +1,8 @@
 import { betterAuth } from 'better-auth';
-import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { env } from '../../common/lib/env';
 import { nanoid } from '../../common/lib/utils';
 import { db } from '../../db';
-import * as schema from '../../db/schema';
-import { project } from '../../db/schema';
 
 const isTest = process.env.NODE_ENV === 'test';
 
@@ -15,10 +13,7 @@ const testPasswordConfig = {
 };
 
 export const auth = betterAuth({
-  database: drizzleAdapter(db, {
-    provider: 'pg',
-    schema,
-  }),
+  database: prismaAdapter(db, { provider: env.DB_DRIVER }),
   emailAndPassword: {
     enabled: true,
     ...(isTest && { password: testPasswordConfig }),
@@ -28,11 +23,13 @@ export const auth = betterAuth({
     user: {
       create: {
         after: async (user) => {
-          await db.insert(project).values({
-            id: nanoid(),
-            name: 'Personal',
-            isPersonal: true,
-            ownerId: user.id,
+          await db.project.create({
+            data: {
+              id: nanoid(),
+              name: 'Personal',
+              isPersonal: true,
+              ownerId: user.id,
+            },
           });
         },
       },

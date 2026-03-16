@@ -1,19 +1,24 @@
-import { sql } from 'drizzle-orm';
 import { app } from '../src/app';
 import { db } from '../src/db';
 
 export async function cleanDatabase() {
-  await db.execute(
-    sql`TRUNCATE TABLE "draft", "project", "session", "account", "verification", "user" CASCADE`,
-  );
+  await db.draft.deleteMany();
+  await db.project.deleteMany();
+  await db.mcpAccessToken.deleteMany();
+  await db.session.deleteMany();
+  await db.account.deleteMany();
+  await db.verification.deleteMany();
+  await db.user.deleteMany();
 }
 
 export async function cleanProjects() {
-  await db.execute(sql`TRUNCATE TABLE "draft", "project" CASCADE`);
+  await db.draft.deleteMany();
+  await db.project.deleteMany();
+  await db.mcpAccessToken.deleteMany();
 }
 
 export async function cleanDrafts() {
-  await db.execute(sql`TRUNCATE TABLE "draft" CASCADE`);
+  await db.draft.deleteMany();
 }
 
 interface TestUserResponse {

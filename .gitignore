@@ -4,6 +4,7 @@ node_modules/
 # Build outputs
 dist/
 .turbo/
+apps/api/src/generated/
 
 # Environment
 .env
@@ -22,5 +23,11 @@ dist/
 
 # Coverage
 coverage/
+
+# SQLite databases
+*.sqlite
+*.sqlite-journal
+*.sqlite-shm
+*.sqlite-wal
 
 .plans/

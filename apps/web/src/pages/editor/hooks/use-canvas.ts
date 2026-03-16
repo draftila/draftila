@@ -25,6 +25,11 @@ import { generatePolygonPoints, generateStarPoints } from '@draftila/engine/shap
 import { getSelectionBounds } from '@draftila/engine/selection';
 import type { ResizePreviewEntry } from '@draftila/engine/tools/move-tool';
 import { useEditorStore } from '@/stores/editor-store';
+import {
+  ensureFontsLoaded,
+  onFontsLoaded,
+  collectFontFamilies,
+} from '@draftila/engine/font-manager';
 import getStroke from 'perfect-freehand';
 
 export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
@@ -59,14 +64,25 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
     };
   }, []);
 
+  const needsRedrawRef = useRef(false);
+
   useEffect(() => {
     shapeCacheRef.current = getAllShapes(ydoc);
+    ensureFontsLoaded(collectFontFamilies(shapeCacheRef.current));
 
     const unobserve = observeShapes(ydoc, () => {
       shapeCacheRef.current = getAllShapes(ydoc);
+      ensureFontsLoaded(collectFontFamilies(shapeCacheRef.current));
     });
 
-    return unobserve;
+    const unsubscribeFonts = onFontsLoaded(() => {
+      needsRedrawRef.current = true;
+    });
+
+    return () => {
+      unobserve();
+      unsubscribeFonts();
+    };
   }, [ydoc]);
 
   const draw = useCallback(() => {
@@ -195,6 +211,13 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
     for (const shape of shapes) {
       if (shape.type !== 'frame') continue;
       if (!isShapeVisible(shape)) continue;
+
+      const parentShape = shape.parentId ? shapeMap.get(shape.parentId) : null;
+      const isTopLevel = !parentShape || parentShape.type !== 'frame';
+      const isSelected = selectedSet.has(shape.id);
+
+      if (!isTopLevel && !isSelected) continue;
+
       let displayShape: Shape = shape;
       const resized = resizePreview?.get(shape.id);
       if (endpointPreview?.shapeId === shape.id) {
@@ -206,7 +229,6 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
       } else if (rotationPreview?.has(shape.id)) {
         displayShape = applyRotationToShape(shape);
       }
-      const isSelected = selectedSet.has(shape.id);
       renderer.drawFrameLabel(
         displayShape.x,
         displayShape.y,
