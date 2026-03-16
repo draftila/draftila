@@ -1,7 +1,8 @@
+import type * as Y from 'yjs';
 import type { Shape } from '@draftila/shared';
 import { BaseTool, getToolStore, type ToolContext, type ToolResult } from './base-tool';
 import { hitTestPoint, hitTestFrameLabel } from '../hit-test';
-import { getAllShapes, getExpandedShapeIds, updateShape } from '../scene-graph';
+import { getAllShapes, getExpandedShapeIds, resolveGroupTarget, updateShape } from '../scene-graph';
 import { SpatialIndex } from '../spatial-index';
 import {
   getSelectionBounds,
@@ -240,10 +241,12 @@ export class MoveTool extends BaseTool {
     );
 
     if (hit) {
+      const targetId = resolveGroupTarget(ctx.ydoc, hit.id, store.enteredGroupId);
+
       if (ctx.shiftKey) {
-        store.toggleSelection(hit.id);
-      } else if (!store.selectedIds.includes(hit.id)) {
-        store.setSelectedIds([hit.id]);
+        store.toggleSelection(targetId);
+      } else if (!store.selectedIds.includes(targetId)) {
+        store.setSelectedIds([targetId]);
       }
 
       const selectedIds = getToolStore().selectedIds;
@@ -298,6 +301,7 @@ export class MoveTool extends BaseTool {
     const preMarqueeIds = ctx.shiftKey ? [...store.selectedIds] : [];
     if (!ctx.shiftKey) {
       store.clearSelection();
+      store.setEnteredGroupId(null);
     }
 
     this.state = {
@@ -446,7 +450,7 @@ export class MoveTool extends BaseTool {
 
       const shapes = getAllShapes(ctx.ydoc);
       this.spatialIndex.rebuild(shapes);
-      const marqueeIds = this.getMarqueeHitIds(shapes);
+      const marqueeIds = this.getMarqueeHitIds(shapes, ctx.ydoc);
       const store = getToolStore();
       const combined = new Set([...this.state.preMarqueeIds, ...marqueeIds]);
       store.setSelectedIds(Array.from(combined));
@@ -477,7 +481,8 @@ export class MoveTool extends BaseTool {
       this.spatialIndex,
       ctx.camera.zoom,
     );
-    store.setHoveredId(hit?.id ?? null);
+    const hoveredId = hit ? resolveGroupTarget(ctx.ydoc, hit.id, store.enteredGroupId) : null;
+    store.setHoveredId(hoveredId);
   }
 
   onPointerUp(ctx: ToolContext): ToolResult | void {
@@ -567,15 +572,16 @@ export class MoveTool extends BaseTool {
     return null;
   }
 
-  private getMarqueeHitIds(shapes: Shape[]): string[] {
+  private getMarqueeHitIds(shapes: Shape[], ydoc: Y.Doc): string[] {
     if (!this.marqueeRect) return [];
     const { x, y, width, height } = this.marqueeRect;
     const mx = x + width;
     const my = y + height;
     const hits = this.spatialIndex.queryRect(x, y, mx, my);
     const hitIds = new Set(hits.map((h) => h.id));
+    const store = getToolStore();
 
-    return shapes
+    const rawIds = shapes
       .filter((s) => hitIds.has(s.id) && !s.locked && s.visible)
       .filter((s) => s.x < mx && s.x + s.width > x && s.y < my && s.y + s.height > y)
       .filter((s) => {
@@ -583,6 +589,12 @@ export class MoveTool extends BaseTool {
         return !(s.x <= x && s.y <= y && s.x + s.width >= mx && s.y + s.height >= my);
       })
       .map((s) => s.id);
+
+    const resolved = new Set<string>();
+    for (const id of rawIds) {
+      resolved.add(resolveGroupTarget(ydoc, id, store.enteredGroupId));
+    }
+    return Array.from(resolved);
   }
 
   private resetState() {

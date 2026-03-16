@@ -6,6 +6,7 @@ interface EditorState {
   activeTool: ToolType;
   camera: Camera;
   selectedIds: string[];
+  enteredGroupId: string | null;
   hoveredId: string | null;
   editingTextId: string | null;
   isPanning: boolean;
@@ -30,12 +31,14 @@ interface EditorState {
   setLeftPanelOpen: (open: boolean) => void;
   setRightPanelOpen: (open: boolean) => void;
   setCursorCanvasPoint: (point: Point | null) => void;
+  setEnteredGroupId: (id: string | null) => void;
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
   activeTool: 'move',
   camera: DEFAULT_CAMERA,
   selectedIds: [],
+  enteredGroupId: null,
   hoveredId: null,
   editingTextId: null,
   isPanning: false,
@@ -92,11 +95,16 @@ export const useEditorStore = create<EditorState>((set) => ({
   setRightPanelOpen: (open) => set({ rightPanelOpen: open }),
 
   setCursorCanvasPoint: (point) => set({ cursorCanvasPoint: point }),
+
+  setEnteredGroupId: (id) => set({ enteredGroupId: id }),
 }));
 
 configureToolStore({
   get selectedIds() {
     return useEditorStore.getState().selectedIds;
+  },
+  get enteredGroupId() {
+    return useEditorStore.getState().enteredGroupId;
   },
   get camera() {
     return useEditorStore.getState().camera;
@@ -109,4 +117,5 @@ configureToolStore({
   clearSelection: () => useEditorStore.getState().clearSelection(),
   setHoveredId: (id) => useEditorStore.getState().setHoveredId(id),
   setCamera: (camera) => useEditorStore.getState().setCamera(camera),
+  setEnteredGroupId: (id) => useEditorStore.getState().setEnteredGroupId(id),
 });

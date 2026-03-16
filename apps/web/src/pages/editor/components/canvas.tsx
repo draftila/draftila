@@ -2,7 +2,7 @@ import { useCallback, useEffect } from 'react';
 import type * as Y from 'yjs';
 import { useEditorStore } from '@/stores/editor-store';
 import { zoomAtPoint, panCamera, screenToCanvas } from '@draftila/engine/camera';
-import { getShape } from '@draftila/engine/scene-graph';
+import { getShape, resolveGroupTarget } from '@draftila/engine/scene-graph';
 import { hitTestPoint } from '@draftila/engine/hit-test';
 import { getAllShapes } from '@draftila/engine/scene-graph';
 import { SpatialIndex } from '@draftila/engine/spatial-index';
@@ -79,12 +79,22 @@ export function Canvas({ ydoc, remoteUsers, onActiveInteraction }: CanvasProps) 
       spatialIndex.rebuild(shapes);
       const hit = hitTestPoint(point.x, point.y, shapes, spatialIndex, state.camera.zoom);
 
-      if (hit) {
-        const shape = getShape(ydoc, hit.id);
-        if (shape && shape.type === 'text') {
-          state.setSelectedIds([shape.id]);
-          state.setEditingTextId(shape.id);
-        }
+      if (!hit) return;
+
+      const targetId = resolveGroupTarget(ydoc, hit.id, state.enteredGroupId);
+      const targetShape = getShape(ydoc, targetId);
+      if (!targetShape) return;
+
+      if (targetShape.type === 'group') {
+        state.setEnteredGroupId(targetId);
+        const deeperTargetId = resolveGroupTarget(ydoc, hit.id, targetId);
+        state.setSelectedIds([deeperTargetId]);
+        return;
+      }
+
+      if (targetShape.type === 'text') {
+        state.setSelectedIds([targetShape.id]);
+        state.setEditingTextId(targetShape.id);
       }
     },
     [ydoc, canvasRef],

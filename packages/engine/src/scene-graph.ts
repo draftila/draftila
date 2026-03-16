@@ -674,6 +674,35 @@ export function getTopLevelSelectedShapeIds(ydoc: Y.Doc, ids: string[]): string[
   return getTopLevelIds(ids, shapeMap);
 }
 
+export function resolveGroupTarget(
+  ydoc: Y.Doc,
+  shapeId: string,
+  enteredGroupId: string | null,
+): string {
+  const shapeMap = getShapeSnapshotMap(ydoc);
+  const ancestors: string[] = [];
+  let current = shapeMap.get(shapeId)?.parentId ?? null;
+  while (current) {
+    const parent = shapeMap.get(current);
+    if (!parent) break;
+    if (parent.type === 'group') {
+      ancestors.push(current);
+    }
+    current = parent.parentId ?? null;
+  }
+
+  if (ancestors.length === 0) return shapeId;
+
+  if (!enteredGroupId) return ancestors[ancestors.length - 1]!;
+
+  const enteredIdx = ancestors.indexOf(enteredGroupId);
+  if (enteredIdx < 0) return ancestors[ancestors.length - 1]!;
+
+  if (enteredIdx === 0) return shapeId;
+
+  return ancestors[enteredIdx - 1]!;
+}
+
 export function getExpandedShapeIds(ydoc: Y.Doc, ids: string[]): string[] {
   const shapeMap = getShapeSnapshotMap(ydoc);
   const orderedIds = getOrderedIds(shapeMap, getZOrder(ydoc).toArray());
