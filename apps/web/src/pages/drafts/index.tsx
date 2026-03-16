@@ -6,6 +6,7 @@ import { useDashboardStore } from '@/stores/dashboard-store';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
+import { UserMenu } from '@/components/user-menu';
 import { DraftCard } from './components/draft-card';
 import { DraftListItem } from './components/draft-list-item';
 import { DraftsToolbar } from './components/drafts-toolbar';
@@ -45,7 +46,7 @@ export function DraftsPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b pl-2 pr-4">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-2">
         <SidebarTrigger />
         <Separator orientation="vertical" className="data-[orientation=vertical]:h-full" />
         <h1 className="text-sm font-medium">Drafts</h1>
@@ -55,6 +56,8 @@ export function DraftsPage() {
             New Draft
           </Button>
         </div>
+        <Separator orientation="vertical" className="data-[orientation=vertical]:h-full" />
+        <UserMenu />
       </header>
       <div className="flex flex-1 flex-col overflow-auto p-6">
         <div className="mb-6">

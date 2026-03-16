@@ -134,6 +134,36 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+.appearance-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--input);
+  border-radius: 9999px;
+  outline: none;
+}
+
+.appearance-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--foreground);
+  border: 2px solid var(--background);
+  cursor: pointer;
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.appearance-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--foreground);
+  border: 2px solid var(--background);
+  cursor: pointer;
+  box-shadow: 0 0 0 1px var(--border);
+}
+
 @theme inline {
   --font-sans: 'Inter Variable', sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);

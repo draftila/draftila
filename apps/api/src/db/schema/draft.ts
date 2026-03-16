@@ -1,5 +1,11 @@
-import { index, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import { customType, index, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 import { project } from './project';
+
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() {
+    return 'bytea';
+  },
+});
 
 export const draft = pgTable(
   'draft',
@@ -9,6 +15,8 @@ export const draft = pgTable(
     projectId: text('project_id')
       .notNull()
       .references(() => project.id, { onDelete: 'cascade' }),
+    yjsState: bytea('yjs_state'),
+    thumbnail: text('thumbnail'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at')
       .notNull()
