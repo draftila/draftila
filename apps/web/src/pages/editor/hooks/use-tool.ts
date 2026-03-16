@@ -104,6 +104,8 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
       const rect = canvas.getBoundingClientRect();
       const ctx = buildContext(e, ydoc, rect);
 
+      useEditorStore.getState().setCursorCanvasPoint(ctx.canvasPoint);
+
       if (pointerDownRef.current) {
         const { isDrawing } = useEditorStore.getState();
         if (isDrawing || getMoveTool().isManipulating) {

@@ -32,6 +32,8 @@ export {
   getShape,
   getAllShapes,
   getShapeCount,
+  findContainerAtPoint,
+  getSelectedContainer,
   type LayerTreeNode,
   type StackMoveDirection,
   type LayerDropPlacement,
@@ -94,6 +96,7 @@ export {
 export {
   type FigmaMeta,
   type PasteSource,
+  type ExternalPasteOptions,
   isFigmaClipboard,
   parseFigmaMeta,
   parseFigmaBinary,

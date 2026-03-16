@@ -251,6 +251,14 @@ export function hitTestPoint(
   const candidateIds = new Set(candidates.map((c) => c.id));
   const shapeMap = new Map(shapes.map((shape) => [shape.id, shape]));
 
+  const childCountByParent = new Map<string, number>();
+  for (const shape of shapes) {
+    const pid = shape.parentId;
+    if (pid) {
+      childCountByParent.set(pid, (childCountByParent.get(pid) ?? 0) + 1);
+    }
+  }
+
   for (let i = shapes.length - 1; i >= 0; i--) {
     const shape = shapes[i];
     if (!shape || !candidateIds.has(shape.id)) continue;
@@ -269,6 +277,10 @@ export function hitTestPoint(
       return shape;
     }
     if (candidateIds.has(shape.id) && pointOnFrameBorder(px, py, shape, zoom)) {
+      return shape;
+    }
+    const hasChildren = (childCountByParent.get(shape.id) ?? 0) > 0;
+    if (!hasChildren && pointInRect(px, py, shape)) {
       return shape;
     }
   }
@@ -295,14 +307,22 @@ export function hitTestRect(
     if (!candidateIds.has(shape.id)) continue;
     if (isEffectivelyLocked(shape, shapeMap) || !isEffectivelyVisible(shape, shapeMap)) continue;
 
-    const shapeMinX = shape.x;
-    const shapeMinY = shape.y;
     const shapeMaxX = shape.x + shape.width;
     const shapeMaxY = shape.y + shape.height;
 
-    if (shapeMinX >= minX && shapeMinY >= minY && shapeMaxX <= maxX && shapeMaxY <= maxY) {
-      result.push(shape);
+    if (!(shape.x < maxX && shapeMaxX > minX && shape.y < maxY && shapeMaxY > minY)) continue;
+
+    if (
+      (shape.type === 'frame' || shape.type === 'group') &&
+      shape.x <= minX &&
+      shape.y <= minY &&
+      shapeMaxX >= maxX &&
+      shapeMaxY >= maxY
+    ) {
+      continue;
     }
+
+    result.push(shape);
   }
 
   return result;

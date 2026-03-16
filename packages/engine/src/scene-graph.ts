@@ -437,6 +437,71 @@ function applySiblingOrder(
   return nextOrdered;
 }
 
+function pointInsideShape(shape: Shape, px: number, py: number): boolean {
+  return (
+    px >= shape.x && px <= shape.x + shape.width && py >= shape.y && py <= shape.y + shape.height
+  );
+}
+
+export function findContainerAtPoint(
+  ydoc: Y.Doc,
+  px: number,
+  py: number,
+  excludeIds?: Set<string>,
+): string | null {
+  const shapeMap = getShapeSnapshotMap(ydoc);
+  const orderedIds = getOrderedIds(shapeMap, getZOrder(ydoc).toArray());
+  const childrenByParent = buildChildrenByParent(shapeMap, orderedIds);
+
+  const findDeepest = (parentId: string | null): string | null => {
+    const children = childrenByParent.get(parentId) ?? [];
+    for (let i = children.length - 1; i >= 0; i--) {
+      const childId = children[i];
+      if (!childId) continue;
+      if (excludeIds?.has(childId)) continue;
+      const child = shapeMap.get(childId);
+      if (!child || !child.visible || child.locked) continue;
+      if (!canContainChildren(child)) continue;
+      if (!pointInsideShape(child, px, py)) continue;
+      const deeper = findDeepest(childId);
+      return deeper ?? childId;
+    }
+    return null;
+  };
+
+  return findDeepest(null);
+}
+
+export function getSelectedContainer(ydoc: Y.Doc, selectedIds: string[]): string | null {
+  if (selectedIds.length !== 1) return null;
+  const selectedId = selectedIds[0];
+  if (!selectedId) return null;
+  const shape = getShape(ydoc, selectedId);
+  if (!shape) return null;
+  if (canContainChildren(shape)) return selectedId;
+  return shape.parentId ?? null;
+}
+
+function getLastDescendantIndex(
+  parentId: string,
+  orderedIds: string[],
+  childrenByParent: Map<string | null, string[]>,
+): number {
+  let lastIndex = orderedIds.indexOf(parentId);
+
+  const walkDescendants = (id: string) => {
+    const children = childrenByParent.get(id) ?? [];
+    for (const childId of children) {
+      const idx = orderedIds.indexOf(childId);
+      if (idx > lastIndex) lastIndex = idx;
+      walkDescendants(childId);
+    }
+  };
+
+  walkDescendants(parentId);
+  return lastIndex;
+}
+
 export function addShape(ydoc: Y.Doc, type: ShapeType, props: Partial<Shape> = {}): string {
   const id = generateId();
   const shapes = getShapesMap(ydoc);
@@ -460,7 +525,22 @@ export function addShape(ydoc: Y.Doc, type: ShapeType, props: Partial<Shape> = {
     }
 
     shapes.set(id, shapeData);
-    zOrder.push([id]);
+
+    const parentId = props.parentId ?? null;
+    if (parentId) {
+      const shapeMap = getShapeSnapshotMap(ydoc);
+      const orderedIds = getOrderedIds(shapeMap, zOrder.toArray());
+      const childrenByParent = buildChildrenByParent(shapeMap, orderedIds);
+      const insertAfterIndex = getLastDescendantIndex(parentId, orderedIds, childrenByParent);
+      const nextOrder = [
+        ...orderedIds.slice(0, insertAfterIndex + 1),
+        id,
+        ...orderedIds.slice(insertAfterIndex + 1),
+      ];
+      replaceZOrder(zOrder, nextOrder);
+    } else {
+      zOrder.push([id]);
+    }
   });
 
   return id;

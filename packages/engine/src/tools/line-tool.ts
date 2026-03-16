@@ -1,15 +1,17 @@
 import { BaseTool, getToolStore, type ToolContext, type ToolResult } from './base-tool';
-import { addShape } from '../scene-graph';
+import { addShape, findContainerAtPoint } from '../scene-graph';
 
 export class LineTool extends BaseTool {
   readonly name = 'line';
   readonly cursor = 'crosshair';
 
   private startPoint: { x: number; y: number } | null = null;
+  private containerId: string | null = null;
   previewLine: { x1: number; y1: number; x2: number; y2: number } | null = null;
 
   onPointerDown(ctx: ToolContext): ToolResult | void {
     this.startPoint = { x: ctx.canvasPoint.x, y: ctx.canvasPoint.y };
+    this.containerId = findContainerAtPoint(ctx.ydoc, ctx.canvasPoint.x, ctx.canvasPoint.y);
     getToolStore().setIsDrawing(true);
   }
 
@@ -57,6 +59,7 @@ export class LineTool extends BaseTool {
       y1,
       x2,
       y2,
+      parentId: this.containerId,
     });
 
     const store = getToolStore();
@@ -71,6 +74,7 @@ export class LineTool extends BaseTool {
 
   private reset() {
     this.startPoint = null;
+    this.containerId = null;
     this.previewLine = null;
     getToolStore().setIsDrawing(false);
   }

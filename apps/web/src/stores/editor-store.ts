@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Camera, ToolType } from '@draftila/shared';
+import type { Camera, Point, ToolType } from '@draftila/shared';
 import { DEFAULT_CAMERA, clampZoom, configureToolStore } from '@draftila/engine';
 
 interface EditorState {
@@ -12,6 +12,7 @@ interface EditorState {
   isDrawing: boolean;
   leftPanelOpen: boolean;
   rightPanelOpen: boolean;
+  cursorCanvasPoint: Point | null;
 
   setActiveTool: (tool: ToolType) => void;
   setCamera: (camera: Camera) => void;
@@ -28,6 +29,7 @@ interface EditorState {
   setIsDrawing: (isDrawing: boolean) => void;
   setLeftPanelOpen: (open: boolean) => void;
   setRightPanelOpen: (open: boolean) => void;
+  setCursorCanvasPoint: (point: Point | null) => void;
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
@@ -40,6 +42,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   isDrawing: false,
   leftPanelOpen: true,
   rightPanelOpen: true,
+  cursorCanvasPoint: null,
 
   setActiveTool: (tool) => set({ activeTool: tool }),
 
@@ -87,6 +90,8 @@ export const useEditorStore = create<EditorState>((set) => ({
   setLeftPanelOpen: (open) => set({ leftPanelOpen: open }),
 
   setRightPanelOpen: (open) => set({ rightPanelOpen: open }),
+
+  setCursorCanvasPoint: (point) => set({ cursorCanvasPoint: point }),
 }));
 
 configureToolStore({

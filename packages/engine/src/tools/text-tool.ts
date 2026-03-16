@@ -1,5 +1,5 @@
 import { BaseTool, getToolStore, type ToolContext, type ToolResult } from './base-tool';
-import { addShape } from '../scene-graph';
+import { addShape, findContainerAtPoint } from '../scene-graph';
 
 type TextToolCallback = (shapeId: string) => void;
 
@@ -14,11 +14,13 @@ export class TextTool extends BaseTool {
   readonly cursor = 'text';
 
   private startPoint: { x: number; y: number } | null = null;
+  private containerId: string | null = null;
   private isDragging = false;
   previewRect: { x: number; y: number; width: number; height: number } | null = null;
 
   onPointerDown(ctx: ToolContext): ToolResult | void {
     this.startPoint = { x: ctx.canvasPoint.x, y: ctx.canvasPoint.y };
+    this.containerId = findContainerAtPoint(ctx.ydoc, ctx.canvasPoint.x, ctx.canvasPoint.y);
     this.isDragging = false;
     this.previewRect = null;
     getToolStore().setIsDrawing(true);
@@ -68,6 +70,7 @@ export class TextTool extends BaseTool {
         width: this.previewRect.width,
         height: this.previewRect.height,
         content: '',
+        parentId: this.containerId,
       });
 
       store.setSelectedIds([id]);
@@ -80,6 +83,7 @@ export class TextTool extends BaseTool {
         width: 200,
         height: 24,
         content: '',
+        parentId: this.containerId,
       });
 
       store.setSelectedIds([id]);
@@ -96,6 +100,7 @@ export class TextTool extends BaseTool {
 
   private reset() {
     this.startPoint = null;
+    this.containerId = null;
     this.isDragging = false;
     this.previewRect = null;
     getToolStore().setIsDrawing(false);

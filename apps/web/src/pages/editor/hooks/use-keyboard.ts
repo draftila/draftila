@@ -7,6 +7,7 @@ import { handlePaste as handleExternalPaste } from '@draftila/engine/figma-clipb
 import {
   deleteShapes,
   getAllShapes,
+  getSelectedContainer,
   groupShapes,
   moveShapesInStack,
   nudgeShapes,
@@ -109,6 +110,8 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
 
       if (isMod && key === 'v') {
         e.preventDefault();
+        const { selectedIds, cursorCanvasPoint } = useEditorStore.getState();
+        const targetParentId = getSelectedContainer(ydoc, selectedIds);
         navigator.clipboard
           .read()
           .then(async (items) => {
@@ -125,18 +128,27 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
             }
 
             if (html || text) {
-              const newIds = handleExternalPaste(ydoc, html, text);
+              const newIds = handleExternalPaste(ydoc, html, text, {
+                targetParentId,
+                cursorPosition: cursorCanvasPoint,
+              });
               if (newIds.length > 0) {
                 useEditorStore.getState().setSelectedIds(newIds);
                 return;
               }
             }
 
-            const fallbackIds = pasteShapes(ydoc);
+            const fallbackIds = pasteShapes(ydoc, {
+              selectedIds,
+              cursorPosition: cursorCanvasPoint,
+            });
             if (fallbackIds.length > 0) useEditorStore.getState().setSelectedIds(fallbackIds);
           })
           .catch(() => {
-            const fallbackIds = pasteShapes(ydoc);
+            const fallbackIds = pasteShapes(ydoc, {
+              selectedIds,
+              cursorPosition: cursorCanvasPoint,
+            });
             if (fallbackIds.length > 0) useEditorStore.getState().setSelectedIds(fallbackIds);
           });
         return;

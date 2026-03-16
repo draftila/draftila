@@ -32,6 +32,7 @@ export async function addImageFromFile(
   file: File,
   x: number,
   y: number,
+  parentId?: string | null,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -56,6 +57,7 @@ export async function addImageFromFile(
           height,
           src: dataUrl,
           name: file.name,
+          parentId: parentId ?? null,
         });
 
         imageCache.set(dataUrl, img);
@@ -74,6 +76,7 @@ export async function addImageFromUrl(
   url: string,
   x: number,
   y: number,
+  parentId?: string | null,
 ): Promise<string> {
   const img = await preloadImage(url);
 
@@ -94,6 +97,7 @@ export async function addImageFromUrl(
     height,
     src: url,
     name: 'Image',
+    parentId: parentId ?? null,
   });
 }
 
@@ -102,10 +106,11 @@ export function handleFileDrop(
   files: FileList,
   canvasX: number,
   canvasY: number,
+  parentId?: string | null,
 ): Promise<string[]> {
   const imageFiles = Array.from(files).filter((f) => f.type.startsWith('image/'));
   const promises = imageFiles.map((file, i) =>
-    addImageFromFile(ydoc, file, canvasX + i * 20, canvasY + i * 20),
+    addImageFromFile(ydoc, file, canvasX + i * 20, canvasY + i * 20, parentId),
   );
   return Promise.all(promises);
 }

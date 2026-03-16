@@ -33,7 +33,7 @@ type MoveState =
       startCanvas: { x: number; y: number };
       initialData: Map<string, InitialShapeData>;
     }
-  | { type: 'marquee'; startCanvas: { x: number; y: number } }
+  | { type: 'marquee'; startCanvas: { x: number; y: number }; preMarqueeIds: string[] }
   | {
       type: 'resizing';
       handle: HandlePosition;
@@ -295,6 +295,7 @@ export class MoveTool extends BaseTool {
       return { cursor: 'move' };
     }
 
+    const preMarqueeIds = ctx.shiftKey ? [...store.selectedIds] : [];
     if (!ctx.shiftKey) {
       store.clearSelection();
     }
@@ -302,6 +303,7 @@ export class MoveTool extends BaseTool {
     this.state = {
       type: 'marquee',
       startCanvas: { x: ctx.canvasPoint.x, y: ctx.canvasPoint.y },
+      preMarqueeIds,
     };
     this.marqueeRect = null;
   }
@@ -441,6 +443,13 @@ export class MoveTool extends BaseTool {
         width: Math.abs(ex - sx),
         height: Math.abs(ey - sy),
       };
+
+      const shapes = getAllShapes(ctx.ydoc);
+      this.spatialIndex.rebuild(shapes);
+      const marqueeIds = this.getMarqueeHitIds(shapes);
+      const store = getToolStore();
+      const combined = new Set([...this.state.preMarqueeIds, ...marqueeIds]);
+      store.setSelectedIds(Array.from(combined));
       return;
     }
 
@@ -521,28 +530,7 @@ export class MoveTool extends BaseTool {
       return { cursor: 'default' };
     }
 
-    if (this.state.type === 'marquee' && this.marqueeRect) {
-      const shapes = getAllShapes(ctx.ydoc);
-      this.spatialIndex.rebuild(shapes);
-
-      const { x, y, width, height } = this.marqueeRect;
-      const hits = this.spatialIndex.queryRect(x, y, x + width, y + height);
-      const hitIds = hits.map((h) => h.id);
-
-      const validIds = shapes
-        .filter((s) => hitIds.includes(s.id) && !s.locked && s.visible)
-        .filter(
-          (s) => s.x >= x && s.y >= y && s.x + s.width <= x + width && s.y + s.height <= y + height,
-        )
-        .map((s) => s.id);
-
-      const store = getToolStore();
-      if (ctx.shiftKey) {
-        const combined = new Set([...store.selectedIds, ...validIds]);
-        store.setSelectedIds(Array.from(combined));
-      } else {
-        store.setSelectedIds(validIds);
-      }
+    if (this.state.type === 'marquee') {
     }
 
     this.resetState();
@@ -572,6 +560,24 @@ export class MoveTool extends BaseTool {
       }
     }
     return null;
+  }
+
+  private getMarqueeHitIds(shapes: Shape[]): string[] {
+    if (!this.marqueeRect) return [];
+    const { x, y, width, height } = this.marqueeRect;
+    const mx = x + width;
+    const my = y + height;
+    const hits = this.spatialIndex.queryRect(x, y, mx, my);
+    const hitIds = new Set(hits.map((h) => h.id));
+
+    return shapes
+      .filter((s) => hitIds.has(s.id) && !s.locked && s.visible)
+      .filter((s) => s.x < mx && s.x + s.width > x && s.y < my && s.y + s.height > y)
+      .filter((s) => {
+        if (s.type !== 'frame' && s.type !== 'group') return true;
+        return !(s.x <= x && s.y <= y && s.x + s.width >= mx && s.y + s.height >= my);
+      })
+      .map((s) => s.id);
   }
 
   private resetState() {

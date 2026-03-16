@@ -1,15 +1,17 @@
 import { BaseTool, getToolStore, type ToolContext, type ToolResult } from './base-tool';
-import { addShape } from '../scene-graph';
+import { addShape, findContainerAtPoint } from '../scene-graph';
 
 export class RectangleTool extends BaseTool {
   readonly name = 'rectangle';
   readonly cursor = 'crosshair';
 
   private startPoint: { x: number; y: number } | null = null;
+  private containerId: string | null = null;
   previewRect: { x: number; y: number; width: number; height: number } | null = null;
 
   onPointerDown(ctx: ToolContext): ToolResult | void {
     this.startPoint = { x: ctx.canvasPoint.x, y: ctx.canvasPoint.y };
+    this.containerId = findContainerAtPoint(ctx.ydoc, ctx.canvasPoint.x, ctx.canvasPoint.y);
     getToolStore().setIsDrawing(true);
   }
 
@@ -57,6 +59,7 @@ export class RectangleTool extends BaseTool {
       y: this.previewRect.y,
       width: this.previewRect.width,
       height: this.previewRect.height,
+      parentId: this.containerId,
     });
 
     const store = getToolStore();
@@ -71,6 +74,7 @@ export class RectangleTool extends BaseTool {
 
   private reset() {
     this.startPoint = null;
+    this.containerId = null;
     this.previewRect = null;
     getToolStore().setIsDrawing(false);
   }

@@ -36,7 +36,13 @@ export function createComponent(ydoc: Y.Doc, shapeIds: string[], name: string): 
   return componentId;
 }
 
-export function createInstance(ydoc: Y.Doc, componentId: string, x: number, y: number): string[] {
+export function createInstance(
+  ydoc: Y.Doc,
+  componentId: string,
+  x: number,
+  y: number,
+  parentId?: string | null,
+): string[] {
   const components = getComponentsMap(ydoc);
   const componentData = components.get(componentId);
   if (!componentData) return [];
@@ -58,6 +64,7 @@ export function createInstance(ydoc: Y.Doc, componentId: string, x: number, y: n
       ...rest,
       x: shape.x - minX + x,
       y: shape.y - minY + y,
+      parentId: parentId ?? null,
     });
     newIds.push(newId);
   }
