@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { eq } from 'drizzle-orm';
 import { app } from '../../src/app';
 import { db } from '../../src/db';
-import { user, session, account, project, draft } from '../../src/db/schema';
 import { resetRateLimitStore } from '../../src/common/middleware/rate-limit';
 import * as draftsService from '../../src/modules/drafts/drafts.service';
 import * as projectsService from '../../src/modules/projects/projects.service';
@@ -176,7 +174,7 @@ describe('auth', () => {
   describe('personal project', () => {
     test('sign-up automatically creates a personal project', async () => {
       const result = await createTestUser();
-      const projects = await db.select().from(project).where(eq(project.ownerId, result.user.id));
+      const projects = await db.project.findMany({ where: { ownerId: result.user.id } });
 
       expect(projects).toHaveLength(1);
       expect(projects[0]!.name).toBe('Personal');
@@ -195,28 +193,22 @@ describe('auth', () => {
       });
       await draftsService.create({ name: 'Cascade Draft', projectId: createdProject.id });
 
-      const sessionsBefore = await db.select().from(session).where(eq(session.userId, userId));
-      const accountsBefore = await db.select().from(account).where(eq(account.userId, userId));
-      const projectsBefore = await db.select().from(project).where(eq(project.ownerId, userId));
-      const draftsBefore = await db
-        .select()
-        .from(draft)
-        .where(eq(draft.projectId, createdProject.id));
+      const sessionsBefore = await db.session.findMany({ where: { userId } });
+      const accountsBefore = await db.account.findMany({ where: { userId } });
+      const projectsBefore = await db.project.findMany({ where: { ownerId: userId } });
+      const draftsBefore = await db.draft.findMany({ where: { projectId: createdProject.id } });
 
       expect(sessionsBefore.length).toBeGreaterThan(0);
       expect(accountsBefore.length).toBeGreaterThan(0);
       expect(projectsBefore).toHaveLength(2);
       expect(draftsBefore).toHaveLength(1);
 
-      await db.delete(user).where(eq(user.id, userId));
+      await db.user.delete({ where: { id: userId } });
 
-      const sessionsAfter = await db.select().from(session).where(eq(session.userId, userId));
-      const accountsAfter = await db.select().from(account).where(eq(account.userId, userId));
-      const projectsAfter = await db.select().from(project).where(eq(project.ownerId, userId));
-      const draftsAfter = await db
-        .select()
-        .from(draft)
-        .where(eq(draft.projectId, createdProject.id));
+      const sessionsAfter = await db.session.findMany({ where: { userId } });
+      const accountsAfter = await db.account.findMany({ where: { userId } });
+      const projectsAfter = await db.project.findMany({ where: { ownerId: userId } });
+      const draftsAfter = await db.draft.findMany({ where: { projectId: createdProject.id } });
 
       expect(sessionsAfter).toHaveLength(0);
       expect(accountsAfter).toHaveLength(0);

@@ -7,7 +7,7 @@ Draftila — real-time collaborative design tool. TypeScript monorepo (Turborepo
 ## Architecture
 
 ```
-apps/api     Hono + Bun, PostgreSQL, Drizzle ORM, better-auth
+apps/api     Hono + Bun, PostgreSQL/SQLite, Prisma ORM, better-auth
 apps/web     React 19, Vite, Tailwind v4, shadcn/ui, Zustand, TanStack Query
 packages/    shared (Zod schemas + types), eslint-config, typescript-config
 ```
