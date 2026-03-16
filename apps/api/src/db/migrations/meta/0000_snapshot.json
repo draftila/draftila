@@ -1,6 +1,6 @@
 {
-  "id": "be4e64be-6476-443b-b6cd-812ce7605b38",
-  "prevId": "254e7036-ab19-4008-93bd-c78cba0b4549",
+  "id": "d61877e5-11f6-4545-8cb5-dc0fd93646e3",
+  "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -354,6 +354,18 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "yjs_state": {
+          "name": "yjs_state",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "thumbnail": {
+          "name": "thumbnail",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",

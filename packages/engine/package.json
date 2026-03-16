@@ -1,0 +1,62 @@
+{
+  "name": "@draftila/engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "NOTE": "This package exports raw .ts files. Consumers must support TypeScript resolution (Bun, Vite).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./camera": "./src/camera.ts",
+    "./scene-graph": "./src/scene-graph.ts",
+    "./selection": "./src/selection.ts",
+    "./renderer": "./src/renderer/types.ts",
+    "./renderer/canvas2d": "./src/renderer/canvas2d-renderer.ts",
+    "./shape-renderer": "./src/shape-renderer.ts",
+    "./hit-test": "./src/hit-test.ts",
+    "./spatial-index": "./src/spatial-index.ts",
+    "./snap": "./src/snap.ts",
+    "./history": "./src/history.ts",
+    "./clipboard": "./src/clipboard.ts",
+    "./figma-clipboard": "./src/figma-clipboard.ts",
+    "./boolean-ops": "./src/boolean-ops.ts",
+    "./image-manager": "./src/image-manager.ts",
+    "./auto-layout": "./src/auto-layout.ts",
+    "./constraints": "./src/constraints.ts",
+    "./components": "./src/components.ts",
+    "./pages": "./src/pages.ts",
+    "./export": "./src/export.ts",
+    "./tools/base-tool": "./src/tools/base-tool.ts",
+    "./tools/tool-manager": "./src/tools/tool-manager.ts",
+    "./tools/move-tool": "./src/tools/move-tool.ts",
+    "./tools/hand-tool": "./src/tools/hand-tool.ts",
+    "./tools/rectangle-tool": "./src/tools/rectangle-tool.ts",
+    "./tools/ellipse-tool": "./src/tools/ellipse-tool.ts",
+    "./tools/frame-tool": "./src/tools/frame-tool.ts",
+    "./tools/text-tool": "./src/tools/text-tool.ts",
+    "./tools/pen-tool": "./src/tools/pen-tool.ts",
+    "./tools/line-tool": "./src/tools/line-tool.ts",
+    "./tools/arrow-tool": "./src/tools/arrow-tool.ts",
+    "./tools/polygon-tool": "./src/tools/polygon-tool.ts",
+    "./tools/star-tool": "./src/tools/star-tool.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "@draftila/shared": "workspace:*",
+    "pako": "^2.1.0",
+    "perfect-freehand": "^1.2.3",
+    "rbush": "^4.0.1",
+    "yjs": "^13.6.30"
+  },
+  "devDependencies": {
+    "@draftila/eslint-config": "workspace:*",
+    "@draftila/typescript-config": "workspace:*",
+    "@types/pako": "^2.0.4",
+    "@types/rbush": "^4.0.0",
+    "eslint": "^9.16.0",
+    "typescript": "^5.7.2"
+  }
+}
