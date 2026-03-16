@@ -45,16 +45,48 @@ export const pressurePointSchema = z.object({
 
 export const colorSchema = z.string().regex(/^#[0-9a-fA-F]{6,8}$/);
 
+export const gradientStopSchema = z.object({
+  color: colorSchema,
+  position: z.number().min(0).max(1),
+});
+
+export const linearGradientSchema = z.object({
+  type: z.literal('linear'),
+  angle: z.number().default(0),
+  stops: z.array(gradientStopSchema).min(2),
+});
+
+export const radialGradientSchema = z.object({
+  type: z.literal('radial'),
+  cx: z.number().min(0).max(1).default(0.5),
+  cy: z.number().min(0).max(1).default(0.5),
+  r: z.number().min(0).default(0.5),
+  stops: z.array(gradientStopSchema).min(2),
+});
+
+export const gradientSchema = z.discriminatedUnion('type', [
+  linearGradientSchema,
+  radialGradientSchema,
+]);
+
 export const fillSchema = z.object({
   color: colorSchema,
   opacity: z.number().min(0).max(1).default(1),
   visible: z.boolean().default(true),
+  gradient: gradientSchema.optional(),
 });
 
 export const strokeCapSchema = z.enum(['butt', 'round', 'square']);
 export const strokeJoinSchema = z.enum(['miter', 'round', 'bevel']);
 export const strokeAlignSchema = z.enum(['center', 'inside', 'outside']);
 export const strokeDashPatternSchema = z.enum(['solid', 'dash', 'dot', 'dash-dot']);
+
+export const strokeSidesSchema = z.object({
+  top: z.boolean().default(true),
+  right: z.boolean().default(true),
+  bottom: z.boolean().default(true),
+  left: z.boolean().default(true),
+});
 
 export const strokeSchema = z.object({
   color: colorSchema,
@@ -67,6 +99,7 @@ export const strokeSchema = z.object({
   dashPattern: strokeDashPatternSchema.default('solid'),
   dashOffset: z.number().default(0),
   miterLimit: z.number().min(0).default(4),
+  sides: strokeSidesSchema.optional(),
 });
 
 export const shadowSchema = z.object({
@@ -90,6 +123,18 @@ export const layoutGuideSchema = z.object({
   size: z.number().min(1).default(10),
   color: colorSchema.default('#FF000019'),
   visible: z.boolean().default(true),
+});
+
+export const textSegmentSchema = z.object({
+  text: z.string(),
+  color: colorSchema.optional(),
+  fontSize: z.number().min(1).optional(),
+  fontFamily: z.string().optional(),
+  fontWeight: z.number().optional(),
+  fontStyle: z.enum(['normal', 'italic']).optional(),
+  textDecoration: z.enum(['none', 'underline', 'strikethrough']).optional(),
+  letterSpacing: z.number().optional(),
+  gradient: gradientSchema.optional(),
 });
 
 export const layoutDirectionSchema = z.enum(['none', 'horizontal', 'vertical']);
@@ -177,6 +222,7 @@ export const textShapeSchema = baseShapeSchema.extend({
   textDecoration: z.enum(['none', 'underline', 'strikethrough']).default('none'),
   textTransform: z.enum(['none', 'uppercase', 'lowercase', 'capitalize']).default('none'),
   fills: z.array(fillSchema).default([{ color: '#000000', opacity: 1, visible: true }]),
+  segments: z.array(textSegmentSchema).optional(),
   shadows: z.array(shadowSchema).default([]),
   blurs: z.array(blurSchema).default([]),
 });
@@ -184,6 +230,7 @@ export const textShapeSchema = baseShapeSchema.extend({
 export const pathShapeSchema = baseShapeSchema.extend({
   type: z.literal('path'),
   points: z.array(pressurePointSchema).default([]),
+  svgPathData: z.string().optional(),
   fills: z.array(fillSchema).default([{ color: '#000000', opacity: 1, visible: true }]),
   strokes: z.array(strokeSchema).default([]),
   shadows: z.array(shadowSchema).default([]),

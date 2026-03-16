@@ -145,12 +145,17 @@ export function renderShape(renderer: Renderer, shape: Shape) {
         textDecoration: shape.textDecoration,
         textTransform: shape.textTransform,
         fills: shape.fills,
+        segments: shape.segments,
         shadows: shape.shadows ?? [],
         blurs: shape.blurs ?? [],
       });
       break;
     }
     case 'path': {
+      if (shape.svgPathData) {
+        renderer.drawSvgPath(getTransform(shape), shape.svgPathData, getStyle(shape));
+        break;
+      }
       if (shape.points.length < 2) break;
       const inputPoints = shape.points.map(
         (p) => [p.x, p.y, p.pressure] as [number, number, number],

@@ -9,6 +9,7 @@ import {
 import { z } from 'zod';
 import {
   getAllShapes,
+  getShape,
   addShape,
   updateShape,
   deleteShapes,
@@ -19,6 +20,7 @@ import {
 import { isAutoLayoutFrame } from '@draftila/engine/auto-layout';
 import { applyAutoLayout } from '@draftila/engine/scene-graph';
 import { exportToPng, exportToSvg } from '@draftila/engine/export';
+import { undo, redo, canUndo, canRedo } from '@draftila/engine/history';
 
 type McpToolHandler = (ydoc: Y.Doc, args: Record<string, unknown>) => unknown | Promise<unknown>;
 
@@ -40,15 +42,69 @@ export function handleMcpTool(
   return handler(ydoc, args);
 }
 
+function summarizeShape(shape: Shape): Record<string, unknown> {
+  const base: Record<string, unknown> = {
+    id: shape.id,
+    name: shape.name,
+    type: shape.type,
+    parentId: shape.parentId,
+    x: shape.x,
+    y: shape.y,
+    width: shape.width,
+    height: shape.height,
+  };
+  if (shape.rotation !== 0) base.rotation = shape.rotation;
+  if (shape.opacity !== 1) base.opacity = shape.opacity;
+  if (!shape.visible) base.visible = false;
+  if (shape.locked) base.locked = true;
+
+  const typed = shape as Record<string, unknown>;
+
+  if (shape.type === 'text') {
+    base.content = typed.content;
+    base.fontSize = typed.fontSize;
+    base.fontFamily = typed.fontFamily;
+    base.fontWeight = typed.fontWeight;
+    if (typed.fontStyle !== 'normal') base.fontStyle = typed.fontStyle;
+    if (typed.textAlign !== 'left') base.textAlign = typed.textAlign;
+    if (typed.segments) base.segments = typed.segments;
+  }
+
+  if (typed.fills && Array.isArray(typed.fills) && (typed.fills as unknown[]).length > 0) {
+    base.fills = typed.fills;
+  }
+  if (typed.strokes && Array.isArray(typed.strokes) && (typed.strokes as unknown[]).length > 0) {
+    base.strokes = typed.strokes;
+  }
+
+  if (shape.type === 'frame') {
+    const frame = shape as Shape & {
+      layoutMode?: string;
+      layoutGap?: number;
+      layoutAlign?: string;
+      layoutJustify?: string;
+      clip?: boolean;
+    };
+    if (frame.layoutMode && frame.layoutMode !== 'none') {
+      base.layoutMode = frame.layoutMode;
+      base.layoutGap = frame.layoutGap;
+      base.layoutAlign = frame.layoutAlign;
+      base.layoutJustify = frame.layoutJustify;
+    }
+    if (frame.clip === false) base.clip = false;
+  }
+
+  if (typed.cornerRadius && (typed.cornerRadius as number) > 0)
+    base.cornerRadius = typed.cornerRadius;
+  if (typed.svgPathData) base.svgPathData = typed.svgPathData;
+  if (shape.type === 'image') base.src = typed.src;
+
+  return base;
+}
+
 registerTool('canvas.snapshot', (ydoc) => {
   const shapes = getAllShapes(ydoc);
-  for (const shape of shapes) {
-    const valid = shapeSchema.safeParse(shape);
-    if (!valid.success) {
-      throw new Error('Invalid canvas state');
-    }
-  }
-  return { shapeCount: shapes.length, shapes };
+  return { shapeCount: shapes.length, shapes: shapes.map(summarizeShape) };
 });
 
 registerTool('canvas.find_shapes', (ydoc, args) => {
@@ -84,35 +140,157 @@ registerTool('canvas.find_shapes', (ydoc, args) => {
     return true;
   });
 
-  const limited = filtered.slice(0, parsed.data.limit).map((shape) => {
-    const base: Record<string, unknown> = {
-      id: shape.id,
-      name: shape.name,
-      type: shape.type,
-      parentId: shape.parentId,
-      x: shape.x,
-      y: shape.y,
-      width: shape.width,
-      height: shape.height,
-    };
-    if (shape.type === 'frame') {
-      const frame = shape as Shape & {
-        layoutMode?: string;
-        layoutGap?: number;
-        layoutAlign?: string;
-        layoutJustify?: string;
-      };
-      if (frame.layoutMode && frame.layoutMode !== 'none') {
-        base.layoutMode = frame.layoutMode;
-        base.layoutGap = frame.layoutGap;
-        base.layoutAlign = frame.layoutAlign;
-        base.layoutJustify = frame.layoutJustify;
-      }
-    }
-    return base;
-  });
+  const limited = filtered.slice(0, parsed.data.limit).map(summarizeShape);
 
   return { data: limited, total: filtered.length };
+});
+
+registerTool('canvas.get_shape', (ydoc, args) => {
+  const shapeId = typeof args.shapeId === 'string' ? args.shapeId : null;
+  if (!shapeId) {
+    throw new Error('Invalid tool arguments: expected { shapeId: string }');
+  }
+  const shape = getShape(ydoc, shapeId);
+  if (!shape) {
+    throw new Error('Shape not found');
+  }
+  return { shape };
+});
+
+registerTool('canvas.undo', (_ydoc) => {
+  if (!canUndo()) {
+    return { success: false, message: 'Nothing to undo' };
+  }
+  undo();
+  return { success: true };
+});
+
+registerTool('canvas.redo', (_ydoc) => {
+  if (!canRedo()) {
+    return { success: false, message: 'Nothing to redo' };
+  }
+  redo();
+  return { success: true };
+});
+
+registerTool('canvas.align', (ydoc, args) => {
+  const parsed = z
+    .object({
+      draftId: z.string(),
+      ids: z.array(z.string()).min(1),
+      axis: z.enum(['left', 'center_horizontal', 'right', 'top', 'center_vertical', 'bottom']),
+    })
+    .safeParse(args);
+
+  if (!parsed.success) {
+    throw new Error('Invalid tool arguments');
+  }
+
+  const allShapes = getAllShapes(ydoc);
+  const shapesById = new Map(allShapes.map((s) => [s.id, s]));
+  const targets = parsed.data.ids
+    .map((id) => shapesById.get(id))
+    .filter((s): s is Shape => Boolean(s));
+
+  if (targets.length === 0) throw new Error('No valid shapes found');
+
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
+  for (const s of targets) {
+    minX = Math.min(minX, s.x);
+    minY = Math.min(minY, s.y);
+    maxX = Math.max(maxX, s.x + s.width);
+    maxY = Math.max(maxY, s.y + s.height);
+  }
+
+  const { axis } = parsed.data;
+
+  ydoc.transact(() => {
+    for (const s of targets) {
+      if (axis === 'left') updateShape(ydoc, s.id, { x: minX } as Partial<Shape>);
+      else if (axis === 'right') updateShape(ydoc, s.id, { x: maxX - s.width } as Partial<Shape>);
+      else if (axis === 'center_horizontal')
+        updateShape(ydoc, s.id, {
+          x: (minX + maxX) / 2 - s.width / 2,
+        } as Partial<Shape>);
+      else if (axis === 'top') updateShape(ydoc, s.id, { y: minY } as Partial<Shape>);
+      else if (axis === 'bottom') updateShape(ydoc, s.id, { y: maxY - s.height } as Partial<Shape>);
+      else if (axis === 'center_vertical')
+        updateShape(ydoc, s.id, {
+          y: (minY + maxY) / 2 - s.height / 2,
+        } as Partial<Shape>);
+    }
+  });
+
+  return { aligned: targets.length };
+});
+
+registerTool('canvas.distribute', (ydoc, args) => {
+  const parsed = z
+    .object({
+      draftId: z.string(),
+      ids: z.array(z.string()).min(3),
+      axis: z.enum(['horizontal', 'vertical']),
+      gap: z.number().optional(),
+    })
+    .safeParse(args);
+
+  if (!parsed.success) {
+    throw new Error('Invalid tool arguments: need at least 3 shape ids');
+  }
+
+  const allShapes = getAllShapes(ydoc);
+  const shapesById = new Map(allShapes.map((s) => [s.id, s]));
+  const targets = parsed.data.ids
+    .map((id) => shapesById.get(id))
+    .filter((s): s is Shape => Boolean(s));
+
+  if (targets.length < 3) throw new Error('Need at least 3 valid shapes');
+
+  const isHorizontal = parsed.data.axis === 'horizontal';
+
+  const sorted = [...targets].sort((a, b) => (isHorizontal ? a.x - b.x : a.y - b.y));
+
+  const first = sorted[0]!;
+  const last = sorted[sorted.length - 1]!;
+
+  if (parsed.data.gap !== undefined) {
+    const gap = parsed.data.gap;
+    ydoc.transact(() => {
+      let pos = isHorizontal ? first.x : first.y;
+      for (const s of sorted) {
+        if (isHorizontal) {
+          updateShape(ydoc, s.id, { x: pos } as Partial<Shape>);
+          pos += s.width + gap;
+        } else {
+          updateShape(ydoc, s.id, { y: pos } as Partial<Shape>);
+          pos += s.height + gap;
+        }
+      }
+    });
+  } else {
+    const totalStart = isHorizontal ? first.x : first.y;
+    const totalEnd = isHorizontal ? last.x + last.width : last.y + last.height;
+    const totalSize = sorted.reduce((sum, s) => sum + (isHorizontal ? s.width : s.height), 0);
+    const gap = (totalEnd - totalStart - totalSize) / (sorted.length - 1);
+
+    ydoc.transact(() => {
+      let pos = totalStart;
+      for (const s of sorted) {
+        if (isHorizontal) {
+          updateShape(ydoc, s.id, { x: pos } as Partial<Shape>);
+          pos += s.width + gap;
+        } else {
+          updateShape(ydoc, s.id, { y: pos } as Partial<Shape>);
+          pos += s.height + gap;
+        }
+      }
+    });
+  }
+
+  return { distributed: targets.length };
 });
 
 function resolveIdToken(id: string, refs: Map<string, string>) {
@@ -345,7 +523,7 @@ function duplicateShapesInDoc(
 
 registerTool('canvas.apply_ops', (ydoc, args) => {
   const rawOps = Array.isArray(args.ops) ? args.ops : args.op !== undefined ? [args.op] : null;
-  if (!rawOps || rawOps.length === 0 || rawOps.length > 100) {
+  if (!rawOps || rawOps.length === 0 || rawOps.length > 200) {
     throw new Error('Invalid tool arguments: expected { draftId: string, ops: McpCanvasOp[] }');
   }
 
@@ -367,6 +545,7 @@ registerTool('canvas.apply_ops', (ydoc, args) => {
   const createdRefs = new Map<string, string>();
   const groupedShapeIds: string[] = [];
   const ungroupedShapeIds: string[] = [];
+  const textShapesToAutoSize: string[] = [];
 
   ydoc.transact(() => {
     for (const op of normalizedOps) {
@@ -375,6 +554,14 @@ registerTool('canvas.apply_ops', (ydoc, args) => {
         const createdId = addShape(ydoc, op.shapeType, (resolvedProps ?? {}) as Partial<Shape>);
         createdShapeIds.push(createdId);
         if (op.ref) createdRefs.set(op.ref, createdId);
+        if (op.shapeType === 'text') {
+          const p = (resolvedProps ?? {}) as Record<string, unknown>;
+          const hasExplicitWidth = typeof p.width === 'number';
+          const hasExplicitHeight = typeof p.height === 'number';
+          if (!hasExplicitWidth || !hasExplicitHeight) {
+            textShapesToAutoSize.push(createdId);
+          }
+        }
         continue;
       }
       if (op.type === 'update_shape') {
@@ -433,6 +620,48 @@ registerTool('canvas.apply_ops', (ydoc, args) => {
     }
   });
 
+  if (textShapesToAutoSize.length > 0) {
+    const measureCanvas = document.createElement('canvas');
+    const measureCtx = measureCanvas.getContext('2d');
+    if (measureCtx) {
+      for (const textId of textShapesToAutoSize) {
+        const shape = getShape(ydoc, textId);
+        if (!shape || shape.type !== 'text') continue;
+        const typed = shape as Shape & {
+          content?: string;
+          fontSize?: number;
+          fontFamily?: string;
+          fontWeight?: number;
+          lineHeight?: number;
+        };
+        const content = typed.content ?? '';
+        if (!content) continue;
+        const fontSize = typed.fontSize ?? 16;
+        const fontFamily = typed.fontFamily ?? 'Inter';
+        const fontWeight = typed.fontWeight ?? 400;
+        const lineHeight = typed.lineHeight ?? 1.2;
+
+        measureCtx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+        const lines = content.split('\n');
+        let maxWidth = 0;
+        for (const line of lines) {
+          const metrics = measureCtx.measureText(line);
+          if (metrics.width > maxWidth) maxWidth = metrics.width;
+        }
+        const padding = 4;
+        const measuredWidth = Math.ceil(maxWidth) + padding;
+        const measuredHeight = Math.ceil(lines.length * fontSize * lineHeight) + padding;
+
+        const updates: Partial<Shape> = {};
+        if (shape.width === 100) (updates as Record<string, unknown>).width = measuredWidth;
+        if (shape.height === 100) (updates as Record<string, unknown>).height = measuredHeight;
+        if (Object.keys(updates).length > 0) {
+          updateShape(ydoc, textId, updates);
+        }
+      }
+    }
+  }
+
   const allAutoLayoutFrameIds = new Set<string>();
   const allShapes = getAllShapes(ydoc);
   for (const shape of allShapes) {
@@ -481,6 +710,32 @@ registerTool('canvas.apply_op', (ydoc, args) => {
     ops: [op],
   };
   return handler(ydoc, adaptedArgs);
+});
+
+registerTool('canvas.set_image', (ydoc, args) => {
+  const shapeId = typeof args.shapeId === 'string' ? args.shapeId : null;
+  const src = typeof args.src === 'string' ? args.src : null;
+  const fit = typeof args.fit === 'string' ? args.fit : undefined;
+
+  if (!shapeId || !src) {
+    throw new Error('Invalid tool arguments: expected { shapeId: string, src: string }');
+  }
+
+  const shape = getAllShapes(ydoc).find((s) => s.id === shapeId);
+  if (!shape) {
+    throw new Error('Shape not found');
+  }
+  if (shape.type !== 'image') {
+    throw new Error('Shape is not an image shape');
+  }
+
+  const props: Record<string, unknown> = { src };
+  if (fit === 'fill' || fit === 'fit' || fit === 'crop') {
+    props.fit = fit;
+  }
+
+  updateShape(ydoc, shapeId, props as Partial<Shape>);
+  return { shapeId, src: src.length > 100 ? `${src.substring(0, 100)}...` : src };
 });
 
 registerTool('canvas.screenshot', async (ydoc, args) => {

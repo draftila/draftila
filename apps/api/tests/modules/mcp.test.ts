@@ -344,8 +344,21 @@ describe('mcp', () => {
           const ops = parseOpsFromArgs(adaptedArgs);
           return mcpCanvasService.applyCanvasOps(_draftId, ops);
         }
+        if (tool === 'canvas.get_shape') {
+          const shapeId = typeof args.shapeId === 'string' ? args.shapeId : null;
+          if (!shapeId) throw new Error('Invalid tool arguments');
+          return mcpCanvasService.getShapeById(_draftId, shapeId);
+        }
         if (tool === 'canvas.screenshot') {
           return { data: 'dGVzdA==', mimeType: 'image/png' };
+        }
+        if (
+          tool === 'canvas.undo' ||
+          tool === 'canvas.redo' ||
+          tool === 'canvas.align' ||
+          tool === 'canvas.distribute'
+        ) {
+          return { success: true };
         }
         throw new Error(`Unknown tool: ${tool}`);
       });

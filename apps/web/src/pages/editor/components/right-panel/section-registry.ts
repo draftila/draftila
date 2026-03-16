@@ -10,6 +10,8 @@ import { TypographySection } from './sections/typography-section';
 import { EffectsSection } from './sections/effects-section';
 import { LayoutGuideSection } from './sections/layout-guide-section';
 import { AutoLayoutSection } from './sections/auto-layout-section';
+import { ImageSection } from './sections/image-section';
+import { PathDataSection } from './sections/path-data-section';
 import { ExportSection } from './sections/export-section';
 import { PreviewSection } from './sections/preview-section';
 
@@ -55,6 +57,7 @@ const sectionRegistry: Record<ShapeType, PropertySection[]> = {
   path: [
     TransformSection,
     AppearanceSection,
+    PathDataSection,
     FillSection,
     StrokeSection,
     EffectsSection,
@@ -101,6 +104,7 @@ const sectionRegistry: Record<ShapeType, PropertySection[]> = {
   image: [
     TransformSection,
     AppearanceSection,
+    ImageSection,
     FillSection,
     EffectsSection,
     ExportSection,

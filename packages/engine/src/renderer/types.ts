@@ -1,4 +1,13 @@
-import type { Blur, Camera, Fill, LayoutGuide, Shadow, Stroke, Viewport } from '@draftila/shared';
+import type {
+  Blur,
+  Camera,
+  Fill,
+  LayoutGuide,
+  Shadow,
+  Stroke,
+  TextSegment,
+  Viewport,
+} from '@draftila/shared';
 
 export interface RenderStyle {
   fills: Fill[];
@@ -29,6 +38,7 @@ export interface TextRenderOptions {
   textDecoration: 'none' | 'underline' | 'strikethrough';
   textTransform: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
   fills: Fill[];
+  segments?: TextSegment[];
   shadows: Shadow[];
   blurs: Blur[];
 }
@@ -96,6 +106,8 @@ export interface Renderer {
   drawEllipse(transform: RenderTransform, style: RenderStyle): void;
 
   drawPath(points: Array<[number, number]>, style: RenderStyle, closed?: boolean): void;
+
+  drawSvgPath(transform: RenderTransform, pathData: string, style: RenderStyle): void;
 
   drawText(transform: RenderTransform, options: TextRenderOptions): void;
 

@@ -331,13 +331,83 @@ async function withDraftDoc<T>(draftId: string, write: boolean, callback: (ydoc:
   }
 }
 
+function summarizeShape(shape: Shape): Record<string, unknown> {
+  const base: Record<string, unknown> = {
+    id: shape.id,
+    name: shape.name,
+    type: shape.type,
+    parentId: shape.parentId,
+    x: shape.x,
+    y: shape.y,
+    width: shape.width,
+    height: shape.height,
+  };
+  if (shape.rotation !== 0) base.rotation = shape.rotation;
+  if (shape.opacity !== 1) base.opacity = shape.opacity;
+  if (!shape.visible) base.visible = false;
+  if (shape.locked) base.locked = true;
+
+  const typed = shape as Record<string, unknown>;
+
+  if (shape.type === 'text') {
+    base.content = typed.content;
+    base.fontSize = typed.fontSize;
+    base.fontFamily = typed.fontFamily;
+    base.fontWeight = typed.fontWeight;
+    if (typed.fontStyle !== 'normal') base.fontStyle = typed.fontStyle;
+    if (typed.textAlign !== 'left') base.textAlign = typed.textAlign;
+    if (typed.segments) base.segments = typed.segments;
+  }
+
+  if (typed.fills && Array.isArray(typed.fills) && (typed.fills as unknown[]).length > 0) {
+    base.fills = typed.fills;
+  }
+  if (typed.strokes && Array.isArray(typed.strokes) && (typed.strokes as unknown[]).length > 0) {
+    base.strokes = typed.strokes;
+  }
+
+  if (shape.type === 'frame') {
+    const frame = shape as Shape & {
+      layoutMode?: string;
+      layoutGap?: number;
+      layoutAlign?: string;
+      layoutJustify?: string;
+      clip?: boolean;
+    };
+    if (frame.layoutMode && frame.layoutMode !== 'none') {
+      base.layoutMode = frame.layoutMode;
+      base.layoutGap = frame.layoutGap;
+      base.layoutAlign = frame.layoutAlign;
+      base.layoutJustify = frame.layoutJustify;
+    }
+    if (frame.clip === false) base.clip = false;
+  }
+
+  if (typed.cornerRadius && (typed.cornerRadius as number) > 0)
+    base.cornerRadius = typed.cornerRadius;
+  if (typed.svgPathData) base.svgPathData = typed.svgPathData;
+  if (shape.type === 'image') base.src = typed.src;
+
+  return base;
+}
+
 export async function getCanvasSnapshot(draftId: string) {
   return withDraftDoc(draftId, false, (ydoc) => {
     const shapes = getAllShapes(ydoc);
     return {
       shapeCount: shapes.length,
-      shapes,
+      shapes: shapes.map(summarizeShape),
     };
+  });
+}
+
+export async function getShapeById(draftId: string, shapeId: string) {
+  return withDraftDoc(draftId, false, (ydoc) => {
+    const shape = getShape(ydoc, shapeId);
+    if (!shape) {
+      throw new Error('Shape not found');
+    }
+    return { shape };
   });
 }
 
@@ -383,33 +453,7 @@ export async function findShapes(draftId: string, options: FindShapesOptions) {
       return true;
     });
 
-    const limited = filtered.slice(0, options.limit).map((shape) => {
-      const base: Record<string, unknown> = {
-        id: shape.id,
-        name: shape.name,
-        type: shape.type,
-        parentId: shape.parentId,
-        x: shape.x,
-        y: shape.y,
-        width: shape.width,
-        height: shape.height,
-      };
-      if (shape.type === 'frame') {
-        const frame = shape as Shape & {
-          layoutMode?: string;
-          layoutGap?: number;
-          layoutAlign?: string;
-          layoutJustify?: string;
-        };
-        if (frame.layoutMode && frame.layoutMode !== 'none') {
-          base.layoutMode = frame.layoutMode;
-          base.layoutGap = frame.layoutGap;
-          base.layoutAlign = frame.layoutAlign;
-          base.layoutJustify = frame.layoutJustify;
-        }
-      }
-      return base;
-    });
+    const limited = filtered.slice(0, options.limit).map(summarizeShape);
 
     return {
       data: limited,
