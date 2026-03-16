@@ -7,7 +7,7 @@ Draftila — real-time collaborative design tool. TypeScript monorepo (Turborepo
 ## Architecture
 
 ```
-apps/api     Hono + Bun, PostgreSQL/SQLite, Prisma ORM, better-auth
+apps/api     Hono + Bun, PostgreSQL, Drizzle ORM, better-auth
 apps/web     React 19, Vite, Tailwind v4, shadcn/ui, Zustand, TanStack Query
 packages/    shared (Zod schemas + types), eslint-config, typescript-config
 ```
@@ -21,6 +21,7 @@ packages/    shared (Zod schemas + types), eslint-config, typescript-config
 - No `any`. Use strict TypeScript. The codebase has `strict: true` and `noUncheckedIndexedAccess: true`.
 - Prefix unused variables with `_`.
 - Use the existing Prettier config (single quotes, semicolons, trailing commas, 100 print width).
+- Run `bun run checks` after every task. It must pass before considering work complete.
 - Follow the existing code style and patterns.
 
 ### API (`apps/api`)

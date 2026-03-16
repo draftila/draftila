@@ -1,4 +1,12 @@
-import type { Camera, LayoutGuide, Shadow, StrokeDashPattern, Viewport } from '@draftila/shared';
+import type {
+  Camera,
+  Fill,
+  Gradient,
+  LayoutGuide,
+  Shadow,
+  StrokeDashPattern,
+  Viewport,
+} from '@draftila/shared';
 import type {
   ImageRenderOptions,
   Renderer,
@@ -155,23 +163,26 @@ export class Canvas2DRenderer implements Renderer {
     ctx.save();
     this.applyTransform(transform);
     ctx.globalAlpha = style.opacity;
-    this.applyLayerBlur(style);
 
     const hasRadius = Array.isArray(cornerRadius)
       ? cornerRadius.some((r) => r > 0)
       : cornerRadius > 0;
 
-    if (hasRadius) {
-      ctx.beginPath();
-      ctx.roundRect(0, 0, transform.width, transform.height, cornerRadius);
-      this.applyFillStroke(style);
-      ctx.closePath();
-    } else {
-      ctx.beginPath();
-      ctx.rect(0, 0, transform.width, transform.height);
-      this.applyFillStroke(style);
-      ctx.closePath();
-    }
+    const buildClip = (c: CanvasRenderingContext2D) => {
+      c.beginPath();
+      if (hasRadius) {
+        c.roundRect(0, 0, transform.width, transform.height, cornerRadius);
+      } else {
+        c.rect(0, 0, transform.width, transform.height);
+      }
+    };
+
+    this.applyBackgroundBlur(style, buildClip);
+    this.applyLayerBlur(style);
+
+    buildClip(ctx);
+    this.applyFillStroke(style, transform.width, transform.height);
+    ctx.closePath();
 
     this.clearFilter();
     ctx.restore();
@@ -182,16 +193,22 @@ export class Canvas2DRenderer implements Renderer {
     ctx.save();
     this.applyTransform(transform);
     ctx.globalAlpha = style.opacity;
-    this.applyLayerBlur(style);
 
     const cx = transform.width / 2;
     const cy = transform.height / 2;
     const rx = transform.width / 2;
     const ry = transform.height / 2;
 
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-    this.applyFillStroke(style);
+    const buildClip = (c: CanvasRenderingContext2D) => {
+      c.beginPath();
+      c.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    };
+
+    this.applyBackgroundBlur(style, buildClip);
+    this.applyLayerBlur(style);
+
+    buildClip(ctx);
+    this.applyFillStroke(style, transform.width, transform.height);
     ctx.closePath();
 
     this.clearFilter();
@@ -222,9 +239,29 @@ export class Canvas2DRenderer implements Renderer {
 
     const dropShadows = style.shadows.filter((s) => s.type === 'drop' && s.visible !== false);
 
+    let pathMinX = Infinity;
+    let pathMinY = Infinity;
+    let pathMaxX = -Infinity;
+    let pathMaxY = -Infinity;
+    for (const [px, py] of points) {
+      if (px < pathMinX) pathMinX = px;
+      if (py < pathMinY) pathMinY = py;
+      if (px > pathMaxX) pathMaxX = px;
+      if (py > pathMaxY) pathMaxY = py;
+    }
+    const pathWidth = pathMaxX - pathMinX;
+    const pathHeight = pathMaxY - pathMinY;
+
     for (const fill of style.fills) {
       if (!fill.visible) continue;
-      ctx.fillStyle = colorWithOpacity(fill.color, fill.opacity);
+      if (fill.gradient) {
+        ctx.save();
+        ctx.translate(pathMinX, pathMinY);
+        ctx.fillStyle = this.getFillStyle(fill, pathWidth, pathHeight);
+        ctx.translate(-pathMinX, -pathMinY);
+      } else {
+        ctx.fillStyle = colorWithOpacity(fill.color, fill.opacity);
+      }
       if (dropShadows.length > 0) {
         for (const shadow of dropShadows) {
           this.applyDropShadow(shadow);
@@ -233,6 +270,9 @@ export class Canvas2DRenderer implements Renderer {
         this.clearShadow();
       } else {
         ctx.fill(path);
+      }
+      if (fill.gradient) {
+        ctx.restore();
       }
     }
 
@@ -275,6 +315,69 @@ export class Canvas2DRenderer implements Renderer {
     ctx.restore();
   }
 
+  drawSvgPath(transform: RenderTransform, pathData: string, style: RenderStyle) {
+    const { ctx } = this;
+    ctx.save();
+    this.applyTransform(transform);
+    ctx.globalAlpha = style.opacity;
+    this.applyLayerBlur(style);
+
+    const path = new Path2D(pathData);
+    const dropShadows = style.shadows.filter((s) => s.type === 'drop' && s.visible !== false);
+
+    for (const fill of style.fills) {
+      if (!fill.visible) continue;
+      ctx.fillStyle = this.getFillStyle(fill, transform.width, transform.height);
+      if (dropShadows.length > 0) {
+        for (const shadow of dropShadows) {
+          this.applyDropShadow(shadow);
+          ctx.fill(path);
+        }
+        this.clearShadow();
+      } else {
+        ctx.fill(path);
+      }
+    }
+
+    if (style.fills.length === 0 && dropShadows.length > 0) {
+      for (const shadow of dropShadows) {
+        this.applyDropShadow(shadow);
+        ctx.fillStyle = 'rgba(0,0,0,0)';
+        ctx.fill(path);
+      }
+      this.clearShadow();
+    }
+
+    for (const stroke of style.strokes) {
+      if (!stroke.visible || stroke.width <= 0) continue;
+      ctx.strokeStyle = colorWithOpacity(stroke.color, stroke.opacity);
+      ctx.lineWidth = stroke.width;
+      ctx.lineCap = stroke.cap ?? 'butt';
+      ctx.lineJoin = stroke.join ?? 'miter';
+      ctx.miterLimit = stroke.miterLimit ?? 4;
+      ctx.setLineDash(dashPatternToArray(stroke.dashPattern ?? 'solid', stroke.width));
+      ctx.lineDashOffset = stroke.dashOffset ?? 0;
+      ctx.stroke(path);
+      ctx.setLineDash([]);
+    }
+
+    const innerShadows = style.shadows.filter((s) => s.type === 'inner' && s.visible !== false);
+    if (innerShadows.length > 0) {
+      ctx.save();
+      ctx.clip(path);
+      for (const shadow of innerShadows) {
+        this.applyDropShadow(shadow);
+        ctx.fillStyle = 'rgba(0,0,0,0)';
+        ctx.fillRect(-1e5, -1e5, 2e5, 2e5);
+      }
+      this.clearShadow();
+      ctx.restore();
+    }
+
+    this.clearFilter();
+    ctx.restore();
+  }
+
   drawText(transform: RenderTransform, options: TextRenderOptions) {
     const { ctx } = this;
     ctx.save();
@@ -290,6 +393,18 @@ export class Canvas2DRenderer implements Renderer {
       this.applyDropShadow(dropShadow);
     }
 
+    if (options.segments && options.segments.length > 0) {
+      this.drawSegmentedText(transform, options);
+    } else {
+      this.drawPlainText(transform, options);
+    }
+
+    ctx.restore();
+  }
+
+  private drawPlainText(transform: RenderTransform, options: TextRenderOptions) {
+    const { ctx } = this;
+
     const fontStyle = options.fontStyle === 'italic' ? 'italic' : '';
     ctx.font =
       `${fontStyle} ${options.fontWeight} ${options.fontSize}px ${options.fontFamily}`.trim();
@@ -297,10 +412,12 @@ export class Canvas2DRenderer implements Renderer {
     ctx.textBaseline = 'middle';
 
     const visibleFill = options.fills.find((f) => f.visible);
-    const fillColor = visibleFill ? colorWithOpacity(visibleFill.color, visibleFill.opacity) : null;
+    const fillStyle: string | CanvasGradient | null = visibleFill
+      ? this.getFillStyle(visibleFill, transform.width, transform.height)
+      : null;
 
-    if (fillColor) {
-      ctx.fillStyle = fillColor;
+    if (fillStyle) {
+      ctx.fillStyle = fillStyle;
     }
 
     const content = applyTextTransform(options.content, options.textTransform);
@@ -328,7 +445,7 @@ export class Canvas2DRenderer implements Renderer {
       const line = lines[i];
       if (line === undefined) continue;
       const y = offsetY + i * lineHeight + lineHeight / 2;
-      if (fillColor) {
+      if (fillStyle) {
         ctx.fillText(line, textX, y);
       }
 
@@ -343,15 +460,141 @@ export class Canvas2DRenderer implements Renderer {
             ? lineTopY + options.fontSize * 0.55
             : lineTopY + options.fontSize * 0.95;
         ctx.beginPath();
-        ctx.strokeStyle = fillColor ?? '#000000';
+        ctx.strokeStyle =
+          typeof fillStyle === 'string' ? fillStyle : visibleFill ? visibleFill.color : '#000000';
         ctx.lineWidth = Math.max(1, options.fontSize / 16);
         ctx.moveTo(lineStartX, decoY);
         ctx.lineTo(lineStartX + metrics.width, decoY);
         ctx.stroke();
       }
     }
+  }
 
-    ctx.restore();
+  private drawSegmentedText(transform: RenderTransform, options: TextRenderOptions) {
+    const { ctx } = this;
+    const segments = options.segments!;
+
+    const baseFontStyle = options.fontStyle === 'italic' ? 'italic' : '';
+    const baseFontWeight = options.fontWeight;
+    const baseFontSize = options.fontSize;
+    const baseFontFamily = options.fontFamily;
+    const baseLetterSpacing = options.letterSpacing;
+
+    const visibleFill = options.fills.find((f) => f.visible);
+    const baseColor = visibleFill
+      ? colorWithOpacity(visibleFill.color, visibleFill.opacity)
+      : '#000000';
+
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+
+    const fullText = segments.map((s) => s.text).join('');
+    const content = applyTextTransform(fullText, options.textTransform);
+
+    ctx.font = `${baseFontStyle} ${baseFontWeight} ${baseFontSize}px ${baseFontFamily}`.trim();
+    if (baseLetterSpacing !== 0) {
+      (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing =
+        `${baseLetterSpacing}px`;
+    }
+    const lines = wrapText(ctx, content, transform.width);
+    const lineHeight = baseFontSize * options.lineHeight;
+    const totalTextHeight = lines.length * lineHeight;
+
+    let offsetY = 0;
+    if (options.verticalAlign === 'middle') {
+      offsetY = (transform.height - totalTextHeight) / 2;
+    } else if (options.verticalAlign === 'bottom') {
+      offsetY = transform.height - totalTextHeight;
+    }
+
+    interface CharStyle {
+      char: string;
+      color: string;
+      fontSize: number;
+      fontFamily: string;
+      fontWeight: number;
+      fontStyle: string;
+      letterSpacing: number;
+      textDecoration: string;
+      gradient?: NonNullable<(typeof segments)[number]['gradient']>;
+    }
+
+    const charStyles: CharStyle[] = [];
+    let segOffset = 0;
+    for (const seg of segments) {
+      const segText = content.substring(segOffset, segOffset + seg.text.length);
+      for (const char of segText) {
+        charStyles.push({
+          char,
+          color: seg.color ?? baseColor,
+          fontSize: seg.fontSize ?? baseFontSize,
+          fontFamily: seg.fontFamily ?? baseFontFamily,
+          fontWeight: seg.fontWeight ?? baseFontWeight,
+          fontStyle: seg.fontStyle === 'italic' ? 'italic' : baseFontStyle,
+          letterSpacing: seg.letterSpacing ?? baseLetterSpacing,
+          textDecoration: seg.textDecoration ?? options.textDecoration,
+          gradient: seg.gradient,
+        });
+      }
+      segOffset += seg.text.length;
+    }
+
+    let charIdx = 0;
+    for (let li = 0; li < lines.length; li++) {
+      const line = lines[li];
+      if (line === undefined) continue;
+      const y = offsetY + li * lineHeight + lineHeight / 2;
+
+      const lineChars = charStyles.slice(charIdx, charIdx + line.length);
+      charIdx += line.length;
+      if (charIdx < charStyles.length && charStyles[charIdx]?.char === ' ') {
+        charIdx++;
+      }
+
+      let lineWidth = 0;
+      for (const cs of lineChars) {
+        const font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize}px ${cs.fontFamily}`.trim();
+        ctx.font = font;
+        lineWidth += ctx.measureText(cs.char).width;
+      }
+
+      let startX = 0;
+      if (options.textAlign === 'center') startX = (transform.width - lineWidth) / 2;
+      else if (options.textAlign === 'right') startX = transform.width - lineWidth;
+
+      let cursorX = startX;
+      for (const cs of lineChars) {
+        const font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize}px ${cs.fontFamily}`.trim();
+        ctx.font = font;
+        if (cs.letterSpacing !== 0) {
+          (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing =
+            `${cs.letterSpacing}px`;
+        }
+
+        if (cs.gradient) {
+          ctx.fillStyle = this.createGradient(cs.gradient, transform.width, transform.height);
+        } else {
+          ctx.fillStyle = cs.color;
+        }
+        ctx.fillText(cs.char, cursorX, y);
+
+        if (cs.textDecoration !== 'none') {
+          const charWidth = ctx.measureText(cs.char).width;
+          const decoY =
+            cs.textDecoration === 'strikethrough'
+              ? y - lineHeight / 2 + cs.fontSize * 0.55
+              : y - lineHeight / 2 + cs.fontSize * 0.95;
+          ctx.beginPath();
+          ctx.strokeStyle = cs.color;
+          ctx.lineWidth = Math.max(1, cs.fontSize / 16);
+          ctx.moveTo(cursorX, decoY);
+          ctx.lineTo(cursorX + charWidth, decoY);
+          ctx.stroke();
+        }
+
+        cursorX += ctx.measureText(cs.char).width;
+      }
+    }
   }
 
   drawImage(transform: RenderTransform, options: ImageRenderOptions) {
@@ -800,6 +1043,44 @@ export class Canvas2DRenderer implements Renderer {
     return image;
   }
 
+  private createGradient(gradient: Gradient, width: number, height: number): CanvasGradient {
+    const { ctx } = this;
+    if (gradient.type === 'linear') {
+      const angleRad = ((gradient.angle ?? 0) * Math.PI) / 180;
+      const cos = Math.cos(angleRad);
+      const sin = Math.sin(angleRad);
+      const cx = width / 2;
+      const cy = height / 2;
+      const len = Math.abs(width * cos) / 2 + Math.abs(height * sin) / 2;
+      const canvasGradient = ctx.createLinearGradient(
+        cx - len * cos,
+        cy - len * sin,
+        cx + len * cos,
+        cy + len * sin,
+      );
+      for (const stop of gradient.stops) {
+        canvasGradient.addColorStop(stop.position, stop.color);
+      }
+      return canvasGradient;
+    }
+
+    const gcx = (gradient.cx ?? 0.5) * width;
+    const gcy = (gradient.cy ?? 0.5) * height;
+    const gr = (gradient.r ?? 0.5) * Math.max(width, height);
+    const canvasGradient = ctx.createRadialGradient(gcx, gcy, 0, gcx, gcy, gr);
+    for (const stop of gradient.stops) {
+      canvasGradient.addColorStop(stop.position, stop.color);
+    }
+    return canvasGradient;
+  }
+
+  private getFillStyle(fill: Fill, width: number, height: number): string | CanvasGradient {
+    if (fill.gradient) {
+      return this.createGradient(fill.gradient, width, height);
+    }
+    return colorWithOpacity(fill.color, fill.opacity);
+  }
+
   private applyDropShadow(shadow: Shadow) {
     const { ctx } = this;
     ctx.shadowColor = shadowColorToRgba(shadow.color);
@@ -823,35 +1104,70 @@ export class Canvas2DRenderer implements Renderer {
     }
   }
 
+  private applyBackgroundBlur(
+    style: RenderStyle,
+    buildClipPath: (ctx: CanvasRenderingContext2D) => void,
+  ) {
+    const bgBlur = style.blurs.find((b) => b.type === 'background' && b.visible !== false);
+    if (!bgBlur || bgBlur.radius <= 0) return;
+
+    const { ctx, canvas } = this;
+    const r = bgBlur.radius;
+    const currentTransform = ctx.getTransform();
+    ctx.save();
+
+    buildClipPath(ctx);
+    ctx.clip();
+
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.filter = `blur(${r}px)`;
+    ctx.drawImage(
+      canvas,
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+      0,
+      0,
+      canvas.width / this.dpr,
+      canvas.height / this.dpr,
+    );
+    ctx.filter = 'none';
+    ctx.setTransform(currentTransform);
+
+    ctx.restore();
+  }
+
   private clearFilter() {
     this.ctx.filter = 'none';
   }
 
-  private applyFillStroke(style: RenderStyle) {
+  private applyFillStroke(style: RenderStyle, width = 0, height = 0) {
     const { ctx } = this;
     const dropShadows = style.shadows.filter((s) => s.type === 'drop' && s.visible !== false);
 
-    for (const fill of style.fills) {
-      if (!fill.visible) continue;
-      ctx.fillStyle = colorWithOpacity(fill.color, fill.opacity);
-      if (dropShadows.length > 0) {
-        for (const shadow of dropShadows) {
-          this.applyDropShadow(shadow);
-          ctx.fill();
-        }
-        this.clearShadow();
-      } else {
-        ctx.fill();
-      }
-    }
-
-    if (style.fills.length === 0 && dropShadows.length > 0) {
+    if (dropShadows.length > 0) {
+      const firstVisibleFill = style.fills.find((f) => f.visible);
+      ctx.fillStyle = firstVisibleFill
+        ? this.getFillStyle(firstVisibleFill, width, height)
+        : 'rgba(0,0,0,0)';
       for (const shadow of dropShadows) {
         this.applyDropShadow(shadow);
-        ctx.fillStyle = 'rgba(0,0,0,0)';
         ctx.fill();
       }
       this.clearShadow();
+    }
+
+    for (const fill of style.fills) {
+      if (!fill.visible) continue;
+      ctx.fillStyle = this.getFillStyle(fill, width, height);
+      if (!fill.gradient) {
+        ctx.globalAlpha *= fill.opacity;
+      }
+      ctx.fill();
+      if (!fill.gradient) {
+        ctx.globalAlpha = style.opacity;
+      }
     }
 
     for (const stroke of style.strokes) {
@@ -863,7 +1179,12 @@ export class Canvas2DRenderer implements Renderer {
       ctx.miterLimit = stroke.miterLimit ?? 4;
       ctx.setLineDash(dashPatternToArray(stroke.dashPattern ?? 'solid', stroke.width));
       ctx.lineDashOffset = stroke.dashOffset ?? 0;
-      ctx.stroke();
+
+      if (stroke.sides && width > 0 && height > 0) {
+        this.drawSidedStroke(stroke.sides, width, height);
+      } else {
+        ctx.stroke();
+      }
       ctx.setLineDash([]);
     }
 
@@ -878,6 +1199,38 @@ export class Canvas2DRenderer implements Renderer {
       }
       this.clearShadow();
       ctx.restore();
+    }
+  }
+
+  private drawSidedStroke(
+    sides: { top?: boolean; right?: boolean; bottom?: boolean; left?: boolean },
+    width: number,
+    height: number,
+  ) {
+    const { ctx } = this;
+    if (sides.top !== false) {
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(width, 0);
+      ctx.stroke();
+    }
+    if (sides.right !== false) {
+      ctx.beginPath();
+      ctx.moveTo(width, 0);
+      ctx.lineTo(width, height);
+      ctx.stroke();
+    }
+    if (sides.bottom !== false) {
+      ctx.beginPath();
+      ctx.moveTo(width, height);
+      ctx.lineTo(0, height);
+      ctx.stroke();
+    }
+    if (sides.left !== false) {
+      ctx.beginPath();
+      ctx.moveTo(0, height);
+      ctx.lineTo(0, 0);
+      ctx.stroke();
     }
   }
 }

@@ -173,7 +173,7 @@ export const mcpCanvasOpSchema = z.discriminatedUnion('type', [
 
 export const mcpCanvasApplyOpsSchema = z.object({
   draftId: z.string(),
-  ops: z.array(mcpCanvasOpSchema).min(1).max(100),
+  ops: z.array(mcpCanvasOpSchema).min(1).max(200),
 });
 
 export const mcpRpcRequestSchema = z.object({

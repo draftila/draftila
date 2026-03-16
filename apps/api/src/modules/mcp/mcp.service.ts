@@ -176,7 +176,7 @@ const MCP_TOOLS: McpTool[] = [
   {
     name: 'canvas.snapshot',
     description:
-      'Get the current canvas shape snapshot for a draft. Requires the draft to be open in the editor.',
+      'Get the current canvas shape snapshot for a draft. Returns all shapes with their key properties including type, position, dimensions, fills, strokes, text content, font settings, layout mode, and more. Use canvas.get_shape for the complete properties of a specific shape. Requires the draft to be open in the editor.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -223,9 +223,24 @@ const MCP_TOOLS: McpTool[] = [
     requiredScope: 'mcp:canvas:read',
   },
   {
+    name: 'canvas.get_shape',
+    description:
+      'Get the full properties of a specific shape by id. Returns all properties including fills, strokes, text content, font settings, etc. Requires the draft to be open in the editor.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        draftId: { type: 'string' },
+        shapeId: { type: 'string' },
+      },
+      required: ['draftId', 'shapeId'],
+      additionalProperties: false,
+    },
+    requiredScope: 'mcp:canvas:read',
+  },
+  {
     name: 'canvas.apply_ops',
     description:
-      'Apply shape operations to a draft canvas. Requires the draft to be open in the editor. Frames support auto-layout: set layoutMode to "horizontal" or "vertical" with layoutGap, paddingTop/Right/Bottom/Left, layoutAlign (start/center/end/stretch), layoutJustify (start/center/end/space_between/space_around). Children can set layoutSizingHorizontal/layoutSizingVertical to "fill" to stretch. Auto-layout is computed automatically after operations.',
+      'Apply shape operations to a draft canvas. Requires the draft to be open in the editor.\n\nShape types and their key properties:\n- rectangle: fills, strokes, cornerRadius (or cornerRadiusTL/TR/BL/BR), shadows, blurs\n- ellipse: fills, strokes, shadows, blurs\n- frame: fills, strokes, clip (default true), shadows, blurs, layoutMode, layoutGap, paddingTop/Right/Bottom/Left, layoutAlign, layoutJustify\n- text: content (the text string), fontSize, fontFamily, fontWeight, fontStyle, textAlign, verticalAlign, lineHeight, letterSpacing, textDecoration, textTransform, fills (controls text color), segments (rich text)\n- path: points, svgPathData, fills, strokes\n- line: x1, y1, x2, y2, strokes\n- arrow: x1, y1, x2, y2, strokes, startArrowhead, endArrowhead\n- polygon: sides, fills, strokes\n- star: points (number of points), innerRadius, fills, strokes\n- image: use canvas.set_image after creation to set the source\n- group: container for grouping shapes\n\nCommon properties (all shapes): x, y, width, height, rotation, opacity, visible, locked, name, parentId\n\nText shapes: set "content" for the displayed text. Text color is controlled by "fills" (e.g. fills:[{color:"#FFFFFF"}]). Text shapes without explicit width/height are auto-sized to fit content.\n\nAvailable fonts (built-in): Inter, Arial, Helvetica, Times New Roman, Georgia, Courier New, system-ui, sans-serif, serif, monospace. Any Google Font name is also supported and will be loaded automatically.\n\nFills: each fill can have color, opacity (0-1, default 1), visible (default true), and optional gradient. Partial fill objects are fine — missing fields get defaults.\n\nGradient fills: any fill can include a "gradient" object. Linear: {type:"linear", angle:90, stops:[{color:"#FF0000",position:0},{color:"#0000FF",position:1}]}. Radial: {type:"radial", cx:0.5, cy:0.5, r:0.5, stops:[...]}.\n\nStrokes: color, width, opacity, visible, cap (butt/round/square), join (miter/round/bevel), align (center/inside/outside), dashPattern (solid/dash/dot/dash-dot). Per-side: "sides":{top:true, right:false, bottom:true, left:false} (rectangles/frames only).\n\nShadows: [{type:"drop"|"inner", x:0, y:4, blur:8, spread:0, color:"#00000040"}]\n\nBlurs: [{type:"background", radius:10}] for glassmorphism. [{type:"layer", radius:4}] for layer blur.\n\nAuto-layout: set layoutMode to "horizontal"/"vertical" with layoutGap, paddingTop/Right/Bottom/Left, layoutAlign (start/center/end/stretch), layoutJustify (start/center/end/space_between/space_around). Children can set layoutSizingHorizontal/layoutSizingVertical to "fill" to stretch.\n\nRich text: text shapes support "segments" array for inline styling: [{text:"Hello ", color:"#FFFFFF"}, {text:"world", color:"#8B5CF6", fontWeight:700}]. Each segment can override: color, fontSize, fontFamily, fontWeight, fontStyle, textDecoration, letterSpacing, gradient.\n\nSVG paths/icons: path shapes support "svgPathData" (SVG path d attribute string) for vector icons.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -234,7 +249,7 @@ const MCP_TOOLS: McpTool[] = [
           type: 'array',
           items: canvasOpJsonSchema,
           minItems: 1,
-          maxItems: 100,
+          maxItems: 200,
         },
       },
       required: ['draftId', 'ops'],
@@ -245,7 +260,7 @@ const MCP_TOOLS: McpTool[] = [
   {
     name: 'canvas.apply_op',
     description:
-      'Apply a single shape operation to a draft canvas. Requires the draft to be open in the editor. Frames support auto-layout: set layoutMode to "horizontal" or "vertical" with layoutGap, paddingTop/Right/Bottom/Left, layoutAlign (start/center/end/stretch), layoutJustify (start/center/end/space_between/space_around). Children can set layoutSizingHorizontal/layoutSizingVertical to "fill" to stretch. Auto-layout is computed automatically after operations.',
+      'Apply a single shape operation to a draft canvas. Requires the draft to be open in the editor. See canvas.apply_ops for full documentation on shape types, properties, fonts, fills, strokes, gradients, shadows, blurs, auto-layout, rich text, and SVG paths.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -253,6 +268,31 @@ const MCP_TOOLS: McpTool[] = [
         op: canvasOpJsonSchema,
       },
       required: ['draftId', 'op'],
+      additionalProperties: false,
+    },
+    requiredScope: 'mcp:canvas:write',
+  },
+  {
+    name: 'canvas.set_image',
+    description:
+      'Set the image source for an image shape. Accepts a URL or base64 data URI. Create an image shape first with canvas.apply_op, then use this tool to set its source. Requires the draft to be open in the editor.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        draftId: { type: 'string' },
+        shapeId: { type: 'string', description: 'The id of the image shape to set the source for' },
+        src: {
+          type: 'string',
+          description:
+            'Image source: a URL (https://...) or a base64 data URI (data:image/png;base64,...)',
+        },
+        fit: {
+          type: 'string',
+          enum: ['fill', 'fit', 'crop'],
+          description: 'How the image fits in the frame. Defaults to fill.',
+        },
+      },
+      required: ['draftId', 'shapeId', 'src'],
       additionalProperties: false,
     },
     requiredScope: 'mcp:canvas:write',
@@ -285,14 +325,97 @@ const MCP_TOOLS: McpTool[] = [
     },
     requiredScope: 'mcp:canvas:read',
   },
+  {
+    name: 'canvas.undo',
+    description: 'Undo the last canvas operation. Requires the draft to be open in the editor.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        draftId: { type: 'string' },
+      },
+      required: ['draftId'],
+      additionalProperties: false,
+    },
+    requiredScope: 'mcp:canvas:write',
+  },
+  {
+    name: 'canvas.redo',
+    description:
+      'Redo the last undone canvas operation. Requires the draft to be open in the editor.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        draftId: { type: 'string' },
+      },
+      required: ['draftId'],
+      additionalProperties: false,
+    },
+    requiredScope: 'mcp:canvas:write',
+  },
+  {
+    name: 'canvas.align',
+    description:
+      'Align shapes relative to each other. Aligns to the bounding box of the selected shapes. Requires the draft to be open in the editor.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        draftId: { type: 'string' },
+        ids: {
+          type: 'array',
+          items: { type: 'string' },
+          minItems: 1,
+        },
+        axis: {
+          type: 'string',
+          enum: ['left', 'center_horizontal', 'right', 'top', 'center_vertical', 'bottom'],
+        },
+      },
+      required: ['draftId', 'ids', 'axis'],
+      additionalProperties: false,
+    },
+    requiredScope: 'mcp:canvas:write',
+  },
+  {
+    name: 'canvas.distribute',
+    description:
+      'Distribute shapes evenly along an axis. Requires at least 3 shapes. If gap is omitted, distributes evenly within the current bounding box. If gap is specified, spaces shapes with that exact gap. Requires the draft to be open in the editor.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        draftId: { type: 'string' },
+        ids: {
+          type: 'array',
+          items: { type: 'string' },
+          minItems: 3,
+        },
+        axis: {
+          type: 'string',
+          enum: ['horizontal', 'vertical'],
+        },
+        gap: {
+          type: 'number',
+          description: 'Fixed gap between shapes. If omitted, distributes evenly.',
+        },
+      },
+      required: ['draftId', 'ids', 'axis'],
+      additionalProperties: false,
+    },
+    requiredScope: 'mcp:canvas:write',
+  },
 ];
 
 const RELAY_TOOLS = new Set([
   'canvas.snapshot',
   'canvas.find_shapes',
+  'canvas.get_shape',
   'canvas.apply_ops',
   'canvas.apply_op',
+  'canvas.set_image',
   'canvas.screenshot',
+  'canvas.undo',
+  'canvas.redo',
+  'canvas.align',
+  'canvas.distribute',
 ]);
 
 function ensureScope(auth: McpTokenAuthContext, scope: McpTokenScope) {

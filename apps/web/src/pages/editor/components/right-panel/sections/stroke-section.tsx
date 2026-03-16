@@ -6,6 +6,7 @@ import type {
   StrokeCap,
   StrokeDashPattern,
   StrokeJoin,
+  StrokeSides,
   Shape,
 } from '@draftila/shared';
 import type { PropertySectionProps } from '../types';
@@ -714,11 +715,68 @@ function StrokeSettingsPopover({
         </div>
       )}
 
-      {join !== 'miter' && stroke.dashPattern === 'solid' && (
-        <p className="text-muted-foreground mt-3 text-center text-[11px]">
-          No additional settings for current configuration
-        </p>
-      )}
+      <div className="mt-3 space-y-2">
+        <span className="text-muted-foreground text-[11px] font-medium">Sides</span>
+        <StrokeSidesToggle sides={stroke.sides} onChange={(sides) => onUpdate({ sides })} />
+      </div>
     </PopoverContent>
+  );
+}
+
+function StrokeSidesToggle({
+  sides,
+  onChange,
+}: {
+  sides?: StrokeSides;
+  onChange: (sides: StrokeSides | undefined) => void;
+}) {
+  const allSides = !sides || (sides.top && sides.right && sides.bottom && sides.left);
+
+  const currentSides: StrokeSides = sides ?? {
+    top: true,
+    right: true,
+    bottom: true,
+    left: true,
+  };
+
+  const toggleSide = (side: keyof StrokeSides) => {
+    const next = { ...currentSides, [side]: !currentSides[side] };
+    const allTrue = next.top && next.right && next.bottom && next.left;
+    onChange(allTrue ? undefined : next);
+  };
+
+  const sideButtons: Array<{ key: keyof StrokeSides; label: string }> = [
+    { key: 'top', label: 'T' },
+    { key: 'right', label: 'R' },
+    { key: 'bottom', label: 'B' },
+    { key: 'left', label: 'L' },
+  ];
+
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        onClick={() => onChange(undefined)}
+        className={`rounded px-2 py-1 text-[10px] font-medium transition-colors ${
+          allSides
+            ? 'bg-accent text-accent-foreground'
+            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+        }`}
+      >
+        All
+      </button>
+      {sideButtons.map(({ key, label }) => (
+        <button
+          key={key}
+          onClick={() => toggleSide(key)}
+          className={`rounded px-2 py-1 text-[10px] font-medium transition-colors ${
+            currentSides[key]
+              ? 'bg-accent text-accent-foreground'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
   );
 }

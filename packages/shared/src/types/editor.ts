@@ -18,13 +18,17 @@ import type {
   groupShapeSchema,
   shapeSchema,
   fillSchema,
+  gradientStopSchema,
+  gradientSchema,
   strokeSchema,
   strokeCapSchema,
   strokeJoinSchema,
   strokeAlignSchema,
   strokeDashPatternSchema,
+  strokeSidesSchema,
   shadowSchema,
   blurSchema,
+  textSegmentSchema,
   layoutGuideSchema,
   layoutDirectionSchema,
   layoutAlignSchema,
@@ -50,13 +54,17 @@ export type ImageShape = z.infer<typeof imageShapeSchema>;
 export type GroupShape = z.infer<typeof groupShapeSchema>;
 export type Shape = z.infer<typeof shapeSchema>;
 export type Fill = z.infer<typeof fillSchema>;
+export type GradientStop = z.infer<typeof gradientStopSchema>;
+export type Gradient = z.infer<typeof gradientSchema>;
 export type Stroke = z.infer<typeof strokeSchema>;
 export type StrokeCap = z.infer<typeof strokeCapSchema>;
 export type StrokeJoin = z.infer<typeof strokeJoinSchema>;
 export type StrokeAlign = z.infer<typeof strokeAlignSchema>;
 export type StrokeDashPattern = z.infer<typeof strokeDashPatternSchema>;
+export type StrokeSides = z.infer<typeof strokeSidesSchema>;
 export type Shadow = z.infer<typeof shadowSchema>;
 export type Blur = z.infer<typeof blurSchema>;
+export type TextSegment = z.infer<typeof textSegmentSchema>;
 export type LayoutGuide = z.infer<typeof layoutGuideSchema>;
 export type LayoutDirection = z.infer<typeof layoutDirectionSchema>;
 export type LayoutAlign = z.infer<typeof layoutAlignSchema>;
