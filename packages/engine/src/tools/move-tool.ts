@@ -531,6 +531,11 @@ export class MoveTool extends BaseTool {
     }
 
     if (this.state.type === 'marquee') {
+      const store = getToolStore();
+      const finalIds = [...store.selectedIds];
+      this.resetState();
+      store.setSelectedIds(finalIds);
+      return { cursor: 'default' };
     }
 
     this.resetState();

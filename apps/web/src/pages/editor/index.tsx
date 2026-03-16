@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { InlineEditableText } from '@/components/inline-editable-text';
 import { UserMenu } from '@/components/user-menu';
 import { initUndoManager, destroyUndoManager } from '@draftila/engine/history';
+import { getMoveTool } from '@draftila/engine/tools/tool-manager';
 import { useEditorStore } from '@/stores/editor-store';
 import { LeftPanel } from './components/left-panel';
 import { RightPanel } from './components/right-panel';
@@ -51,7 +52,9 @@ export function EditorPage() {
   useEffect(() => {
     const unsubscribe = useEditorStore.subscribe((state, prev) => {
       if (state.selectedIds !== prev.selectedIds) {
-        updateSelection(state.selectedIds);
+        if (!getMoveTool().marqueeRect) {
+          updateSelection(state.selectedIds);
+        }
       }
       if (state.activeTool !== prev.activeTool) {
         updateActiveTool(state.activeTool);
