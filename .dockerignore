@@ -1,0 +1,10 @@
+.git
+.github
+node_modules
+**/node_modules
+**/dist
+**/.turbo
+**/.DS_Store
+**/*.log
+apps/api/.env
+apps/api/prisma/**/*.sqlite
