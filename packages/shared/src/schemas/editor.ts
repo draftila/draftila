@@ -92,6 +92,17 @@ export const layoutGuideSchema = z.object({
   visible: z.boolean().default(true),
 });
 
+export const layoutDirectionSchema = z.enum(['none', 'horizontal', 'vertical']);
+export const layoutAlignSchema = z.enum(['start', 'center', 'end', 'stretch']);
+export const layoutJustifySchema = z.enum([
+  'start',
+  'center',
+  'end',
+  'space_between',
+  'space_around',
+]);
+export const sizingModeSchema = z.enum(['fixed', 'hug', 'fill']);
+
 export const baseShapeSchema = z.object({
   id: z.string(),
   type: shapeTypeSchema,
@@ -106,6 +117,8 @@ export const baseShapeSchema = z.object({
   visible: z.boolean().default(true),
   name: z.string().default(''),
   blendMode: z.string().default('normal'),
+  layoutSizingHorizontal: sizingModeSchema.default('fixed'),
+  layoutSizingVertical: sizingModeSchema.default('fixed'),
 });
 
 export const rectangleShapeSchema = baseShapeSchema.extend({
@@ -138,6 +151,16 @@ export const frameShapeSchema = baseShapeSchema.extend({
   shadows: z.array(shadowSchema).default([]),
   blurs: z.array(blurSchema).default([]),
   guides: z.array(layoutGuideSchema).default([]),
+  layoutMode: layoutDirectionSchema.default('none'),
+  layoutGap: z.number().min(0).default(0),
+  paddingTop: z.number().min(0).default(0),
+  paddingRight: z.number().min(0).default(0),
+  paddingBottom: z.number().min(0).default(0),
+  paddingLeft: z.number().min(0).default(0),
+  layoutAlign: layoutAlignSchema.default('start'),
+  layoutJustify: layoutJustifySchema.default('start'),
+  layoutSizingHorizontal: sizingModeSchema.default('fixed'),
+  layoutSizingVertical: sizingModeSchema.default('fixed'),
 });
 
 export const textShapeSchema = baseShapeSchema.extend({

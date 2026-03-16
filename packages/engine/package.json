@@ -21,6 +21,7 @@
     "./boolean-ops": "./src/boolean-ops.ts",
     "./image-manager": "./src/image-manager.ts",
     "./auto-layout": "./src/auto-layout.ts",
+    "./font-manager": "./src/font-manager.ts",
     "./constraints": "./src/constraints.ts",
     "./components": "./src/components.ts",
     "./pages": "./src/pages.ts",

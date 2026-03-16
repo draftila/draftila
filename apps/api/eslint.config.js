@@ -1,3 +1,3 @@
 import baseConfig from '@draftila/eslint-config/base';
 
-export default [...baseConfig];
+export default [{ ignores: ['src/generated/**'] }, ...baseConfig];

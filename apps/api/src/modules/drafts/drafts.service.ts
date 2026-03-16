@@ -1,41 +1,82 @@
-import { and, asc, desc, eq, sql, SQL } from 'drizzle-orm';
+import type { Prisma } from '../../generated/prisma/postgresql-client';
 import type { SortOrder } from '@draftila/shared';
-import { db } from '../../db';
-import { draft, project } from '../../db/schema';
 import { nanoid } from '../../common/lib/utils';
+import { db } from '../../db';
 
-function getSortConfig(sort: SortOrder) {
+let lastTimestamp = 0;
+
+function nextTimestamp() {
+  const now = Date.now();
+  if (now <= lastTimestamp) {
+    lastTimestamp += 1;
+  } else {
+    lastTimestamp = now;
+  }
+  return new Date(lastTimestamp);
+}
+
+const draftListSelect = {
+  id: true,
+  name: true,
+  projectId: true,
+  thumbnail: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+type DraftSortConfig = {
+  orderBy: Prisma.DraftOrderByWithRelationInput[];
+  where: (cursorDraft: {
+    id: string;
+    name: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }) => Prisma.DraftWhereInput;
+};
+
+function getSortConfig(sort: SortOrder): DraftSortConfig {
   switch (sort) {
     case 'alphabetical':
       return {
-        orderBy: [asc(draft.name), asc(draft.id)],
-        cursorSql: (cursor: string) =>
-          sql`(${draft.name}, ${draft.id}) > (SELECT ${draft.name}, ${draft.id} FROM ${draft} WHERE ${draft.id} = ${cursor})`,
+        orderBy: [{ name: 'asc' }, { id: 'asc' }],
+        where: (cursorDraft) => ({
+          OR: [
+            { name: { gt: cursorDraft.name } },
+            { name: cursorDraft.name, id: { gt: cursorDraft.id } },
+          ],
+        }),
       };
     case 'last_created':
       return {
-        orderBy: [desc(draft.createdAt), desc(draft.id)],
-        cursorSql: (cursor: string) =>
-          sql`(${draft.createdAt}, ${draft.id}) < (SELECT ${draft.createdAt}, ${draft.id} FROM ${draft} WHERE ${draft.id} = ${cursor})`,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        where: (cursorDraft) => ({
+          OR: [
+            { createdAt: { lt: cursorDraft.createdAt } },
+            { createdAt: cursorDraft.createdAt, id: { lt: cursorDraft.id } },
+          ],
+        }),
       };
     case 'last_edited':
     default:
       return {
-        orderBy: [desc(draft.updatedAt), desc(draft.id)],
-        cursorSql: (cursor: string) =>
-          sql`(${draft.updatedAt}, ${draft.id}) < (SELECT ${draft.updatedAt}, ${draft.id} FROM ${draft} WHERE ${draft.id} = ${cursor})`,
+        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
+        where: (cursorDraft) => ({
+          OR: [
+            { updatedAt: { lt: cursorDraft.updatedAt } },
+            {
+              updatedAt: cursorDraft.updatedAt,
+              createdAt: { lt: cursorDraft.createdAt },
+            },
+            {
+              updatedAt: cursorDraft.updatedAt,
+              createdAt: cursorDraft.createdAt,
+              id: { lt: cursorDraft.id },
+            },
+          ],
+        }),
       };
   }
 }
-
-const draftListColumns = {
-  id: draft.id,
-  name: draft.name,
-  projectId: draft.projectId,
-  thumbnail: draft.thumbnail,
-  createdAt: draft.createdAt,
-  updatedAt: draft.updatedAt,
-};
 
 export async function listByProject(
   projectId: string,
@@ -43,19 +84,32 @@ export async function listByProject(
   limit = 20,
   sort: SortOrder = 'last_edited',
 ) {
-  const conditions: SQL[] = [eq(draft.projectId, projectId)];
   const sortConfig = getSortConfig(sort);
 
+  let cursorFilter: Prisma.DraftWhereInput | undefined;
   if (cursor) {
-    conditions.push(sortConfig.cursorSql(cursor));
+    const cursorDraft = await db.draft.findFirst({
+      where: { id: cursor, projectId },
+      select: { id: true, name: true, createdAt: true, updatedAt: true },
+    });
+    if (cursorDraft) {
+      cursorFilter = sortConfig.where(cursorDraft);
+    }
   }
 
-  const results = await db
-    .select(draftListColumns)
-    .from(draft)
-    .where(and(...conditions))
-    .orderBy(...sortConfig.orderBy)
-    .limit(limit + 1);
+  const where: Prisma.DraftWhereInput = cursorFilter
+    ? {
+        projectId,
+        AND: [cursorFilter],
+      }
+    : { projectId };
+
+  const results = await db.draft.findMany({
+    where,
+    select: draftListSelect,
+    orderBy: sortConfig.orderBy,
+    take: limit + 1,
+  });
 
   const hasMore = results.length > limit;
   const data = hasMore ? results.slice(0, limit) : results;
@@ -73,25 +127,36 @@ export async function listByOwner(
 ) {
   const sortConfig = getSortConfig(sort);
 
-  const conditions: SQL[] = [eq(project.ownerId, ownerId)];
-
+  let cursorFilter: Prisma.DraftWhereInput | undefined;
   if (cursor) {
-    conditions.push(sortConfig.cursorSql(cursor));
+    const cursorDraft = await db.draft.findFirst({
+      where: { id: cursor, project: { ownerId } },
+      select: { id: true, name: true, createdAt: true, updatedAt: true },
+    });
+    if (cursorDraft) {
+      cursorFilter = sortConfig.where(cursorDraft);
+    }
   }
 
-  const results = await db
-    .select({
-      id: draft.id,
-      name: draft.name,
-      projectId: draft.projectId,
-      createdAt: draft.createdAt,
-      updatedAt: draft.updatedAt,
-    })
-    .from(draft)
-    .innerJoin(project, eq(draft.projectId, project.id))
-    .where(and(...conditions))
-    .orderBy(...sortConfig.orderBy)
-    .limit(limit + 1);
+  const where: Prisma.DraftWhereInput = cursorFilter
+    ? {
+        project: { ownerId },
+        AND: [cursorFilter],
+      }
+    : { project: { ownerId } };
+
+  const results = await db.draft.findMany({
+    where,
+    select: {
+      id: true,
+      name: true,
+      projectId: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+    orderBy: sortConfig.orderBy,
+    take: limit + 1,
+  });
 
   const hasMore = results.length > limit;
   const data = hasMore ? results.slice(0, limit) : results;
@@ -101,32 +166,34 @@ export async function listByOwner(
   return { data, nextCursor };
 }
 
-export async function getById(id: string) {
-  const [result] = await db.select(draftListColumns).from(draft).where(eq(draft.id, id));
-  return result ?? null;
+export function getById(id: string) {
+  return db.draft.findUnique({ where: { id }, select: draftListSelect });
 }
 
-export async function getByIdForOwner(draftId: string, ownerId: string) {
-  const [result] = await db
-    .select({
-      id: draft.id,
-      name: draft.name,
-      projectId: draft.projectId,
-      createdAt: draft.createdAt,
-      updatedAt: draft.updatedAt,
-    })
-    .from(draft)
-    .innerJoin(project, eq(draft.projectId, project.id))
-    .where(and(eq(draft.id, draftId), eq(project.ownerId, ownerId)));
-  return result ?? null;
+export function getByIdForOwner(draftId: string, ownerId: string) {
+  return db.draft.findFirst({
+    where: { id: draftId, project: { ownerId } },
+    select: {
+      id: true,
+      name: true,
+      projectId: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
 }
 
 export async function create(data: { name: string; projectId: string }) {
   const id = nanoid();
-  await db.insert(draft).values({
-    id,
-    name: data.name,
-    projectId: data.projectId,
+  const timestamp = nextTimestamp();
+  await db.draft.create({
+    data: {
+      id,
+      name: data.name,
+      projectId: data.projectId,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
   });
 
   const created = await getById(id);
@@ -135,37 +202,36 @@ export async function create(data: { name: string; projectId: string }) {
 }
 
 export async function update(id: string, data: { name: string }) {
-  await db
-    .update(draft)
-    .set({ name: data.name, updatedAt: sql`now()` })
-    .where(eq(draft.id, id));
+  const timestamp = nextTimestamp();
+  const result = await db.draft.updateMany({
+    where: { id },
+    data: { name: data.name, updatedAt: timestamp },
+  });
 
+  if (result.count === 0) return null;
   return getById(id);
 }
 
 export async function remove(id: string) {
   const existing = await getById(id);
   if (!existing) return null;
-  await db.delete(draft).where(eq(draft.id, id));
+
+  await db.draft.delete({ where: { id } });
   return existing;
 }
 
 export async function loadYjsState(id: string) {
-  const [result] = await db
-    .select({ yjsState: draft.yjsState })
-    .from(draft)
-    .where(eq(draft.id, id));
+  const result = await db.draft.findUnique({
+    where: { id },
+    select: { yjsState: true },
+  });
   return result?.yjsState ?? null;
 }
 
 export async function saveYjsState(id: string, state: Buffer) {
-  await db.update(draft).set({ yjsState: state }).where(eq(draft.id, id));
+  await db.draft.update({ where: { id }, data: { yjsState: new Uint8Array(state) } });
 }
 
-export async function verifyProjectOwnership(projectId: string, ownerId: string) {
-  const [result] = await db
-    .select()
-    .from(project)
-    .where(and(eq(project.id, projectId), eq(project.ownerId, ownerId)));
-  return result ?? null;
+export function verifyProjectOwnership(projectId: string, ownerId: string) {
+  return db.project.findFirst({ where: { id: projectId, ownerId } });
 }

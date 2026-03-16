@@ -1,8 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, test } from 'bun:test';
-import { eq } from 'drizzle-orm';
 import { app } from '../../src/app';
 import { db } from '../../src/db';
-import { project } from '../../src/db/schema';
 import { resetRateLimitStore } from '../../src/common/middleware/rate-limit';
 import * as projectsService from '../../src/modules/projects/projects.service';
 import { cleanDatabase, cleanProjects, createTestUser, getAuthHeaders } from '../helpers';
@@ -145,7 +143,7 @@ describe('projects', () => {
 
     test('remove throws ForbiddenError for personal project', async () => {
       const created = await projectsService.create({ name: 'Personal', ownerId: userId });
-      await db.update(project).set({ isPersonal: true }).where(eq(project.id, created.id));
+      await db.project.update({ where: { id: created.id }, data: { isPersonal: true } });
 
       await expect(projectsService.remove(created.id, userId)).rejects.toThrow('Forbidden');
 
@@ -403,7 +401,7 @@ describe('projects', () => {
 
     test('DELETE /api/projects/:id returns 403 for personal project', async () => {
       const created = await projectsService.create({ name: 'Personal', ownerId: userId });
-      await db.update(project).set({ isPersonal: true }).where(eq(project.id, created.id));
+      await db.project.update({ where: { id: created.id }, data: { isPersonal: true } });
 
       const res = await app.request(`/api/projects/${created.id}`, {
         method: 'DELETE',

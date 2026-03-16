@@ -1,30 +1,63 @@
-import { and, asc, desc, eq, sql, SQL } from 'drizzle-orm';
+import type { Prisma } from '../../generated/prisma/postgresql-client';
 import type { SortOrder } from '@draftila/shared';
 import { ForbiddenError } from '../../common/errors';
-import { db } from '../../db';
-import { project } from '../../db/schema';
 import { nanoid } from '../../common/lib/utils';
+import { db } from '../../db';
 
-function getSortConfig(sort: SortOrder) {
+let lastTimestamp = 0;
+
+function nextTimestamp() {
+  const now = Date.now();
+  if (now <= lastTimestamp) {
+    lastTimestamp += 1;
+  } else {
+    lastTimestamp = now;
+  }
+  return new Date(lastTimestamp);
+}
+
+type ProjectSortConfig = {
+  orderBy: Prisma.ProjectOrderByWithRelationInput[];
+  where: (cursorProject: {
+    id: string;
+    name: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }) => Prisma.ProjectWhereInput;
+};
+
+function getSortConfig(sort: SortOrder): ProjectSortConfig {
   switch (sort) {
     case 'alphabetical':
       return {
-        orderBy: [asc(project.name), asc(project.id)],
-        cursorSql: (cursor: string) =>
-          sql`(${project.name}, ${project.id}) > (SELECT ${project.name}, ${project.id} FROM ${project} WHERE ${project.id} = ${cursor})`,
+        orderBy: [{ name: 'asc' }, { id: 'asc' }],
+        where: (cursorProject) => ({
+          OR: [
+            { name: { gt: cursorProject.name } },
+            { name: cursorProject.name, id: { gt: cursorProject.id } },
+          ],
+        }),
       };
     case 'last_created':
       return {
-        orderBy: [desc(project.createdAt), desc(project.id)],
-        cursorSql: (cursor: string) =>
-          sql`(${project.createdAt}, ${project.id}) < (SELECT ${project.createdAt}, ${project.id} FROM ${project} WHERE ${project.id} = ${cursor})`,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        where: (cursorProject) => ({
+          OR: [
+            { createdAt: { lt: cursorProject.createdAt } },
+            { createdAt: cursorProject.createdAt, id: { lt: cursorProject.id } },
+          ],
+        }),
       };
     case 'last_edited':
     default:
       return {
-        orderBy: [desc(project.updatedAt), desc(project.id)],
-        cursorSql: (cursor: string) =>
-          sql`(${project.updatedAt}, ${project.id}) < (SELECT ${project.updatedAt}, ${project.id} FROM ${project} WHERE ${project.id} = ${cursor})`,
+        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+        where: (cursorProject) => ({
+          OR: [
+            { updatedAt: { lt: cursorProject.updatedAt } },
+            { updatedAt: cursorProject.updatedAt, id: { lt: cursorProject.id } },
+          ],
+        }),
       };
   }
 }
@@ -35,19 +68,31 @@ export async function listByOwner(
   limit = 20,
   sort: SortOrder = 'last_edited',
 ) {
-  const conditions: SQL[] = [eq(project.ownerId, userId)];
   const sortConfig = getSortConfig(sort);
 
+  let cursorFilter: Prisma.ProjectWhereInput | undefined;
   if (cursor) {
-    conditions.push(sortConfig.cursorSql(cursor));
+    const cursorProject = await db.project.findFirst({
+      where: { id: cursor, ownerId: userId },
+      select: { id: true, name: true, createdAt: true, updatedAt: true },
+    });
+    if (cursorProject) {
+      cursorFilter = sortConfig.where(cursorProject);
+    }
   }
 
-  const results = await db
-    .select()
-    .from(project)
-    .where(and(...conditions))
-    .orderBy(...sortConfig.orderBy)
-    .limit(limit + 1);
+  const where: Prisma.ProjectWhereInput = cursorFilter
+    ? {
+        ownerId: userId,
+        AND: [cursorFilter],
+      }
+    : { ownerId: userId };
+
+  const results = await db.project.findMany({
+    where,
+    orderBy: sortConfig.orderBy,
+    take: limit + 1,
+  });
 
   const hasMore = results.length > limit;
   const data = hasMore ? results.slice(0, limit) : results;
@@ -57,26 +102,21 @@ export async function listByOwner(
   return { data, nextCursor };
 }
 
-export async function getByIdAndOwner(id: string, ownerId: string) {
-  const [result] = await db
-    .select()
-    .from(project)
-    .where(and(eq(project.id, id), eq(project.ownerId, ownerId)));
-  return result ?? null;
+export function getByIdAndOwner(id: string, ownerId: string) {
+  return db.project.findFirst({ where: { id, ownerId } });
 }
 
-export async function create(data: { name: string; ownerId: string }) {
-  const [created] = await db
-    .insert(project)
-    .values({
+export function create(data: { name: string; ownerId: string }) {
+  const timestamp = nextTimestamp();
+  return db.project.create({
+    data: {
       id: nanoid(),
       name: data.name,
       ownerId: data.ownerId,
-    })
-    .returning();
-
-  if (!created) throw new Error('Failed to create project');
-  return created;
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+  });
 }
 
 export async function remove(id: string, ownerId: string) {
@@ -87,9 +127,6 @@ export async function remove(id: string, ownerId: string) {
     throw new ForbiddenError();
   }
 
-  const [deleted] = await db
-    .delete(project)
-    .where(and(eq(project.id, id), eq(project.ownerId, ownerId)))
-    .returning();
-  return deleted ?? null;
+  await db.project.delete({ where: { id: existing.id } });
+  return existing;
 }

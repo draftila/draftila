@@ -4,28 +4,29 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun run --hot src/index.ts",
+    "dev": "bun run db:studio & bun run --hot src/index.ts",
     "build": "bun build src/index.ts --outdir dist --target bun",
     "start": "bun run dist/index.js",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "clean": "rm -rf dist .turbo",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio",
+    "postinstall": "bun run db:generate",
+    "db:generate": "bunx --bun prisma generate --schema prisma/postgresql/schema.prisma && bunx --bun prisma generate --schema prisma/sqlite/schema.prisma",
+    "db:migrate": "bun run src/db/migrate.ts",
+    "db:studio": "bun run src/db/studio.ts",
     "db:seed": "NODE_ENV=development bun run src/db/seed.ts",
     "db:reset": "NODE_ENV=development bun run src/db/reset.ts",
     "db:refresh": "bun run db:reset && bun run db:migrate && bun run db:seed",
     "routes:list": "bun run src/routes-list.ts"
   },
   "dependencies": {
+    "@draftila/engine": "workspace:*",
     "@draftila/shared": "workspace:*",
     "better-auth": "^1.1.14",
-    "drizzle-orm": "^0.38.3",
     "hono": "^4.6.14",
     "lib0": "^0.2.117",
-    "postgres": "^3.4.5",
+    "@prisma/client": "^6.7.0",
     "y-protocols": "^1.0.7",
     "yjs": "^13.6.30",
     "zod": "^3.24.1"
@@ -34,8 +35,8 @@
     "@draftila/eslint-config": "workspace:*",
     "@draftila/typescript-config": "workspace:*",
     "@types/bun": "^1.1.14",
-    "drizzle-kit": "^0.30.1",
     "eslint": "^9.16.0",
+    "prisma": "^6.7.0",
     "typescript": "^5.7.2"
   }
 }

@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FileIcon, FolderIcon, ChevronsUpDownIcon, PlusIcon } from 'lucide-react';
+import { FileIcon, FolderIcon, ChevronsUpDownIcon, PlusIcon, PlugZapIcon } from 'lucide-react';
 import { useProjects } from '@/api/projects';
 import { CreateProjectDialog } from '@/pages/projects/components/create-project-dialog';
 import { useDashboardStore } from '@/stores/dashboard-store';
@@ -29,6 +29,7 @@ import { useState } from 'react';
 const NAV_ITEMS = [
   { label: 'Drafts', icon: FileIcon, path: '/' },
   { label: 'All Projects', icon: FolderIcon, path: '/projects' },
+  { label: 'MCP Access', icon: PlugZapIcon, path: '/settings/mcp' },
 ] as const;
 
 function ProjectSwitcher() {

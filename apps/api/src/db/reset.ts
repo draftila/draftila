@@ -1,5 +1,4 @@
-import { sql } from 'drizzle-orm';
-import { db, client } from './index';
+import { db } from './index';
 
 const allowedEnvs = ['development', 'test'];
 if (!allowedEnvs.includes(process.env.NODE_ENV ?? 'development')) {
@@ -8,22 +7,37 @@ if (!allowedEnvs.includes(process.env.NODE_ENV ?? 'development')) {
 }
 
 async function reset() {
-  console.log('Dropping all tables...');
+  console.log('Deleting all records...');
 
-  await db.execute(sql`
-    DO $$ DECLARE
-      r RECORD;
-    BEGIN
-      FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP
-        EXECUTE 'DROP TABLE IF EXISTS public.' || quote_ident(r.tablename) || ' CASCADE';
-      END LOOP;
-    END $$;
-  `);
+  await safeDeleteMany(() => db.draft.deleteMany());
+  await safeDeleteMany(() => db.project.deleteMany());
+  await safeDeleteMany(() => db.mcpAccessToken.deleteMany());
+  await safeDeleteMany(() => db.session.deleteMany());
+  await safeDeleteMany(() => db.account.deleteMany());
+  await safeDeleteMany(() => db.verification.deleteMany());
+  await safeDeleteMany(() => db.user.deleteMany());
 
-  await db.execute(sql`DROP SCHEMA IF EXISTS drizzle CASCADE`);
+  console.log('All records deleted.');
+  await db.$disconnect();
+}
 
-  console.log('All tables dropped.');
-  await client.end();
+async function safeDeleteMany(deleteMany: () => Promise<unknown>) {
+  try {
+    await deleteMany();
+  } catch (error) {
+    if (isMissingTableError(error)) {
+      return;
+    }
+    throw error;
+  }
+}
+
+function isMissingTableError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const errorWithCode = error as Error & { code?: string };
+  return errorWithCode.code === 'P2021';
 }
 
 reset().catch((err) => {

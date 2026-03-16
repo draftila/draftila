@@ -55,7 +55,7 @@ Bun.serve<WsData>({
   },
   websocket: {
     open(ws) {
-      collaborationService.handleConnection(ws, ws.data.draftId);
+      collaborationService.handleConnection(ws, ws.data.draftId, ws.data);
     },
     message(ws, message) {
       if (message instanceof ArrayBuffer) {
