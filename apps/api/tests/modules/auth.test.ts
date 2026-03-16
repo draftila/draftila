@@ -13,6 +13,7 @@ describe('auth', () => {
     await cleanDatabase();
     resetRateLimitStore('sign-in');
     resetRateLimitStore('sign-up');
+    resetRateLimitStore('auth-general');
   });
 
   describe('POST /api/auth/sign-up/email', () => {
@@ -143,6 +144,27 @@ describe('auth', () => {
           password: 'password123',
           name: 'Extra User',
         }),
+      });
+
+      expect(res.status).toBe(429);
+      const body = (await res.json()) as { error: string };
+      expect(body.error).toBe('Too many requests');
+    });
+
+    test('general auth POST returns 429 after 10 attempts', async () => {
+      for (let i = 0; i < 10; i++) {
+        const res = await app.request('/api/auth/some-other-endpoint', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+        expect(res.status).not.toBe(429);
+      }
+
+      const res = await app.request('/api/auth/some-other-endpoint', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
       });
 
       expect(res.status).toBe(429);

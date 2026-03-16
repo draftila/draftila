@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PlusIcon } from 'lucide-react';
 import { useAllDrafts, useDrafts, useCreateDraft } from '@/api/drafts';
 import { useProjects } from '@/api/projects';
@@ -37,11 +38,15 @@ export function DraftsPage() {
   const drafts = draftsQuery.data?.data ?? [];
   const isLoading = projectsLoading || draftsQuery.isLoading;
 
+  const navigate = useNavigate();
   const createProjectId = selectedProjectId ?? projects.find((p) => p.isPersonal)?.id ?? '';
   const createDraft = useCreateDraft(createProjectId);
 
   function handleCreateDraft() {
-    createDraft.mutate({ name: 'Untitled' });
+    createDraft.mutate(
+      { name: 'Untitled' },
+      { onSuccess: (draft) => navigate(`/drafts/${draft.id}`) },
+    );
   }
 
   return (

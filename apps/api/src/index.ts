@@ -46,6 +46,11 @@ Bun.serve<WsData>({
       return new Response('WebSocket upgrade failed', { status: 400 });
     }
 
+    const remoteAddr = server.requestIP(req);
+    if (remoteAddr) {
+      req.headers.set('x-remote-ip', remoteAddr.address);
+    }
+
     return app.fetch(req, server);
   },
   websocket: {
