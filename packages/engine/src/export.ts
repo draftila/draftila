@@ -1,7 +1,8 @@
 import type { Shape } from '@draftila/shared';
 import { Canvas2DRenderer } from './renderer/canvas2d-renderer';
 import { renderShape } from './shape-renderer';
-import { shapesToSvg } from './figma-clipboard';
+import { shapesToInterchange } from './interchange/converter';
+import { generateSvg } from './interchange/svg/svg-generator';
 
 export function exportToPng(shapes: Shape[], scale = 2): Promise<Blob> {
   return new Promise((resolve, reject) => {
@@ -50,7 +51,8 @@ export function exportToPng(shapes: Shape[], scale = 2): Promise<Blob> {
 }
 
 export function exportToSvg(shapes: Shape[]): string {
-  return shapesToSvg(shapes);
+  const doc = shapesToInterchange(shapes);
+  return generateSvg(doc);
 }
 
 export async function downloadBlob(blob: Blob, filename: string) {

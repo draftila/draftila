@@ -95,12 +95,8 @@ export {
 } from './clipboard';
 
 export {
-  type FigmaMeta,
   type PasteSource,
   type ExternalPasteOptions,
-  isFigmaClipboard,
-  parseFigmaMeta,
-  parseFigmaBinary,
   importSvgShapes,
   detectPasteSource,
   handlePaste,

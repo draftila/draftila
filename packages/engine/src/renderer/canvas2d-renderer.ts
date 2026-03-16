@@ -1,5 +1,11 @@
 import type { Camera, LayoutGuide, Shadow, StrokeDashPattern, Viewport } from '@draftila/shared';
-import type { Renderer, RenderStyle, RenderTransform, TextRenderOptions } from './types';
+import type {
+  ImageRenderOptions,
+  Renderer,
+  RenderStyle,
+  RenderTransform,
+  TextRenderOptions,
+} from './types';
 
 const SELECTION_COLOR = '#0D99FF';
 const SELECTION_WIDTH = 1.5;
@@ -79,6 +85,7 @@ function shadowColorToRgba(hex: string): string {
 }
 
 export class Canvas2DRenderer implements Renderer {
+  private static imageCache = new Map<string, HTMLImageElement>();
   private ctx: CanvasRenderingContext2D;
   private canvas: HTMLCanvasElement;
   private dpr = 1;
@@ -343,6 +350,108 @@ export class Canvas2DRenderer implements Renderer {
       }
     }
 
+    ctx.restore();
+  }
+
+  drawImage(transform: RenderTransform, options: ImageRenderOptions) {
+    const { ctx } = this;
+    const image = this.getLoadedImage(options.src);
+
+    if (!image) {
+      this.drawRect(
+        transform,
+        {
+          fills: [{ color: '#E0E0E0', opacity: 1, visible: true }],
+          strokes: [
+            {
+              color: '#BDBDBD',
+              width: 1,
+              opacity: 1,
+              visible: true,
+              cap: 'butt',
+              join: 'miter',
+              align: 'center',
+              dashPattern: 'solid',
+              dashOffset: 0,
+              miterLimit: 4,
+            },
+          ],
+          shadows: options.shadows,
+          blurs: options.blurs,
+          opacity: options.opacity,
+        },
+        0,
+      );
+      return;
+    }
+
+    const drawImageContent = () => {
+      const frameWidth = transform.width;
+      const frameHeight = transform.height;
+      const imageWidth = image.naturalWidth;
+      const imageHeight = image.naturalHeight;
+
+      if (options.fit === 'fill') {
+        ctx.drawImage(image, 0, 0, frameWidth, frameHeight);
+        return;
+      }
+
+      const frameRatio = frameWidth / frameHeight;
+      const imageRatio = imageWidth / imageHeight;
+
+      if (options.fit === 'fit') {
+        const scale = Math.min(frameWidth / imageWidth, frameHeight / imageHeight);
+        const destWidth = imageWidth * scale;
+        const destHeight = imageHeight * scale;
+        const destX = (frameWidth - destWidth) / 2;
+        const destY = (frameHeight - destHeight) / 2;
+        ctx.drawImage(image, destX, destY, destWidth, destHeight);
+        return;
+      }
+
+      let srcX = 0;
+      let srcY = 0;
+      let srcWidth = imageWidth;
+      let srcHeight = imageHeight;
+
+      if (imageRatio > frameRatio) {
+        srcWidth = imageHeight * frameRatio;
+        srcX = (imageWidth - srcWidth) / 2;
+      } else {
+        srcHeight = imageWidth / frameRatio;
+        srcY = (imageHeight - srcHeight) / 2;
+      }
+
+      ctx.drawImage(image, srcX, srcY, srcWidth, srcHeight, 0, 0, frameWidth, frameHeight);
+    };
+
+    ctx.save();
+    this.applyTransform(transform);
+    ctx.globalAlpha = options.opacity;
+    this.applyLayerBlur({
+      fills: [],
+      strokes: [],
+      shadows: options.shadows,
+      blurs: options.blurs,
+      opacity: 1,
+    });
+
+    ctx.beginPath();
+    ctx.rect(0, 0, transform.width, transform.height);
+    ctx.clip();
+
+    const dropShadows = options.shadows.filter((s) => s.type === 'drop' && s.visible !== false);
+    if (dropShadows.length > 0) {
+      for (const shadow of dropShadows) {
+        this.applyDropShadow(shadow);
+        drawImageContent();
+      }
+      this.clearShadow();
+    } else {
+      drawImageContent();
+    }
+
+    this.clearFilter();
     ctx.restore();
   }
 
@@ -669,6 +778,25 @@ export class Canvas2DRenderer implements Renderer {
     } else {
       ctx.translate(transform.x, transform.y);
     }
+  }
+
+  private getLoadedImage(src: string): HTMLImageElement | null {
+    if (!src) return null;
+
+    let image = Canvas2DRenderer.imageCache.get(src);
+    if (!image) {
+      image = new Image();
+      image.crossOrigin = 'anonymous';
+      image.src = src;
+      Canvas2DRenderer.imageCache.set(src, image);
+      return null;
+    }
+
+    if (!image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0) {
+      return null;
+    }
+
+    return image;
   }
 
   private applyDropShadow(shadow: Shadow) {

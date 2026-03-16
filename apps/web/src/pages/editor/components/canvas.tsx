@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type * as Y from 'yjs';
 import { useEditorStore } from '@/stores/editor-store';
 import { zoomAtPoint, panCamera, screenToCanvas } from '@draftila/engine/camera';
@@ -9,15 +9,22 @@ import { SpatialIndex } from '@draftila/engine/spatial-index';
 import { setTextToolCallback } from '@draftila/engine/tools/tool-manager';
 import { useCanvas, getCursorForTool } from '../hooks/use-canvas';
 import { useTool } from '../hooks/use-tool';
+import { useFileDrop } from '../hooks/use-file-drop';
 import { EditorToolbar } from './editor-toolbar';
 import { CursorOverlay } from './cursor-overlay';
 import { TextEditOverlay } from './text-edit-overlay';
+import { CanvasContextMenu } from './canvas-context-menu';
 import type { RemoteUser } from '../hooks/use-awareness';
 
 interface CanvasProps {
   ydoc: Y.Doc;
   remoteUsers: RemoteUser[];
   onActiveInteraction?: (cursor: { x: number; y: number } | null) => void;
+}
+
+interface ContextMenuState {
+  position: { x: number; y: number };
+  canvasPosition: { x: number; y: number };
 }
 
 const ZOOM_SENSITIVITY = 0.002;
@@ -29,10 +36,13 @@ export function Canvas({ ydoc, remoteUsers, onActiveInteraction }: CanvasProps) 
     canvasRef,
     onActiveInteraction,
   });
+  const { isDragging } = useFileDrop({ ydoc, canvasRef });
   const activeTool = useEditorStore((s) => s.activeTool);
   const isPanning = useEditorStore((s) => s.isPanning);
   const camera = useEditorStore((s) => s.camera);
   const editingTextId = useEditorStore((s) => s.editingTextId);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setTextToolCallback((shapeId: string) => {
@@ -41,9 +51,36 @@ export function Canvas({ ydoc, remoteUsers, onActiveInteraction }: CanvasProps) 
     return () => setTextToolCallback(null);
   }, []);
 
+  useEffect(() => {
+    if (!contextMenu) return;
+
+    const handlePointerDownOutside = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (target && contextMenuRef.current?.contains(target)) return;
+      setContextMenu(null);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setContextMenu(null);
+    };
+
+    const handleScroll = () => setContextMenu(null);
+
+    window.addEventListener('pointerdown', handlePointerDownOutside);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('scroll', handleScroll, true);
+
+    return () => {
+      window.removeEventListener('pointerdown', handlePointerDownOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('scroll', handleScroll, true);
+    };
+  }, [contextMenu]);
+
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
       e.preventDefault();
+      setContextMenu(null);
       const { camera: cam, setCamera } = useEditorStore.getState();
       const rect = canvasRef.current?.getBoundingClientRect();
       if (!rect) return;
@@ -102,6 +139,7 @@ export function Canvas({ ydoc, remoteUsers, onActiveInteraction }: CanvasProps) 
 
   const wrappedPointerDown = useCallback(
     (e: React.PointerEvent) => {
+      setContextMenu(null);
       if (editingTextId) {
         return;
       }
@@ -117,6 +155,44 @@ export function Canvas({ ydoc, remoteUsers, onActiveInteraction }: CanvasProps) 
     [handlePointerMove],
   );
 
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      const canvasPoint = screenToCanvas(sx, sy, useEditorStore.getState().camera);
+
+      const state = useEditorStore.getState();
+      const shapes = getAllShapes(ydoc);
+      const spatialIndex = new SpatialIndex();
+      spatialIndex.rebuild(shapes);
+      const hit = hitTestPoint(
+        canvasPoint.x,
+        canvasPoint.y,
+        shapes,
+        spatialIndex,
+        state.camera.zoom,
+      );
+
+      if (hit) {
+        const targetId = resolveGroupTarget(ydoc, hit.id, state.enteredGroupId);
+        if (!state.selectedIds.includes(targetId)) {
+          useEditorStore.getState().setSelectedIds([targetId]);
+        }
+      }
+
+      setContextMenu({
+        position: { x: e.clientX, y: e.clientY },
+        canvasPosition: canvasPoint,
+      });
+    },
+    [ydoc, canvasRef],
+  );
+
   const cursor = getCursorForTool(activeTool, isPanning);
 
   return (
@@ -130,8 +206,24 @@ export function Canvas({ ydoc, remoteUsers, onActiveInteraction }: CanvasProps) 
         onPointerMove={wrappedPointerMove}
         onPointerUp={handlePointerUp}
         onDoubleClick={handleDoubleClick}
-        onContextMenu={(e) => e.preventDefault()}
+        onContextMenu={handleContextMenu}
       />
+      {isDragging && (
+        <div className="border-primary/50 bg-primary/5 pointer-events-none absolute inset-4 rounded-xl border-2 border-dashed">
+          <div className="flex h-full items-center justify-center">
+            <p className="text-primary text-sm font-medium">Drop files to import</p>
+          </div>
+        </div>
+      )}
+      {contextMenu && (
+        <CanvasContextMenu
+          ref={contextMenuRef}
+          ydoc={ydoc}
+          position={contextMenu.position}
+          canvasPosition={contextMenu.canvasPosition}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
       <TextEditOverlay ydoc={ydoc} camera={camera} />
       <CursorOverlay remoteUsers={remoteUsers} camera={camera} />
       <div className="absolute inset-x-0 bottom-3 flex justify-center">

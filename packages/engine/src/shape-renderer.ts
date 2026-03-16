@@ -247,11 +247,13 @@ export function renderShape(renderer: Renderer, shape: Shape) {
       break;
     }
     case 'image': {
-      renderer.drawRect(
-        getTransform(shape),
-        simpleStyle({ fill: '#E0E0E0', stroke: '#BDBDBD', strokeWidth: 1, opacity: shape.opacity }),
-        0,
-      );
+      renderer.drawImage(getTransform(shape), {
+        src: shape.src,
+        fit: shape.fit,
+        opacity: shape.opacity,
+        shadows: shape.shadows ?? [],
+        blurs: shape.blurs ?? [],
+      });
       break;
     }
     case 'group': {
