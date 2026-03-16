@@ -163,6 +163,10 @@ if [ "$failed" -eq 0 ]; then
 fi
 
 if [ "$failed" -eq 0 ]; then
+  run_step "Engine tests" bun run --filter @draftila/engine test || failed=1
+fi
+
+if [ "$failed" -eq 0 ]; then
   CAPTURED_OUTPUT=""
   run_step_capture "API tests" bun run --filter @draftila/api test -- --coverage || failed=1
 

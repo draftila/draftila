@@ -37,11 +37,13 @@
     "./tools/line-tool": "./src/tools/line-tool.ts",
     "./tools/arrow-tool": "./src/tools/arrow-tool.ts",
     "./tools/polygon-tool": "./src/tools/polygon-tool.ts",
-    "./tools/star-tool": "./src/tools/star-tool.ts"
+    "./tools/star-tool": "./src/tools/star-tool.ts",
+    "./interchange": "./src/interchange/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
+    "test": "bun test",
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
@@ -57,6 +59,7 @@
     "@types/pako": "^2.0.4",
     "@types/rbush": "^4.0.0",
     "eslint": "^9.16.0",
+    "linkedom": "^0.18.12",
     "typescript": "^5.7.2"
   }
 }

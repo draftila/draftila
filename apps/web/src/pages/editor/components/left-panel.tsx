@@ -46,6 +46,7 @@ export function LeftPanel({ ydoc, draftName, projectId }: LeftPanelProps) {
         projectName={project?.name}
         leftPanelOpen={leftPanelOpen}
         onTogglePanel={() => setLeftPanelOpen(!leftPanelOpen)}
+        ydoc={ydoc}
       />
       <div className="flex h-8 items-center gap-2 border-b px-3">
         <span className="text-muted-foreground text-xs font-medium">Layers</span>

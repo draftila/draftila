@@ -33,6 +33,14 @@ export interface TextRenderOptions {
   blurs: Blur[];
 }
 
+export interface ImageRenderOptions {
+  src: string;
+  fit: 'fill' | 'fit' | 'crop';
+  opacity: number;
+  shadows: Shadow[];
+  blurs: Blur[];
+}
+
 export function solidFill(color: string, opacity = 1): Fill {
   return { color, opacity, visible: true };
 }
@@ -90,6 +98,8 @@ export interface Renderer {
   drawPath(points: Array<[number, number]>, style: RenderStyle, closed?: boolean): void;
 
   drawText(transform: RenderTransform, options: TextRenderOptions): void;
+
+  drawImage(transform: RenderTransform, options: ImageRenderOptions): void;
 
   drawSelectionBox(x: number, y: number, width: number, height: number, rotation?: number): void;
 

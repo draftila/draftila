@@ -4,6 +4,7 @@ import type { ToolType } from '@draftila/shared';
 import { undo, redo } from '@draftila/engine/history';
 import { copyShapes, pasteShapes, cutShapes, duplicateShapes } from '@draftila/engine/clipboard';
 import { handlePaste as handleExternalPaste } from '@draftila/engine/figma-clipboard';
+import { addImageFromFile } from '@draftila/engine/image-manager';
 import {
   deleteShapes,
   getAllShapes,
@@ -32,6 +33,33 @@ const TOOL_SHORTCUTS: Record<string, ToolType> = {
 
 interface UseKeyboardOptions {
   ydoc: Y.Doc;
+}
+
+function getExtensionFromMimeType(type: string): string {
+  const subtype = type.split('/')[1];
+  if (!subtype) return 'png';
+  const cleanSubtype = subtype.split('+')[0];
+  return cleanSubtype || 'png';
+}
+
+async function pasteImageFiles(
+  ydoc: Y.Doc,
+  files: File[],
+  targetParentId: string | null,
+  cursorCanvasPoint: { x: number; y: number } | null,
+): Promise<string[]> {
+  if (files.length === 0) return [];
+
+  const baseX = cursorCanvasPoint?.x ?? 100;
+  const baseY = cursorCanvasPoint?.y ?? 100;
+
+  const ids = await Promise.all(
+    files.map((file, index) =>
+      addImageFromFile(ydoc, file, baseX + index * 20, baseY + index * 20, targetParentId),
+    ),
+  );
+
+  return ids;
 }
 
 export function useKeyboard({ ydoc }: UseKeyboardOptions) {
@@ -120,6 +148,7 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
           .then(async (items) => {
             let html: string | null = null;
             let text: string | null = null;
+            const imageFiles: File[] = [];
 
             for (const item of items) {
               if (item.types.includes('text/html')) {
@@ -127,6 +156,28 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
               }
               if (item.types.includes('text/plain')) {
                 text = await (await item.getType('text/plain')).text();
+              }
+              for (const type of item.types) {
+                if (!type.startsWith('image/')) continue;
+                const blob = await item.getType(type);
+                imageFiles.push(
+                  new File([blob], `pasted-image.${getExtensionFromMimeType(type)}`, {
+                    type,
+                  }),
+                );
+              }
+            }
+
+            if (imageFiles.length > 0) {
+              const imageIds = await pasteImageFiles(
+                ydoc,
+                imageFiles,
+                targetParentId,
+                cursorCanvasPoint,
+              );
+              if (imageIds.length > 0) {
+                useEditorStore.getState().setSelectedIds(imageIds);
+                return;
               }
             }
 
@@ -248,7 +299,55 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
       }
     };
 
+    const handlePasteEvent = (e: ClipboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (useEditorStore.getState().editingTextId) return;
+
+      e.preventDefault();
+
+      const { selectedIds, cursorCanvasPoint } = useEditorStore.getState();
+      const targetParentId = getSelectedContainer(ydoc, selectedIds);
+
+      const imageFiles = Array.from(e.clipboardData?.files ?? []).filter((file) =>
+        file.type.startsWith('image/'),
+      );
+      if (imageFiles.length > 0) {
+        pasteImageFiles(ydoc, imageFiles, targetParentId, cursorCanvasPoint)
+          .then((imageIds) => {
+            if (imageIds.length > 0) {
+              useEditorStore.getState().setSelectedIds(imageIds);
+            }
+          })
+          .catch(() => undefined);
+        return;
+      }
+
+      const html = e.clipboardData?.getData('text/html') || null;
+      const text = e.clipboardData?.getData('text/plain') || null;
+
+      if (html || text) {
+        const newIds = handleExternalPaste(ydoc, html, text, {
+          targetParentId,
+          cursorPosition: cursorCanvasPoint,
+        });
+        if (newIds.length > 0) {
+          useEditorStore.getState().setSelectedIds(newIds);
+          return;
+        }
+      }
+
+      const fallbackIds = pasteShapes(ydoc, {
+        selectedIds,
+        cursorPosition: cursorCanvasPoint,
+      });
+      if (fallbackIds.length > 0) useEditorStore.getState().setSelectedIds(fallbackIds);
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('paste', handlePasteEvent);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('paste', handlePasteEvent);
+    };
   }, [ydoc]);
 }
