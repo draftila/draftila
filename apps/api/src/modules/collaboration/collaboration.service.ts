@@ -67,7 +67,10 @@ export async function getOrCreateRoom(draftId: string): Promise<Room> {
 
   awareness.on(
     'update',
-    ({ added, updated, removed }: { added: number[]; updated: number[]; removed: number[] }) => {
+    (
+      { added, updated, removed }: { added: number[]; updated: number[]; removed: number[] },
+      origin: unknown,
+    ) => {
       const changedClients = [...added, ...updated, ...removed];
       const encoder = encoding.createEncoder();
       encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
@@ -76,7 +79,8 @@ export async function getOrCreateRoom(draftId: string): Promise<Room> {
         awarenessProtocol.encodeAwarenessUpdate(awareness, changedClients),
       );
       const message = encoding.toUint8Array(encoder);
-      broadcastToRoom(room, message, null);
+      const originWs = origin instanceof Object && 'send' in origin ? (origin as WsLike) : null;
+      broadcastToRoom(room, message, originWs);
     },
   );
 

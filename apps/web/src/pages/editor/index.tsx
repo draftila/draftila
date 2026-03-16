@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useDraftById, useUpdateDraft } from '@/api/drafts';
 import { useSession } from '@/lib/auth-client';
 import { Separator } from '@/components/ui/separator';
-import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { InlineEditableText } from '@/components/inline-editable-text';
 import { UserMenu } from '@/components/user-menu';
@@ -93,8 +92,6 @@ export function EditorPage() {
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b px-2">
-        <SidebarTrigger />
-        <Separator orientation="vertical" className="data-[orientation=vertical]:h-full" />
         <InlineEditableText
           value={draft.name}
           onSave={handleRenameDraft}
@@ -108,12 +105,12 @@ export function EditorPage() {
         </Tooltip>
         <div className="flex-1" />
         {remoteUsers.length > 0 && (
-          <div className="flex -space-x-1.5">
+          <div className="flex gap-1">
             {remoteUsers.map((user) => (
               <Tooltip key={user.clientId}>
                 <TooltipTrigger>
                   <div
-                    className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white text-[10px] font-bold text-white"
+                    className="border-border flex size-7 items-center justify-center rounded-sm border text-[10px] font-bold text-white"
                     style={{ backgroundColor: user.user.color }}
                   >
                     {user.user.name.charAt(0).toUpperCase()}
@@ -127,8 +124,8 @@ export function EditorPage() {
         <Separator orientation="vertical" className="data-[orientation=vertical]:h-full" />
         <UserMenu />
       </header>
-      <div className="flex flex-1 overflow-hidden">
-        <LeftPanel ydoc={ydoc} />
+      <div className="relative flex flex-1 overflow-hidden">
+        <LeftPanel ydoc={ydoc} draftName={draft.name} projectId={draft.projectId} />
         <Canvas
           ydoc={ydoc}
           remoteUsers={remoteUsers}

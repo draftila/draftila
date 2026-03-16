@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type * as Y from 'yjs';
 import { screenToCanvas } from '@draftila/engine/camera';
-import { getTool } from '@draftila/engine/tools/tool-manager';
+import { getTool, getMoveTool } from '@draftila/engine/tools/tool-manager';
 import type { ToolContext } from '@draftila/engine/tools/base-tool';
 import type { HandTool } from '@draftila/engine/tools/hand-tool';
 import { useEditorStore } from '@/stores/editor-store';
@@ -47,6 +47,8 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
   const spaceHeldRef = useRef(false);
   const middleClickPanRef = useRef(false);
   const pointerDownRef = useRef(false);
+  const onActiveInteractionRef = useRef(onActiveInteraction);
+  onActiveInteractionRef.current = onActiveInteraction;
 
   const isPanningRef = useRef(false);
 
@@ -72,7 +74,6 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
       const ctx = buildContext(e, ydoc, rect);
       canvas.setPointerCapture(e.pointerId);
       pointerDownRef.current = true;
-      onActiveInteraction?.(ctx.canvasPoint);
 
       if (e.button === 1) {
         middleClickPanRef.current = true;
@@ -93,7 +94,7 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
       const tool = getTool(activeTool);
       tool.onPointerDown(ctx);
     },
-    [ydoc, canvasRef, startPan, onActiveInteraction],
+    [ydoc, canvasRef, startPan],
   );
 
   const handlePointerMove = useCallback(
@@ -104,7 +105,10 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
       const ctx = buildContext(e, ydoc, rect);
 
       if (pointerDownRef.current) {
-        onActiveInteraction?.(ctx.canvasPoint);
+        const { isDrawing } = useEditorStore.getState();
+        if (isDrawing || getMoveTool().isManipulating) {
+          onActiveInteractionRef.current?.(ctx.canvasPoint);
+        }
       }
 
       if (isPanningRef.current) {
@@ -117,7 +121,7 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
       const tool = getTool(activeTool);
       tool.onPointerMove(ctx);
     },
-    [ydoc, canvasRef, onActiveInteraction],
+    [ydoc, canvasRef],
   );
 
   const handlePointerUp = useCallback(
@@ -127,8 +131,11 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
       const rect = canvas.getBoundingClientRect();
       const ctx = buildContext(e, ydoc, rect);
       canvas.releasePointerCapture(e.pointerId);
+      const wasManipulating = useEditorStore.getState().isDrawing || getMoveTool().isManipulating;
       pointerDownRef.current = false;
-      onActiveInteraction?.(null);
+      if (wasManipulating) {
+        onActiveInteractionRef.current?.(null);
+      }
 
       if (e.button === 1) {
         middleClickPanRef.current = false;
@@ -153,7 +160,7 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
       const tool = getTool(activeTool);
       tool.onPointerUp(ctx);
     },
-    [ydoc, canvasRef, stopPan, onActiveInteraction],
+    [ydoc, canvasRef, stopPan],
   );
 
   useEffect(() => {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type * as Y from 'yjs';
 import type { Shape, ShapeType } from '@draftila/shared';
 import {
@@ -19,6 +20,10 @@ import {
   Image,
   ChevronDown,
   ChevronRight,
+  PanelLeft,
+  LayoutGrid,
+  Home,
+  File,
 } from 'lucide-react';
 import {
   getLayerTree,
@@ -31,10 +36,21 @@ import {
   type LayerDropPlacement,
   type LayerTreeNode,
 } from '@draftila/engine/scene-graph';
+import { useProject } from '@/api/projects';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useEditorStore } from '@/stores/editor-store';
 
 interface LeftPanelProps {
   ydoc: Y.Doc;
+  draftName: string;
+  projectId: string;
 }
 
 interface LayerRow {
@@ -108,7 +124,7 @@ function flattenRows(tree: LayerTreeNode[], collapsedIds: Set<string>): LayerRow
   return rows;
 }
 
-export function LeftPanel({ ydoc }: LeftPanelProps) {
+export function LeftPanel({ ydoc, draftName, projectId }: LeftPanelProps) {
   const [layerTree, setLayerTree] = useState<LayerTreeNode[]>([]);
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -117,6 +133,9 @@ export function LeftPanel({ ydoc }: LeftPanelProps) {
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const setSelectedIds = useEditorStore((s) => s.setSelectedIds);
   const leftPanelOpen = useEditorStore((s) => s.leftPanelOpen);
+  const setLeftPanelOpen = useEditorStore((s) => s.setLeftPanelOpen);
+  const navigate = useNavigate();
+  const { data: project } = useProject(projectId);
 
   useEffect(() => {
     setLayerTree(getLayerTree(ydoc));
@@ -340,11 +359,86 @@ export function LeftPanel({ ydoc }: LeftPanelProps) {
     setDragState(null);
   }, []);
 
-  if (!leftPanelOpen) return null;
+  const panelHeader = (
+    <div className="flex h-12 items-center gap-1.5 border-b px-2">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
+            <LayoutGrid className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuItem onClick={() => navigate('/')}>
+            <File className="mr-2 h-4 w-4" />
+            Drafts
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium leading-tight">{draftName}</p>
+        {project && (
+          <p className="text-muted-foreground truncate text-[10px] leading-tight">{project.name}</p>
+        )}
+      </div>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0"
+            onClick={() => setLeftPanelOpen(!leftPanelOpen)}
+          >
+            <PanelLeft className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          {leftPanelOpen ? 'Collapse panel' : 'Expand panel'}
+        </TooltipContent>
+      </Tooltip>
+    </div>
+  );
+
+  if (!leftPanelOpen) {
+    return (
+      <div className="absolute left-3 top-3 z-10">
+        <div className="bg-background flex items-center gap-1.5 rounded-lg border px-2 py-1.5 shadow-sm">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={() => navigate('/')}>
+                <Home className="mr-2 h-4 w-4" />
+                Back to Dashboard
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <span className="truncate text-sm font-medium">{draftName}</span>
+          {project && <span className="text-muted-foreground text-[10px]">{project.name}</span>}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0"
+                onClick={() => setLeftPanelOpen(true)}
+              >
+                <PanelLeft className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Expand panel</TooltipContent>
+          </Tooltip>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex h-full w-60 shrink-0 flex-col border-r">
-      <div className="flex h-10 items-center gap-2 border-b px-3">
+      {panelHeader}
+      <div className="flex h-8 items-center gap-2 border-b px-3">
         <span className="text-muted-foreground text-xs font-medium">Layers</span>
         <span className="text-muted-foreground ml-auto text-[10px]">{shapeById.size}</span>
       </div>

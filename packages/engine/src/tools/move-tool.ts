@@ -587,6 +587,15 @@ export class MoveTool extends BaseTool {
     this.activeDistanceIndicators = [];
   }
 
+  get isManipulating(): boolean {
+    return (
+      this.state.type === 'dragging' ||
+      this.state.type === 'resizing' ||
+      this.state.type === 'rotating' ||
+      this.state.type === 'dragging-endpoint'
+    );
+  }
+
   getDragPositions(): Map<string, { x: number; y: number }> | null {
     if (this.state.type !== 'dragging' || !this.dragOffset || !this.dragInitialData) return null;
     const result = new Map<string, { x: number; y: number }>();

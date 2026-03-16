@@ -57,6 +57,8 @@ Bun.serve<WsData>({
         collaborationService.handleMessage(ws, ws.data.draftId, message);
       } else if (typeof message === 'string') {
         collaborationService.handleMessage(ws, ws.data.draftId, Buffer.from(message));
+      } else {
+        collaborationService.handleMessage(ws, ws.data.draftId, message as Buffer);
       }
     },
     close(ws) {

@@ -12,6 +12,34 @@ export interface RemoteUser {
   activeTool: ToolType;
 }
 
+function areStringArraysEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+function areRemoteUsersEqual(a: RemoteUser[], b: RemoteUser[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    const left = a[i];
+    const right = b[i];
+    if (!left || !right) return false;
+    if (left.clientId !== right.clientId) return false;
+    if (left.user.id !== right.user.id) return false;
+    if (left.user.name !== right.user.name) return false;
+    if (left.user.color !== right.user.color) return false;
+    if ((left.cursor === null) !== (right.cursor === null)) return false;
+    if (left.cursor && right.cursor) {
+      if (left.cursor.x !== right.cursor.x || left.cursor.y !== right.cursor.y) return false;
+    }
+    if (!areStringArraysEqual(left.selectedIds, right.selectedIds)) return false;
+    if (left.activeTool !== right.activeTool) return false;
+  }
+  return true;
+}
+
 const CURSOR_COLORS = [
   '#FF6B6B',
   '#4ECDC4',
@@ -31,6 +59,8 @@ function getColorForIndex(index: number): string {
 
 export function useAwareness(provider: WebsocketProvider | null, userId: string, userName: string) {
   const [remoteUsers, setRemoteUsers] = useState<RemoteUser[]>([]);
+  const remoteUsersRef = useRef<RemoteUser[]>([]);
+  remoteUsersRef.current = remoteUsers;
 
   useEffect(() => {
     if (!provider) return;
@@ -62,7 +92,8 @@ export function useAwareness(provider: WebsocketProvider | null, userId: string,
         });
       }
 
-      setRemoteUsers(users);
+      users.sort((a, b) => a.clientId - b.clientId);
+      setRemoteUsers((prev) => (areRemoteUsersEqual(prev, users) ? prev : users));
     };
 
     awareness.on('change', handleChange);
@@ -87,6 +118,10 @@ export function useAwareness(provider: WebsocketProvider | null, userId: string,
         }
         pendingCursorRef.current = null;
         provider.awareness.setLocalStateField('cursor', null);
+        return;
+      }
+
+      if (remoteUsersRef.current.length === 0) {
         return;
       }
 

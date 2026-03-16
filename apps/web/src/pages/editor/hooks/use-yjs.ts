@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
-import { IndexeddbPersistence } from 'y-indexeddb';
 import { initDocument } from '@draftila/engine/scene-graph';
 
 interface UseYjsOptions {
@@ -25,7 +24,6 @@ function getWebSocketUrl(): string {
 export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn {
   const ydocRef = useRef<Y.Doc>(new Y.Doc());
   const providerRef = useRef<WebsocketProvider | null>(null);
-  const idbRef = useRef<IndexeddbPersistence | null>(null);
   const [connected, setConnected] = useState(false);
   const [synced, setSynced] = useState(false);
 
@@ -35,13 +33,6 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
     const ydoc = new Y.Doc();
     ydocRef.current = ydoc;
     initDocument(ydoc);
-
-    const idb = new IndexeddbPersistence(`draftila-${draftId}`, ydoc);
-    idbRef.current = idb;
-
-    idb.on('synced', () => {
-      setSynced(true);
-    });
 
     const wsUrl = getWebSocketUrl();
     const wsProvider = new WebsocketProvider(wsUrl, draftId, ydoc, {
@@ -60,10 +51,8 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
     return () => {
       wsProvider.disconnect();
       wsProvider.destroy();
-      idb.destroy();
       ydoc.destroy();
       providerRef.current = null;
-      idbRef.current = null;
       setConnected(false);
       setSynced(false);
     };
