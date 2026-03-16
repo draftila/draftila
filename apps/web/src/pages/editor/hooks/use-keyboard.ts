@@ -8,6 +8,7 @@ import {
   deleteShapes,
   getAllShapes,
   getSelectedContainer,
+  getShape,
   groupShapes,
   moveShapesInStack,
   nudgeShapes,
@@ -67,6 +68,7 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
         const groupId = groupShapes(ydoc, selectedIds);
         if (groupId) {
           setSelectedIds([groupId]);
+          useEditorStore.getState().setEnteredGroupId(null);
         }
         return;
       }
@@ -77,6 +79,7 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
         const childIds = ungroupShapes(ydoc, selectedIds);
         if (childIds.length > 0) {
           setSelectedIds(childIds);
+          useEditorStore.getState().setEnteredGroupId(null);
         }
         return;
       }
@@ -183,8 +186,11 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
 
       if (key === 'delete' || key === 'backspace') {
         e.preventDefault();
-        const { selectedIds } = useEditorStore.getState();
+        const { selectedIds, enteredGroupId } = useEditorStore.getState();
         if (selectedIds.length > 0) {
+          if (enteredGroupId && selectedIds.includes(enteredGroupId)) {
+            useEditorStore.getState().setEnteredGroupId(null);
+          }
           deleteShapes(ydoc, selectedIds);
           useEditorStore.getState().clearSelection();
         }
@@ -204,8 +210,19 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
 
       if (key === 'escape') {
         e.preventDefault();
+        const { enteredGroupId, setEnteredGroupId, setSelectedIds, setActiveTool } =
+          useEditorStore.getState();
+        if (enteredGroupId) {
+          const groupShape = getShape(ydoc, enteredGroupId);
+          const parentGroupId = groupShape?.parentId ?? null;
+          const parentShape = parentGroupId ? getShape(ydoc, parentGroupId) : null;
+          const nextEnteredId = parentShape?.type === 'group' ? parentGroupId : null;
+          setEnteredGroupId(nextEnteredId);
+          setSelectedIds([enteredGroupId]);
+          return;
+        }
         useEditorStore.getState().clearSelection();
-        useEditorStore.getState().setActiveTool('move');
+        setActiveTool('move');
         return;
       }
 

@@ -27,6 +27,7 @@ export {
   getLayerTree,
   getTopLevelSelectedShapeIds,
   getExpandedShapeIds,
+  resolveGroupTarget,
   getDescendantShapeIds,
   nudgeShapes,
   getShape,

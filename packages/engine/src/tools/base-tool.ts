@@ -3,6 +3,7 @@ import type * as Y from 'yjs';
 
 export interface ToolStore {
   readonly selectedIds: string[];
+  readonly enteredGroupId: string | null;
   readonly camera: Camera;
   setSelectedIds(ids: string[]): void;
   setActiveTool(tool: ToolType): void;
@@ -12,6 +13,7 @@ export interface ToolStore {
   clearSelection(): void;
   setHoveredId(id: string | null): void;
   setCamera(camera: Camera): void;
+  setEnteredGroupId(id: string | null): void;
 }
 
 let toolStore: ToolStore | null = null;

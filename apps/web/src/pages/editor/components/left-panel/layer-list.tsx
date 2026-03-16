@@ -54,6 +54,7 @@ export function LayerList({
         useEditorStore.getState().toggleSelection(id);
       } else {
         setSelectedIds([id]);
+        useEditorStore.getState().setEnteredGroupId(null);
       }
     },
     [setSelectedIds],
