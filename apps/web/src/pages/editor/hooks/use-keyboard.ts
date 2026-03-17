@@ -2,7 +2,15 @@ import { useEffect } from 'react';
 import type * as Y from 'yjs';
 import type { ToolType } from '@draftila/shared';
 import { undo, redo } from '@draftila/engine/history';
-import { copyShapes, pasteShapes, cutShapes, duplicateShapes } from '@draftila/engine/clipboard';
+import {
+  copyShapes,
+  pasteShapes,
+  cutShapes,
+  duplicateShapes,
+  copyStyle,
+  pasteStyle,
+  hasStyleClipboardContent,
+} from '@draftila/engine/clipboard';
 import { handlePaste as handleExternalPaste } from '@draftila/engine/figma-clipboard';
 import { addImageFromFile } from '@draftila/engine/image-manager';
 import { getNodeTool } from '@draftila/engine/tools/tool-manager';
@@ -121,6 +129,25 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
       const key = e.key.toLowerCase();
       const code = e.code;
       const { activeTool } = useEditorStore.getState();
+
+      if (isMod && e.altKey && code === 'KeyC') {
+        e.preventDefault();
+        const { selectedIds } = useEditorStore.getState();
+        const sourceId = selectedIds[0];
+        if (sourceId) {
+          copyStyle(ydoc, sourceId);
+        }
+        return;
+      }
+
+      if (isMod && e.altKey && code === 'KeyV') {
+        e.preventDefault();
+        const { selectedIds } = useEditorStore.getState();
+        if (selectedIds.length > 0 && hasStyleClipboardContent()) {
+          pasteStyle(ydoc, selectedIds);
+        }
+        return;
+      }
 
       if (e.shiftKey && code === 'Digit1' && !isMod) {
         e.preventDefault();

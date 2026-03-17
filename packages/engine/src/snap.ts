@@ -32,6 +32,11 @@ interface ShapeEdges {
   bottom: number;
 }
 
+interface EqualSpacingSnap {
+  delta: number;
+  indicator: DistanceIndicator;
+}
+
 function getEdges(x: number, y: number, w: number, h: number): ShapeEdges {
   return {
     left: x,
@@ -41,6 +46,134 @@ function getEdges(x: number, y: number, w: number, h: number): ShapeEdges {
     centerY: y + h / 2,
     bottom: y + h,
   };
+}
+
+function overlapsOnY(a: { y: number; height: number }, b: { y: number; height: number }): boolean {
+  return a.y + a.height > b.y && a.y < b.y + b.height;
+}
+
+function overlapsOnX(a: { x: number; width: number }, b: { x: number; width: number }): boolean {
+  return a.x + a.width > b.x && a.x < b.x + b.width;
+}
+
+function findEqualSpacingSnapX(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  otherShapes: Shape[],
+  threshold: number,
+): EqualSpacingSnap | null {
+  let best: EqualSpacingSnap | null = null;
+  const movingCenterY = y + height / 2;
+
+  for (const leftRef of otherShapes) {
+    for (const rightRef of otherShapes) {
+      if (leftRef.id === rightRef.id) continue;
+      if (!overlapsOnY(leftRef, rightRef)) continue;
+
+      const referenceGap = rightRef.x - (leftRef.x + leftRef.width);
+      if (referenceGap <= 0) continue;
+
+      for (const anchor of otherShapes) {
+        if (!overlapsOnY(anchor, { y, height })) continue;
+
+        const candidateRight = anchor.x + anchor.width + referenceGap;
+        const deltaRight = candidateRight - x;
+        if (Math.abs(deltaRight) < threshold) {
+          if (!best || Math.abs(deltaRight) < Math.abs(best.delta)) {
+            best = {
+              delta: deltaRight,
+              indicator: {
+                axis: 'x',
+                from: anchor.x + anchor.width,
+                to: candidateRight,
+                position: movingCenterY,
+              },
+            };
+          }
+        }
+
+        const candidateLeft = anchor.x - referenceGap - width;
+        const deltaLeft = candidateLeft - x;
+        if (Math.abs(deltaLeft) < threshold) {
+          if (!best || Math.abs(deltaLeft) < Math.abs(best.delta)) {
+            best = {
+              delta: deltaLeft,
+              indicator: {
+                axis: 'x',
+                from: candidateLeft + width,
+                to: anchor.x,
+                position: movingCenterY,
+              },
+            };
+          }
+        }
+      }
+    }
+  }
+
+  return best;
+}
+
+function findEqualSpacingSnapY(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  otherShapes: Shape[],
+  threshold: number,
+): EqualSpacingSnap | null {
+  let best: EqualSpacingSnap | null = null;
+  const movingCenterX = x + width / 2;
+
+  for (const topRef of otherShapes) {
+    for (const bottomRef of otherShapes) {
+      if (topRef.id === bottomRef.id) continue;
+      if (!overlapsOnX(topRef, bottomRef)) continue;
+
+      const referenceGap = bottomRef.y - (topRef.y + topRef.height);
+      if (referenceGap <= 0) continue;
+
+      for (const anchor of otherShapes) {
+        if (!overlapsOnX(anchor, { x, width })) continue;
+
+        const candidateBelow = anchor.y + anchor.height + referenceGap;
+        const deltaBelow = candidateBelow - y;
+        if (Math.abs(deltaBelow) < threshold) {
+          if (!best || Math.abs(deltaBelow) < Math.abs(best.delta)) {
+            best = {
+              delta: deltaBelow,
+              indicator: {
+                axis: 'y',
+                from: anchor.y + anchor.height,
+                to: candidateBelow,
+                position: movingCenterX,
+              },
+            };
+          }
+        }
+
+        const candidateAbove = anchor.y - referenceGap - height;
+        const deltaAbove = candidateAbove - y;
+        if (Math.abs(deltaAbove) < threshold) {
+          if (!best || Math.abs(deltaAbove) < Math.abs(best.delta)) {
+            best = {
+              delta: deltaAbove,
+              indicator: {
+                axis: 'y',
+                from: candidateAbove + height,
+                to: anchor.y,
+                position: movingCenterX,
+              },
+            };
+          }
+        }
+      }
+    }
+  }
+
+  return best;
 }
 
 function computeSnapLineExtent(
@@ -175,6 +308,8 @@ export function snapPosition(
 
   let bestXCandidates: SnapCandidate[] = [];
   let bestYCandidates: SnapCandidate[] = [];
+  let equalSpacingX: EqualSpacingSnap | null = null;
+  let equalSpacingY: EqualSpacingSnap | null = null;
 
   for (const shape of otherShapes) {
     const edges = getEdges(shape.x, shape.y, shape.width, shape.height);
@@ -204,6 +339,22 @@ export function snapPosition(
         }
       }
     }
+  }
+
+  const equalSnapX = findEqualSpacingSnapX(x, y, width, height, otherShapes, threshold);
+  if (equalSnapX && Math.abs(equalSnapX.delta) < bestDx) {
+    bestDx = Math.abs(equalSnapX.delta);
+    snappedX = x + equalSnapX.delta;
+    bestXCandidates = [];
+    equalSpacingX = equalSnapX;
+  }
+
+  const equalSnapY = findEqualSpacingSnapY(x, y, width, height, otherShapes, threshold);
+  if (equalSnapY && Math.abs(equalSnapY.delta) < bestDy) {
+    bestDy = Math.abs(equalSnapY.delta);
+    snappedY = y + equalSnapY.delta;
+    bestYCandidates = [];
+    equalSpacingY = equalSnapY;
   }
 
   const snappedMovingEdges = getEdges(snappedX, snappedY, width, height);
@@ -262,6 +413,14 @@ export function snapPosition(
     snappedOnX,
     snappedOnY,
   );
+
+  if (equalSpacingX) {
+    distanceIndicators.push(equalSpacingX.indicator);
+  }
+
+  if (equalSpacingY) {
+    distanceIndicators.push(equalSpacingY.indicator);
+  }
 
   return { x: snappedX, y: snappedY, snapLines, distanceIndicators };
 }

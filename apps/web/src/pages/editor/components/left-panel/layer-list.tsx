@@ -7,6 +7,7 @@ import {
   listComponents,
   observeComponents,
 } from '@draftila/engine';
+import { copyStyle, hasStyleClipboardContent, pasteStyle } from '@draftila/engine/clipboard';
 import {
   applyBooleanOperation,
   canApplyBooleanOperation,
@@ -146,6 +147,25 @@ export function LayerList({
     [activeSelectionIds, setSelectedIds, ydoc, onCloseContextMenu],
   );
 
+  const handleCopyStyle = useCallback(() => {
+    const sourceId = activeSelectionIds[0];
+    if (sourceId) {
+      copyStyle(ydoc, sourceId);
+    }
+    onCloseContextMenu();
+  }, [activeSelectionIds, ydoc, onCloseContextMenu]);
+
+  const handlePasteStyle = useCallback(() => {
+    if (!hasStyleClipboardContent()) {
+      onCloseContextMenu();
+      return;
+    }
+    if (activeSelectionIds.length > 0) {
+      pasteStyle(ydoc, activeSelectionIds);
+    }
+    onCloseContextMenu();
+  }, [activeSelectionIds, ydoc, onCloseContextMenu]);
+
   const handleBooleanOperation = useCallback(
     (operation: 'union' | 'subtract' | 'intersect' | 'exclude') => {
       if (!canBoolean) {
@@ -194,6 +214,9 @@ export function LayerList({
           onGroup={handleGroup}
           onUngroup={handleUngroup}
           onCreateComponent={handleCreateComponent}
+          onCopyStyle={handleCopyStyle}
+          onPasteStyle={handlePasteStyle}
+          canPasteStyle={hasStyleClipboardContent()}
           onBooleanOperation={handleBooleanOperation}
           canBoolean={canBoolean}
           onStackMove={handleStackMove}

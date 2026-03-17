@@ -94,7 +94,10 @@ export {
   pasteShapes,
   cutShapes,
   duplicateShapes,
+  copyStyle,
+  pasteStyle,
   hasClipboardContent,
+  hasStyleClipboardContent,
 } from './clipboard';
 
 export {
