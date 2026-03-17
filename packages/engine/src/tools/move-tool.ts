@@ -14,6 +14,16 @@ import {
 } from '../selection';
 import { snapPosition, type SnapLine, type DistanceIndicator } from '../snap';
 import { transformPath } from '../path-gen';
+import { DEFAULT_CONSTRAINTS, applyConstraints } from '../constraints';
+
+type ConstraintHorizontal = 'left' | 'right' | 'left-right' | 'center' | 'scale';
+type ConstraintVertical = 'top' | 'bottom' | 'top-bottom' | 'center' | 'scale';
+
+interface ConstraintShapeData {
+  constraintHorizontal?: ConstraintHorizontal;
+  constraintVertical?: ConstraintVertical;
+  layoutMode?: string;
+}
 
 interface InitialShapeData {
   x: number;
@@ -163,6 +173,17 @@ function buildResizeEntry(
   }
 
   return entry;
+}
+
+function resolveShapeConstraints(shape: Shape): {
+  horizontal: ConstraintHorizontal;
+  vertical: ConstraintVertical;
+} {
+  const withConstraints = shape as Shape & ConstraintShapeData;
+  return {
+    horizontal: withConstraints.constraintHorizontal ?? DEFAULT_CONSTRAINTS.horizontal,
+    vertical: withConstraints.constraintVertical ?? DEFAULT_CONSTRAINTS.vertical,
+  };
 }
 
 export class MoveTool extends BaseTool {
@@ -393,6 +414,47 @@ export class MoveTool extends BaseTool {
       for (const [id, initial] of this.state.initialData) {
         preview.set(id, buildResizeEntry(initial, this.state.selectionBounds, newSelectionBounds));
       }
+
+      const allShapes = getAllShapes(ctx.ydoc);
+      const shapeById = new Map(allShapes.map((shape) => [shape.id, shape]));
+
+      for (const [id, frameInitial] of this.state.initialData) {
+        const frameShape = shapeById.get(id) as (Shape & ConstraintShapeData) | undefined;
+        if (!frameShape || frameShape.type !== 'frame') continue;
+        if ((frameShape.layoutMode ?? 'none') !== 'none') continue;
+
+        const framePreview = preview.get(id);
+        if (!framePreview) continue;
+
+        for (const child of allShapes) {
+          if (child.parentId !== id) continue;
+          if (preview.has(child.id)) continue;
+
+          const constraints = resolveShapeConstraints(child);
+          const childRelative = {
+            x: child.x - frameInitial.x,
+            y: child.y - frameInitial.y,
+            width: child.width,
+            height: child.height,
+          };
+
+          const constrained = applyConstraints(
+            childRelative,
+            constraints,
+            { width: frameInitial.width, height: frameInitial.height },
+            { width: framePreview.width, height: framePreview.height },
+            childRelative,
+          );
+
+          preview.set(child.id, {
+            x: framePreview.x + constrained.x,
+            y: framePreview.y + constrained.y,
+            width: constrained.width,
+            height: constrained.height,
+          });
+        }
+      }
+
       this.resizePreview = preview;
       return { cursor: getResizeCursor(this.state.handle) };
     }
@@ -516,9 +578,52 @@ export class MoveTool extends BaseTool {
     }
 
     if (this.state.type === 'resizing' && this.resizePreview) {
+      const beforeResizeShapes = getAllShapes(ctx.ydoc);
+      const beforeById = new Map(beforeResizeShapes.map((shape) => [shape.id, shape]));
+      const resizedIds = new Set(this.resizePreview.keys());
+
       for (const [id, bounds] of this.resizePreview) {
         updateShape(ctx.ydoc, id, bounds as Partial<Shape>);
       }
+
+      for (const [id, bounds] of this.resizePreview) {
+        const oldParent = this.state.initialData.get(id);
+        const parentBefore = beforeById.get(id) as (Shape & ConstraintShapeData) | undefined;
+        if (!oldParent || !parentBefore) continue;
+        if (parentBefore.type !== 'frame') continue;
+        if ((parentBefore.layoutMode ?? 'none') !== 'none') continue;
+
+        const childrenBefore = beforeResizeShapes.filter((shape) => shape.parentId === id);
+        if (childrenBefore.length === 0) continue;
+
+        for (const child of childrenBefore) {
+          if (resizedIds.has(child.id)) continue;
+
+          const constraints = resolveShapeConstraints(child);
+          const childRelative = {
+            x: child.x - oldParent.x,
+            y: child.y - oldParent.y,
+            width: child.width,
+            height: child.height,
+          };
+
+          const constrained = applyConstraints(
+            childRelative,
+            constraints,
+            { width: oldParent.width, height: oldParent.height },
+            { width: bounds.width, height: bounds.height },
+            childRelative,
+          );
+
+          updateShape(ctx.ydoc, child.id, {
+            x: bounds.x + constrained.x,
+            y: bounds.y + constrained.y,
+            width: constrained.width,
+            height: constrained.height,
+          } as Partial<Shape>);
+        }
+      }
+
       this.resetState();
       return { cursor: 'default' };
     }

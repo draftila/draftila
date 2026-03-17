@@ -277,6 +277,8 @@ const BASE_DEFAULTS = {
   name: '',
   layoutSizingHorizontal: 'fixed',
   layoutSizingVertical: 'fixed',
+  constraintHorizontal: 'left',
+  constraintVertical: 'top',
 };
 
 export function initDocument(ydoc: Y.Doc) {
