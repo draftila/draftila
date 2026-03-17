@@ -219,11 +219,45 @@ describe('SVG Generator', () => {
       width: 200,
       height: 150,
       src: 'http://example.com/img.png',
+      fit: 'fit',
     });
     const doc = createInterchangeDocument([node], { source: 'test' });
     const svg = generateSvg(doc);
     expect(svg).toContain('<image');
     expect(svg).toContain('http://example.com/img.png');
+    expect(svg).toContain('preserveAspectRatio="xMidYMid meet"');
+  });
+
+  test('generates preserveAspectRatio none for fill image fit', () => {
+    const node = createInterchangeNode('image', {
+      x: 0,
+      y: 0,
+      width: 200,
+      height: 150,
+      src: 'http://example.com/img.png',
+      fit: 'fill',
+    });
+    const doc = createInterchangeDocument([node], { source: 'test' });
+    const svg = generateSvg(doc);
+    expect(svg).toContain('preserveAspectRatio="none"');
+  });
+
+  test('generates embedded SVG node output', () => {
+    const node = createInterchangeNode('svg', {
+      x: 0,
+      y: 0,
+      width: 120,
+      height: 80,
+      svgContent:
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 8"><rect width="12" height="8" fill="#FF0000"/></svg>',
+      preserveAspectRatio: 'none',
+    });
+    const doc = createInterchangeDocument([node], { source: 'test' });
+    const svg = generateSvg(doc);
+    expect(svg).toContain('<svg');
+    expect(svg).toContain('preserveAspectRatio="none"');
+    expect(svg).toContain('viewBox="0 0 12 8"');
+    expect(svg).toContain('<rect width="12" height="8" fill="#FF0000"');
   });
 
   test('generates SVG for image without src (placeholder)', () => {

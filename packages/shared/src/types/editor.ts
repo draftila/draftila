@@ -15,6 +15,7 @@ import type {
   starShapeSchema,
   arrowShapeSchema,
   imageShapeSchema,
+  svgShapeSchema,
   groupShapeSchema,
   shapeSchema,
   fillSchema,
@@ -51,6 +52,7 @@ export type PolygonShape = z.infer<typeof polygonShapeSchema>;
 export type StarShape = z.infer<typeof starShapeSchema>;
 export type ArrowShape = z.infer<typeof arrowShapeSchema>;
 export type ImageShape = z.infer<typeof imageShapeSchema>;
+export type SvgShape = z.infer<typeof svgShapeSchema>;
 export type GroupShape = z.infer<typeof groupShapeSchema>;
 export type Shape = z.infer<typeof shapeSchema>;
 export type Fill = z.infer<typeof fillSchema>;

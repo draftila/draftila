@@ -12,6 +12,7 @@ export const SHAPE_TYPES = [
   'star',
   'arrow',
   'image',
+  'svg',
 ] as const;
 
 export const shapeTypeSchema = z.enum(SHAPE_TYPES);
@@ -293,6 +294,14 @@ export const imageShapeSchema = baseShapeSchema.extend({
   blurs: z.array(blurSchema).default([]),
 });
 
+export const svgShapeSchema = baseShapeSchema.extend({
+  type: z.literal('svg'),
+  svgContent: z.string().default(''),
+  preserveAspectRatio: z.string().default('xMidYMid meet'),
+  shadows: z.array(shadowSchema).default([]),
+  blurs: z.array(blurSchema).default([]),
+});
+
 export const groupShapeSchema = baseShapeSchema.extend({
   type: z.literal('group'),
   shadows: z.array(shadowSchema).default([]),
@@ -310,5 +319,6 @@ export const shapeSchema = z.discriminatedUnion('type', [
   starShapeSchema,
   arrowShapeSchema,
   imageShapeSchema,
+  svgShapeSchema,
   groupShapeSchema,
 ]);

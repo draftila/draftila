@@ -55,26 +55,7 @@ export { SvgExportAdapter } from './svg/svg-export-adapter';
 export { DraftilaClipboardImportAdapter } from './draftila/draftila-import-adapter';
 export { DraftilaClipboardExportAdapter } from './draftila/draftila-export-adapter';
 
-export {
-  parseTransform,
-  multiplyMatrices,
-  decomposeTransform,
-  normalizeColor,
-  colorToOpacity,
-  parseLength,
-  parseSvgPathData,
-  pathCommandsToBounds,
-  normalizePathToAbsolute,
-  transformPathCommands,
-  pathCommandsToString,
-  rectToPathCommands,
-  ellipseToPathCommands,
-  lineToPathCommands,
-  polygonToPathCommands,
-  polylineToPathCommands,
-  type TransformMatrix,
-  type PathCommand,
-} from './svg/svg-utils';
+export { normalizeColor, colorToOpacity, parseLength } from './svg/svg-utils';
 
 import { registerImportAdapter, registerExportAdapter } from './registry';
 import { SvgClipboardImportAdapter, SvgFileImportAdapter } from './svg/svg-import-adapter';

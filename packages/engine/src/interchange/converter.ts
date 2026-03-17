@@ -15,6 +15,14 @@ function fillToInterchange(fill: Fill): InterchangeFill {
   return { color: fill.color, opacity: fill.opacity, visible: fill.visible };
 }
 
+function gradientToInterchange(g: Gradient): InterchangeGradient {
+  const stops = g.stops.map((s) => ({ color: s.color, position: s.position }));
+  if (g.type === 'radial') {
+    return { type: 'radial', stops, cx: g.cx, cy: g.cy, r: g.r };
+  }
+  return { type: 'linear', stops, angle: g.angle };
+}
+
 function interchangeGradientToGradient(g: InterchangeGradient): Gradient {
   const stops = g.stops.map((s) => ({ color: s.color, position: s.position }));
   if (g.type === 'radial') {
@@ -99,6 +107,13 @@ function shapeToNode(shape: Shape, childrenByParent: Map<string, Shape[]>): Inte
     shapeToNode(child, childrenByParent),
   );
 
+  const gradients: InterchangeGradient[] = [];
+  for (const fill of fills) {
+    if (fill.gradient) {
+      gradients.push(gradientToInterchange(fill.gradient));
+    }
+  }
+
   const node = createInterchangeNode(shape.type, {
     name: shape.name,
     x: shape.x,
@@ -111,6 +126,7 @@ function shapeToNode(shape: Shape, childrenByParent: Map<string, Shape[]>): Inte
     locked: shape.locked,
     blendMode: shape.blendMode,
     fills: fills.map(fillToInterchange),
+    gradients,
     strokes: strokes.map(strokeToInterchange),
     shadows: shadows.map(shadowToInterchange),
     blurs: blurs.map(blurToInterchange),
@@ -173,6 +189,10 @@ function shapeToNode(shape: Shape, childrenByParent: Map<string, Shape[]>): Inte
     case 'image':
       node.src = shape.src;
       node.fit = shape.fit;
+      break;
+    case 'svg':
+      node.svgContent = shape.svgContent;
+      node.preserveAspectRatio = shape.preserveAspectRatio;
       break;
   }
 
@@ -347,6 +367,14 @@ function nodeToFlatShapes(
         blurs,
         src: node.src ?? '',
         fit: node.fit ?? 'fill',
+      });
+      break;
+    case 'svg':
+      Object.assign(base, {
+        shadows,
+        blurs,
+        svgContent: node.svgContent ?? '',
+        preserveAspectRatio: node.preserveAspectRatio ?? 'xMidYMid meet',
       });
       break;
     case 'group':

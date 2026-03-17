@@ -12,6 +12,7 @@ import {
   Star,
   MoveRight,
   Image,
+  FileImage,
 } from 'lucide-react';
 import { createElement } from 'react';
 
@@ -49,5 +50,6 @@ export const SHAPE_ICONS: Record<ShapeType, React.ReactNode> = {
   star: createElement(Star, { className: iconClass }),
   arrow: createElement(MoveRight, { className: iconClass }),
   image: createElement(Image, { className: iconClass }),
+  svg: createElement(FileImage, { className: iconClass }),
   group: createElement(Group, { className: iconClass }),
 };

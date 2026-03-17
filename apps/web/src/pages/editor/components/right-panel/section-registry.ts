@@ -110,6 +110,7 @@ const sectionRegistry: Record<ShapeType, PropertySection[]> = {
     ExportSection,
     PreviewSection,
   ],
+  svg: [TransformSection, AppearanceSection, EffectsSection, ExportSection, PreviewSection],
 };
 
 export function getSectionsForShape(shapeType: ShapeType): PropertySection[] {

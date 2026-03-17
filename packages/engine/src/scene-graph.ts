@@ -189,6 +189,12 @@ const SHAPE_DEFAULTS: Record<ShapeType, Omit<Record<string, unknown>, 'id' | 'ty
     shadows: [],
     blurs: [],
   },
+  svg: {
+    svgContent: '',
+    preserveAspectRatio: 'xMidYMid meet',
+    shadows: [],
+    blurs: [],
+  },
   group: {
     shadows: [],
     blurs: [],

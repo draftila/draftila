@@ -9,6 +9,7 @@ export type InterchangeNodeType =
   | 'star'
   | 'arrow'
   | 'image'
+  | 'svg'
   | 'group';
 
 export interface InterchangeFill {
@@ -141,6 +142,8 @@ export interface InterchangeNode {
 
   src?: string;
   fit?: 'fill' | 'fit' | 'crop';
+  svgContent?: string;
+  preserveAspectRatio?: string;
 
   clipPath?: InterchangeClipPath;
 

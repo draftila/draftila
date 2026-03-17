@@ -18,6 +18,34 @@ function escapeXml(text: string): string {
     .replace(/'/g, '&apos;');
 }
 
+function renderEmbeddedSvg(
+  svgContent: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  preserveAspectRatio?: string,
+): string {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(svgContent, 'image/svg+xml');
+  const errorNode = doc.querySelector('parsererror');
+  const svgEl = doc.querySelector('svg');
+  if (errorNode || !svgEl) {
+    return `<image x="${x}" y="${y}" width="${width}" height="${height}" href="${escapeXml(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgContent)}`)}" preserveAspectRatio="${preserveAspectRatio ?? 'xMidYMid meet'}"/>`;
+  }
+
+  svgEl.setAttribute('x', String(x));
+  svgEl.setAttribute('y', String(y));
+  svgEl.setAttribute('width', String(width));
+  svgEl.setAttribute('height', String(height));
+  svgEl.setAttribute('preserveAspectRatio', preserveAspectRatio ?? 'xMidYMid meet');
+
+  const outerHtml = (svgEl as Element & { outerHTML?: string }).outerHTML;
+  if (outerHtml) return outerHtml;
+
+  return `<image x="${x}" y="${y}" width="${width}" height="${height}" href="${escapeXml(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgContent)}`)}" preserveAspectRatio="${preserveAspectRatio ?? 'xMidYMid meet'}"/>`;
+}
+
 function svgColor(hex: string, opacity: number): string {
   if (opacity >= 1) return hex;
   if (opacity <= 0) return 'transparent';
@@ -260,6 +288,7 @@ function renderFillsAndStrokes(
   ox: number,
   oy: number,
   rctx: RenderContext,
+  gradientIds: string[] = [],
 ): string {
   const geom = buildShapeGeometry(node, ox, oy);
   if (!geom) return '';
@@ -268,12 +297,14 @@ function renderFillsAndStrokes(
   const visibleFills = node.fills.filter((f) => f.visible);
   const visibleStrokes = node.strokes.filter((s) => s.visible && s.width > 0);
 
-  for (const fill of visibleFills) {
-    const color = svgColor(fill.color, fill.opacity);
-    parts.push(`<${geom.tag} ${geom.attrs} fill="${color}" stroke="none"/>`);
-  }
-
-  if (visibleFills.length === 0 && visibleStrokes.length === 0) {
+  if (gradientIds.length > 0) {
+    parts.push(`<${geom.tag} ${geom.attrs} fill="url(#${gradientIds[0]})" stroke="none"/>`);
+  } else if (visibleFills.length > 0) {
+    for (const fill of visibleFills) {
+      const color = svgColor(fill.color, fill.opacity);
+      parts.push(`<${geom.tag} ${geom.attrs} fill="${color}" stroke="none"/>`);
+    }
+  } else if (visibleStrokes.length === 0) {
     parts.push(`<${geom.tag} ${geom.attrs} fill="none" stroke="none"/>`);
   }
 
@@ -344,9 +375,11 @@ function nodeToSvg(
     }
   }
 
+  const gradientIds: string[] = [];
   for (const grad of node.gradients) {
     const gradId = `grad-${rctx.defCounter++}`;
     rctx.defs.push(buildGradientDef(grad, gradId));
+    gradientIds.push(gradId);
   }
 
   let content = '';
@@ -357,15 +390,24 @@ function nodeToSvg(
     case 'polygon':
     case 'star':
     case 'path': {
-      content = renderFillsAndStrokes(node, ox, oy, rctx);
+      content = renderFillsAndStrokes(node, ox, oy, rctx, gradientIds);
       if (innerShadowAttr) {
         content = `<g ${innerShadowAttr}>${content}</g>`;
+      }
+      if (node.name) {
+        content = content.replace(/^<(\w+) /, `<$1 data-name="${escapeXml(node.name)}" `);
       }
       break;
     }
 
     case 'frame': {
-      const frameFillsStrokes = renderFillsAndStrokes(node, ox, oy, rctx);
+      const visibleFrameFills = node.fills.filter((f) => f.visible);
+      const visibleFrameStrokes = node.strokes.filter((s) => s.visible && s.width > 0);
+      const hasVisibleFillsOrStrokes =
+        visibleFrameFills.length > 0 || visibleFrameStrokes.length > 0 || gradientIds.length > 0;
+      const frameFillsStrokes = hasVisibleFillsOrStrokes
+        ? renderFillsAndStrokes(node, ox, oy, rctx, gradientIds)
+        : '';
       const childrenSvg = node.children
         .map((child) => nodeToSvg(child, offsetX, offsetY, rctx))
         .join('');
@@ -421,7 +463,8 @@ function nodeToSvg(
         ? ` fill="${svgColor(visibleFill.color, visibleFill.opacity)}"`
         : ' fill="#000000"';
 
-      content = `<text x="${textX}" y="${oy + fontSize}" font-size="${fontSize}" font-family="${escapeXml(fontFamily)}" font-weight="${fontWeight}"${fontStyle}${textAnchor}${decoration}${letterSpacing}${fillAttr}>${escapeXml(textContent)}</text>`;
+      const textNameAttr = node.name ? ` data-name="${escapeXml(node.name)}"` : '';
+      content = `<text${textNameAttr} x="${textX}" y="${oy + fontSize}" font-size="${fontSize}" font-family="${escapeXml(fontFamily)}" font-weight="${fontWeight}"${fontStyle}${textAnchor}${decoration}${letterSpacing}${fillAttr}>${escapeXml(textContent)}</text>`;
       break;
     }
 
@@ -462,7 +505,9 @@ function nodeToSvg(
 
     case 'image': {
       if (node.src) {
-        content = `<image x="${ox}" y="${oy}" width="${node.width}" height="${node.height}" href="${escapeXml(node.src)}" preserveAspectRatio="${node.fit === 'fit' ? 'xMidYMid meet' : 'xMidYMid slice'}"/>`;
+        const preserveAspectRatio =
+          node.fit === 'fit' ? 'xMidYMid meet' : node.fit === 'crop' ? 'xMidYMid slice' : 'none';
+        content = `<image x="${ox}" y="${oy}" width="${node.width}" height="${node.height}" href="${escapeXml(node.src)}" preserveAspectRatio="${preserveAspectRatio}"/>`;
       } else {
         content = `<rect x="${ox}" y="${oy}" width="${node.width}" height="${node.height}" fill="#E0E0E0" stroke="#BDBDBD" stroke-width="1"/>`;
       }
@@ -474,6 +519,18 @@ function nodeToSvg(
         .map((child) => nodeToSvg(child, offsetX, offsetY, rctx))
         .join('');
       content = childrenSvg;
+      break;
+    }
+    case 'svg': {
+      if (!node.svgContent) break;
+      content = renderEmbeddedSvg(
+        node.svgContent,
+        ox,
+        oy,
+        node.width,
+        node.height,
+        node.preserveAspectRatio,
+      );
       break;
     }
   }
