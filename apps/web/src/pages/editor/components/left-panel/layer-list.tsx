@@ -58,6 +58,8 @@ export function LayerList({
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const setSelectedIds = useEditorStore((s) => s.setSelectedIds);
   const [instanceShapeIds, setInstanceShapeIds] = useState<Set<string>>(new Set());
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
 
   useEffect(() => {
     const update = () => {
@@ -97,6 +99,32 @@ export function LayerList({
     },
     [ydoc],
   );
+
+  const startRename = useCallback(
+    (id: string) => {
+      const shape = shapeById.get(id);
+      if (!shape) return;
+      setRenamingId(id);
+      setRenameValue(shape.name);
+      setSelectedIds([id]);
+    },
+    [shapeById, setSelectedIds],
+  );
+
+  const commitRename = useCallback(() => {
+    if (!renamingId) return;
+    const nextName = renameValue.trim();
+    if (nextName.length > 0) {
+      updateShape(ydoc, renamingId, { name: nextName } as Partial<Shape>);
+    }
+    setRenamingId(null);
+    setRenameValue('');
+  }, [ydoc, renamingId, renameValue]);
+
+  const cancelRename = useCallback(() => {
+    setRenamingId(null);
+    setRenameValue('');
+  }, []);
 
   const activeSelectionIds = (() => {
     if (!contextMenu) return selectedIds;
@@ -201,6 +229,12 @@ export function LayerList({
             onDragOver={onDragOver}
             onDrop={onDrop}
             onDragEnd={onDragEnd}
+            isRenaming={renamingId === row.shape.id}
+            renameValue={renamingId === row.shape.id ? renameValue : row.shape.name}
+            onStartRename={startRename}
+            onRenameValueChange={setRenameValue}
+            onCommitRename={commitRename}
+            onCancelRename={cancelRename}
           />
         ))}
       </div>
