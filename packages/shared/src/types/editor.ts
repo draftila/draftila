@@ -4,6 +4,8 @@ import type {
   toolTypeSchema,
   pointSchema,
   pressurePointSchema,
+  vectorNodeSchema,
+  subpathSchema,
   baseShapeSchema,
   rectangleShapeSchema,
   ellipseShapeSchema,
@@ -41,6 +43,8 @@ export type ShapeType = z.infer<typeof shapeTypeSchema>;
 export type ToolType = z.infer<typeof toolTypeSchema>;
 export type Point = z.infer<typeof pointSchema>;
 export type PressurePoint = z.infer<typeof pressurePointSchema>;
+export type VectorNode = z.infer<typeof vectorNodeSchema>;
+export type Subpath = z.infer<typeof subpathSchema>;
 export type BaseShape = z.infer<typeof baseShapeSchema>;
 export type RectangleShape = z.infer<typeof rectangleShapeSchema>;
 export type EllipseShape = z.infer<typeof ellipseShapeSchema>;

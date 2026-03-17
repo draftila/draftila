@@ -8,9 +8,71 @@ import {
   layoutGuideSchema,
 } from '@draftila/shared';
 import { isAutoLayoutFrame, computeAutoLayout, type LayoutChild } from './auto-layout';
+import {
+  rectToPath,
+  ellipseToPath,
+  polygonToPath,
+  starToPath,
+  lineToPath,
+  arrowToPath,
+} from './path-gen';
 
 const ID_SIZE = 21;
 const ID_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-';
+
+function computeSvgPathForShape(
+  type: ShapeType,
+  props: Record<string, unknown>,
+): string | undefined {
+  const width = (props['width'] as number) ?? 100;
+  const height = (props['height'] as number) ?? 100;
+
+  switch (type) {
+    case 'rectangle': {
+      const cr = (props['cornerRadius'] as number) ?? 0;
+      const tl = (props['cornerRadiusTL'] as number) ?? cr;
+      const tr = (props['cornerRadiusTR'] as number) ?? cr;
+      const br = (props['cornerRadiusBR'] as number) ?? cr;
+      const bl = (props['cornerRadiusBL'] as number) ?? cr;
+      const hasIndependent =
+        props['cornerRadiusTL'] !== undefined ||
+        props['cornerRadiusTR'] !== undefined ||
+        props['cornerRadiusBL'] !== undefined ||
+        props['cornerRadiusBR'] !== undefined;
+      return rectToPath(width, height, hasIndependent ? [tl, tr, br, bl] : cr);
+    }
+    case 'ellipse':
+      return ellipseToPath(width, height);
+    case 'polygon': {
+      const sides = (props['sides'] as number) ?? 6;
+      return polygonToPath(width, height, sides);
+    }
+    case 'star': {
+      const points = (props['points'] as number) ?? 5;
+      const innerRadius = (props['innerRadius'] as number) ?? 0.38;
+      return starToPath(width, height, points, innerRadius);
+    }
+    case 'line': {
+      const x1 = (props['x1'] as number) ?? 0;
+      const y1 = (props['y1'] as number) ?? 0;
+      const x2 = (props['x2'] as number) ?? width;
+      const y2 = (props['y2'] as number) ?? 0;
+      return lineToPath(x1, y1, x2, y2);
+    }
+    case 'arrow': {
+      const x1 = (props['x1'] as number) ?? 0;
+      const y1 = (props['y1'] as number) ?? 0;
+      const x2 = (props['x2'] as number) ?? width;
+      const y2 = (props['y2'] as number) ?? 0;
+      const sw = 2;
+      const startHead = (props['startArrowhead'] as boolean) ?? false;
+      const endHead = (props['endArrowhead'] as boolean) ?? true;
+      return arrowToPath(x1, y1, x2, y2, sw, startHead, endHead);
+    }
+    default:
+      return undefined;
+  }
+}
 
 function generateId(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(ID_SIZE));
@@ -583,7 +645,7 @@ export function addShape(ydoc: Y.Doc, type: ShapeType, props: Partial<Shape> = {
   const shapeData = new Y.Map<unknown>();
 
   ydoc.transact(() => {
-    const merged = {
+    const merged: Record<string, unknown> = {
       ...BASE_DEFAULTS,
       ...typeDefaults,
       ...props,
@@ -591,6 +653,11 @@ export function addShape(ydoc: Y.Doc, type: ShapeType, props: Partial<Shape> = {
       type,
       name: props.name || type,
     };
+
+    if (!merged['svgPathData']) {
+      const pathData = computeSvgPathForShape(type, merged);
+      if (pathData) merged['svgPathData'] = pathData;
+    }
 
     for (const [key, value] of Object.entries(merged)) {
       shapeData.set(key, valueToYjs(key, value));
@@ -643,6 +710,24 @@ function getShapeBoundingRect(
   };
 }
 
+const PATH_AFFECTING_KEYS = new Set([
+  'width',
+  'height',
+  'cornerRadius',
+  'cornerRadiusTL',
+  'cornerRadiusTR',
+  'cornerRadiusBL',
+  'cornerRadiusBR',
+  'sides',
+  'innerRadius',
+  'x1',
+  'y1',
+  'x2',
+  'y2',
+  'startArrowhead',
+  'endArrowhead',
+]);
+
 export function updateShape(ydoc: Y.Doc, id: string, props: Partial<Shape>) {
   const shapes = getShapesMap(ydoc);
   const shapeData = shapes.get(id);
@@ -652,6 +737,24 @@ export function updateShape(ydoc: Y.Doc, id: string, props: Partial<Shape>) {
     for (const [key, value] of Object.entries(props)) {
       if (key === 'id' || key === 'type') continue;
       shapeData.set(key, valueToYjs(key, value));
+    }
+
+    const shapeType = shapeData.get('type') as ShapeType | undefined;
+    if (!shapeType) return;
+    const propsRecord = props as Record<string, unknown>;
+    const hasPathAffectingChange =
+      !propsRecord['svgPathData'] && Object.keys(props).some((k) => PATH_AFFECTING_KEYS.has(k));
+
+    if (hasPathAffectingChange) {
+      const merged: Record<string, unknown> = {};
+      for (const [k, v] of shapeData.entries()) {
+        merged[k] = v;
+      }
+      Object.assign(merged, props);
+      const newPath = computeSvgPathForShape(shapeType, merged);
+      if (newPath) {
+        shapeData.set('svgPathData', newPath);
+      }
     }
   });
 }

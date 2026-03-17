@@ -1,4 +1,4 @@
-import type { Shape, PathShape } from '@draftila/shared';
+import type { Shape, PathShape, Fill, Stroke } from '@draftila/shared';
 import type { SpatialIndex } from './spatial-index';
 import { generatePolygonPoints, generateStarPoints } from './shape-renderer';
 
@@ -108,7 +108,14 @@ function distanceToLineSegment(
   return Math.sqrt((px - projX) ** 2 + (py - projY) ** 2);
 }
 
-function pointNearSvgPath(px: number, py: number, shape: PathShape, tolerance: number): boolean {
+function pointNearSvgPathData(
+  px: number,
+  py: number,
+  shape: Shape & { svgPathData: string },
+  fills: Fill[],
+  strokes: Stroke[],
+  tolerance: number,
+): boolean {
   const ctx = getHitTestContext();
   if (!ctx) return pointInRect(px, py, shape);
 
@@ -126,12 +133,12 @@ function pointNearSvgPath(px: number, py: number, shape: PathShape, tolerance: n
   const localX = testX - shape.x;
   const localY = testY - shape.y;
 
-  const hasFill = (shape.fills ?? []).some((f) => f.visible && f.opacity > 0);
+  const hasFill = fills.some((f) => f.visible && f.opacity > 0);
   if (hasFill && ctx.isPointInPath(path, localX, localY)) return true;
 
-  const hasStroke = (shape.strokes ?? []).some((s) => s.visible && s.width > 0);
+  const hasStroke = strokes.some((s) => s.visible && s.width > 0);
   if (hasStroke) {
-    const strokeWidth = shape.strokes.find((s) => s.visible && s.width > 0)?.width ?? 1;
+    const strokeWidth = strokes.find((s) => s.visible && s.width > 0)?.width ?? 1;
     ctx.lineWidth = strokeWidth + tolerance * 2;
     if (ctx.isPointInStroke(path, localX, localY)) return true;
   }
@@ -142,6 +149,17 @@ function pointNearSvgPath(px: number, py: number, shape: PathShape, tolerance: n
   }
 
   return false;
+}
+
+function pointNearSvgPath(px: number, py: number, shape: PathShape, tolerance: number): boolean {
+  return pointNearSvgPathData(
+    px,
+    py,
+    shape as Shape & { svgPathData: string },
+    shape.fills ?? [],
+    shape.strokes ?? [],
+    tolerance,
+  );
 }
 
 function pointNearPath(
@@ -233,9 +251,25 @@ export function hitTestFrameLabel(
   return px >= labelX && px <= labelX + labelW && py >= labelY && py <= labelY + labelH;
 }
 
+function shapeHasSvgPath(
+  shape: Shape,
+): shape is Shape & { svgPathData: string; fills: Fill[]; strokes: Stroke[] } {
+  return (
+    'svgPathData' in shape && typeof shape.svgPathData === 'string' && shape.svgPathData.length > 0
+  );
+}
+
 function narrowPhaseHitTest(px: number, py: number, shape: Shape, zoom: number): boolean {
+  const tolerance = LINE_HIT_TOLERANCE / zoom;
+
   switch (shape.type) {
-    case 'rectangle':
+    case 'rectangle': {
+      if (shapeHasSvgPath(shape)) {
+        return pointNearSvgPathData(px, py, shape, shape.fills, shape.strokes, tolerance);
+      }
+      return pointInRect(px, py, shape);
+    }
+
     case 'text':
     case 'image':
     case 'svg':
@@ -245,13 +279,20 @@ function narrowPhaseHitTest(px: number, py: number, shape: Shape, zoom: number):
     case 'frame':
       return pointOnFrameBorder(px, py, shape, zoom) || hitTestFrameLabel(px, py, shape, zoom);
 
-    case 'ellipse':
+    case 'ellipse': {
+      if (shapeHasSvgPath(shape)) {
+        return pointNearSvgPathData(px, py, shape, shape.fills, shape.strokes, tolerance);
+      }
       return pointInEllipse(px, py, shape);
+    }
 
     case 'path':
-      return pointNearPath(px, py, shape, LINE_HIT_TOLERANCE / zoom);
+      return pointNearPath(px, py, shape, tolerance);
 
     case 'polygon': {
+      if (shapeHasSvgPath(shape)) {
+        return pointNearSvgPathData(px, py, shape, shape.fills, shape.strokes, tolerance);
+      }
       const cx = shape.x + shape.width / 2;
       const cy = shape.y + shape.height / 2;
       const vertices = generatePolygonPoints(
@@ -265,6 +306,9 @@ function narrowPhaseHitTest(px: number, py: number, shape: Shape, zoom: number):
     }
 
     case 'star': {
+      if (shapeHasSvgPath(shape)) {
+        return pointNearSvgPathData(px, py, shape, shape.fills, shape.strokes, tolerance);
+      }
       const cx = shape.x + shape.width / 2;
       const cy = shape.y + shape.height / 2;
       const vertices = generateStarPoints(
@@ -279,12 +323,16 @@ function narrowPhaseHitTest(px: number, py: number, shape: Shape, zoom: number):
     }
 
     case 'line': {
-      const tolerance = LINE_HIT_TOLERANCE / zoom;
+      if (shapeHasSvgPath(shape)) {
+        return pointNearSvgPathData(px, py, shape, [], shape.strokes, tolerance);
+      }
       return distanceToLineSegment(px, py, shape.x1, shape.y1, shape.x2, shape.y2) <= tolerance;
     }
 
     case 'arrow': {
-      const tolerance = LINE_HIT_TOLERANCE / zoom;
+      if (shapeHasSvgPath(shape)) {
+        return pointNearSvgPathData(px, py, shape, [], shape.strokes, tolerance);
+      }
       return distanceToLineSegment(px, py, shape.x1, shape.y1, shape.x2, shape.y2) <= tolerance;
     }
 

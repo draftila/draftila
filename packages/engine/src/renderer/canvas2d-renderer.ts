@@ -4,6 +4,7 @@ import type {
   Gradient,
   LayoutGuide,
   Shadow,
+  Stroke,
   StrokeDashPattern,
   Viewport,
 } from '@draftila/shared';
@@ -60,6 +61,13 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number)
   }
   if (result.length === 0) result.push('');
   return result;
+}
+
+function resolveDashArray(stroke: Stroke): number[] {
+  if (stroke.dashArray && stroke.dashArray.length > 0) {
+    return stroke.dashArray;
+  }
+  return dashPatternToArray(stroke.dashPattern ?? 'solid', stroke.width);
 }
 
 function dashPatternToArray(pattern: StrokeDashPattern, strokeWidth: number): number[] {
@@ -163,6 +171,7 @@ export class Canvas2DRenderer implements Renderer {
     ctx.save();
     this.applyTransform(transform);
     ctx.globalAlpha = style.opacity;
+    this.applyBlendMode(style);
 
     const hasRadius = Array.isArray(cornerRadius)
       ? cornerRadius.some((r) => r > 0)
@@ -193,6 +202,7 @@ export class Canvas2DRenderer implements Renderer {
     ctx.save();
     this.applyTransform(transform);
     ctx.globalAlpha = style.opacity;
+    this.applyBlendMode(style);
 
     const cx = transform.width / 2;
     const cy = transform.height / 2;
@@ -221,6 +231,7 @@ export class Canvas2DRenderer implements Renderer {
 
     ctx.save();
     ctx.globalAlpha = style.opacity;
+    this.applyBlendMode(style);
     this.applyLayerBlur(style);
 
     const path = new Path2D();
@@ -292,7 +303,7 @@ export class Canvas2DRenderer implements Renderer {
       ctx.lineCap = stroke.cap ?? 'round';
       ctx.lineJoin = stroke.join ?? 'round';
       ctx.miterLimit = stroke.miterLimit ?? 4;
-      ctx.setLineDash(dashPatternToArray(stroke.dashPattern ?? 'solid', stroke.width));
+      ctx.setLineDash(resolveDashArray(stroke));
       ctx.lineDashOffset = stroke.dashOffset ?? 0;
       ctx.stroke(path);
       ctx.setLineDash([]);
@@ -325,6 +336,7 @@ export class Canvas2DRenderer implements Renderer {
     ctx.save();
     this.applyTransform(transform);
     ctx.globalAlpha = style.opacity;
+    this.applyBlendMode(style);
     this.applyLayerBlur(style);
 
     const path = new Path2D(pathData);
@@ -360,7 +372,7 @@ export class Canvas2DRenderer implements Renderer {
       ctx.lineCap = stroke.cap ?? 'butt';
       ctx.lineJoin = stroke.join ?? 'miter';
       ctx.miterLimit = stroke.miterLimit ?? 4;
-      ctx.setLineDash(dashPatternToArray(stroke.dashPattern ?? 'solid', stroke.width));
+      ctx.setLineDash(resolveDashArray(stroke));
       ctx.lineDashOffset = stroke.dashOffset ?? 0;
       ctx.stroke(path);
       ctx.setLineDash([]);
@@ -704,6 +716,25 @@ export class Canvas2DRenderer implements Renderer {
     ctx.restore();
   }
 
+  beginClip(x: number, y: number, width: number, height: number, rotation = 0) {
+    const { ctx } = this;
+    ctx.save();
+    if (rotation !== 0) {
+      const cx = x + width / 2;
+      const cy = y + height / 2;
+      ctx.translate(cx, cy);
+      ctx.rotate(rotation);
+      ctx.translate(-cx, -cy);
+    }
+    ctx.beginPath();
+    ctx.rect(x, y, width, height);
+    ctx.clip();
+  }
+
+  endClip() {
+    this.ctx.restore();
+  }
+
   drawSelectionBox(x: number, y: number, width: number, height: number, rotation = 0) {
     const { ctx } = this;
     ctx.save();
@@ -774,6 +805,47 @@ export class Canvas2DRenderer implements Renderer {
     ctx.fill();
     ctx.stroke();
     ctx.closePath();
+    ctx.restore();
+  }
+
+  drawPathNode(x: number, y: number, zoom: number, selected: boolean) {
+    const { ctx } = this;
+    const size = 6 / zoom;
+    ctx.save();
+    ctx.fillStyle = selected ? SELECTION_COLOR : '#FFFFFF';
+    ctx.strokeStyle = SELECTION_COLOR;
+    ctx.lineWidth = 1.5 / zoom;
+    ctx.beginPath();
+    ctx.rect(x - size / 2, y - size / 2, size, size);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  drawBezierHandle(x: number, y: number, zoom: number) {
+    const { ctx } = this;
+    const radius = 3 / zoom;
+    ctx.save();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.strokeStyle = SELECTION_COLOR;
+    ctx.lineWidth = 1 / zoom;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  drawControlLine(x1: number, y1: number, x2: number, y2: number, zoom: number) {
+    const { ctx } = this;
+    ctx.save();
+    ctx.strokeStyle = SELECTION_COLOR;
+    ctx.lineWidth = 1 / zoom;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
     ctx.restore();
   }
 
@@ -1119,6 +1191,12 @@ export class Canvas2DRenderer implements Renderer {
     ctx.shadowBlur = 0;
   }
 
+  private applyBlendMode(style: RenderStyle) {
+    if (style.blendMode && style.blendMode !== 'normal') {
+      this.ctx.globalCompositeOperation = style.blendMode as GlobalCompositeOperation;
+    }
+  }
+
   private applyLayerBlur(style: RenderStyle) {
     const layerBlur = style.blurs.find((b) => b.type === 'layer' && b.visible !== false);
     if (layerBlur && layerBlur.radius > 0) {
@@ -1199,7 +1277,7 @@ export class Canvas2DRenderer implements Renderer {
       ctx.lineCap = stroke.cap ?? 'butt';
       ctx.lineJoin = stroke.join ?? 'miter';
       ctx.miterLimit = stroke.miterLimit ?? 4;
-      ctx.setLineDash(dashPatternToArray(stroke.dashPattern ?? 'solid', stroke.width));
+      ctx.setLineDash(resolveDashArray(stroke));
       ctx.lineDashOffset = stroke.dashOffset ?? 0;
 
       if (stroke.sides && width > 0 && height > 0) {

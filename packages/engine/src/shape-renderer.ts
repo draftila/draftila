@@ -33,6 +33,7 @@ function getStyle(
     shadows: shape.shadows ?? [],
     blurs: shape.blurs ?? [],
     opacity: shape.opacity,
+    blendMode: shape.blendMode,
   };
 }
 
@@ -109,11 +110,21 @@ function primaryStrokeWidth(strokes: Stroke[]): number {
   return visible?.width ?? 0;
 }
 
+function hasSvgPathData(shape: Shape): shape is Shape & { svgPathData: string } {
+  return (
+    'svgPathData' in shape && typeof shape.svgPathData === 'string' && shape.svgPathData.length > 0
+  );
+}
+
 export function renderShape(renderer: Renderer, shape: Shape) {
   if (!shape.visible) return;
 
   switch (shape.type) {
     case 'rectangle': {
+      if (hasSvgPathData(shape)) {
+        renderer.drawSvgPath(getTransform(shape), shape.svgPathData, getStyle(shape));
+        break;
+      }
       const hasIndependentCorners =
         shape.cornerRadiusTL !== undefined ||
         shape.cornerRadiusTR !== undefined ||
@@ -131,6 +142,10 @@ export function renderShape(renderer: Renderer, shape: Shape) {
       break;
     }
     case 'ellipse': {
+      if (hasSvgPathData(shape)) {
+        renderer.drawSvgPath(getTransform(shape), shape.svgPathData, getStyle(shape));
+        break;
+      }
       renderer.drawEllipse(getTransform(shape), getStyle(shape));
       break;
     }
@@ -197,6 +212,16 @@ export function renderShape(renderer: Renderer, shape: Shape) {
       break;
     }
     case 'line': {
+      if (hasSvgPathData(shape)) {
+        renderer.drawSvgPath(getTransform(shape), shape.svgPathData, {
+          fills: [],
+          strokes: shape.strokes,
+          shadows: shape.shadows ?? [],
+          blurs: shape.blurs ?? [],
+          opacity: shape.opacity,
+        });
+        break;
+      }
       const linePoints: Array<[number, number]> = [
         [shape.x1, shape.y1],
         [shape.x2, shape.y2],
@@ -215,6 +240,10 @@ export function renderShape(renderer: Renderer, shape: Shape) {
       break;
     }
     case 'polygon': {
+      if (hasSvgPathData(shape)) {
+        renderer.drawSvgPath(getTransform(shape), shape.svgPathData, getStyle(shape));
+        break;
+      }
       const cx = shape.x + shape.width / 2;
       const cy = shape.y + shape.height / 2;
       const polyPoints = generatePolygonPoints(
@@ -228,6 +257,10 @@ export function renderShape(renderer: Renderer, shape: Shape) {
       break;
     }
     case 'star': {
+      if (hasSvgPathData(shape)) {
+        renderer.drawSvgPath(getTransform(shape), shape.svgPathData, getStyle(shape));
+        break;
+      }
       const starCx = shape.x + shape.width / 2;
       const starCy = shape.y + shape.height / 2;
       const starPts = generateStarPoints(
@@ -242,6 +275,16 @@ export function renderShape(renderer: Renderer, shape: Shape) {
       break;
     }
     case 'arrow': {
+      if (hasSvgPathData(shape)) {
+        renderer.drawSvgPath(getTransform(shape), shape.svgPathData, {
+          fills: [],
+          strokes: shape.strokes,
+          shadows: shape.shadows ?? [],
+          blurs: shape.blurs ?? [],
+          opacity: shape.opacity,
+        });
+        break;
+      }
       const shaftPoints: Array<[number, number]> = [
         [shape.x1, shape.y1],
         [shape.x2, shape.y2],

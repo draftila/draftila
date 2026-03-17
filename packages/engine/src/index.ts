@@ -109,7 +109,7 @@ export {
 export {
   type BooleanOperation,
   type BooleanResult,
-  computeBooleanBounds,
+  computePathBoolean,
   rectIntersects,
   rectUnion,
   rectIntersection,
@@ -175,6 +175,7 @@ export {
   getEllipseTool,
   getFrameTool,
   getPenTool,
+  getNodeTool,
   getLineTool,
   getArrowTool,
   getPolygonTool,
@@ -190,6 +191,7 @@ export { EllipseTool } from './tools/ellipse-tool';
 export { FrameTool } from './tools/frame-tool';
 export { TextTool } from './tools/text-tool';
 export { PenTool } from './tools/pen-tool';
+export { type SelectedNode, type DragTarget, NodeTool } from './tools/node-tool';
 export { LineTool } from './tools/line-tool';
 export { ArrowTool } from './tools/arrow-tool';
 export { PolygonTool } from './tools/polygon-tool';
@@ -201,3 +203,23 @@ export {
   isFontLoaded,
   collectFontFamilies,
 } from './font-manager';
+
+export {
+  rectToPath,
+  ellipseToPath,
+  polygonToPath,
+  starToPath,
+  lineToPath,
+  arrowToPath,
+  transformPath,
+  getPathBounds,
+  normalizePathToOrigin,
+} from './path-gen';
+
+export {
+  svgPathToVectorNodes,
+  vectorNodesToSvgPath,
+  updateVectorNode,
+  addNodeToSubpath,
+  deleteNodeFromSubpath,
+} from './vector-nodes';

@@ -15,6 +15,7 @@ export interface RenderStyle {
   shadows: Shadow[];
   blurs: Blur[];
   opacity: number;
+  blendMode?: string;
 }
 
 export interface RenderTransform {
@@ -118,6 +119,10 @@ export interface Renderer {
 
   drawImage(transform: RenderTransform, options: ImageRenderOptions): void;
 
+  beginClip(x: number, y: number, width: number, height: number, rotation?: number): void;
+
+  endClip(): void;
+
   drawSelectionBox(x: number, y: number, width: number, height: number, rotation?: number): void;
 
   drawHoverOutline(x: number, y: number, width: number, height: number, rotation?: number): void;
@@ -150,6 +155,12 @@ export interface Renderer {
   drawFrameLabel(x: number, y: number, name: string, zoom: number, selected: boolean): void;
 
   drawLayoutGuides(transform: RenderTransform, guides: LayoutGuide[]): void;
+
+  drawPathNode(x: number, y: number, zoom: number, selected: boolean): void;
+
+  drawBezierHandle(x: number, y: number, zoom: number): void;
+
+  drawControlLine(x1: number, y1: number, x2: number, y2: number, zoom: number): void;
 
   measureText(
     content: string,
