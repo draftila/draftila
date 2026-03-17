@@ -9,12 +9,24 @@ interface LayerContextMenuProps {
   onGroup: () => void;
   onUngroup: () => void;
   onCreateComponent: () => void;
+  onBooleanOperation: (operation: 'union' | 'subtract' | 'intersect' | 'exclude') => void;
+  canBoolean: boolean;
   onStackMove: (direction: 'forward' | 'backward' | 'front' | 'back') => void;
 }
 
 export const LayerContextMenu = forwardRef<HTMLDivElement, LayerContextMenuProps>(
   function LayerContextMenu(
-    { contextMenu, selectedIds, shapeById, onGroup, onUngroup, onCreateComponent, onStackMove },
+    {
+      contextMenu,
+      selectedIds,
+      shapeById,
+      onGroup,
+      onUngroup,
+      onCreateComponent,
+      onBooleanOperation,
+      canBoolean,
+      onStackMove,
+    },
     ref,
   ) {
     const activeSelectionIds = useMemo(() => {
@@ -51,6 +63,34 @@ export const LayerContextMenu = forwardRef<HTMLDivElement, LayerContextMenuProps
           disabled={activeSelectionIds.length === 0}
         >
           Create Component
+        </button>
+        <button
+          className="hover:bg-accent hover:text-accent-foreground flex h-8 w-full items-center rounded px-2 text-xs disabled:pointer-events-none disabled:opacity-50"
+          onClick={() => onBooleanOperation('union')}
+          disabled={!canBoolean}
+        >
+          Union Selection
+        </button>
+        <button
+          className="hover:bg-accent hover:text-accent-foreground flex h-8 w-full items-center rounded px-2 text-xs disabled:pointer-events-none disabled:opacity-50"
+          onClick={() => onBooleanOperation('subtract')}
+          disabled={!canBoolean}
+        >
+          Subtract Selection
+        </button>
+        <button
+          className="hover:bg-accent hover:text-accent-foreground flex h-8 w-full items-center rounded px-2 text-xs disabled:pointer-events-none disabled:opacity-50"
+          onClick={() => onBooleanOperation('intersect')}
+          disabled={!canBoolean}
+        >
+          Intersect Selection
+        </button>
+        <button
+          className="hover:bg-accent hover:text-accent-foreground flex h-8 w-full items-center rounded px-2 text-xs disabled:pointer-events-none disabled:opacity-50"
+          onClick={() => onBooleanOperation('exclude')}
+          disabled={!canBoolean}
+        >
+          Exclude Selection
         </button>
         <div className="bg-border my-1 h-px" />
         <button

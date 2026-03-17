@@ -5,6 +5,8 @@ import { createComponent, listComponents } from '@draftila/engine';
 import { copyShapes, pasteShapes, cutShapes, duplicateShapes } from '@draftila/engine/clipboard';
 import { handlePaste as handleExternalPaste } from '@draftila/engine/figma-clipboard';
 import {
+  applyBooleanOperation,
+  canApplyBooleanOperation,
   deleteShapes,
   getAllShapes,
   getExpandedShapeIds,
@@ -101,6 +103,10 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
     }, [ydoc]);
 
     const canGroup = selectedIds.length > 1;
+    const canBoolean = useMemo(
+      () => canApplyBooleanOperation(ydoc, selectedIds),
+      [ydoc, selectedIds],
+    );
     const canUngroup = useMemo(() => {
       return selectedIds.some((id) => getShape(ydoc, id)?.type === 'group');
     }, [ydoc, selectedIds]);
@@ -210,6 +216,21 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
       onClose();
     }, [ydoc, selectedIds, onClose]);
 
+    const handleBooleanOperation = useCallback(
+      (operation: 'union' | 'subtract' | 'intersect' | 'exclude') => {
+        if (!canBoolean) {
+          onClose();
+          return;
+        }
+        const newId = applyBooleanOperation(ydoc, selectedIds, operation);
+        if (newId) {
+          useEditorStore.getState().setSelectedIds([newId]);
+        }
+        onClose();
+      },
+      [canBoolean, ydoc, selectedIds, onClose],
+    );
+
     const handleBringToFront = useCallback(() => {
       const ids = moveShapesInStack(ydoc, selectedIds, 'front');
       if (ids.length > 0) useEditorStore.getState().setSelectedIds(ids);
@@ -267,6 +288,14 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
       setSubMenu({ id: 'copy-paste-as', x: rect.right, y: rect.top });
     }, []);
 
+    const openBooleanSubmenu = useCallback(
+      (rect: DOMRect) => {
+        if (!canBoolean) return;
+        setSubMenu({ id: 'boolean', x: rect.right, y: rect.top });
+      },
+      [canBoolean],
+    );
+
     const closeSubMenu = useCallback(() => {
       setSubMenu(null);
     }, []);
@@ -305,6 +334,10 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
           </SubMenuTrigger>
 
           <MenuSeparator />
+
+          <SubMenuTrigger onHover={openBooleanSubmenu} isOpen={subMenu?.id === 'boolean'}>
+            Boolean
+          </SubMenuTrigger>
 
           <MenuItem onClick={handleBringToFront} disabled={!hasSelection} shortcut="]">
             Bring to front
@@ -350,6 +383,26 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
               shortcut={isMac ? '\u21E7\u2318C' : 'Ctrl+Shift+C'}
             >
               Copy as PNG
+            </MenuItem>
+          </div>
+        )}
+
+        {subMenu?.id === 'boolean' && (
+          <div
+            className="bg-popover text-popover-foreground fixed z-50 min-w-44 rounded-md border p-1 shadow-lg"
+            style={{ left: subMenu.x + 2, top: subMenu.y }}
+          >
+            <MenuItem onClick={() => handleBooleanOperation('union')} disabled={!canBoolean}>
+              Union Selection
+            </MenuItem>
+            <MenuItem onClick={() => handleBooleanOperation('subtract')} disabled={!canBoolean}>
+              Subtract Selection
+            </MenuItem>
+            <MenuItem onClick={() => handleBooleanOperation('intersect')} disabled={!canBoolean}>
+              Intersect Selection
+            </MenuItem>
+            <MenuItem onClick={() => handleBooleanOperation('exclude')} disabled={!canBoolean}>
+              Exclude Selection
             </MenuItem>
           </div>
         )}

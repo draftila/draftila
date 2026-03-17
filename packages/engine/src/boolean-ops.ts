@@ -1,5 +1,13 @@
 import type { Shape } from '@draftila/shared';
 import paper from 'paper/dist/paper-core';
+import {
+  arrowToPath,
+  ellipseToPath,
+  lineToPath,
+  polygonToPath,
+  rectToPath,
+  starToPath,
+} from './path-gen';
 import { transformPath, normalizePathToOrigin } from './path-gen';
 
 export type BooleanOperation = 'union' | 'subtract' | 'intersect' | 'exclude';
@@ -21,7 +29,7 @@ function ensurePaper() {
   paperInitialized = true;
 }
 
-function getShapeSvgPath(shape: Shape): string | null {
+export function getShapeSvgPath(shape: Shape): string | null {
   if (
     'svgPathData' in shape &&
     typeof shape.svgPathData === 'string' &&
@@ -29,7 +37,47 @@ function getShapeSvgPath(shape: Shape): string | null {
   ) {
     return shape.svgPathData;
   }
-  return null;
+
+  switch (shape.type) {
+    case 'rectangle': {
+      const cr = (shape as Shape & { cornerRadius?: number }).cornerRadius ?? 0;
+      return rectToPath(shape.width, shape.height, cr);
+    }
+    case 'ellipse':
+      return ellipseToPath(shape.width, shape.height);
+    case 'polygon': {
+      const sides = (shape as Shape & { sides?: number }).sides ?? 6;
+      return polygonToPath(shape.width, shape.height, sides);
+    }
+    case 'star': {
+      const points = (shape as Shape & { points?: number }).points ?? 5;
+      const innerRadius = (shape as Shape & { innerRadius?: number }).innerRadius ?? 0.38;
+      return starToPath(shape.width, shape.height, points, innerRadius);
+    }
+    case 'line': {
+      const x1 = (shape as Shape & { x1?: number }).x1 ?? 0;
+      const y1 = (shape as Shape & { y1?: number }).y1 ?? 0;
+      const x2 = (shape as Shape & { x2?: number }).x2 ?? shape.width;
+      const y2 = (shape as Shape & { y2?: number }).y2 ?? 0;
+      return lineToPath(x1, y1, x2, y2);
+    }
+    case 'arrow': {
+      const x1 = (shape as Shape & { x1?: number }).x1 ?? 0;
+      const y1 = (shape as Shape & { y1?: number }).y1 ?? 0;
+      const x2 = (shape as Shape & { x2?: number }).x2 ?? shape.width;
+      const y2 = (shape as Shape & { y2?: number }).y2 ?? 0;
+      const startArrowhead =
+        (shape as Shape & { startArrowhead?: boolean }).startArrowhead ?? false;
+      const endArrowhead = (shape as Shape & { endArrowhead?: boolean }).endArrowhead ?? true;
+      return arrowToPath(x1, y1, x2, y2, 2, startArrowhead, endArrowhead);
+    }
+    default:
+      return null;
+  }
+}
+
+export function isBooleanCompatibleShape(shape: Shape): boolean {
+  return Boolean(getShapeSvgPath(shape));
 }
 
 function shapePathToWorld(shape: Shape): string | null {
