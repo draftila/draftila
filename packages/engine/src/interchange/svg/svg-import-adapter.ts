@@ -33,7 +33,7 @@ export class SvgClipboardImportAdapter implements ImportAdapter {
       return createInterchangeDocument([], { source: 'svg' });
     }
 
-    return parseSvg(svgString);
+    return parseSvg(svgString, { mode: 'editable' });
   }
 }
 
@@ -55,5 +55,5 @@ export class SvgFileImportAdapter implements ImportAdapter {
 
 export async function importSvgFile(file: File): Promise<InterchangeDocument> {
   const text = await file.text();
-  return parseSvg(text);
+  return parseSvg(text, { mode: 'editable' });
 }

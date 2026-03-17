@@ -3,6 +3,17 @@ import type { Renderer, RenderStyle, RenderTransform } from './renderer/types';
 import { simpleStyle } from './renderer/types';
 import getStroke from 'perfect-freehand';
 
+function svgToDataUri(svgContent: string): string {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgContent)}`;
+}
+
+function preserveAspectRatioToFit(value: string | undefined): 'fill' | 'fit' | 'crop' {
+  const normalized = (value ?? 'xMidYMid meet').trim().toLowerCase();
+  if (normalized === 'none') return 'fill';
+  if (normalized.includes('slice')) return 'crop';
+  return 'fit';
+}
+
 function getTransform(shape: Shape): RenderTransform {
   return {
     x: shape.x,
@@ -267,6 +278,17 @@ export function renderShape(renderer: Renderer, shape: Shape) {
       break;
     }
     case 'group': {
+      break;
+    }
+    case 'svg': {
+      if (!shape.svgContent) break;
+      renderer.drawImage(getTransform(shape), {
+        src: svgToDataUri(shape.svgContent),
+        fit: preserveAspectRatioToFit(shape.preserveAspectRatio),
+        opacity: shape.opacity,
+        shadows: shape.shadows ?? [],
+        blurs: shape.blurs ?? [],
+      });
       break;
     }
   }

@@ -52,6 +52,8 @@
     "pako": "^2.1.0",
     "perfect-freehand": "^1.2.3",
     "rbush": "^4.0.1",
+    "svg-path-commander": "^2.1.11",
+    "svgo": "^4.0.1",
     "yjs": "^13.6.30"
   },
   "devDependencies": {

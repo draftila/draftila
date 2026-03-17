@@ -100,6 +100,7 @@ function summarizeShape(shape: Shape): Record<string, unknown> {
     base.cornerRadius = typed.cornerRadius;
   if (typed.svgPathData) base.svgPathData = typed.svgPathData;
   if (shape.type === 'image') base.src = typed.src;
+  if (shape.type === 'svg') base.preserveAspectRatio = typed.preserveAspectRatio;
 
   return base;
 }

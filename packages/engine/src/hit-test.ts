@@ -238,6 +238,7 @@ function narrowPhaseHitTest(px: number, py: number, shape: Shape, zoom: number):
     case 'rectangle':
     case 'text':
     case 'image':
+    case 'svg':
     case 'group':
       return pointInRect(px, py, shape);
 
