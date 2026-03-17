@@ -10,8 +10,6 @@ import type { AuthEnv } from './common/middleware/auth';
 import { authRoutes } from './modules/auth/auth.routes';
 import { allDraftsRoutes, draftRoutes } from './modules/drafts/drafts.routes';
 import { healthRoutes } from './modules/health/health.routes';
-import { mcpManagementRoutes } from './modules/mcp/mcp-management.routes';
-import { mcpRoutes } from './modules/mcp/mcp.routes';
 import { projectRoutes } from './modules/projects/projects.routes';
 import { userRoutes } from './modules/user/user.routes';
 
@@ -47,8 +45,6 @@ app.route('/api/health', healthRoutes);
 app.route('/api/projects', projectRoutes);
 app.route('/api/drafts', allDraftsRoutes);
 app.route('/api/projects/:projectId/drafts', draftRoutes);
-app.route('/api/mcp', mcpRoutes);
-app.route('/api/mcp/tokens', mcpManagementRoutes);
 app.route('/api', userRoutes);
 
 if (isFile(webIndexPath)) {

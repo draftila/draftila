@@ -4,7 +4,6 @@ import { db } from '../src/db';
 export async function cleanDatabase() {
   await db.draft.deleteMany();
   await db.project.deleteMany();
-  await db.mcpAccessToken.deleteMany();
   await db.session.deleteMany();
   await db.account.deleteMany();
   await db.verification.deleteMany();
@@ -14,7 +13,6 @@ export async function cleanDatabase() {
 export async function cleanProjects() {
   await db.draft.deleteMany();
   await db.project.deleteMany();
-  await db.mcpAccessToken.deleteMany();
 }
 
 export async function cleanDrafts() {

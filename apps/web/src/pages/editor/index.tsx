@@ -15,8 +15,6 @@ import { Canvas } from './components/canvas';
 import { useYjs } from './hooks/use-yjs';
 import { useKeyboard } from './hooks/use-keyboard';
 import { useAwareness } from './hooks/use-awareness';
-import { useMcpRpc } from './hooks/use-mcp-rpc';
-
 export function EditorPage() {
   const { draftId } = useParams<{ draftId: string }>();
   const navigate = useNavigate();
@@ -46,7 +44,6 @@ export function EditorPage() {
     userName,
   );
 
-  useMcpRpc(ydoc, provider);
   useKeyboard({ ydoc });
 
   useEffect(() => {
