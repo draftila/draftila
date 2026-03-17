@@ -12,22 +12,25 @@ import type {
   InterchangeStrokeJoin,
 } from '../interchange-format';
 import { createInterchangeNode, createInterchangeDocument } from '../interchange-format';
+import { normalizeColor, colorToOpacity } from './color';
+import { parseLength, parseCssInlineStyle, parseCssStyleSheet, getEffectiveAttribute } from './css';
+import { parseTransform, multiplyMatrices, IDENTITY_MATRIX } from './transform';
+import type { TransformMatrix } from './transform';
 import {
-  normalizeColor,
-  colorToOpacity,
-  parseLength,
-  parseTransform,
-  decomposeTransform,
-  multiplyMatrices,
-  parseCssInlineStyle,
-  parseCssStyleSheet,
-  getEffectiveAttribute,
   parseSvgPathData,
   pathCommandsToBounds,
-  translateSvgPathData,
-  scaleSvgPathData,
-} from './svg-utils';
-import type { TransformMatrix } from './svg-utils';
+  normalizePathToAbsolute,
+  transformPathCommands,
+  pathCommandsToString,
+} from './path';
+import type { PathCommand } from './path';
+import {
+  rectToPathCommands,
+  ellipseToPathCommands,
+  lineToPathCommands,
+  polygonToPathCommands,
+  polylineToPathCommands,
+} from './shapes';
 
 interface RawGradient extends InterchangeGradient {
   userSpaceOnUse?: boolean;
@@ -51,7 +54,6 @@ interface ParseContext {
   classStyles: Map<string, Record<string, string>>;
   defs: Element | null;
   inheritedStyles: Record<string, string>;
-  viewBoxScale: { sx: number; sy: number };
   currentColor: string;
 }
 
@@ -63,7 +65,6 @@ function buildContext(doc: Document): ParseContext {
     classStyles: new Map(),
     defs: null,
     inheritedStyles: {},
-    viewBoxScale: { sx: 1, sy: 1 },
     currentColor: '#000000',
   };
 
@@ -347,7 +348,14 @@ function normalizeGradientForElement(
   elH: number,
 ): InterchangeGradient {
   if (!raw.userSpaceOnUse) {
-    return { type: raw.type, stops: raw.stops, angle: raw.angle, cx: raw.cx, cy: raw.cy, r: raw.r };
+    return {
+      type: raw.type,
+      stops: raw.stops,
+      angle: raw.angle,
+      cx: raw.cx,
+      cy: raw.cy,
+      r: raw.r,
+    };
   }
 
   if (raw.type === 'linear') {
@@ -476,7 +484,6 @@ function parseDashPattern(dasharray: string | null, strokeWidth: number): Interc
 
   const sw = Math.max(strokeWidth, 1);
   const first = parts[0] ?? 0;
-  const second = parts[1] ?? first;
 
   if (parts.length <= 2) {
     if (first <= sw * 1.5) return 'dot';
@@ -659,21 +666,122 @@ function getFillRule(
   return 'nonzero';
 }
 
-function parseRectElement(
+const INHERITABLE_ATTRS = [
+  'fill',
+  'stroke',
+  'stroke-width',
+  'stroke-linecap',
+  'stroke-linejoin',
+  'stroke-dasharray',
+  'stroke-dashoffset',
+  'stroke-miterlimit',
+  'stroke-opacity',
+  'fill-opacity',
+  'fill-rule',
+  'font-size',
+  'font-family',
+  'font-weight',
+  'font-style',
+  'text-anchor',
+  'text-decoration',
+  'letter-spacing',
+  'color',
+];
+
+function collectInheritedStyles(
+  el: Element,
+  inlineStyle: Record<string, string>,
+  classStyles: Record<string, string>,
+  parentInherited: Record<string, string>,
+): Record<string, string> {
+  const merged = { ...parentInherited };
+  for (const attr of INHERITABLE_ATTRS) {
+    const val = inlineStyle[attr] ?? classStyles[attr] ?? el.getAttribute(attr);
+    if (val) merged[attr] = val;
+  }
+  return merged;
+}
+
+function buildPathNode(
+  commands: PathCommand[],
+  transform: TransformMatrix,
   el: Element,
   inlineStyle: Record<string, string>,
   classStyles: Record<string, string>,
   ctx: ParseContext,
-): InterchangeNode {
-  const x = parseLength(el.getAttribute('x'));
-  const y = parseLength(el.getAttribute('y'));
-  const width = parseLength(el.getAttribute('width'), 100);
-  const height = parseLength(el.getAttribute('height'), 100);
-  const rx = parseLength(el.getAttribute('rx'));
-  const ry = parseLength(el.getAttribute('ry'), rx);
-  const cornerRadius = Math.max(rx, ry);
+  defaultFillColor: string | null,
+  isClosedShape: boolean,
+): InterchangeNode | null {
+  const normalized = normalizePathToAbsolute(commands);
 
-  const elBounds = { x, y, w: width, h: height };
+  const isIdentity =
+    transform.a === 1 &&
+    transform.b === 0 &&
+    transform.c === 0 &&
+    transform.d === 1 &&
+    transform.e === 0 &&
+    transform.f === 0;
+
+  const transformed = isIdentity ? normalized : transformPathCommands(normalized, transform);
+  const bounds = pathCommandsToBounds(transformed);
+
+  const localCommands: PathCommand[] = transformed.map((cmd) => {
+    if (cmd.type === 'Z') return cmd;
+    if (cmd.type === 'M' || cmd.type === 'L') {
+      return {
+        type: cmd.type,
+        values: [cmd.values[0]! - bounds.x, cmd.values[1]! - bounds.y],
+      };
+    }
+    if (cmd.type === 'C') {
+      return {
+        type: 'C',
+        values: [
+          cmd.values[0]! - bounds.x,
+          cmd.values[1]! - bounds.y,
+          cmd.values[2]! - bounds.x,
+          cmd.values[3]! - bounds.y,
+          cmd.values[4]! - bounds.x,
+          cmd.values[5]! - bounds.y,
+        ],
+      };
+    }
+    if (cmd.type === 'Q') {
+      return {
+        type: 'Q',
+        values: [
+          cmd.values[0]! - bounds.x,
+          cmd.values[1]! - bounds.y,
+          cmd.values[2]! - bounds.x,
+          cmd.values[3]! - bounds.y,
+        ],
+      };
+    }
+    if (cmd.type === 'A') {
+      return {
+        type: 'A',
+        values: [
+          cmd.values[0]!,
+          cmd.values[1]!,
+          cmd.values[2]!,
+          cmd.values[3]!,
+          cmd.values[4]!,
+          cmd.values[5]! - bounds.x,
+          cmd.values[6]! - bounds.y,
+        ],
+      };
+    }
+    return cmd;
+  });
+
+  const svgPathData = pathCommandsToString(localCommands);
+  const elBounds = {
+    x: bounds.x,
+    y: bounds.y,
+    w: bounds.width || 100,
+    h: bounds.height || 100,
+  };
+
   const { fills, gradients, fillNone, patternImage } = buildFills(
     el,
     inlineStyle,
@@ -684,10 +792,10 @@ function parseRectElement(
 
   if (patternImage) {
     return createInterchangeNode('image', {
-      x,
-      y,
-      width,
-      height,
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width || 100,
+      height: bounds.height || 100,
       src: patternImage,
       fit: 'fill',
       opacity: getElementOpacity(el, inlineStyle, classStyles),
@@ -696,306 +804,191 @@ function parseRectElement(
 
   const { strokes, strokeGradients } = buildStrokes(el, inlineStyle, classStyles, ctx);
   const shadows = buildShadows(el, ctx);
-
   const allGradients = [...gradients, ...strokeGradients];
-
-  return createInterchangeNode('rectangle', {
-    x,
-    y,
-    width,
-    height,
-    fills: fills.length > 0 || fillNone ? fills : [{ color: '#D9D9D9', opacity: 1, visible: true }],
-    gradients: allGradients,
-    strokes,
-    shadows,
-    cornerRadius,
-    opacity: getElementOpacity(el, inlineStyle, classStyles),
-    clipPath: getClipPath(el, ctx),
-  });
-}
-
-function parseEllipseElement(
-  el: Element,
-  inlineStyle: Record<string, string>,
-  classStyles: Record<string, string>,
-  ctx: ParseContext,
-): InterchangeNode {
-  const isCircle = el.tagName.toLowerCase() === 'circle';
-  const cx = parseLength(el.getAttribute('cx'));
-  const cy = parseLength(el.getAttribute('cy'));
-  const rx = parseLength(isCircle ? el.getAttribute('r') : el.getAttribute('rx'), 50);
-  const ry = parseLength(isCircle ? el.getAttribute('r') : el.getAttribute('ry'), 50);
-
-  const elBounds = { x: cx - rx, y: cy - ry, w: rx * 2, h: ry * 2 };
-  const { fills, gradients, fillNone } = buildFills(el, inlineStyle, classStyles, ctx, elBounds);
-  const { strokes, strokeGradients } = buildStrokes(el, inlineStyle, classStyles, ctx);
-  const shadows = buildShadows(el, ctx);
-
-  const allGradients = [...gradients, ...strokeGradients];
-
-  return createInterchangeNode('ellipse', {
-    x: cx - rx,
-    y: cy - ry,
-    width: rx * 2,
-    height: ry * 2,
-    fills: fills.length > 0 || fillNone ? fills : [{ color: '#D9D9D9', opacity: 1, visible: true }],
-    gradients: allGradients,
-    strokes,
-    shadows,
-    opacity: getElementOpacity(el, inlineStyle, classStyles),
-  });
-}
-
-function parseLineElement(
-  el: Element,
-  inlineStyle: Record<string, string>,
-  classStyles: Record<string, string>,
-  ctx: ParseContext,
-): InterchangeNode {
-  const x1 = parseLength(el.getAttribute('x1'));
-  const y1 = parseLength(el.getAttribute('y1'));
-  const x2 = parseLength(el.getAttribute('x2'));
-  const y2 = parseLength(el.getAttribute('y2'));
-
-  const minX = Math.min(x1, x2);
-  const minY = Math.min(y1, y2);
-  const width = Math.abs(x2 - x1) || 1;
-  const height = Math.abs(y2 - y1) || 1;
-
-  const { strokes } = buildStrokes(el, inlineStyle, classStyles, ctx);
-  const shadows = buildShadows(el, ctx);
-
-  return createInterchangeNode('line', {
-    x: minX,
-    y: minY,
-    width,
-    height,
-    strokes:
-      strokes.length > 0
-        ? strokes
-        : [
-            {
-              color: '#000000',
-              width: 2,
-              opacity: 1,
-              visible: true,
-              cap: 'butt',
-              join: 'miter',
-              align: 'center',
-              dashPattern: 'solid',
-              dashOffset: 0,
-              miterLimit: 4,
-            },
-          ],
-    shadows,
-    x1,
-    y1,
-    x2,
-    y2,
-    opacity: getElementOpacity(el, inlineStyle, classStyles),
-  });
-}
-
-function parsePolygonElement(
-  el: Element,
-  inlineStyle: Record<string, string>,
-  classStyles: Record<string, string>,
-  ctx: ParseContext,
-): InterchangeNode {
-  const pointsStr = el.getAttribute('points') ?? '';
-  const coords = pointsStr
-    .trim()
-    .split(/[\s,]+/)
-    .map(Number)
-    .filter((n) => !isNaN(n));
-
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-
-  for (let i = 0; i < coords.length; i += 2) {
-    const px = coords[i]!;
-    const py = coords[i + 1]!;
-    minX = Math.min(minX, px);
-    minY = Math.min(minY, py);
-    maxX = Math.max(maxX, px);
-    maxY = Math.max(maxY, py);
-  }
-
-  if (!isFinite(minX)) {
-    minX = 0;
-    minY = 0;
-    maxX = 100;
-    maxY = 100;
-  }
-
-  const elW = maxX - minX || 100;
-  const elH = maxY - minY || 100;
-  const elBounds = { x: minX, y: minY, w: elW, h: elH };
-  const { fills, gradients, fillNone } = buildFills(el, inlineStyle, classStyles, ctx, elBounds);
-  const { strokes, strokeGradients } = buildStrokes(el, inlineStyle, classStyles, ctx);
-  const shadows = buildShadows(el, ctx);
-
-  const allGradients = [...gradients, ...strokeGradients];
-
-  const pathParts: string[] = [];
-  for (let i = 0; i < coords.length; i += 2) {
-    const px = coords[i]! - minX;
-    const py = coords[i + 1]! - minY;
-    pathParts.push(i === 0 ? `M${px} ${py}` : `L${px} ${py}`);
-  }
-  pathParts.push('Z');
-
   const fillRule = getFillRule(el, inlineStyle, classStyles);
 
-  return createInterchangeNode('path', {
-    name: 'Vector',
-    x: minX,
-    y: minY,
-    width: elW,
-    height: elH,
-    fills: fills.length > 0 || fillNone ? fills : [{ color: '#D9D9D9', opacity: 1, visible: true }],
-    gradients: allGradients,
-    strokes,
-    shadows,
-    svgPathData: pathParts.join(''),
-    fillRule,
-    opacity: getElementOpacity(el, inlineStyle, classStyles),
-  });
-}
-
-function parsePolylineElement(
-  el: Element,
-  inlineStyle: Record<string, string>,
-  classStyles: Record<string, string>,
-  ctx: ParseContext,
-): InterchangeNode {
-  const pointsStr = el.getAttribute('points') ?? '';
-  const coords = pointsStr
-    .trim()
-    .split(/[\s,]+/)
-    .map(Number)
-    .filter((n) => !isNaN(n));
-
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-
-  for (let i = 0; i < coords.length; i += 2) {
-    const px = coords[i]!;
-    const py = coords[i + 1]!;
-    minX = Math.min(minX, px);
-    minY = Math.min(minY, py);
-    maxX = Math.max(maxX, px);
-    maxY = Math.max(maxY, py);
-  }
-
-  if (!isFinite(minX)) {
-    minX = 0;
-    minY = 0;
-    maxX = 100;
-    maxY = 100;
-  }
-
-  const { fills, gradients, fillNone } = buildFills(el, inlineStyle, classStyles, ctx);
-  const { strokes, strokeGradients } = buildStrokes(el, inlineStyle, classStyles, ctx);
-  const shadows = buildShadows(el, ctx);
-
-  const allGradients = [...gradients, ...strokeGradients];
-
-  if (coords.length >= 4) {
-    const pathParts: string[] = [];
-    for (let i = 0; i < coords.length; i += 2) {
-      const px = coords[i]! - minX;
-      const py = coords[i + 1]! - minY;
-      pathParts.push(i === 0 ? `M${px} ${py}` : `L${px} ${py}`);
+  let resolvedFills = fills;
+  if (fills.length === 0 && !fillNone) {
+    if (defaultFillColor) {
+      resolvedFills = [{ color: defaultFillColor, opacity: 1, visible: true }];
+    } else if (isClosedShape) {
+      resolvedFills = [{ color: '#D9D9D9', opacity: 1, visible: true }];
     }
-
-    return createInterchangeNode('path', {
-      name: 'Vector',
-      x: minX,
-      y: minY,
-      width: maxX - minX || 1,
-      height: maxY - minY || 1,
-      fills: fills.length > 0 || fillNone ? fills : [],
-      gradients: allGradients,
-      strokes:
-        strokes.length > 0
-          ? strokes
-          : [
-              {
-                color: '#000000',
-                width: 2,
-                opacity: 1,
-                visible: true,
-                cap: 'butt',
-                join: 'miter',
-                align: 'center',
-                dashPattern: 'solid',
-                dashOffset: 0,
-                miterLimit: 4,
-              },
-            ],
-      shadows,
-      svgPathData: pathParts.join(''),
-      opacity: getElementOpacity(el, inlineStyle, classStyles),
-    });
   }
 
-  return createInterchangeNode('path', {
-    name: 'Vector',
-    x: minX,
-    y: minY,
-    width: maxX - minX || 1,
-    height: maxY - minY || 1,
-    fills: fills.length > 0 || fillNone ? fills : [],
-    strokes,
-    shadows,
-    svgPathData: '',
-    opacity: getElementOpacity(el, inlineStyle, classStyles),
-  });
-}
+  const defaultStroke =
+    !isClosedShape && strokes.length === 0 && resolvedFills.length === 0
+      ? [
+          {
+            color: '#000000' as string,
+            width: 2,
+            opacity: 1,
+            visible: true,
+            cap: 'butt' as InterchangeStrokeCap,
+            join: 'miter' as InterchangeStrokeJoin,
+            align: 'center' as const,
+            dashPattern: 'solid' as InterchangeDashPattern,
+            dashOffset: 0,
+            miterLimit: 4,
+          },
+        ]
+      : strokes;
 
-function parsePathElement(
-  el: Element,
-  inlineStyle: Record<string, string>,
-  classStyles: Record<string, string>,
-  ctx: ParseContext,
-): InterchangeNode {
-  const d = el.getAttribute('d') ?? '';
-  const commands = parseSvgPathData(d);
-  const bounds = pathCommandsToBounds(commands);
-  const normalizedPath = translateSvgPathData(commands, -bounds.x, -bounds.y);
-
-  const elBounds = { x: bounds.x, y: bounds.y, w: bounds.width || 100, h: bounds.height || 100 };
-  const { fills, gradients, fillNone } = buildFills(el, inlineStyle, classStyles, ctx, elBounds);
-  const { strokes, strokeGradients } = buildStrokes(el, inlineStyle, classStyles, ctx);
-  const shadows = buildShadows(el, ctx);
-
-  const allGradients = [...gradients, ...strokeGradients];
-
-  const defaultFill: InterchangeFill[] =
-    fills.length === 0 && !fillNone ? [{ color: '#000000', opacity: 1, visible: true }] : fills;
-
-  const fillRule = getFillRule(el, inlineStyle, classStyles);
+  if (!isIdentity) {
+    const sx = Math.sqrt(transform.a * transform.a + transform.b * transform.b);
+    for (const stroke of defaultStroke) {
+      stroke.width *= sx;
+    }
+  }
 
   return createInterchangeNode('path', {
     name: 'Vector',
     x: bounds.x,
     y: bounds.y,
-    width: elBounds.w,
-    height: elBounds.h,
-    fills: defaultFill,
+    width: bounds.width || 1,
+    height: bounds.height || 1,
+    fills: resolvedFills,
     gradients: allGradients,
-    strokes,
+    strokes: defaultStroke,
     shadows,
-    svgPathData: normalizedPath,
+    svgPathData,
     fillRule,
     opacity: getElementOpacity(el, inlineStyle, classStyles),
     clipPath: getClipPath(el, ctx),
   });
+}
+
+function parseShapeAsPath(
+  el: Element,
+  ctx: ParseContext,
+  transform: TransformMatrix,
+): InterchangeNode | null {
+  const tagName = el.tagName.toLowerCase();
+  const inlineStyle = parseCssInlineStyle(el.getAttribute('style'));
+  const ownClassStyles = getClassStyles(el, ctx);
+  const classStyles = { ...ctx.inheritedStyles, ...ownClassStyles };
+
+  switch (tagName) {
+    case 'rect': {
+      const x = parseLength(el.getAttribute('x'));
+      const y = parseLength(el.getAttribute('y'));
+      const w = parseLength(el.getAttribute('width'), 100);
+      const h = parseLength(el.getAttribute('height'), 100);
+      const rx = parseLength(el.getAttribute('rx'));
+      const ry = parseLength(el.getAttribute('ry'), rx);
+      const commands = rectToPathCommands(x, y, w, h, rx, ry);
+
+      const node = buildPathNode(
+        commands,
+        transform,
+        el,
+        inlineStyle,
+        classStyles,
+        ctx,
+        null,
+        true,
+      );
+      if (node && node.type !== 'image') {
+        node.type = 'rectangle';
+        node.cornerRadius = Math.max(rx, ry);
+      }
+      return node;
+    }
+    case 'ellipse':
+    case 'circle': {
+      const isCircle = tagName === 'circle';
+      const cx = parseLength(el.getAttribute('cx'));
+      const cy = parseLength(el.getAttribute('cy'));
+      const rx = parseLength(isCircle ? el.getAttribute('r') : el.getAttribute('rx'), 50);
+      const ry = parseLength(isCircle ? el.getAttribute('r') : el.getAttribute('ry'), 50);
+      const commands = ellipseToPathCommands(cx, cy, rx, ry);
+
+      const node = buildPathNode(
+        commands,
+        transform,
+        el,
+        inlineStyle,
+        classStyles,
+        ctx,
+        null,
+        true,
+      );
+      if (node && node.type !== 'image') {
+        node.type = 'ellipse';
+      }
+      return node;
+    }
+    case 'line': {
+      const x1 = parseLength(el.getAttribute('x1'));
+      const y1 = parseLength(el.getAttribute('y1'));
+      const x2 = parseLength(el.getAttribute('x2'));
+      const y2 = parseLength(el.getAttribute('y2'));
+      const commands = lineToPathCommands(x1, y1, x2, y2);
+
+      const node = buildPathNode(
+        commands,
+        transform,
+        el,
+        inlineStyle,
+        classStyles,
+        ctx,
+        null,
+        false,
+      );
+      if (node) {
+        node.type = 'line';
+        const nb = pathCommandsToBounds(
+          transformPathCommands(normalizePathToAbsolute(commands), transform),
+        );
+        const tStart = [
+          transform.a * x1 + transform.c * y1 + transform.e,
+          transform.b * x1 + transform.d * y1 + transform.f,
+        ];
+        const tEnd = [
+          transform.a * x2 + transform.c * y2 + transform.e,
+          transform.b * x2 + transform.d * y2 + transform.f,
+        ];
+        node.x1 = tStart[0]!;
+        node.y1 = tStart[1]!;
+        node.x2 = tEnd[0]!;
+        node.y2 = tEnd[1]!;
+        node.x = nb.x;
+        node.y = nb.y;
+        node.width = nb.width || 1;
+        node.height = nb.height || 1;
+      }
+      return node;
+    }
+    case 'polygon': {
+      const pointsStr = el.getAttribute('points') ?? '';
+      const coords = pointsStr
+        .trim()
+        .split(/[\s,]+/)
+        .map(Number)
+        .filter((n) => !isNaN(n));
+      if (coords.length < 4) return null;
+      const commands = polygonToPathCommands(coords);
+      return buildPathNode(commands, transform, el, inlineStyle, classStyles, ctx, null, true);
+    }
+    case 'polyline': {
+      const pointsStr = el.getAttribute('points') ?? '';
+      const coords = pointsStr
+        .trim()
+        .split(/[\s,]+/)
+        .map(Number)
+        .filter((n) => !isNaN(n));
+      if (coords.length < 4) return null;
+      const commands = polylineToPathCommands(coords);
+      return buildPathNode(commands, transform, el, inlineStyle, classStyles, ctx, null, false);
+    }
+    case 'path': {
+      const d = el.getAttribute('d') ?? '';
+      const commands = parseSvgPathData(d);
+      return buildPathNode(commands, transform, el, inlineStyle, classStyles, ctx, '#000000', true);
+    }
+    default:
+      return null;
+  }
 }
 
 function parseTextElement(
@@ -1003,16 +996,21 @@ function parseTextElement(
   inlineStyle: Record<string, string>,
   classStyles: Record<string, string>,
   ctx: ParseContext,
+  transform: TransformMatrix,
 ): InterchangeNode {
-  const x = parseLength(el.getAttribute('x'));
-  const y = parseLength(el.getAttribute('y'));
+  const rawX = parseLength(el.getAttribute('x'));
+  const rawY = parseLength(el.getAttribute('y'));
   const content = el.textContent ?? '';
+
+  const tx = transform.a * rawX + transform.c * rawY + transform.e;
+  const ty = transform.b * rawX + transform.d * rawY + transform.f;
+  const scaleFactor = Math.sqrt(transform.a * transform.a + transform.b * transform.b);
 
   const { fills } = buildFills(el, inlineStyle, classStyles, ctx);
   const shadows = buildShadows(el, ctx);
 
   const fontSizeStr = getEffectiveAttribute(el, 'font-size', 'font-size', inlineStyle, classStyles);
-  const fontSize = parseLength(fontSizeStr, 16);
+  const fontSize = parseLength(fontSizeStr, 16) * scaleFactor;
 
   const fontFamily =
     getEffectiveAttribute(el, 'font-family', 'font-family', inlineStyle, classStyles) ?? 'Inter';
@@ -1076,8 +1074,8 @@ function parseTextElement(
   const estimatedWidth = Math.max(200, content.length * fontSize * 0.6);
 
   return createInterchangeNode('text', {
-    x,
-    y: y - fontSize,
+    x: tx,
+    y: ty - fontSize,
     width: estimatedWidth,
     height: fontSize * 1.5,
     content,
@@ -1099,11 +1097,31 @@ function parseImageElement(
   inlineStyle: Record<string, string>,
   classStyles: Record<string, string>,
   _ctx: ParseContext,
+  transform: TransformMatrix,
 ): InterchangeNode {
   const x = parseLength(el.getAttribute('x'));
   const y = parseLength(el.getAttribute('y'));
   const width = parseLength(el.getAttribute('width'), 100);
   const height = parseLength(el.getAttribute('height'), 100);
+
+  const corners = [
+    [x, y],
+    [x + width, y],
+    [x + width, y + height],
+    [x, y + height],
+  ];
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const [cx, cy] of corners) {
+    const tx = transform.a * cx! + transform.c * cy! + transform.e;
+    const ty = transform.b * cx! + transform.d * cy! + transform.f;
+    minX = Math.min(minX, tx);
+    minY = Math.min(minY, ty);
+    maxX = Math.max(maxX, tx);
+    maxY = Math.max(maxY, ty);
+  }
 
   const href = resolveHref(el);
 
@@ -1118,131 +1136,47 @@ function parseImageElement(
   }
 
   return createInterchangeNode('image', {
-    x,
-    y,
-    width,
-    height,
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY,
     src: href,
     fit,
     opacity: getElementOpacity(el, inlineStyle, classStyles),
   });
 }
 
-const INHERITABLE_ATTRS = [
-  'fill',
-  'stroke',
-  'stroke-width',
-  'stroke-linecap',
-  'stroke-linejoin',
-  'stroke-dasharray',
-  'stroke-dashoffset',
-  'stroke-miterlimit',
-  'stroke-opacity',
-  'fill-opacity',
-  'fill-rule',
-  'font-size',
-  'font-family',
-  'font-weight',
-  'font-style',
-  'text-anchor',
-  'text-decoration',
-  'letter-spacing',
-  'color',
-];
+const SHAPE_TAGS = new Set(['rect', 'ellipse', 'circle', 'line', 'polygon', 'polyline', 'path']);
 
-function collectInheritedStyles(
-  el: Element,
-  inlineStyle: Record<string, string>,
-  classStyles: Record<string, string>,
-  parentInherited: Record<string, string>,
-): Record<string, string> {
-  const merged = { ...parentInherited };
-  for (const attr of INHERITABLE_ATTRS) {
-    const val = inlineStyle[attr] ?? classStyles[attr] ?? el.getAttribute(attr);
-    if (val) merged[attr] = val;
-  }
-  return merged;
-}
-
-function applyMatrixToNode(
-  node: InterchangeNode,
-  matrix: TransformMatrix,
-  parentOffsetX: number,
-  parentOffsetY: number,
-): void {
-  const decomposed = decomposeTransform(matrix);
-
-  node.x += parentOffsetX + decomposed.translateX;
-  node.y += parentOffsetY + decomposed.translateY;
-  node.rotation += decomposed.rotation;
-
-  const sx = Math.abs(decomposed.scaleX);
-  const sy = Math.abs(decomposed.scaleY);
-
-  if (sx !== 1 || sy !== 1) {
-    node.width *= sx;
-    node.height *= sy;
-
-    if (node.svgPathData) {
-      const commands = parseSvgPathData(node.svgPathData);
-      const scaled = scaleSvgPathData(commands, sx, sy);
-      node.svgPathData = translateSvgPathData(scaled, 0, 0);
-    }
-
-    if (
-      node.x1 !== undefined &&
-      node.y1 !== undefined &&
-      node.x2 !== undefined &&
-      node.y2 !== undefined
-    ) {
-      node.x1 *= sx;
-      node.y1 *= sy;
-      node.x2 *= sx;
-      node.y2 *= sy;
-    }
-
-    for (const stroke of node.strokes) {
-      stroke.width *= Math.max(sx, sy);
-    }
-  }
-}
+const SKIP_TAGS = new Set([
+  'defs',
+  'style',
+  'title',
+  'desc',
+  'metadata',
+  'clippath',
+  'filter',
+  'symbol',
+  'marker',
+]);
 
 function parseElement(
   el: Element,
   ctx: ParseContext,
-  parentTransformX = 0,
-  parentTransformY = 0,
+  parentTransform: TransformMatrix,
 ): InterchangeNode | null {
   const tagName = el.tagName.toLowerCase();
 
-  if (
-    [
-      'defs',
-      'style',
-      'title',
-      'desc',
-      'metadata',
-      'clippath',
-      'filter',
-      'symbol',
-      'marker',
-    ].includes(tagName)
-  ) {
-    return null;
-  }
+  if (SKIP_TAGS.has(tagName)) return null;
 
   const inlineStyle = parseCssInlineStyle(el.getAttribute('style'));
   const ownClassStyles = getClassStyles(el, ctx);
   const classStyles = { ...ctx.inheritedStyles, ...ownClassStyles };
 
-  if (isElementHidden(el, inlineStyle, classStyles)) {
-    return null;
-  }
+  if (isElementHidden(el, inlineStyle, classStyles)) return null;
 
-  const transform = parseTransform(el.getAttribute('transform'));
-  const decomposed = decomposeTransform(transform);
-  const tx = parentTransformX + decomposed.translateX;
-  const ty = parentTransformY + decomposed.translateY;
+  const elTransform = parseTransform(el.getAttribute('transform'));
+  const combinedTransform = multiplyMatrices(parentTransform, elTransform);
 
   const colorAttr = getEffectiveAttribute(el, 'color', 'color', inlineStyle, classStyles);
   const prevColor = ctx.currentColor;
@@ -1251,13 +1185,85 @@ function parseElement(
     if (resolved) ctx.currentColor = resolved;
   }
 
+  if (SHAPE_TAGS.has(tagName)) {
+    const node = parseShapeAsPath(el, ctx, combinedTransform);
+    if (node) {
+      const nameAttr = el.getAttribute('id') ?? el.getAttribute('data-name');
+      if (nameAttr) node.name = nameAttr;
+    }
+    ctx.currentColor = prevColor;
+    return node;
+  }
+
+  if (tagName === 'text') {
+    const node = parseTextElement(el, inlineStyle, classStyles, ctx, combinedTransform);
+    const nameAttr = el.getAttribute('id') ?? el.getAttribute('data-name');
+    if (nameAttr) node.name = nameAttr;
+    ctx.currentColor = prevColor;
+    return node;
+  }
+
+  if (tagName === 'image') {
+    const node = parseImageElement(el, inlineStyle, classStyles, ctx, combinedTransform);
+    ctx.currentColor = prevColor;
+    return node;
+  }
+
+  if (tagName === 'use') {
+    const href = resolveHref(el);
+    if (href.startsWith('#')) {
+      const refEl = (ctx.defs?.ownerDocument ?? el.ownerDocument).getElementById(href.slice(1));
+      if (refEl) {
+        const useX = parseLength(el.getAttribute('x'));
+        const useY = parseLength(el.getAttribute('y'));
+        const useTranslate: TransformMatrix = {
+          a: 1,
+          b: 0,
+          c: 0,
+          d: 1,
+          e: useX,
+          f: useY,
+        };
+        const useTransform = multiplyMatrices(combinedTransform, useTranslate);
+        const node = parseElement(refEl, ctx, useTransform);
+        if (node) {
+          const useWidth = el.getAttribute('width');
+          const useHeight = el.getAttribute('height');
+          if (useWidth) node.width = parseLength(useWidth, node.width);
+          if (useHeight) node.height = parseLength(useHeight, node.height);
+        }
+        ctx.currentColor = prevColor;
+        return node;
+      }
+    }
+    ctx.currentColor = prevColor;
+    return null;
+  }
+
+  if (tagName === 'foreignobject') {
+    const x = parseLength(el.getAttribute('x'));
+    const y = parseLength(el.getAttribute('y'));
+    const w = parseLength(el.getAttribute('width'), 100);
+    const h = parseLength(el.getAttribute('height'), 100);
+    const tx = combinedTransform.a * x + combinedTransform.c * y + combinedTransform.e;
+    const ty = combinedTransform.b * x + combinedTransform.d * y + combinedTransform.f;
+    ctx.currentColor = prevColor;
+    return createInterchangeNode('rectangle', {
+      x: tx,
+      y: ty,
+      width: w,
+      height: h,
+      fills: [{ color: '#E0E0E0', opacity: 0.5, visible: true }],
+    });
+  }
+
   if (tagName === 'g' || tagName === 'a' || tagName === 'svg') {
     const prevInherited = ctx.inheritedStyles;
     ctx.inheritedStyles = collectInheritedStyles(el, inlineStyle, classStyles, prevInherited);
 
     const children: InterchangeNode[] = [];
     for (const child of el.children) {
-      const parsed = parseElement(child, ctx, tx, ty);
+      const parsed = parseElement(child, ctx, combinedTransform);
       if (parsed) children.push(parsed);
     }
 
@@ -1298,129 +1304,33 @@ function parseElement(
     });
   }
 
-  let node: InterchangeNode | null = null;
-
-  switch (tagName) {
-    case 'rect':
-      node = parseRectElement(el, inlineStyle, classStyles, ctx);
-      break;
-    case 'ellipse':
-    case 'circle':
-      node = parseEllipseElement(el, inlineStyle, classStyles, ctx);
-      break;
-    case 'line':
-      node = parseLineElement(el, inlineStyle, classStyles, ctx);
-      break;
-    case 'polygon':
-      node = parsePolygonElement(el, inlineStyle, classStyles, ctx);
-      break;
-    case 'polyline':
-      node = parsePolylineElement(el, inlineStyle, classStyles, ctx);
-      break;
-    case 'path':
-      node = parsePathElement(el, inlineStyle, classStyles, ctx);
-      break;
-    case 'text':
-      node = parseTextElement(el, inlineStyle, classStyles, ctx);
-      break;
-    case 'image':
-      node = parseImageElement(el, inlineStyle, classStyles, ctx);
-      break;
-    case 'use': {
-      const href = resolveHref(el);
-      if (href.startsWith('#')) {
-        const refEl = (ctx.defs?.ownerDocument ?? el.ownerDocument).getElementById(href.slice(1));
-        if (refEl) {
-          node = parseElement(refEl, ctx, tx, ty);
-          if (node) {
-            node.x += parseLength(el.getAttribute('x'));
-            node.y += parseLength(el.getAttribute('y'));
-            const useWidth = el.getAttribute('width');
-            const useHeight = el.getAttribute('height');
-            if (useWidth) node.width = parseLength(useWidth, node.width);
-            if (useHeight) node.height = parseLength(useHeight, node.height);
-          }
-        }
-      }
-      break;
-    }
-    case 'foreignobject': {
-      const x = parseLength(el.getAttribute('x'));
-      const y = parseLength(el.getAttribute('y'));
-      const w = parseLength(el.getAttribute('width'), 100);
-      const h = parseLength(el.getAttribute('height'), 100);
-      node = createInterchangeNode('rectangle', {
-        x: x + tx,
-        y: y + ty,
-        width: w,
-        height: h,
-        fills: [{ color: '#E0E0E0', opacity: 0.5, visible: true }],
-      });
-      ctx.currentColor = prevColor;
-      return node;
-    }
-    default: {
-      const children: InterchangeNode[] = [];
-      for (const child of el.children) {
-        const parsed = parseElement(child, ctx, tx, ty);
-        if (parsed) children.push(parsed);
-      }
-      ctx.currentColor = prevColor;
-      if (children.length === 1) return children[0]!;
-      if (children.length > 1) {
-        let minX = Infinity;
-        let minY = Infinity;
-        let maxX = -Infinity;
-        let maxY = -Infinity;
-        for (const c of children) {
-          minX = Math.min(minX, c.x);
-          minY = Math.min(minY, c.y);
-          maxX = Math.max(maxX, c.x + c.width);
-          maxY = Math.max(maxY, c.y + c.height);
-        }
-        return createInterchangeNode('group', {
-          x: minX,
-          y: minY,
-          width: maxX - minX,
-          height: maxY - minY,
-          children,
-        });
-      }
-      return null;
-    }
+  const children: InterchangeNode[] = [];
+  for (const child of el.children) {
+    const parsed = parseElement(child, ctx, combinedTransform);
+    if (parsed) children.push(parsed);
   }
-
-  if (node) {
-    node.x += tx;
-    node.y += ty;
-    node.rotation += decomposed.rotation;
-
-    if (decomposed.scaleX !== 1 || decomposed.scaleY !== 1) {
-      const sx = Math.abs(decomposed.scaleX);
-      const sy = Math.abs(decomposed.scaleY);
-      node.width *= sx;
-      node.height *= sy;
-
-      if (decomposed.scaleX < 0) {
-        node.x -= node.width;
-      }
-      if (decomposed.scaleY < 0) {
-        node.y -= node.height;
-      }
-
-      if (node.svgPathData) {
-        const commands = parseSvgPathData(node.svgPathData);
-        const scaled = scaleSvgPathData(commands, sx, sy);
-        node.svgPathData = translateSvgPathData(scaled, 0, 0);
-      }
-    }
-
-    const nameAttr = el.getAttribute('id') ?? el.getAttribute('data-name');
-    if (nameAttr) node.name = nameAttr;
-  }
-
   ctx.currentColor = prevColor;
-  return node;
+  if (children.length === 1) return children[0]!;
+  if (children.length > 1) {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const c of children) {
+      minX = Math.min(minX, c.x);
+      minY = Math.min(minY, c.y);
+      maxX = Math.max(maxX, c.x + c.width);
+      maxY = Math.max(maxY, c.y + c.height);
+    }
+    return createInterchangeNode('group', {
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+      children,
+    });
+  }
+  return null;
 }
 
 function parseSvgDimensions(svgEl: Element): {
@@ -1510,36 +1420,30 @@ export function parseSvg(svgString: string): InterchangeDocument {
 
   const { width, height, minX, minY, vbWidth, vbHeight, hasViewBox } = parseSvgDimensions(svgEl);
 
-  let scaleX = 1;
-  let scaleY = 1;
+  let rootTransform = IDENTITY_MATRIX;
   if (hasViewBox && vbWidth > 0 && vbHeight > 0) {
-    scaleX = width / vbWidth;
-    scaleY = height / vbHeight;
+    const scaleX = width / vbWidth;
+    const scaleY = height / vbHeight;
+    rootTransform = {
+      a: scaleX,
+      b: 0,
+      c: 0,
+      d: scaleY,
+      e: -minX * scaleX,
+      f: -minY * scaleY,
+    };
+  } else if (minX !== 0 || minY !== 0) {
+    rootTransform = { a: 1, b: 0, c: 0, d: 1, e: -minX, f: -minY };
   }
-  ctx.viewBoxScale = { sx: scaleX, sy: scaleY };
 
   const children: InterchangeNode[] = [];
-
   for (const child of svgEl.children) {
-    const parsed = parseElement(child, ctx);
+    const parsed = parseElement(child, ctx, rootTransform);
     if (parsed) children.push(parsed);
   }
 
   if (children.length === 0) {
     return createInterchangeDocument([], { source: 'svg' });
-  }
-
-  if (minX !== 0 || minY !== 0) {
-    for (const child of children) {
-      child.x -= minX;
-      child.y -= minY;
-    }
-  }
-
-  if (scaleX !== 1 || scaleY !== 1) {
-    for (const child of children) {
-      scaleNode(child, scaleX, scaleY);
-    }
   }
 
   if (children.length === 1) {
@@ -1556,44 +1460,6 @@ export function parseSvg(svgString: string): InterchangeDocument {
   });
 
   return createInterchangeDocument([frame], { source: 'svg' });
-}
-
-function scaleNode(node: InterchangeNode, sx: number, sy: number): void {
-  node.x *= sx;
-  node.y *= sy;
-  node.width *= sx;
-  node.height *= sy;
-
-  if (node.svgPathData) {
-    const commands = parseSvgPathData(node.svgPathData);
-    const scaled = scaleSvgPathData(commands, sx, sy);
-    node.svgPathData = translateSvgPathData(scaled, 0, 0);
-  }
-
-  if (node.x1 !== undefined) node.x1 *= sx;
-  if (node.y1 !== undefined) node.y1 *= sy;
-  if (node.x2 !== undefined) node.x2 *= sx;
-  if (node.y2 !== undefined) node.y2 *= sy;
-
-  if (node.cornerRadius !== undefined) {
-    node.cornerRadius *= Math.min(sx, sy);
-  }
-  if (node.cornerRadiusTL !== undefined) node.cornerRadiusTL *= Math.min(sx, sy);
-  if (node.cornerRadiusTR !== undefined) node.cornerRadiusTR *= Math.min(sx, sy);
-  if (node.cornerRadiusBL !== undefined) node.cornerRadiusBL *= Math.min(sx, sy);
-  if (node.cornerRadiusBR !== undefined) node.cornerRadiusBR *= Math.min(sx, sy);
-
-  if (node.fontSize !== undefined) {
-    node.fontSize *= Math.min(sx, sy);
-  }
-
-  for (const stroke of node.strokes) {
-    stroke.width *= Math.max(sx, sy);
-  }
-
-  for (const child of node.children) {
-    scaleNode(child, sx, sy);
-  }
 }
 
 export function extractSvgFromHtml(html: string): string | null {
