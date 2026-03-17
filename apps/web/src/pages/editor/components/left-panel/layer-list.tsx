@@ -8,6 +8,8 @@ import {
   observeComponents,
 } from '@draftila/engine';
 import {
+  applyBooleanOperation,
+  canApplyBooleanOperation,
   groupShapes,
   getExpandedShapeIds,
   moveShapesInStack,
@@ -106,6 +108,11 @@ export function LayerList({
     [rows, instanceShapeIds],
   );
 
+  const canBoolean = useMemo(
+    () => canApplyBooleanOperation(ydoc, activeSelectionIds),
+    [ydoc, activeSelectionIds],
+  );
+
   const handleGroup = useCallback(() => {
     const groupId = groupShapes(ydoc, activeSelectionIds);
     if (groupId) setSelectedIds([groupId]);
@@ -137,6 +144,22 @@ export function LayerList({
       onCloseContextMenu();
     },
     [activeSelectionIds, setSelectedIds, ydoc, onCloseContextMenu],
+  );
+
+  const handleBooleanOperation = useCallback(
+    (operation: 'union' | 'subtract' | 'intersect' | 'exclude') => {
+      if (!canBoolean) {
+        onCloseContextMenu();
+        return;
+      }
+
+      const newId = applyBooleanOperation(ydoc, activeSelectionIds, operation);
+      if (newId) {
+        setSelectedIds([newId]);
+      }
+      onCloseContextMenu();
+    },
+    [canBoolean, ydoc, activeSelectionIds, setSelectedIds, onCloseContextMenu],
   );
 
   return (
@@ -171,6 +194,8 @@ export function LayerList({
           onGroup={handleGroup}
           onUngroup={handleUngroup}
           onCreateComponent={handleCreateComponent}
+          onBooleanOperation={handleBooleanOperation}
+          canBoolean={canBoolean}
           onStackMove={handleStackMove}
         />
       )}
