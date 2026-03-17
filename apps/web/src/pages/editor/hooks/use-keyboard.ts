@@ -5,6 +5,7 @@ import { undo, redo } from '@draftila/engine/history';
 import { copyShapes, pasteShapes, cutShapes, duplicateShapes } from '@draftila/engine/clipboard';
 import { handlePaste as handleExternalPaste } from '@draftila/engine/figma-clipboard';
 import { addImageFromFile } from '@draftila/engine/image-manager';
+import { getNodeTool } from '@draftila/engine/tools/tool-manager';
 import {
   deleteShapes,
   getAllShapes,
@@ -29,6 +30,7 @@ const TOOL_SHORTCUTS: Record<string, ToolType> = {
   y: 'polygon',
   s: 'star',
   a: 'arrow',
+  n: 'node',
 };
 
 interface UseKeyboardOptions {
@@ -71,6 +73,38 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
       const isMod = e.metaKey || e.ctrlKey;
       const key = e.key.toLowerCase();
       const code = e.code;
+      const { activeTool } = useEditorStore.getState();
+
+      if (activeTool === 'node' && (key === 'delete' || key === 'backspace' || key === 'escape')) {
+        e.preventDefault();
+        getNodeTool().onKeyDown(key === 'escape' ? 'Escape' : 'Delete', {
+          ydoc,
+          camera: useEditorStore.getState().camera,
+          shiftKey: e.shiftKey,
+          altKey: e.altKey,
+          metaKey: e.metaKey,
+          ctrlKey: e.ctrlKey,
+        });
+        return;
+      }
+
+      if (!isMod && key === 'enter') {
+        e.preventDefault();
+        const state = useEditorStore.getState();
+        if (state.activeTool === 'node') {
+          state.setActiveTool('move');
+          return;
+        }
+
+        if (state.selectedIds.length !== 1) return;
+        const selectedId = state.selectedIds[0];
+        if (!selectedId) return;
+        if (!getNodeTool().canEditShape(ydoc, selectedId)) return;
+
+        state.setActiveTool('node');
+        getNodeTool().enterPathEditingForShape(ydoc, selectedId);
+        return;
+      }
 
       if (!isMod && TOOL_SHORTCUTS[key]) {
         e.preventDefault();

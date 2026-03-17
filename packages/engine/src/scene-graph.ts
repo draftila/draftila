@@ -17,6 +17,7 @@ import {
   arrowToPath,
 } from './path-gen';
 import { getActivePageShapesMap, getActivePageZOrder, initPages } from './pages';
+import { DEFAULT_CONSTRAINTS, applyConstraints } from './constraints';
 
 const ID_SIZE = 21;
 const ID_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-';
@@ -736,6 +737,7 @@ export function updateShape(ydoc: Y.Doc, id: string, props: Partial<Shape>) {
   const shapes = getShapesMap(ydoc);
   const shapeData = shapes.get(id);
   if (!shapeData) return;
+  const beforeShape = ymapToObject(shapeData) as Shape;
 
   ydoc.transact(() => {
     for (const [key, value] of Object.entries(props)) {
@@ -761,6 +763,53 @@ export function updateShape(ydoc: Y.Doc, id: string, props: Partial<Shape>) {
       }
     }
   });
+
+  const resizedOrMoved =
+    typeof props.width === 'number' ||
+    typeof props.height === 'number' ||
+    typeof props.x === 'number' ||
+    typeof props.y === 'number';
+
+  if (beforeShape.type !== 'frame' || !resizedOrMoved) return;
+
+  const layoutMode = (beforeShape as Shape & { layoutMode?: string }).layoutMode ?? 'none';
+  if (layoutMode !== 'none') return;
+
+  const afterShape = getShape(ydoc, id);
+  if (!afterShape || afterShape.type !== 'frame') return;
+
+  const children = getChildShapes(ydoc, id);
+  for (const child of children) {
+    const withConstraints = child as Shape & {
+      constraintHorizontal?: 'left' | 'right' | 'left-right' | 'center' | 'scale';
+      constraintVertical?: 'top' | 'bottom' | 'top-bottom' | 'center' | 'scale';
+    };
+
+    const originalRelative = {
+      x: child.x - beforeShape.x,
+      y: child.y - beforeShape.y,
+      width: child.width,
+      height: child.height,
+    };
+
+    const constrained = applyConstraints(
+      originalRelative,
+      {
+        horizontal: withConstraints.constraintHorizontal ?? DEFAULT_CONSTRAINTS.horizontal,
+        vertical: withConstraints.constraintVertical ?? DEFAULT_CONSTRAINTS.vertical,
+      },
+      { width: beforeShape.width, height: beforeShape.height },
+      { width: afterShape.width, height: afterShape.height },
+      originalRelative,
+    );
+
+    updateShape(ydoc, child.id, {
+      x: afterShape.x + constrained.x,
+      y: afterShape.y + constrained.y,
+      width: constrained.width,
+      height: constrained.height,
+    });
+  }
 }
 
 export function deleteShape(ydoc: Y.Doc, id: string) {

@@ -3,7 +3,6 @@ import type * as Y from 'yjs';
 import type { Shape } from '@draftila/shared';
 import {
   getAllShapes,
-  getChildShapes,
   getExpandedShapeIds,
   getShape,
   observeShapes,
@@ -13,7 +12,6 @@ import {
 } from '@draftila/engine/scene-graph';
 import { getComponentById, getInstanceComponentId, observeComponents } from '@draftila/engine';
 import { isAutoLayoutFrame } from '@draftila/engine/auto-layout';
-import { DEFAULT_CONSTRAINTS, applyConstraints } from '@draftila/engine/constraints';
 import { useEditorStore } from '@/stores/editor-store';
 import { ExportSection } from './right-panel/sections/export-section';
 import { PreviewSection } from './right-panel/sections/preview-section';
@@ -22,56 +20,6 @@ import { ZoomControls } from './right-panel/zoom-controls';
 
 interface RightPanelProps {
   ydoc: Y.Doc;
-}
-
-type ConstraintHorizontal = 'left' | 'right' | 'left-right' | 'center' | 'scale';
-type ConstraintVertical = 'top' | 'bottom' | 'top-bottom' | 'center' | 'scale';
-
-interface ConstraintShapeData {
-  constraintHorizontal?: ConstraintHorizontal;
-  constraintVertical?: ConstraintVertical;
-}
-
-function applyChildConstraintsForFrameResize(
-  ydoc: Y.Doc,
-  frameBefore: Shape,
-  frameAfter: Shape,
-  update: (shapeId: string, props: Partial<Shape>) => void,
-) {
-  if (frameBefore.type !== 'frame' || frameAfter.type !== 'frame') return;
-  const frameLayoutMode = (frameBefore as Shape & { layoutMode?: string }).layoutMode ?? 'none';
-  if (frameLayoutMode !== 'none') return;
-
-  const children = getChildShapes(ydoc, frameBefore.id);
-  for (const child of children) {
-    const withConstraints = child as Shape & ConstraintShapeData;
-    const constraints = {
-      horizontal: withConstraints.constraintHorizontal ?? DEFAULT_CONSTRAINTS.horizontal,
-      vertical: withConstraints.constraintVertical ?? DEFAULT_CONSTRAINTS.vertical,
-    };
-
-    const childRelative = {
-      x: child.x - frameBefore.x,
-      y: child.y - frameBefore.y,
-      width: child.width,
-      height: child.height,
-    };
-
-    const next = applyConstraints(
-      childRelative,
-      constraints,
-      { width: frameBefore.width, height: frameBefore.height },
-      { width: frameAfter.width, height: frameAfter.height },
-      childRelative,
-    );
-
-    update(child.id, {
-      x: frameAfter.x + next.x,
-      y: frameAfter.y + next.y,
-      width: next.width,
-      height: next.height,
-    } as Partial<Shape>);
-  }
 }
 
 function filterEffectivelyVisibleShapes(shapes: Shape[]): Shape[] {
@@ -222,19 +170,7 @@ export function RightPanel({ ydoc }: RightPanelProps) {
     (props: Partial<Shape>) => {
       if (selectedIds.length !== 1) return;
       const shapeId = selectedIds[0]!;
-      const shapeBefore = getShape(ydoc, shapeId);
       updateShape(ydoc, shapeId, props);
-
-      const shapeAfter = getShape(ydoc, shapeId);
-      const widthChanged = typeof props.width === 'number';
-      const heightChanged = typeof props.height === 'number';
-      const resizedByPanel = widthChanged || heightChanged;
-
-      if (shapeBefore && shapeAfter && resizedByPanel) {
-        applyChildConstraintsForFrameResize(ydoc, shapeBefore, shapeAfter, (id, nextProps) => {
-          updateShape(ydoc, id, nextProps);
-        });
-      }
 
       requestAnimationFrame(() => {
         const updatedShape = getShape(ydoc, shapeId);

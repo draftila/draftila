@@ -6,7 +6,7 @@ import { getShape, resolveGroupTarget } from '@draftila/engine/scene-graph';
 import { hitTestPoint } from '@draftila/engine/hit-test';
 import { getAllShapes } from '@draftila/engine/scene-graph';
 import { SpatialIndex } from '@draftila/engine/spatial-index';
-import { setTextToolCallback } from '@draftila/engine/tools/tool-manager';
+import { getNodeTool, setTextToolCallback } from '@draftila/engine/tools/tool-manager';
 import { useCanvas, getCursorForTool } from '../hooks/use-canvas';
 import { useTool } from '../hooks/use-tool';
 import { useFileDrop } from '../hooks/use-file-drop';
@@ -132,6 +132,13 @@ export function Canvas({ ydoc, remoteUsers, onActiveInteraction }: CanvasProps) 
       if (targetShape.type === 'text') {
         state.setSelectedIds([targetShape.id]);
         state.setEditingTextId(targetShape.id);
+        return;
+      }
+
+      if (getNodeTool().canEditShape(ydoc, targetShape.id)) {
+        state.setSelectedIds([targetShape.id]);
+        state.setActiveTool('node');
+        getNodeTool().enterPathEditingForShape(ydoc, targetShape.id);
       }
     },
     [ydoc, canvasRef],

@@ -578,50 +578,10 @@ export class MoveTool extends BaseTool {
     }
 
     if (this.state.type === 'resizing' && this.resizePreview) {
-      const beforeResizeShapes = getAllShapes(ctx.ydoc);
-      const beforeById = new Map(beforeResizeShapes.map((shape) => [shape.id, shape]));
-      const resizedIds = new Set(this.resizePreview.keys());
-
-      for (const [id, bounds] of this.resizePreview) {
+      for (const id of this.state.initialData.keys()) {
+        const bounds = this.resizePreview.get(id);
+        if (!bounds) continue;
         updateShape(ctx.ydoc, id, bounds as Partial<Shape>);
-      }
-
-      for (const [id, bounds] of this.resizePreview) {
-        const oldParent = this.state.initialData.get(id);
-        const parentBefore = beforeById.get(id) as (Shape & ConstraintShapeData) | undefined;
-        if (!oldParent || !parentBefore) continue;
-        if (parentBefore.type !== 'frame') continue;
-        if ((parentBefore.layoutMode ?? 'none') !== 'none') continue;
-
-        const childrenBefore = beforeResizeShapes.filter((shape) => shape.parentId === id);
-        if (childrenBefore.length === 0) continue;
-
-        for (const child of childrenBefore) {
-          if (resizedIds.has(child.id)) continue;
-
-          const constraints = resolveShapeConstraints(child);
-          const childRelative = {
-            x: child.x - oldParent.x,
-            y: child.y - oldParent.y,
-            width: child.width,
-            height: child.height,
-          };
-
-          const constrained = applyConstraints(
-            childRelative,
-            constraints,
-            { width: oldParent.width, height: oldParent.height },
-            { width: bounds.width, height: bounds.height },
-            childRelative,
-          );
-
-          updateShape(ctx.ydoc, child.id, {
-            x: bounds.x + constrained.x,
-            y: bounds.y + constrained.y,
-            width: constrained.width,
-            height: constrained.height,
-          } as Partial<Shape>);
-        }
       }
 
       this.resetState();
