@@ -20,6 +20,13 @@ export interface DragTarget {
   nodeIndex: number;
 }
 
+export interface MidpointHandle {
+  subpathIndex: number;
+  afterNodeIndex: number;
+  x: number;
+  y: number;
+}
+
 type NodeToolState =
   | { type: 'idle' }
   | {
@@ -32,6 +39,7 @@ type NodeToolState =
 
 const NODE_HIT_RADIUS = 8;
 const HANDLE_HIT_RADIUS = 6;
+const MIDPOINT_HIT_RADIUS = 6;
 
 export class NodeTool extends BaseTool {
   readonly name = 'node';
@@ -44,20 +52,15 @@ export class NodeTool extends BaseTool {
   selectedNodes: SelectedNode[] = [];
 
   onActivate(): void {
-    const store = getToolStore();
-    const selectedIds = store.selectedIds;
-    if (selectedIds.length === 1) {
-      this.enterPathEditing(selectedIds[0]!);
-    }
+    this.state = { type: 'idle' };
   }
 
   onDeactivate(): void {
     this.exitPathEditing();
   }
 
-  private enterPathEditing(shapeId: string): boolean {
-    const store = getToolStore();
-    const shape = getShape(store.camera as unknown as import('yjs').Doc, shapeId);
+  private enterPathEditing(ydoc: import('yjs').Doc, shapeId: string): boolean {
+    const shape = getShape(ydoc, shapeId);
     if (!shape) return false;
 
     const svgPath = this.getShapeSvgPath(shape);
@@ -67,6 +70,16 @@ export class NodeTool extends BaseTool {
     this.cachedSubpaths = svgPathToVectorNodes(svgPath);
     this.selectedNodes = [];
     return true;
+  }
+
+  enterPathEditingForShape(ydoc: import('yjs').Doc, shapeId: string): boolean {
+    return this.enterPathEditing(ydoc, shapeId);
+  }
+
+  canEditShape(ydoc: import('yjs').Doc, shapeId: string): boolean {
+    const shape = getShape(ydoc, shapeId);
+    if (!shape) return false;
+    return Boolean(this.getShapeSvgPath(shape));
   }
 
   private exitPathEditing() {
@@ -95,6 +108,45 @@ export class NodeTool extends BaseTool {
     return this.cachedSubpaths;
   }
 
+  getPreviewPathData(): string | null {
+    return vectorNodesToSvgPath(this.cachedSubpaths);
+  }
+
+  getMidpointHandles(): MidpointHandle[] {
+    const handles: MidpointHandle[] = [];
+    for (let subpathIndex = 0; subpathIndex < this.cachedSubpaths.length; subpathIndex++) {
+      const subpath = this.cachedSubpaths[subpathIndex];
+      if (!subpath || subpath.nodes.length < 2) continue;
+
+      for (let nodeIndex = 0; nodeIndex < subpath.nodes.length - 1; nodeIndex++) {
+        const a = subpath.nodes[nodeIndex];
+        const b = subpath.nodes[nodeIndex + 1];
+        if (!a || !b) continue;
+        handles.push({
+          subpathIndex,
+          afterNodeIndex: nodeIndex,
+          x: (a.x + b.x) / 2,
+          y: (a.y + b.y) / 2,
+        });
+      }
+
+      if (subpath.closed) {
+        const lastIndex = subpath.nodes.length - 1;
+        const a = subpath.nodes[lastIndex];
+        const b = subpath.nodes[0];
+        if (a && b) {
+          handles.push({
+            subpathIndex,
+            afterNodeIndex: lastIndex,
+            x: (a.x + b.x) / 2,
+            y: (a.y + b.y) / 2,
+          });
+        }
+      }
+    }
+    return handles;
+  }
+
   getEditingShape(ctx: ToolContext): Shape | null {
     if (!this.editingShapeId) return null;
     const shapes = getAllShapes(ctx.ydoc);
@@ -105,7 +157,7 @@ export class NodeTool extends BaseTool {
     if (!this.editingShapeId) {
       const store = getToolStore();
       if (store.selectedIds.length === 1) {
-        const entered = this.enterPathEditing(store.selectedIds[0]!);
+        const entered = this.enterPathEditing(ctx.ydoc, store.selectedIds[0]!);
         if (!entered) {
           store.setActiveTool('move');
           return;
@@ -152,6 +204,33 @@ export class NodeTool extends BaseTool {
         initialNode: { ...node },
       };
 
+      return { cursor: 'grabbing' };
+    }
+
+    const midpointHit = this.hitTestMidpoints(localX, localY, zoom);
+    if (midpointHit) {
+      this.cachedSubpaths = addNodeToSubpath(
+        this.cachedSubpaths,
+        midpointHit.subpathIndex,
+        midpointHit.afterNodeIndex,
+        { x: midpointHit.x, y: midpointHit.y },
+      );
+
+      const newNodeIndex = midpointHit.afterNodeIndex + 1;
+      const inserted = this.cachedSubpaths[midpointHit.subpathIndex]?.nodes[newNodeIndex];
+      if (!inserted) return;
+
+      this.selectedNodes = [{ subpathIndex: midpointHit.subpathIndex, nodeIndex: newNodeIndex }];
+      this.state = {
+        type: 'dragging',
+        target: {
+          type: 'anchor',
+          subpathIndex: midpointHit.subpathIndex,
+          nodeIndex: newNodeIndex,
+        },
+        startCanvas: { x: ctx.canvasPoint.x, y: ctx.canvasPoint.y },
+        initialNode: { ...inserted },
+      };
       return { cursor: 'grabbing' };
     }
 
@@ -300,6 +379,21 @@ export class NodeTool extends BaseTool {
         if (Math.sqrt(dx * dx + dy * dy) <= nodeRadius) {
           return { type: 'anchor', subpathIndex: si, nodeIndex: ni };
         }
+      }
+    }
+
+    return null;
+  }
+
+  private hitTestMidpoints(localX: number, localY: number, zoom: number): MidpointHandle | null {
+    const radius = MIDPOINT_HIT_RADIUS / zoom;
+    const handles = this.getMidpointHandles();
+
+    for (const handle of handles) {
+      const dx = localX - handle.x;
+      const dy = localY - handle.y;
+      if (Math.sqrt(dx * dx + dy * dy) <= radius) {
+        return handle;
       }
     }
 

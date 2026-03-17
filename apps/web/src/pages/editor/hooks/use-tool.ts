@@ -166,6 +166,14 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
   );
 
   useEffect(() => {
+    const unsubscribe = useEditorStore.subscribe((state, prev) => {
+      if (state.activeTool === prev.activeTool) return;
+      const prevTool = getTool(prev.activeTool);
+      const nextTool = getTool(state.activeTool);
+      prevTool.onDeactivate();
+      nextTool.onActivate();
+    });
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (useEditorStore.getState().editingTextId) return;
@@ -191,6 +199,7 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     return () => {
+      unsubscribe();
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };

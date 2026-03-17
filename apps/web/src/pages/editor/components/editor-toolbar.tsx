@@ -11,6 +11,7 @@ import {
   Hexagon,
   Star,
   MoveRight,
+  Waypoints,
 } from 'lucide-react';
 import { Toggle } from '@/components/ui/toggle';
 import { Separator } from '@/components/ui/separator';
@@ -91,6 +92,12 @@ export function EditorToolbar() {
       <Separator orientation="vertical" className="mx-1 h-full" />
       <ToolButton tool="text" icon={<Type className="h-4 w-4" />} label="Text" shortcut="T" />
       <ToolButton tool="pen" icon={<Pen className="h-4 w-4" />} label="Pen" shortcut="P" />
+      <ToolButton
+        tool="node"
+        icon={<Waypoints className="h-4 w-4" />}
+        label="Node Edit"
+        shortcut="Enter"
+      />
     </div>
   );
 }

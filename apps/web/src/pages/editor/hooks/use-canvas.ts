@@ -16,6 +16,7 @@ import {
   getEllipseTool,
   getFrameTool,
   getPenTool,
+  getNodeTool,
   getLineTool,
   getArrowTool,
   getPolygonTool,
@@ -112,6 +113,9 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
     renderer.applyCamera(camera);
 
     const moveTool = getMoveTool();
+    const nodeTool = getNodeTool();
+    const nodeEditingShapeId = activeTool === 'node' ? nodeTool.getEditingShapeId() : null;
+    const nodePreviewPathData = activeTool === 'node' ? nodeTool.getPreviewPathData() : null;
     const dragPositions = moveTool.getDragPositions();
     const dragEndpointOffset = moveTool.getDragEndpointOffsets();
     const resizePreview = moveTool.getResizePreview();
@@ -207,6 +211,13 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
         displayShape = applyDragToShape(shape);
       } else if (rotationPreview?.has(shape.id)) {
         displayShape = applyRotationToShape(shape);
+      }
+
+      if (nodeEditingShapeId && nodePreviewPathData && shape.id === nodeEditingShapeId) {
+        displayShape = {
+          ...displayShape,
+          svgPathData: nodePreviewPathData,
+        } as Shape;
       }
 
       renderShape(renderer, displayShape);
@@ -310,6 +321,56 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
           bounds.rotation,
           camera.zoom,
         );
+      }
+    }
+
+    if (activeTool === 'node') {
+      const editingShapeId = nodeTool.getEditingShapeId();
+      const editingShape = editingShapeId ? shapeMap.get(editingShapeId) : null;
+      if (editingShape) {
+        const subpaths = nodeTool.getSubpaths();
+        const midpointHandles = nodeTool.getMidpointHandles();
+        const selectedNodes = nodeTool.selectedNodes;
+        const selectedNodeSet = new Set(
+          selectedNodes.map((n) => `${n.subpathIndex}:${n.nodeIndex}`),
+        );
+
+        for (const midpoint of midpointHandles) {
+          renderer.drawBezierHandle(
+            editingShape.x + midpoint.x,
+            editingShape.y + midpoint.y,
+            camera.zoom,
+          );
+        }
+
+        for (let subpathIndex = 0; subpathIndex < subpaths.length; subpathIndex++) {
+          const subpath = subpaths[subpathIndex];
+          if (!subpath) continue;
+          for (let nodeIndex = 0; nodeIndex < subpath.nodes.length; nodeIndex++) {
+            const node = subpath.nodes[nodeIndex];
+            if (!node) continue;
+
+            const anchorX = editingShape.x + node.x;
+            const anchorY = editingShape.y + node.y;
+
+            const handleInX = anchorX + node.handleInX;
+            const handleInY = anchorY + node.handleInY;
+            if (node.handleInX !== 0 || node.handleInY !== 0) {
+              renderer.drawControlLine(anchorX, anchorY, handleInX, handleInY, camera.zoom);
+              renderer.drawBezierHandle(handleInX, handleInY, camera.zoom);
+            }
+
+            const handleOutX = anchorX + node.handleOutX;
+            const handleOutY = anchorY + node.handleOutY;
+            if (node.handleOutX !== 0 || node.handleOutY !== 0) {
+              renderer.drawControlLine(anchorX, anchorY, handleOutX, handleOutY, camera.zoom);
+              renderer.drawBezierHandle(handleOutX, handleOutY, camera.zoom);
+            }
+
+            const isSelected = selectedNodeSet.has(`${subpathIndex}:${nodeIndex}`);
+            renderer.drawPathNode(anchorX, anchorY, camera.zoom, isSelected);
+          }
+        }
       }
     }
 
@@ -511,6 +572,7 @@ export function getCursorForTool(tool: string, isPanning: boolean): string {
     case 'ellipse':
     case 'frame':
     case 'pen':
+    case 'node':
     case 'line':
     case 'polygon':
     case 'star':
