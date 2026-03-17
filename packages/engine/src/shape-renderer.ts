@@ -282,3 +282,19 @@ export function renderSelectionForShape(renderer: Renderer, shape: Shape) {
   }
   renderer.drawSelectionBox(shape.x, shape.y, shape.width, shape.height, shape.rotation);
 }
+
+export function renderHoverForShape(renderer: Renderer, shape: Shape) {
+  if (shape.type === 'line' || shape.type === 'arrow') {
+    const s = shape as Shape & { x1: number; y1: number; x2: number; y2: number };
+    renderer.drawPath(
+      [
+        [s.x1, s.y1],
+        [s.x2, s.y2],
+      ],
+      simpleStyle({ fill: null, stroke: '#0D99FF', strokeWidth: 2, opacity: 1 }),
+      false,
+    );
+    return;
+  }
+  renderer.drawHoverOutline(shape.x, shape.y, shape.width, shape.height, shape.rotation);
+}

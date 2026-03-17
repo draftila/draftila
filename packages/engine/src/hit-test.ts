@@ -1,4 +1,4 @@
-import type { Shape } from '@draftila/shared';
+import type { Shape, PathShape } from '@draftila/shared';
 import type { SpatialIndex } from './spatial-index';
 import { generatePolygonPoints, generateStarPoints } from './shape-renderer';
 
@@ -6,6 +6,17 @@ const LINE_HIT_TOLERANCE = 8;
 const FRAME_BORDER_TOLERANCE = 6;
 const FRAME_LABEL_FONT_SIZE = 11;
 const FRAME_LABEL_OFFSET_Y = 4;
+
+let _hitCtx: CanvasRenderingContext2D | null = null;
+function getHitTestContext(): CanvasRenderingContext2D | null {
+  if (_hitCtx) return _hitCtx;
+  if (typeof OffscreenCanvas !== 'undefined') {
+    _hitCtx = new OffscreenCanvas(1, 1).getContext('2d') as CanvasRenderingContext2D | null;
+  } else if (typeof document !== 'undefined') {
+    _hitCtx = document.createElement('canvas').getContext('2d');
+  }
+  return _hitCtx;
+}
 
 function rotatePointAroundCenter(
   px: number,
@@ -97,12 +108,53 @@ function distanceToLineSegment(
   return Math.sqrt((px - projX) ** 2 + (py - projY) ** 2);
 }
 
+function pointNearSvgPath(px: number, py: number, shape: PathShape, tolerance: number): boolean {
+  const ctx = getHitTestContext();
+  if (!ctx) return pointInRect(px, py, shape);
+
+  let testX = px;
+  let testY = py;
+  if (shape.rotation !== 0) {
+    const cx = shape.x + shape.width / 2;
+    const cy = shape.y + shape.height / 2;
+    const rotated = rotatePointAroundCenter(px, py, cx, cy, shape.rotation);
+    testX = rotated.x;
+    testY = rotated.y;
+  }
+
+  const path = new Path2D(shape.svgPathData);
+  const localX = testX - shape.x;
+  const localY = testY - shape.y;
+
+  const hasFill = (shape.fills ?? []).some((f) => f.visible && f.opacity > 0);
+  if (hasFill && ctx.isPointInPath(path, localX, localY)) return true;
+
+  const hasStroke = (shape.strokes ?? []).some((s) => s.visible && s.width > 0);
+  if (hasStroke) {
+    const strokeWidth = shape.strokes.find((s) => s.visible && s.width > 0)?.width ?? 1;
+    ctx.lineWidth = strokeWidth + tolerance * 2;
+    if (ctx.isPointInStroke(path, localX, localY)) return true;
+  }
+
+  if (!hasFill && !hasStroke) {
+    ctx.lineWidth = tolerance * 2;
+    if (ctx.isPointInStroke(path, localX, localY)) return true;
+  }
+
+  return false;
+}
+
 function pointNearPath(
   px: number,
   py: number,
   shape: Shape & { points: Array<{ x: number; y: number }> },
   tolerance: number,
 ): boolean {
+  const pathShape = shape as PathShape;
+  if (pathShape.svgPathData) {
+    return pointNearSvgPath(px, py, pathShape, tolerance);
+  }
+
   if (shape.points.length < 2) return false;
 
   for (let i = 0; i < shape.points.length - 1; i++) {

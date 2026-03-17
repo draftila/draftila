@@ -384,22 +384,63 @@ export interface PathCommand {
   values: number[];
 }
 
+const NUM_REGEX = /[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/g;
+
+function tokenizeNumbers(str: string): number[] {
+  const result: number[] = [];
+  let m: RegExpExecArray | null;
+  NUM_REGEX.lastIndex = 0;
+  while ((m = NUM_REGEX.exec(str)) !== null) {
+    result.push(Number(m[0]));
+  }
+  return result;
+}
+
+const PARAM_COUNTS: Record<string, number> = {
+  M: 2,
+  m: 2,
+  L: 2,
+  l: 2,
+  H: 1,
+  h: 1,
+  V: 1,
+  v: 1,
+  C: 6,
+  c: 6,
+  S: 4,
+  s: 4,
+  Q: 4,
+  q: 4,
+  T: 2,
+  t: 2,
+  A: 7,
+  a: 7,
+  Z: 0,
+  z: 0,
+};
+
+const IMPLICIT_COMMAND: Record<string, string> = { M: 'L', m: 'l' };
+
 export function parseSvgPathData(d: string): PathCommand[] {
   const commands: PathCommand[] = [];
-  const regex = /([MmLlHhVvCcSsQqTtAaZz])([\s\S]*?)(?=[MmLlHhVvCcSsQqTtAaZz]|$)/g;
+  const cmdRegex = /([MmLlHhVvCcSsQqTtAaZz])([\s\S]*?)(?=[MmLlHhVvCcSsQqTtAaZz]|$)/g;
   let match: RegExpExecArray | null;
 
-  while ((match = regex.exec(d)) !== null) {
+  while ((match = cmdRegex.exec(d)) !== null) {
     const type = match[1]!;
     const valStr = match[2]!.trim();
-    const values =
-      valStr.length > 0
-        ? valStr
-            .split(/[\s,]+/)
-            .map(Number)
-            .filter((n) => !isNaN(n))
-        : [];
-    commands.push({ type, values });
+    const values = valStr.length > 0 ? tokenizeNumbers(valStr) : [];
+    const paramCount = PARAM_COUNTS[type] ?? 0;
+
+    if (paramCount === 0 || values.length <= paramCount) {
+      commands.push({ type, values });
+    } else {
+      commands.push({ type, values: values.slice(0, paramCount) });
+      const implicitType = IMPLICIT_COMMAND[type] ?? type;
+      for (let i = paramCount; i < values.length; i += paramCount) {
+        commands.push({ type: implicitType, values: values.slice(i, i + paramCount) });
+      }
+    }
   }
 
   return commands;
@@ -553,4 +594,195 @@ export function pathCommandsToBounds(commands: PathCommand[]): {
 
   if (!isFinite(minX)) return { x: 0, y: 0, width: 0, height: 0 };
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
+export function translateSvgPathData(commands: PathCommand[], dx: number, dy: number): string {
+  const parts: string[] = [];
+  for (const cmd of commands) {
+    const { type, values } = cmd;
+    switch (type) {
+      case 'M':
+      case 'L':
+      case 'T': {
+        const translated: number[] = [];
+        for (let i = 0; i < values.length; i += 2) {
+          translated.push(values[i]! + dx, values[i + 1]! + dy);
+        }
+        parts.push(type + translated.join(' '));
+        break;
+      }
+      case 'H': {
+        const translated = values.map((v) => v + dx);
+        parts.push(type + translated.join(' '));
+        break;
+      }
+      case 'V': {
+        const translated = values.map((v) => v + dy);
+        parts.push(type + translated.join(' '));
+        break;
+      }
+      case 'C': {
+        const translated: number[] = [];
+        for (let i = 0; i < values.length; i += 6) {
+          translated.push(
+            values[i]! + dx,
+            values[i + 1]! + dy,
+            values[i + 2]! + dx,
+            values[i + 3]! + dy,
+            values[i + 4]! + dx,
+            values[i + 5]! + dy,
+          );
+        }
+        parts.push(type + translated.join(' '));
+        break;
+      }
+      case 'S':
+      case 'Q': {
+        const translated: number[] = [];
+        for (let i = 0; i < values.length; i += 4) {
+          translated.push(
+            values[i]! + dx,
+            values[i + 1]! + dy,
+            values[i + 2]! + dx,
+            values[i + 3]! + dy,
+          );
+        }
+        parts.push(type + translated.join(' '));
+        break;
+      }
+      case 'A': {
+        const translated: number[] = [];
+        for (let i = 0; i < values.length; i += 7) {
+          translated.push(
+            values[i]!,
+            values[i + 1]!,
+            values[i + 2]!,
+            values[i + 3]!,
+            values[i + 4]!,
+            values[i + 5]! + dx,
+            values[i + 6]! + dy,
+          );
+        }
+        parts.push(type + translated.join(' '));
+        break;
+      }
+      case 'm':
+      case 'l':
+      case 't':
+      case 'h':
+      case 'v':
+      case 'c':
+      case 's':
+      case 'q':
+      case 'a':
+        parts.push(type + values.join(' '));
+        break;
+      case 'Z':
+      case 'z':
+        parts.push(type);
+        break;
+      default:
+        parts.push(type + values.join(' '));
+        break;
+    }
+  }
+  return parts.join('');
+}
+
+export function scaleSvgPathData(commands: PathCommand[], sx: number, sy: number): PathCommand[] {
+  return commands.map((cmd) => {
+    const { type, values } = cmd;
+    switch (type) {
+      case 'M':
+      case 'L':
+      case 'T': {
+        const scaled: number[] = [];
+        for (let i = 0; i < values.length; i += 2) {
+          scaled.push(values[i]! * sx, values[i + 1]! * sy);
+        }
+        return { type, values: scaled };
+      }
+      case 'm':
+      case 'l':
+      case 't': {
+        const scaled: number[] = [];
+        for (let i = 0; i < values.length; i += 2) {
+          scaled.push(values[i]! * sx, values[i + 1]! * sy);
+        }
+        return { type, values: scaled };
+      }
+      case 'H':
+        return { type, values: values.map((v) => v * sx) };
+      case 'h':
+        return { type, values: values.map((v) => v * sx) };
+      case 'V':
+        return { type, values: values.map((v) => v * sy) };
+      case 'v':
+        return { type, values: values.map((v) => v * sy) };
+      case 'C': {
+        const scaled: number[] = [];
+        for (let i = 0; i < values.length; i += 6) {
+          scaled.push(
+            values[i]! * sx,
+            values[i + 1]! * sy,
+            values[i + 2]! * sx,
+            values[i + 3]! * sy,
+            values[i + 4]! * sx,
+            values[i + 5]! * sy,
+          );
+        }
+        return { type, values: scaled };
+      }
+      case 'c': {
+        const scaled: number[] = [];
+        for (let i = 0; i < values.length; i += 6) {
+          scaled.push(
+            values[i]! * sx,
+            values[i + 1]! * sy,
+            values[i + 2]! * sx,
+            values[i + 3]! * sy,
+            values[i + 4]! * sx,
+            values[i + 5]! * sy,
+          );
+        }
+        return { type, values: scaled };
+      }
+      case 'S':
+      case 'Q':
+      case 's':
+      case 'q': {
+        const scaled: number[] = [];
+        for (let i = 0; i < values.length; i += 4) {
+          scaled.push(
+            values[i]! * sx,
+            values[i + 1]! * sy,
+            values[i + 2]! * sx,
+            values[i + 3]! * sy,
+          );
+        }
+        return { type, values: scaled };
+      }
+      case 'A':
+      case 'a': {
+        const scaled: number[] = [];
+        for (let i = 0; i < values.length; i += 7) {
+          scaled.push(
+            values[i]! * sx,
+            values[i + 1]! * sy,
+            values[i + 2]!,
+            values[i + 3]!,
+            values[i + 4]!,
+            values[i + 5]! * sx,
+            values[i + 6]! * sy,
+          );
+        }
+        return { type, values: scaled };
+      }
+      case 'Z':
+      case 'z':
+        return cmd;
+      default:
+        return cmd;
+    }
+  });
 }

@@ -115,6 +115,8 @@ export interface Renderer {
 
   drawSelectionBox(x: number, y: number, width: number, height: number, rotation?: number): void;
 
+  drawHoverOutline(x: number, y: number, width: number, height: number, rotation?: number): void;
+
   drawMarquee(x: number, y: number, width: number, height: number): void;
 
   drawHandle(x: number, y: number, zoom: number): void;

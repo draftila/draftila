@@ -237,6 +237,14 @@ function buildShapeGeometry(
       return { tag: 'polygon', attrs: `points="${pts.join(' ')}"`, selfClose: true };
     }
 
+    case 'path': {
+      if (node.svgPathData) {
+        const translateAttr = ox !== 0 || oy !== 0 ? ` transform="translate(${ox},${oy})"` : '';
+        return { tag: 'path', attrs: `d="${node.svgPathData}"${translateAttr}`, selfClose: true };
+      }
+      return null;
+    }
+
     default:
       return null;
   }
@@ -342,7 +350,8 @@ function nodeToSvg(
     case 'rectangle':
     case 'ellipse':
     case 'polygon':
-    case 'star': {
+    case 'star':
+    case 'path': {
       content = renderFillsAndStrokes(node, ox, oy, rctx);
       if (innerShadowAttr) {
         content = `<g ${innerShadowAttr}>${content}</g>`;

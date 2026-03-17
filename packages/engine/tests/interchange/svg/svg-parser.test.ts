@@ -63,13 +63,13 @@ describe('SVG Parser', () => {
       expect(doc.nodes[0]!.y2).toBe(120);
     });
 
-    test('parses a polygon', () => {
+    test('parses a polygon as path', () => {
       const svg =
         '<svg xmlns="http://www.w3.org/2000/svg"><polygon points="50,0 100,100 0,100" fill="#D9D9D9"/></svg>';
       const doc = parseSvg(svg);
       expect(doc.nodes).toHaveLength(1);
-      expect(doc.nodes[0]!.type).toBe('polygon');
-      expect(doc.nodes[0]!.sides).toBe(3);
+      expect(doc.nodes[0]!.type).toBe('path');
+      expect(doc.nodes[0]!.svgPathData).toBe('M50 0L100 100L0 100Z');
     });
 
     test('parses a text element', () => {
@@ -88,7 +88,13 @@ describe('SVG Parser', () => {
         '<svg xmlns="http://www.w3.org/2000/svg"><path d="M 10 10 L 100 10 L 100 100 Z" fill="#000"/></svg>';
       const doc = parseSvg(svg);
       expect(doc.nodes).toHaveLength(1);
-      expect(doc.nodes[0]!.svgPathData).toBe('M 10 10 L 100 10 L 100 100 Z');
+      expect(doc.nodes[0]!.type).toBe('path');
+      expect(doc.nodes[0]!.name).toBe('Vector');
+      expect(doc.nodes[0]!.svgPathData).toBe('M0 0L90 0L90 90Z');
+      expect(doc.nodes[0]!.x).toBe(10);
+      expect(doc.nodes[0]!.y).toBe(10);
+      expect(doc.nodes[0]!.width).toBe(90);
+      expect(doc.nodes[0]!.height).toBe(90);
     });
 
     test('parses a group element with children', () => {
@@ -171,14 +177,21 @@ describe('SVG Parser', () => {
       expect(doc.nodes).toHaveLength(0);
     });
 
-    test('parses multiple top-level elements', () => {
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg">
+    test('wraps multiple top-level elements in a frame', () => {
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100">
         <rect x="0" y="0" width="50" height="50" fill="#FF0000"/>
         <ellipse cx="100" cy="25" rx="25" ry="25" fill="#00FF00"/>
         <text x="150" y="30" fill="#000">Hi</text>
       </svg>`;
       const doc = parseSvg(svg);
-      expect(doc.nodes).toHaveLength(3);
+      expect(doc.nodes).toHaveLength(1);
+      expect(doc.nodes[0]!.type).toBe('frame');
+      expect(doc.nodes[0]!.width).toBe(200);
+      expect(doc.nodes[0]!.height).toBe(100);
+      expect(doc.nodes[0]!.children).toHaveLength(3);
+      expect(doc.nodes[0]!.children[0]!.type).toBe('rectangle');
+      expect(doc.nodes[0]!.children[1]!.type).toBe('ellipse');
+      expect(doc.nodes[0]!.children[2]!.type).toBe('text');
     });
 
     test('parses text with font-weight bold', () => {
@@ -195,12 +208,13 @@ describe('SVG Parser', () => {
       expect(doc.nodes[0]!.textAlign).toBe('center');
     });
 
-    test('parses polyline as line', () => {
+    test('parses polyline as path', () => {
       const svg =
         '<svg xmlns="http://www.w3.org/2000/svg"><polyline points="10,20 110,120" stroke="#000" stroke-width="2"/></svg>';
       const doc = parseSvg(svg);
       expect(doc.nodes).toHaveLength(1);
-      expect(doc.nodes[0]!.type).toBe('line');
+      expect(doc.nodes[0]!.type).toBe('path');
+      expect(doc.nodes[0]!.svgPathData).toBe('M0 0L100 100');
     });
   });
 
