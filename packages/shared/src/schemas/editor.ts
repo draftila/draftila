@@ -165,6 +165,14 @@ export const layoutJustifySchema = z.enum([
   'space_around',
 ]);
 export const sizingModeSchema = z.enum(['fixed', 'hug', 'fill']);
+export const horizontalConstraintSchema = z.enum([
+  'left',
+  'right',
+  'left-right',
+  'center',
+  'scale',
+]);
+export const verticalConstraintSchema = z.enum(['top', 'bottom', 'top-bottom', 'center', 'scale']);
 
 export const baseShapeSchema = z.object({
   id: z.string(),
@@ -182,6 +190,8 @@ export const baseShapeSchema = z.object({
   blendMode: z.string().default('normal'),
   layoutSizingHorizontal: sizingModeSchema.default('fixed'),
   layoutSizingVertical: sizingModeSchema.default('fixed'),
+  constraintHorizontal: horizontalConstraintSchema.default('left'),
+  constraintVertical: verticalConstraintSchema.default('top'),
 });
 
 export const rectangleShapeSchema = baseShapeSchema.extend({
