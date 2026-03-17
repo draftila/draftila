@@ -499,6 +499,42 @@ export async function findShapes(draftId: string, options: FindShapesOptions) {
   });
 }
 
+function getDescendants(
+  rootId: string,
+  allShapes: Shape[],
+  shapesById: Map<string, Shape>,
+): Shape[] {
+  const resultShapes: Shape[] = [];
+  const rootShape = shapesById.get(rootId);
+  if (rootShape) resultShapes.push(rootShape);
+  for (const shape of allShapes) {
+    if (shape.id === rootId) continue;
+    let cursor = shape.parentId;
+    while (cursor) {
+      if (cursor === rootId) {
+        resultShapes.push(shape);
+        break;
+      }
+      cursor = shapesById.get(cursor)?.parentId ?? null;
+    }
+  }
+  return resultShapes;
+}
+
+function collectTargetShapes(
+  parentIds: string[],
+  allShapes: Shape[],
+  shapesById: Map<string, Shape>,
+): Map<string, Shape> {
+  const targetShapes = new Map<string, Shape>();
+  for (const pid of parentIds) {
+    for (const shape of getDescendants(pid, allShapes, shapesById)) {
+      targetShapes.set(shape.id, shape);
+    }
+  }
+  return targetShapes;
+}
+
 interface LayoutNode {
   id: string;
   name: string;
@@ -655,31 +691,7 @@ export async function searchProperties(
   return withDraftDoc(draftId, false, (ydoc) => {
     const allShapes = getAllShapes(ydoc);
     const shapesById = new Map(allShapes.map((s) => [s.id, s]));
-
-    function getDescendants(rootId: string): Shape[] {
-      const resultShapes: Shape[] = [];
-      const rootShape = shapesById.get(rootId);
-      if (rootShape) resultShapes.push(rootShape);
-      for (const shape of allShapes) {
-        if (shape.id === rootId) continue;
-        let cursor = shape.parentId;
-        while (cursor) {
-          if (cursor === rootId) {
-            resultShapes.push(shape);
-            break;
-          }
-          cursor = shapesById.get(cursor)?.parentId ?? null;
-        }
-      }
-      return resultShapes;
-    }
-
-    const targetShapes = new Map<string, Shape>();
-    for (const pid of parentIds) {
-      for (const shape of getDescendants(pid)) {
-        targetShapes.set(shape.id, shape);
-      }
-    }
+    const targetShapes = collectTargetShapes(parentIds, allShapes, shapesById);
 
     const propResult: Record<string, unknown[]> = {};
 
@@ -764,31 +776,7 @@ export async function replaceProperties(
   return withDraftDoc(draftId, true, (ydoc) => {
     const allShapes = getAllShapes(ydoc);
     const shapesById = new Map(allShapes.map((s) => [s.id, s]));
-
-    function getDescendants(rootId: string): Shape[] {
-      const resultShapes: Shape[] = [];
-      const rootShape = shapesById.get(rootId);
-      if (rootShape) resultShapes.push(rootShape);
-      for (const shape of allShapes) {
-        if (shape.id === rootId) continue;
-        let cursor = shape.parentId;
-        while (cursor) {
-          if (cursor === rootId) {
-            resultShapes.push(shape);
-            break;
-          }
-          cursor = shapesById.get(cursor)?.parentId ?? null;
-        }
-      }
-      return resultShapes;
-    }
-
-    const targetShapes = new Map<string, Shape>();
-    for (const pid of parentIds) {
-      for (const shape of getDescendants(pid)) {
-        targetShapes.set(shape.id, shape);
-      }
-    }
+    const targetShapes = collectTargetShapes(parentIds, allShapes, shapesById);
 
     let totalReplacements = 0;
     const shapes = getShapesMap(ydoc);
