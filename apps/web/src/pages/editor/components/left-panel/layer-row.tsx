@@ -17,6 +17,12 @@ interface LayerRowProps {
   onDragOver: (row: LayerRowData, e: React.DragEvent<HTMLButtonElement>) => void;
   onDrop: (row: LayerRowData, e: React.DragEvent<HTMLButtonElement>) => void;
   onDragEnd: () => void;
+  isRenaming: boolean;
+  renameValue: string;
+  onStartRename: (id: string) => void;
+  onRenameValueChange: (value: string) => void;
+  onCommitRename: () => void;
+  onCancelRename: () => void;
 }
 
 export const LayerRow = memo(function LayerRow({
@@ -33,6 +39,12 @@ export const LayerRow = memo(function LayerRow({
   onDragOver,
   onDrop,
   onDragEnd,
+  isRenaming,
+  renameValue,
+  onStartRename,
+  onRenameValueChange,
+  onCommitRename,
+  onCancelRename,
 }: LayerRowProps) {
   const isDropTarget = dragState?.overId === row.shape.id;
   const isDropBefore = isDropTarget && dragState?.placement === 'before';
@@ -49,7 +61,7 @@ export const LayerRow = memo(function LayerRow({
         isDropAfter ? 'border-primary border-b-2' : ''
       }`}
       style={{ paddingLeft: 8 + row.depth * 14 }}
-      draggable
+      draggable={!isRenaming}
       onDragStart={(e) => onDragStart(row.shape.id, e)}
       onDragOver={(e) => onDragOver(row, e)}
       onDrop={(e) => onDrop(row, e)}
@@ -75,7 +87,37 @@ export const LayerRow = memo(function LayerRow({
       <span className="text-muted-foreground shrink-0">
         {isComponentInstance ? INSTANCE_ICON : SHAPE_ICONS[row.shape.type]}
       </span>
-      <span className="min-w-0 flex-1 truncate">{row.shape.name}</span>
+      {isRenaming ? (
+        <input
+          autoFocus
+          value={renameValue}
+          onChange={(e) => onRenameValueChange(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => e.stopPropagation()}
+          onBlur={onCommitRename}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              onCommitRename();
+            }
+            if (e.key === 'Escape') {
+              e.preventDefault();
+              onCancelRename();
+            }
+          }}
+          className="bg-background border-input h-5 min-w-0 flex-1 rounded border px-1 text-xs outline-none"
+        />
+      ) : (
+        <span
+          className="min-w-0 flex-1 truncate"
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            onStartRename(row.shape.id);
+          }}
+        >
+          {row.shape.name}
+        </span>
+      )}
       <span
         className="text-muted-foreground shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
         onClick={(e) => {
