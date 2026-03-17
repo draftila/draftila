@@ -38,8 +38,16 @@ function formatTextResult(value: unknown) {
 }
 
 function formatImageResult(base64: string, mimeType: string) {
+  const dataUrl = `data:${mimeType};base64,${base64}`;
   return {
     content: [{ type: 'image', data: base64, mimeType }],
+    structuredContent: {
+      image: {
+        data: base64,
+        mimeType,
+        dataUrl,
+      },
+    },
     isError: false,
   };
 }
@@ -56,10 +64,18 @@ export async function callTool(
   params: { name?: string; arguments?: unknown },
 ) {
   const toolName = params.name;
-  const args = (params.arguments ?? {}) as Record<string, unknown>;
   if (!toolName) {
     throw new McpInvalidToolCallError();
   }
+
+  const rawArgs = params.arguments;
+  if (
+    rawArgs !== undefined &&
+    (!rawArgs || typeof rawArgs !== 'object' || Array.isArray(rawArgs))
+  ) {
+    throw new McpInvalidToolCallError();
+  }
+  const args = (rawArgs ?? {}) as Record<string, unknown>;
 
   const toolDef = toolsByName.get(toolName);
   if (!toolDef) {
@@ -70,6 +86,13 @@ export async function callTool(
     throw new McpForbiddenError();
   }
 
-  const result = await toolDef.handler(auth, args);
-  return formatResult(result);
+  try {
+    const result = await toolDef.handler(auth, args);
+    return formatResult(result);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Invalid tool arguments') {
+      throw new McpInvalidToolCallError();
+    }
+    throw error;
+  }
 }

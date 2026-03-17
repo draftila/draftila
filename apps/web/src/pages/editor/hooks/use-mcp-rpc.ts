@@ -3,6 +3,7 @@ import type * as Y from 'yjs';
 import type { WebsocketProvider } from 'y-websocket';
 import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
+import { mcpRpcRequestSchema } from '@draftila/shared';
 import { handleMcpTool } from '../mcp-tools';
 
 const MESSAGE_RPC = 2;
@@ -11,8 +12,7 @@ export function useMcpRpc(ydoc: Y.Doc, provider: WebsocketProvider | null) {
   useEffect(() => {
     if (!provider) return;
 
-    const ws = provider.ws;
-    if (!ws) return;
+    let attachedSocket: WebSocket | null = null;
 
     const onMessage = async (event: MessageEvent) => {
       if (!(event.data instanceof ArrayBuffer)) return;
@@ -23,14 +23,19 @@ export function useMcpRpc(ydoc: Y.Doc, provider: WebsocketProvider | null) {
       if (messageType !== MESSAGE_RPC) return;
 
       const payload = decoding.readVarString(decoder);
-      let request: { id: string; tool: string; args: Record<string, unknown> };
+      let parsedPayload: unknown;
       try {
-        request = JSON.parse(payload) as typeof request;
+        parsedPayload = JSON.parse(payload);
       } catch {
         return;
       }
 
-      if (!request.id || !request.tool) return;
+      const parsedRequest = mcpRpcRequestSchema.safeParse(parsedPayload);
+      if (!parsedRequest.success) {
+        return;
+      }
+
+      const request = parsedRequest.data;
 
       let response: { id: string; result?: unknown; error?: string };
       try {
@@ -54,10 +59,22 @@ export function useMcpRpc(ydoc: Y.Doc, provider: WebsocketProvider | null) {
       }
     };
 
-    const attachListener = () => {
-      if (provider.ws) {
-        provider.ws.addEventListener('message', onMessage);
+    const detachListener = () => {
+      if (!attachedSocket) {
+        return;
       }
+      attachedSocket.removeEventListener('message', onMessage);
+      attachedSocket = null;
+    };
+
+    const attachListener = () => {
+      const nextSocket = provider.ws;
+      if (!nextSocket || nextSocket === attachedSocket) {
+        return;
+      }
+      detachListener();
+      nextSocket.addEventListener('message', onMessage);
+      attachedSocket = nextSocket;
     };
 
     attachListener();
@@ -71,9 +88,7 @@ export function useMcpRpc(ydoc: Y.Doc, provider: WebsocketProvider | null) {
 
     return () => {
       provider.off('status', onStatus);
-      if (provider.ws) {
-        provider.ws.removeEventListener('message', onMessage);
-      }
+      detachListener();
     };
   }, [ydoc, provider]);
 }

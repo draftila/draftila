@@ -194,7 +194,7 @@ const SHAPE_DEFAULTS: Record<ShapeType, Omit<Record<string, unknown>, 'id' | 'ty
     fontWeight: 400,
     fontStyle: 'normal',
     textAlign: 'left',
-    verticalAlign: 'top',
+    verticalAlign: 'middle',
     lineHeight: 1.2,
     letterSpacing: 0,
     textDecoration: 'none',

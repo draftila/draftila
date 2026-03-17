@@ -74,6 +74,39 @@ export function ensureFontsLoaded(families: string[]): void {
   }
 }
 
+export async function ensureFontsLoadedAsync(families: string[]): Promise<void> {
+  const toLoad: string[] = [];
+
+  for (const family of families) {
+    if (BUILTIN_FONTS.has(family)) continue;
+    if (loadedFonts.has(family)) continue;
+    if (!pendingFonts.has(family)) {
+      toLoad.push(family);
+      pendingFonts.add(family);
+    }
+  }
+
+  if (toLoad.length > 0) {
+    await loadGoogleFonts(toLoad);
+  }
+
+  const stillPending = families.filter((f) => pendingFonts.has(f));
+  if (stillPending.length > 0) {
+    await new Promise<void>((resolve) => {
+      const check = () => {
+        if (stillPending.every((f) => !pendingFonts.has(f))) {
+          fontLoadCallbacks.delete(check);
+          resolve();
+        }
+      };
+      fontLoadCallbacks.add(check);
+      check();
+    });
+  }
+
+  await document.fonts.ready;
+}
+
 export function onFontsLoaded(callback: () => void): () => void {
   fontLoadCallbacks.add(callback);
   return () => {

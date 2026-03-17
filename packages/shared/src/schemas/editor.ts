@@ -236,7 +236,7 @@ export const textShapeSchema = baseShapeSchema.extend({
   fontWeight: z.number().default(400),
   fontStyle: z.enum(['normal', 'italic']).default('normal'),
   textAlign: z.enum(['left', 'center', 'right']).default('left'),
-  verticalAlign: z.enum(['top', 'middle', 'bottom']).default('top'),
+  verticalAlign: z.enum(['top', 'middle', 'bottom']).default('middle'),
   lineHeight: z.number().min(0).default(1.2),
   letterSpacing: z.number().default(0),
   textDecoration: z.enum(['none', 'underline', 'strikethrough']).default('none'),

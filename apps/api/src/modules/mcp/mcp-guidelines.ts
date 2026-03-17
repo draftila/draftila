@@ -181,6 +181,44 @@ const guidelines: Record<string, Record<string, unknown>> = {
       'Ensure sufficient contrast for all text against its background.',
     ],
   },
+  slides: {
+    topic: 'slides',
+    format: {
+      aspectRatio: '16:9 at 1920x1080px.',
+      margins: 'Keep content at least 100px from all edges.',
+      density: 'One idea per slide. Slides are visual aids, not documents.',
+    },
+    typography: {
+      titles: 'Slide titles: 80-200px, bold. Titles state the takeaway.',
+      body: 'Body text: 36-80px. Short phrases, not sentences. No paragraphs.',
+      minimum: 'Minimum font size: 28px. Never shrink fonts to fit - split the slide instead.',
+      weights: 'Use weight contrast, not many sizes. Max 2 font families.',
+      lineHeight: 'Line-height: 1.1-1.2 for slide text.',
+    },
+    color: {
+      palette: '2-3 core colors plus neutrals. High contrast text/background mandatory.',
+      accent: 'Accent colors only for emphasis. Body text should be neutral.',
+      accessibility: 'Colorblind-safe palettes preferred.',
+    },
+    layouts: {
+      cover:
+        'Centered title (80-200px) + subtitle (36-48px). Emotional statement, not informational.',
+      sectionBreak: 'Label (28px, muted) + title (48-56px). Maximum whitespace.',
+      conceptVisual: '50/50 two-column: text on one side, visual on the other. Gap >= 40px.',
+      kpis: 'Single KPI: number (120-200px) is hero, label (28px) is muted. 2-3 KPIs in equal columns.',
+      list: 'Title (80px) + 3-5 items (28px). No wrapping, large gaps.',
+      comparison: 'Two equal columns with heading (48-64px) + 2-4 bullet points (24px).',
+      closing: 'Headline (48-56px) + sub (28px). Clean, final impression.',
+    },
+    bestPractices: [
+      'One message per slide. If content overflows, split into multiple slides.',
+      'Consistency > creativity. Reduce cognitive load across the deck.',
+      'Use generous whitespace. Apply CRAP: Contrast, Repetition, Alignment, Proximity.',
+      'Charts > text for data. One insight per chart. Simplify and highlight key datapoints.',
+      'Opening and closing slides should be emotional statements, not informational.',
+      'Text-only slides: let typography be the visual. Bold sizes, asymmetric layouts work well.',
+    ],
+  },
   layout: {
     topic: 'layout',
     principles: {
