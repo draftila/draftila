@@ -10,10 +10,12 @@ import { z } from 'zod';
 import {
   getAllShapes,
   getShape,
+  getShapesMap,
   addShape,
   updateShape,
   deleteShapes,
   moveShapesInStack,
+  moveShapesByDrop,
   groupShapes,
   ungroupShapes,
 } from '@draftila/engine/scene-graph';
@@ -102,9 +104,42 @@ function summarizeShape(shape: Shape): Record<string, unknown> {
   return base;
 }
 
-registerTool('canvas.snapshot', (ydoc) => {
-  const shapes = getAllShapes(ydoc);
-  return { shapeCount: shapes.length, shapes: shapes.map(summarizeShape) };
+registerTool('canvas.snapshot', (ydoc, args) => {
+  const parentId = typeof args.parentId === 'string' ? args.parentId : null;
+  const maxDepth = typeof args.maxDepth === 'number' ? args.maxDepth : Infinity;
+
+  const allShapes = getAllShapes(ydoc);
+
+  let filtered: Shape[];
+  if (parentId) {
+    const shapesById = new Map(allShapes.map((s) => [s.id, s]));
+    filtered = allShapes.filter((shape) => {
+      if (shape.id === parentId) return true;
+      let cursor = shape.parentId;
+      let depth = 0;
+      while (cursor) {
+        depth++;
+        if (cursor === parentId) return depth <= maxDepth;
+        cursor = shapesById.get(cursor)?.parentId ?? null;
+      }
+      return false;
+    });
+  } else if (maxDepth !== Infinity) {
+    const shapesById = new Map(allShapes.map((s) => [s.id, s]));
+    filtered = allShapes.filter((shape) => {
+      let depth = 0;
+      let cursor = shape.parentId;
+      while (cursor) {
+        depth++;
+        cursor = shapesById.get(cursor)?.parentId ?? null;
+      }
+      return depth <= maxDepth;
+    });
+  } else {
+    filtered = allShapes;
+  }
+
+  return { shapeCount: filtered.length, shapes: filtered.map(summarizeShape) };
 });
 
 registerTool('canvas.find_shapes', (ydoc, args) => {
@@ -758,4 +793,557 @@ registerTool('canvas.screenshot', async (ydoc, args) => {
   );
 
   return { data: base64, mimeType: 'image/png' };
+});
+
+interface LayoutNode {
+  id: string;
+  name: string;
+  type: string;
+  bounds: { x: number; y: number; width: number; height: number };
+  problems?: string[];
+  children?: LayoutNode[];
+}
+
+function getAbsoluteBounds(shape: Shape, shapesById: Map<string, Shape>) {
+  let absX = shape.x;
+  let absY = shape.y;
+  let cursor = shape.parentId;
+  while (cursor) {
+    const parent = shapesById.get(cursor);
+    if (!parent) break;
+    absX += parent.x;
+    absY += parent.y;
+    cursor = parent.parentId;
+  }
+  return { x: absX, y: absY, width: shape.width, height: shape.height };
+}
+
+function detectProblems(
+  shape: Shape,
+  siblings: Shape[],
+  parentShape: Shape | null,
+  shapesById: Map<string, Shape>,
+): string[] {
+  const problems: string[] = [];
+  const bounds = getAbsoluteBounds(shape, shapesById);
+
+  if (parentShape) {
+    const parentBounds = getAbsoluteBounds(parentShape, shapesById);
+    const parentTyped = parentShape as Shape & { clip?: boolean };
+    const isClipping = parentTyped.type === 'frame' && parentTyped.clip !== false;
+    if (isClipping) {
+      if (
+        shape.x < 0 ||
+        shape.y < 0 ||
+        shape.x + shape.width > parentShape.width ||
+        shape.y + shape.height > parentShape.height
+      ) {
+        problems.push('clipped_by_parent');
+      }
+    }
+  }
+
+  for (const sibling of siblings) {
+    if (sibling.id === shape.id) continue;
+    const sibBounds = { x: sibling.x, y: sibling.y, width: sibling.width, height: sibling.height };
+    if (
+      shape.x < sibling.x + sibling.width &&
+      shape.x + shape.width > sibling.x &&
+      shape.y < sibling.y + sibling.height &&
+      shape.y + shape.height > sibling.y
+    ) {
+      problems.push(`overlaps_with:${sibling.id}`);
+    }
+  }
+
+  return problems;
+}
+
+registerTool('canvas.get_layout', (ydoc, args) => {
+  const parentId = typeof args.parentId === 'string' ? args.parentId : null;
+  const maxDepth = typeof args.maxDepth === 'number' ? args.maxDepth : 1;
+  const problemsOnly = args.problemsOnly === true;
+
+  const allShapes = getAllShapes(ydoc);
+  const shapesById = new Map(allShapes.map((s) => [s.id, s]));
+  const childrenByParent = new Map<string | null, Shape[]>();
+  for (const shape of allShapes) {
+    const pid = shape.parentId ?? null;
+    if (!childrenByParent.has(pid)) childrenByParent.set(pid, []);
+    childrenByParent.get(pid)!.push(shape);
+  }
+
+  function buildLayoutNode(shape: Shape, depth: number): LayoutNode | null {
+    const parentShape = shape.parentId ? (shapesById.get(shape.parentId) ?? null) : null;
+    const siblings = childrenByParent.get(shape.parentId ?? null) ?? [];
+    const problems = detectProblems(shape, siblings, parentShape, shapesById);
+
+    const node: LayoutNode = {
+      id: shape.id,
+      name: shape.name,
+      type: shape.type,
+      bounds: { x: shape.x, y: shape.y, width: shape.width, height: shape.height },
+    };
+
+    if (problems.length > 0) node.problems = problems;
+
+    if (depth < maxDepth) {
+      const children = childrenByParent.get(shape.id) ?? [];
+      if (children.length > 0) {
+        const childNodes: LayoutNode[] = [];
+        for (const child of children) {
+          const childNode = buildLayoutNode(child, depth + 1);
+          if (childNode) childNodes.push(childNode);
+        }
+        if (childNodes.length > 0) node.children = childNodes;
+      }
+    }
+
+    if (problemsOnly && !node.problems?.length && !node.children?.some((c) => c.problems?.length)) {
+      return null;
+    }
+
+    return node;
+  }
+
+  const rootShapes = childrenByParent.get(parentId) ?? [];
+  const layoutNodes: LayoutNode[] = [];
+  for (const shape of rootShapes) {
+    const node = buildLayoutNode(shape, 0);
+    if (node) layoutNodes.push(node);
+  }
+
+  return { nodes: layoutNodes };
+});
+
+registerTool('canvas.move_to_parent', (ydoc, args) => {
+  const parsed = z
+    .object({
+      draftId: z.string(),
+      ids: z.array(z.string()).min(1).max(100),
+      parentId: z.string().nullable(),
+      index: z.number().int().min(0).optional(),
+    })
+    .safeParse(args);
+
+  if (!parsed.success) {
+    throw new Error('Invalid tool arguments');
+  }
+
+  const { ids, parentId } = parsed.data;
+  const allShapes = getAllShapes(ydoc);
+  const shapesById = new Map(allShapes.map((s) => [s.id, s]));
+
+  if (parentId) {
+    const parentShape = shapesById.get(parentId);
+    if (!parentShape) throw new Error('Parent shape not found');
+    if (parentShape.type !== 'frame' && parentShape.type !== 'group') {
+      throw new Error('Parent must be a frame or group');
+    }
+  }
+
+  const validIds = ids.filter((id) => shapesById.get(id));
+  if (validIds.length === 0) throw new Error('No valid shapes found');
+
+  for (const id of validIds) {
+    let cursor = parentId;
+    while (cursor) {
+      if (cursor === id) throw new Error('Cannot move a shape into its own descendant');
+      cursor = shapesById.get(cursor)?.parentId ?? null;
+    }
+  }
+
+  if (parentId) {
+    moveShapesByDrop(ydoc, validIds, parentId, 'inside');
+  } else {
+    const shapes = getShapesMap(ydoc);
+    ydoc.transact(() => {
+      for (const id of validIds) {
+        const shapeData = shapes.get(id);
+        if (shapeData) {
+          shapeData.set('parentId', null);
+        }
+      }
+    });
+  }
+
+  return { moved: validIds.length, parentId };
+});
+
+registerTool('canvas.replace_properties', (ydoc, args) => {
+  const parentIds = Array.isArray(args.parentIds) ? (args.parentIds as string[]) : [];
+  const replacements = (args.replacements ?? {}) as Record<
+    string,
+    Array<{ from: unknown; to: unknown }>
+  >;
+
+  if (parentIds.length === 0) throw new Error('Invalid tool arguments: parentIds required');
+
+  const allShapes = getAllShapes(ydoc);
+  const shapesById = new Map(allShapes.map((s) => [s.id, s]));
+
+  function getDescendants(rootId: string): Shape[] {
+    const result: Shape[] = [];
+    const rootShape = shapesById.get(rootId);
+    if (rootShape) result.push(rootShape);
+    for (const shape of allShapes) {
+      if (shape.id === rootId) continue;
+      let cursor = shape.parentId;
+      while (cursor) {
+        if (cursor === rootId) {
+          result.push(shape);
+          break;
+        }
+        cursor = shapesById.get(cursor)?.parentId ?? null;
+      }
+    }
+    return result;
+  }
+
+  const targetShapes = new Map<string, Shape>();
+  for (const pid of parentIds) {
+    for (const shape of getDescendants(pid)) {
+      targetShapes.set(shape.id, shape);
+    }
+  }
+
+  let totalReplacements = 0;
+  const shapes = getShapesMap(ydoc);
+
+  ydoc.transact(() => {
+    for (const shape of targetShapes.values()) {
+      const shapeData = shapes.get(shape.id);
+      if (!shapeData) continue;
+      const typed = shape as Record<string, unknown>;
+
+      if (replacements.fillColor) {
+        const fills = typed.fills as Array<{ color: string }> | undefined;
+        if (fills) {
+          const yFills = shapeData.get('fills') as
+            | import('yjs').Array<import('yjs').Map<unknown>>
+            | undefined;
+          if (yFills) {
+            for (let i = 0; i < yFills.length; i++) {
+              const yFill = yFills.get(i);
+              const currentColor = yFill.get('color') as string;
+              for (const { from, to } of replacements.fillColor) {
+                if (currentColor?.toLowerCase() === (from as string).toLowerCase()) {
+                  yFill.set('color', to as string);
+                  totalReplacements++;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (replacements.textColor && shape.type === 'text') {
+        const yFills = shapeData.get('fills') as
+          | import('yjs').Array<import('yjs').Map<unknown>>
+          | undefined;
+        if (yFills) {
+          for (let i = 0; i < yFills.length; i++) {
+            const yFill = yFills.get(i);
+            const currentColor = yFill.get('color') as string;
+            for (const { from, to } of replacements.textColor) {
+              if (currentColor?.toLowerCase() === (from as string).toLowerCase()) {
+                yFill.set('color', to as string);
+                totalReplacements++;
+              }
+            }
+          }
+        }
+      }
+
+      if (replacements.strokeColor) {
+        const yStrokes = shapeData.get('strokes') as
+          | import('yjs').Array<import('yjs').Map<unknown>>
+          | undefined;
+        if (yStrokes) {
+          for (let i = 0; i < yStrokes.length; i++) {
+            const yStroke = yStrokes.get(i);
+            const currentColor = yStroke.get('color') as string;
+            for (const { from, to } of replacements.strokeColor) {
+              if (currentColor?.toLowerCase() === (from as string).toLowerCase()) {
+                yStroke.set('color', to as string);
+                totalReplacements++;
+              }
+            }
+          }
+        }
+      }
+
+      if (replacements.strokeWidth) {
+        const yStrokes = shapeData.get('strokes') as
+          | import('yjs').Array<import('yjs').Map<unknown>>
+          | undefined;
+        if (yStrokes) {
+          for (let i = 0; i < yStrokes.length; i++) {
+            const yStroke = yStrokes.get(i);
+            const currentWidth = yStroke.get('width') as number;
+            for (const { from, to } of replacements.strokeWidth) {
+              if (currentWidth === (from as number)) {
+                yStroke.set('width', to as number);
+                totalReplacements++;
+              }
+            }
+          }
+        }
+      }
+
+      if (replacements.fontFamily && shape.type === 'text') {
+        const currentFamily = typed.fontFamily as string;
+        for (const { from, to } of replacements.fontFamily) {
+          if (currentFamily?.toLowerCase() === (from as string).toLowerCase()) {
+            shapeData.set('fontFamily', to as string);
+            totalReplacements++;
+          }
+        }
+      }
+
+      if (replacements.fontSize && shape.type === 'text') {
+        const currentSize = typed.fontSize as number;
+        for (const { from, to } of replacements.fontSize) {
+          if (currentSize === (from as number)) {
+            shapeData.set('fontSize', to as number);
+            totalReplacements++;
+          }
+        }
+      }
+
+      if (replacements.fontWeight && shape.type === 'text') {
+        const currentWeight = typed.fontWeight as number;
+        for (const { from, to } of replacements.fontWeight) {
+          if (currentWeight === (from as number)) {
+            shapeData.set('fontWeight', to as number);
+            totalReplacements++;
+          }
+        }
+      }
+
+      if (replacements.cornerRadius) {
+        const currentRadius = typed.cornerRadius as number | undefined;
+        if (currentRadius !== undefined) {
+          for (const { from, to } of replacements.cornerRadius) {
+            if (currentRadius === (from as number)) {
+              shapeData.set('cornerRadius', to as number);
+              totalReplacements++;
+            }
+          }
+        }
+      }
+    }
+  });
+
+  return { totalReplacements, shapesChecked: targetShapes.size };
+});
+
+registerTool('canvas.search_properties', (ydoc, args) => {
+  const parentIds = Array.isArray(args.parentIds) ? (args.parentIds as string[]) : [];
+  const searchProps = Array.isArray(args.properties) ? (args.properties as string[]) : [];
+
+  if (parentIds.length === 0 || searchProps.length === 0) {
+    throw new Error('Invalid tool arguments');
+  }
+
+  const allShapes = getAllShapes(ydoc);
+  const shapesById = new Map(allShapes.map((s) => [s.id, s]));
+
+  function getDescendants(rootId: string): Shape[] {
+    const result: Shape[] = [];
+    const rootShape = shapesById.get(rootId);
+    if (rootShape) result.push(rootShape);
+    for (const shape of allShapes) {
+      if (shape.id === rootId) continue;
+      let cursor = shape.parentId;
+      while (cursor) {
+        if (cursor === rootId) {
+          result.push(shape);
+          break;
+        }
+        cursor = shapesById.get(cursor)?.parentId ?? null;
+      }
+    }
+    return result;
+  }
+
+  const targetShapes = new Map<string, Shape>();
+  for (const pid of parentIds) {
+    for (const shape of getDescendants(pid)) {
+      targetShapes.set(shape.id, shape);
+    }
+  }
+
+  const result: Record<string, unknown[]> = {};
+
+  for (const prop of searchProps) {
+    const values = new Set<string>();
+
+    for (const shape of targetShapes.values()) {
+      const typed = shape as Record<string, unknown>;
+
+      if (prop === 'fillColor') {
+        const fills = typed.fills as Array<{ color: string }> | undefined;
+        if (fills) {
+          for (const fill of fills) {
+            if (fill.color) values.add(fill.color.toLowerCase());
+          }
+        }
+      }
+
+      if (prop === 'textColor' && shape.type === 'text') {
+        const fills = typed.fills as Array<{ color: string }> | undefined;
+        if (fills) {
+          for (const fill of fills) {
+            if (fill.color) values.add(fill.color.toLowerCase());
+          }
+        }
+      }
+
+      if (prop === 'strokeColor') {
+        const strokes = typed.strokes as Array<{ color: string }> | undefined;
+        if (strokes) {
+          for (const stroke of strokes) {
+            if (stroke.color) values.add(stroke.color.toLowerCase());
+          }
+        }
+      }
+
+      if (prop === 'fontFamily' && shape.type === 'text') {
+        const family = typed.fontFamily as string | undefined;
+        if (family) values.add(family);
+      }
+
+      if (prop === 'fontSize' && shape.type === 'text') {
+        const size = typed.fontSize as number | undefined;
+        if (size !== undefined) values.add(String(size));
+      }
+
+      if (prop === 'fontWeight' && shape.type === 'text') {
+        const weight = typed.fontWeight as number | undefined;
+        if (weight !== undefined) values.add(String(weight));
+      }
+
+      if (prop === 'cornerRadius') {
+        const radius = typed.cornerRadius as number | undefined;
+        if (radius !== undefined && radius > 0) values.add(String(radius));
+      }
+
+      if (prop === 'strokeWidth') {
+        const strokes = typed.strokes as Array<{ width: number }> | undefined;
+        if (strokes) {
+          for (const stroke of strokes) {
+            if (stroke.width !== undefined) values.add(String(stroke.width));
+          }
+        }
+      }
+    }
+
+    const numericProps = new Set(['fontSize', 'fontWeight', 'cornerRadius', 'strokeWidth']);
+    result[prop] = numericProps.has(prop)
+      ? [...values].map(Number).sort((a, b) => a - b)
+      : [...values].sort();
+  }
+
+  return { properties: result, shapesSearched: targetShapes.size };
+});
+
+registerTool('canvas.find_empty_space', (ydoc, args) => {
+  const width = typeof args.width === 'number' ? args.width : 100;
+  const height = typeof args.height === 'number' ? args.height : 100;
+  const direction = typeof args.direction === 'string' ? args.direction : 'right';
+  const padding = typeof args.padding === 'number' ? args.padding : 100;
+  const nearShapeId = typeof args.nearShapeId === 'string' ? args.nearShapeId : null;
+
+  const allShapes = getAllShapes(ydoc);
+
+  if (allShapes.length === 0) {
+    return { x: 0, y: 0, width, height };
+  }
+
+  const shapesById = new Map(allShapes.map((s) => [s.id, s]));
+
+  let refBounds: { x: number; y: number; width: number; height: number };
+
+  if (nearShapeId) {
+    const nearShape = shapesById.get(nearShapeId);
+    if (!nearShape) throw new Error('Shape not found');
+    refBounds = getAbsoluteBounds(nearShape, shapesById);
+  } else {
+    const rootShapes = allShapes.filter((s) => !s.parentId);
+    if (rootShapes.length === 0) {
+      return { x: 0, y: 0, width, height };
+    }
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    for (const s of rootShapes) {
+      minX = Math.min(minX, s.x);
+      minY = Math.min(minY, s.y);
+      maxX = Math.max(maxX, s.x + s.width);
+      maxY = Math.max(maxY, s.y + s.height);
+    }
+    refBounds = { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+  }
+
+  let candidateX: number;
+  let candidateY: number;
+
+  if (direction === 'right') {
+    candidateX = refBounds.x + refBounds.width + padding;
+    candidateY = refBounds.y;
+  } else if (direction === 'bottom') {
+    candidateX = refBounds.x;
+    candidateY = refBounds.y + refBounds.height + padding;
+  } else if (direction === 'left') {
+    candidateX = refBounds.x - width - padding;
+    candidateY = refBounds.y;
+  } else {
+    candidateX = refBounds.x;
+    candidateY = refBounds.y - height - padding;
+  }
+
+  return { x: Math.round(candidateX), y: Math.round(candidateY), width, height };
+});
+
+registerTool('canvas.get_layer_tree', (ydoc, args) => {
+  const maxDepth = typeof args.maxDepth === 'number' ? args.maxDepth : Infinity;
+
+  const allShapes = getAllShapes(ydoc);
+  const childrenByParent = new Map<string | null, Shape[]>();
+  for (const shape of allShapes) {
+    const pid = shape.parentId ?? null;
+    if (!childrenByParent.has(pid)) childrenByParent.set(pid, []);
+    childrenByParent.get(pid)!.push(shape);
+  }
+
+  interface TreeNode {
+    id: string;
+    name: string;
+    type: string;
+    children?: TreeNode[];
+  }
+
+  function buildNode(shape: Shape, depth: number): TreeNode {
+    const node: TreeNode = {
+      id: shape.id,
+      name: shape.name,
+      type: shape.type,
+    };
+
+    if (depth < maxDepth) {
+      const children = childrenByParent.get(shape.id) ?? [];
+      if (children.length > 0) {
+        node.children = children.map((child) => buildNode(child, depth + 1));
+      }
+    }
+
+    return node;
+  }
+
+  const rootShapes = childrenByParent.get(null) ?? [];
+  const tree = rootShapes.map((shape) => buildNode(shape, 0));
+
+  return { tree, totalShapes: allShapes.length };
 });
