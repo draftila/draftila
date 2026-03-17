@@ -5,14 +5,54 @@ import {
   deleteShapes,
   getAllShapes,
   getExpandedShapeIds,
+  getShape,
   getSelectedContainer,
   getTopLevelSelectedShapeIds,
+  updateShape,
 } from './scene-graph';
 import { shapesToSvg } from './figma-clipboard';
 
 const DUPLICATE_OFFSET = 20;
 
 let clipboardShapes: Shape[] = [];
+let clipboardStyle: Record<string, unknown> | null = null;
+
+const STYLE_KEYS: string[] = [
+  'fills',
+  'strokes',
+  'shadows',
+  'blurs',
+  'opacity',
+  'blendMode',
+  'cornerRadius',
+  'cornerRadiusTL',
+  'cornerRadiusTR',
+  'cornerRadiusBR',
+  'cornerRadiusBL',
+  'cornerSmoothing',
+  'fillRule',
+  'strokeCap',
+  'strokeJoin',
+  'strokeMiterLimit',
+  'strokeAlign',
+  'strokeDasharray',
+  'strokeDashoffset',
+  'fontFamily',
+  'fontWeight',
+  'fontSize',
+  'lineHeight',
+  'letterSpacing',
+  'textAlignHorizontal',
+  'textAlignVertical',
+  'textTransform',
+  'textDecoration',
+];
+
+function cloneStyleValue<T>(value: T): T {
+  if (value === null || value === undefined) return value;
+  if (typeof value !== 'object') return value;
+  return JSON.parse(JSON.stringify(value)) as T;
+}
 
 interface PasteOptions {
   selectedIds?: string[];
@@ -128,4 +168,52 @@ export function duplicateShapes(ydoc: Y.Doc, ids: string[]): string[] {
 
 export function hasClipboardContent(): boolean {
   return clipboardShapes.length > 0;
+}
+
+export function copyStyle(ydoc: Y.Doc, shapeId: string): Record<string, unknown> | null {
+  const shape = getShape(ydoc, shapeId);
+  if (!shape) return null;
+
+  const style: Record<string, unknown> = {};
+  const source = shape as Record<string, unknown>;
+  for (const key of STYLE_KEYS) {
+    if (!(key in source)) continue;
+    const value = source[key];
+    if (value === undefined) continue;
+    style[key] = cloneStyleValue(value);
+  }
+
+  clipboardStyle = style;
+  return style;
+}
+
+export function pasteStyle(ydoc: Y.Doc, ids: string[]): string[] {
+  if (!clipboardStyle || ids.length === 0) return [];
+
+  const updatedIds: string[] = [];
+
+  for (const id of ids) {
+    const targetShape = getShape(ydoc, id);
+    if (!targetShape) continue;
+    const target = targetShape as Record<string, unknown>;
+
+    const patch: Record<string, unknown> = {};
+    for (const key of STYLE_KEYS) {
+      if (!(key in clipboardStyle)) continue;
+      if (!(key in target)) continue;
+      const value = clipboardStyle[key];
+      if (value === undefined) continue;
+      patch[key] = cloneStyleValue(value);
+    }
+
+    if (Object.keys(patch).length === 0) continue;
+    updateShape(ydoc, id, patch as Partial<Shape>);
+    updatedIds.push(id);
+  }
+
+  return updatedIds;
+}
+
+export function hasStyleClipboardContent(): boolean {
+  return clipboardStyle !== null;
 }

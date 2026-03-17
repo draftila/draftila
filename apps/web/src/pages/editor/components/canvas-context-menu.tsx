@@ -2,7 +2,15 @@ import { forwardRef, useCallback, useMemo, useState } from 'react';
 import type * as Y from 'yjs';
 import { ChevronRight } from 'lucide-react';
 import { createComponent, listComponents } from '@draftila/engine';
-import { copyShapes, pasteShapes, cutShapes, duplicateShapes } from '@draftila/engine/clipboard';
+import {
+  copyShapes,
+  pasteShapes,
+  cutShapes,
+  duplicateShapes,
+  copyStyle,
+  pasteStyle,
+  hasStyleClipboardContent,
+} from '@draftila/engine/clipboard';
 import { handlePaste as handleExternalPaste } from '@draftila/engine/figma-clipboard';
 import {
   applyBooleanOperation,
@@ -176,6 +184,23 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
       onClose();
     }, [ydoc, selectedIds, hasSelection, onClose]);
 
+    const handleCopyStyle = useCallback(() => {
+      if (hasSelection) {
+        const sourceId = selectedIds[0];
+        if (sourceId) {
+          copyStyle(ydoc, sourceId);
+        }
+      }
+      onClose();
+    }, [ydoc, selectedIds, hasSelection, onClose]);
+
+    const handlePasteStyle = useCallback(() => {
+      if (hasSelection && hasStyleClipboardContent()) {
+        pasteStyle(ydoc, selectedIds);
+      }
+      onClose();
+    }, [ydoc, selectedIds, hasSelection, onClose]);
+
     const handleDelete = useCallback(() => {
       if (hasSelection) {
         deleteShapes(ydoc, selectedIds);
@@ -318,6 +343,20 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
           </MenuItem>
           <MenuItem onClick={handleDuplicate} disabled={!hasSelection} shortcut={`${mod}D`}>
             Duplicate
+          </MenuItem>
+          <MenuItem
+            onClick={handleCopyStyle}
+            disabled={!hasSelection}
+            shortcut={isMac ? '\u2325\u2318C' : 'Ctrl+Alt+C'}
+          >
+            Copy style
+          </MenuItem>
+          <MenuItem
+            onClick={handlePasteStyle}
+            disabled={!hasSelection || !hasStyleClipboardContent()}
+            shortcut={isMac ? '\u2325\u2318V' : 'Ctrl+Alt+V'}
+          >
+            Paste style
           </MenuItem>
           <MenuItem
             onClick={handleDelete}

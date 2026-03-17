@@ -9,6 +9,9 @@ interface LayerContextMenuProps {
   onGroup: () => void;
   onUngroup: () => void;
   onCreateComponent: () => void;
+  onCopyStyle: () => void;
+  onPasteStyle: () => void;
+  canPasteStyle: boolean;
   onBooleanOperation: (operation: 'union' | 'subtract' | 'intersect' | 'exclude') => void;
   canBoolean: boolean;
   onStackMove: (direction: 'forward' | 'backward' | 'front' | 'back') => void;
@@ -23,6 +26,9 @@ export const LayerContextMenu = forwardRef<HTMLDivElement, LayerContextMenuProps
       onGroup,
       onUngroup,
       onCreateComponent,
+      onCopyStyle,
+      onPasteStyle,
+      canPasteStyle,
       onBooleanOperation,
       canBoolean,
       onStackMove,
@@ -63,6 +69,20 @@ export const LayerContextMenu = forwardRef<HTMLDivElement, LayerContextMenuProps
           disabled={activeSelectionIds.length === 0}
         >
           Create Component
+        </button>
+        <button
+          className="hover:bg-accent hover:text-accent-foreground flex h-8 w-full items-center rounded px-2 text-xs disabled:pointer-events-none disabled:opacity-50"
+          onClick={onCopyStyle}
+          disabled={activeSelectionIds.length === 0}
+        >
+          Copy Style
+        </button>
+        <button
+          className="hover:bg-accent hover:text-accent-foreground flex h-8 w-full items-center rounded px-2 text-xs disabled:pointer-events-none disabled:opacity-50"
+          onClick={onPasteStyle}
+          disabled={!canPasteStyle || activeSelectionIds.length === 0}
+        >
+          Paste Style
         </button>
         <button
           className="hover:bg-accent hover:text-accent-foreground flex h-8 w-full items-center rounded px-2 text-xs disabled:pointer-events-none disabled:opacity-50"
