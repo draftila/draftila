@@ -14,6 +14,14 @@ import {
   translateSvgPathData,
   parseCssStyleSheet,
   getEffectiveAttribute,
+  normalizePathToAbsolute,
+  transformPathCommands,
+  pathCommandsToString,
+  rectToPathCommands,
+  ellipseToPathCommands,
+  lineToPathCommands,
+  polygonToPathCommands,
+  polylineToPathCommands,
 } from '../../../src/interchange/svg/svg-utils';
 
 describe('SVG Utils', () => {
@@ -399,6 +407,30 @@ describe('SVG Utils', () => {
       const bounds = pathCommandsToBounds(cmds);
       expect(bounds.width).toBeGreaterThanOrEqual(50);
     });
+
+    test('computes proper cubic bezier bounds using extrema', () => {
+      const cmds = parseSvgPathData('M 0 0 C 0 100 100 100 100 0');
+      const bounds = pathCommandsToBounds(cmds);
+      expect(bounds.y).toBe(0);
+      expect(bounds.height).toBeGreaterThan(50);
+      expect(bounds.height).toBeLessThanOrEqual(75);
+    });
+
+    test('computes proper quadratic bezier bounds using extrema', () => {
+      const cmds = parseSvgPathData('M 0 0 Q 50 100 100 0');
+      const bounds = pathCommandsToBounds(cmds);
+      expect(bounds.height).toBeGreaterThan(40);
+      expect(bounds.height).toBeLessThanOrEqual(50);
+    });
+
+    test('computes arc bounds correctly for full circle', () => {
+      const cmds = parseSvgPathData('M 100 50 A 50 50 0 1 1 0 50 A 50 50 0 1 1 100 50 Z');
+      const bounds = pathCommandsToBounds(cmds);
+      expect(bounds.x).toBeCloseTo(0, 0);
+      expect(bounds.y).toBeCloseTo(0, 0);
+      expect(bounds.width).toBeCloseTo(100, 0);
+      expect(bounds.height).toBeCloseTo(100, 0);
+    });
   });
 
   describe('scaleSvgPathData', () => {
@@ -436,6 +468,230 @@ describe('SVG Utils', () => {
       const result = translateSvgPathData(cmds, 5, 10);
       expect(result).toContain('m10 20');
       expect(result).toContain('l30 40');
+    });
+  });
+
+  describe('normalizePathToAbsolute', () => {
+    test('converts relative moveTo and lineTo to absolute', () => {
+      const cmds = parseSvgPathData('m 10 20 l 30 40');
+      const abs = normalizePathToAbsolute(cmds);
+      expect(abs[0]!.type).toBe('M');
+      expect(abs[0]!.values).toEqual([10, 20]);
+      expect(abs[1]!.type).toBe('L');
+      expect(abs[1]!.values).toEqual([40, 60]);
+    });
+
+    test('converts h and v to absolute L', () => {
+      const cmds = parseSvgPathData('M 0 0 h 50 v 30');
+      const abs = normalizePathToAbsolute(cmds);
+      expect(abs[1]!.type).toBe('L');
+      expect(abs[1]!.values).toEqual([50, 0]);
+      expect(abs[2]!.type).toBe('L');
+      expect(abs[2]!.values).toEqual([50, 30]);
+    });
+
+    test('converts H and V to absolute L', () => {
+      const cmds = parseSvgPathData('M 0 0 H 50 V 30');
+      const abs = normalizePathToAbsolute(cmds);
+      expect(abs[1]!.type).toBe('L');
+      expect(abs[1]!.values).toEqual([50, 0]);
+      expect(abs[2]!.type).toBe('L');
+      expect(abs[2]!.values).toEqual([50, 30]);
+    });
+
+    test('converts relative cubic to absolute', () => {
+      const cmds = parseSvgPathData('M 10 10 c 10 0 20 10 30 30');
+      const abs = normalizePathToAbsolute(cmds);
+      expect(abs[1]!.type).toBe('C');
+      expect(abs[1]!.values).toEqual([20, 10, 30, 20, 40, 40]);
+    });
+
+    test('converts relative arc to absolute', () => {
+      const cmds = parseSvgPathData('M 10 10 a 5 5 0 0 1 10 10');
+      const abs = normalizePathToAbsolute(cmds);
+      expect(abs[1]!.type).toBe('A');
+      expect(abs[1]!.values[5]).toBe(20);
+      expect(abs[1]!.values[6]).toBe(20);
+    });
+
+    test('converts z to Z', () => {
+      const cmds = parseSvgPathData('M 0 0 L 50 0 z');
+      const abs = normalizePathToAbsolute(cmds);
+      expect(abs[2]!.type).toBe('Z');
+    });
+
+    test('resolves smooth cubic (S) to full cubic (C)', () => {
+      const cmds = parseSvgPathData('M 0 0 C 10 20 30 20 40 0 S 70 -20 80 0');
+      const abs = normalizePathToAbsolute(cmds);
+      expect(abs[2]!.type).toBe('C');
+      expect(abs[2]!.values[0]).toBeCloseTo(50);
+      expect(abs[2]!.values[1]).toBeCloseTo(-20);
+    });
+
+    test('resolves smooth quadratic (T) to full quadratic (Q)', () => {
+      const cmds = parseSvgPathData('M 0 0 Q 25 50 50 0 T 100 0');
+      const abs = normalizePathToAbsolute(cmds);
+      expect(abs[2]!.type).toBe('Q');
+      expect(abs[2]!.values[0]).toBeCloseTo(75);
+      expect(abs[2]!.values[1]).toBeCloseTo(-50);
+    });
+
+    test('resolves relative smooth cubic (s) to full cubic (C)', () => {
+      const cmds = parseSvgPathData('M 0 0 C 10 20 30 20 40 0 s 30 -20 40 0');
+      const abs = normalizePathToAbsolute(cmds);
+      expect(abs[2]!.type).toBe('C');
+      expect(abs[2]!.values[4]).toBe(80);
+      expect(abs[2]!.values[5]).toBe(0);
+    });
+
+    test('resolves relative quadratic (q) to absolute Q', () => {
+      const cmds = parseSvgPathData('M 10 10 q 20 30 40 0');
+      const abs = normalizePathToAbsolute(cmds);
+      expect(abs[1]!.type).toBe('Q');
+      expect(abs[1]!.values).toEqual([30, 40, 50, 10]);
+    });
+
+    test('resolves relative smooth quadratic (t) to Q', () => {
+      const cmds = parseSvgPathData('M 0 0 Q 25 50 50 0 t 50 0');
+      const abs = normalizePathToAbsolute(cmds);
+      expect(abs[2]!.type).toBe('Q');
+      expect(abs[2]!.values[2]).toBe(100);
+      expect(abs[2]!.values[3]).toBe(0);
+    });
+  });
+
+  describe('transformPathCommands', () => {
+    test('applies translation matrix', () => {
+      const cmds = normalizePathToAbsolute(parseSvgPathData('M 0 0 L 50 50'));
+      const matrix = parseTransform('translate(10, 20)');
+      const result = transformPathCommands(cmds, matrix);
+      expect(result[0]!.values[0]).toBeCloseTo(10);
+      expect(result[0]!.values[1]).toBeCloseTo(20);
+      expect(result[1]!.values[0]).toBeCloseTo(60);
+      expect(result[1]!.values[1]).toBeCloseTo(70);
+    });
+
+    test('applies scale matrix', () => {
+      const cmds = normalizePathToAbsolute(parseSvgPathData('M 10 10 L 20 20'));
+      const matrix = parseTransform('scale(2)');
+      const result = transformPathCommands(cmds, matrix);
+      expect(result[0]!.values[0]).toBeCloseTo(20);
+      expect(result[0]!.values[1]).toBeCloseTo(20);
+      expect(result[1]!.values[0]).toBeCloseTo(40);
+      expect(result[1]!.values[1]).toBeCloseTo(40);
+    });
+
+    test('applies rotation matrix to cubic bezier', () => {
+      const cmds = normalizePathToAbsolute(parseSvgPathData('M 0 0 C 50 0 50 50 0 50'));
+      const matrix = parseTransform('rotate(90)');
+      const result = transformPathCommands(cmds, matrix);
+      expect(result[1]!.type).toBe('C');
+      expect(result[1]!.values[0]).toBeCloseTo(0);
+      expect(result[1]!.values[1]).toBeCloseTo(50);
+    });
+
+    test('preserves Z commands', () => {
+      const cmds = normalizePathToAbsolute(parseSvgPathData('M 0 0 L 50 0 Z'));
+      const matrix = parseTransform('translate(10, 10)');
+      const result = transformPathCommands(cmds, matrix);
+      expect(result[2]!.type).toBe('Z');
+    });
+
+    test('transforms arc commands correctly', () => {
+      const cmds = normalizePathToAbsolute(parseSvgPathData('M 0 0 A 10 10 0 0 1 20 0'));
+      const matrix = parseTransform('scale(2)');
+      const result = transformPathCommands(cmds, matrix);
+      expect(result[1]!.values[0]).toBeCloseTo(20);
+      expect(result[1]!.values[1]).toBeCloseTo(20);
+      expect(result[1]!.values[5]).toBeCloseTo(40);
+      expect(result[1]!.values[6]).toBeCloseTo(0);
+    });
+  });
+
+  describe('pathCommandsToString', () => {
+    test('serializes simple path', () => {
+      const cmds = [
+        { type: 'M', values: [10, 20] },
+        { type: 'L', values: [30, 40] },
+        { type: 'Z', values: [] },
+      ];
+      expect(pathCommandsToString(cmds)).toBe('M10 20L30 40Z');
+    });
+
+    test('serializes cubic bezier', () => {
+      const cmds = [
+        { type: 'M', values: [0, 0] },
+        { type: 'C', values: [10, 20, 30, 40, 50, 60] },
+      ];
+      expect(pathCommandsToString(cmds)).toBe('M0 0C10 20 30 40 50 60');
+    });
+  });
+
+  describe('rectToPathCommands', () => {
+    test('generates path for simple rect', () => {
+      const cmds = rectToPathCommands(0, 0, 100, 50);
+      expect(cmds[0]!.type).toBe('M');
+      expect(cmds[0]!.values).toEqual([0, 0]);
+      const lastNonZ = cmds[cmds.length - 2]!;
+      expect(lastNonZ.type).toBe('L');
+      expect(cmds[cmds.length - 1]!.type).toBe('Z');
+    });
+
+    test('generates arcs for rounded rect', () => {
+      const cmds = rectToPathCommands(0, 0, 100, 50, 10, 10);
+      const arcCmds = cmds.filter((c) => c.type === 'A');
+      expect(arcCmds.length).toBe(4);
+    });
+
+    test('clamps radius to half dimensions', () => {
+      const cmds = rectToPathCommands(0, 0, 20, 10, 100, 100);
+      const arcCmds = cmds.filter((c) => c.type === 'A');
+      for (const arc of arcCmds) {
+        expect(arc.values[0]).toBeLessThanOrEqual(10);
+        expect(arc.values[1]).toBeLessThanOrEqual(5);
+      }
+    });
+  });
+
+  describe('ellipseToPathCommands', () => {
+    test('generates two arcs for ellipse', () => {
+      const cmds = ellipseToPathCommands(50, 50, 40, 30);
+      const arcCmds = cmds.filter((c) => c.type === 'A');
+      expect(arcCmds.length).toBe(2);
+      expect(cmds[0]!.type).toBe('M');
+      expect(cmds[0]!.values[0]).toBe(90);
+      expect(cmds[0]!.values[1]).toBe(50);
+    });
+  });
+
+  describe('lineToPathCommands', () => {
+    test('generates M and L for line', () => {
+      const cmds = lineToPathCommands(10, 20, 110, 120);
+      expect(cmds).toHaveLength(2);
+      expect(cmds[0]!.type).toBe('M');
+      expect(cmds[0]!.values).toEqual([10, 20]);
+      expect(cmds[1]!.type).toBe('L');
+      expect(cmds[1]!.values).toEqual([110, 120]);
+    });
+  });
+
+  describe('polygonToPathCommands', () => {
+    test('generates closed path from triangle', () => {
+      const cmds = polygonToPathCommands([0, 0, 100, 0, 50, 100]);
+      expect(cmds[0]!.type).toBe('M');
+      expect(cmds[1]!.type).toBe('L');
+      expect(cmds[2]!.type).toBe('L');
+      expect(cmds[3]!.type).toBe('Z');
+    });
+  });
+
+  describe('polylineToPathCommands', () => {
+    test('generates open path from points', () => {
+      const cmds = polylineToPathCommands([0, 0, 50, 50, 100, 0]);
+      expect(cmds[0]!.type).toBe('M');
+      expect(cmds[1]!.type).toBe('L');
+      expect(cmds[2]!.type).toBe('L');
+      expect(cmds.every((c) => c.type !== 'Z')).toBe(true);
     });
   });
 });

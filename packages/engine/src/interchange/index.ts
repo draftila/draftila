@@ -57,12 +57,21 @@ export { DraftilaClipboardExportAdapter } from './draftila/draftila-export-adapt
 
 export {
   parseTransform,
+  multiplyMatrices,
   decomposeTransform,
   normalizeColor,
   colorToOpacity,
   parseLength,
   parseSvgPathData,
   pathCommandsToBounds,
+  normalizePathToAbsolute,
+  transformPathCommands,
+  pathCommandsToString,
+  rectToPathCommands,
+  ellipseToPathCommands,
+  lineToPathCommands,
+  polygonToPathCommands,
+  polylineToPathCommands,
   type TransformMatrix,
   type PathCommand,
 } from './svg/svg-utils';
