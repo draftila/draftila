@@ -4,6 +4,7 @@ import { DEFAULT_CAMERA, clampZoom, configureToolStore } from '@draftila/engine'
 
 interface EditorState {
   activeTool: ToolType;
+  activePageId: string | null;
   camera: Camera;
   selectedIds: string[];
   enteredGroupId: string | null;
@@ -16,6 +17,7 @@ interface EditorState {
   cursorCanvasPoint: Point | null;
 
   setActiveTool: (tool: ToolType) => void;
+  setActivePageId: (pageId: string | null) => void;
   setCamera: (camera: Camera) => void;
   updateCamera: (partial: Partial<Camera>) => void;
   setZoom: (zoom: number) => void;
@@ -36,6 +38,7 @@ interface EditorState {
 
 export const useEditorStore = create<EditorState>((set) => ({
   activeTool: 'move',
+  activePageId: null,
   camera: DEFAULT_CAMERA,
   selectedIds: [],
   enteredGroupId: null,
@@ -48,6 +51,8 @@ export const useEditorStore = create<EditorState>((set) => ({
   cursorCanvasPoint: null,
 
   setActiveTool: (tool) => set({ activeTool: tool }),
+
+  setActivePageId: (pageId) => set({ activePageId: pageId }),
 
   setCamera: (camera) => set({ camera }),
 

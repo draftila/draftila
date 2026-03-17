@@ -13,6 +13,7 @@ import {
   MoveRight,
   Image,
   FileImage,
+  Diamond,
 } from 'lucide-react';
 import { createElement } from 'react';
 
@@ -53,3 +54,5 @@ export const SHAPE_ICONS: Record<ShapeType, React.ReactNode> = {
   svg: createElement(FileImage, { className: iconClass }),
   group: createElement(Group, { className: iconClass }),
 };
+
+export const INSTANCE_ICON = createElement(Diamond, { className: iconClass });

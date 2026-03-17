@@ -17,28 +17,116 @@ export interface PageData {
   name: string;
 }
 
-export function initPages(ydoc: Y.Doc) {
-  const pages = ydoc.getMap('pages');
-  const pageOrder = ydoc.getArray<string>('pageOrder');
+type PagesMap = Y.Map<Y.Map<unknown>>;
 
-  if (pageOrder.length === 0) {
-    const defaultId = generatePageId();
-    const page = new Y.Map<unknown>();
-    page.set('id', defaultId);
-    page.set('name', 'Page 1');
-    page.set('shapes', new Y.Map());
-    page.set('zOrder', new Y.Array());
+const activePageByDoc = new WeakMap<Y.Doc, string>();
 
-    ydoc.transact(() => {
-      pages.set(defaultId, page);
-      pageOrder.push([defaultId]);
+function getPagesMap(ydoc: Y.Doc): PagesMap {
+  return ydoc.getMap('pages') as PagesMap;
+}
+
+function getPageOrder(ydoc: Y.Doc): Y.Array<string> {
+  return ydoc.getArray<string>('pageOrder');
+}
+
+function cloneYValue(value: unknown): unknown {
+  if (value instanceof Y.Map) {
+    const next = new Y.Map<unknown>();
+    value.forEach((entry, key) => {
+      next.set(key, cloneYValue(entry));
     });
+    return next;
   }
+
+  if (value instanceof Y.Array) {
+    const next = new Y.Array<unknown>();
+    for (const entry of value.toArray()) {
+      next.push([cloneYValue(entry)]);
+    }
+    return next;
+  }
+
+  return value;
+}
+
+function createPage(id: string, name: string): Y.Map<unknown> {
+  const page = new Y.Map<unknown>();
+  page.set('id', id);
+  page.set('name', name);
+  page.set('shapes', new Y.Map<unknown>());
+  page.set('zOrder', new Y.Array<string>());
+  return page;
+}
+
+function getFirstPageId(ydoc: Y.Doc): string | null {
+  const pageOrder = getPageOrder(ydoc);
+  for (let i = 0; i < pageOrder.length; i++) {
+    const id = pageOrder.get(i);
+    if (id) return id;
+  }
+  return null;
+}
+
+function ensureActivePage(ydoc: Y.Doc): string | null {
+  const pages = getPagesMap(ydoc);
+  const active = activePageByDoc.get(ydoc);
+
+  if (active && pages.has(active)) {
+    return active;
+  }
+
+  const fallback = getFirstPageId(ydoc);
+  if (!fallback) {
+    return null;
+  }
+
+  activePageByDoc.set(ydoc, fallback);
+  return fallback;
+}
+
+export function initPages(ydoc: Y.Doc) {
+  getPagesMap(ydoc);
+  getPageOrder(ydoc);
+  ensureActivePage(ydoc);
+}
+
+export function ensureDefaultPage(ydoc: Y.Doc): string {
+  const existing = ensureActivePage(ydoc);
+  if (existing) {
+    return existing;
+  }
+
+  const pages = getPagesMap(ydoc);
+  const pageOrder = getPageOrder(ydoc);
+  const legacyShapes = ydoc.getMap('shapes') as Y.Map<Y.Map<unknown>>;
+  const legacyZOrder = ydoc.getArray<string>('zOrder');
+
+  const defaultId = generatePageId();
+  const page = createPage(defaultId, 'Page 1');
+  const pageShapes = page.get('shapes') as Y.Map<unknown>;
+  const pageZOrder = page.get('zOrder') as Y.Array<string>;
+
+  legacyShapes.forEach((shapeData, shapeId) => {
+    pageShapes.set(shapeId, cloneYValue(shapeData));
+  });
+
+  const orderedIds = legacyZOrder.toArray();
+  if (orderedIds.length > 0) {
+    pageZOrder.push(orderedIds);
+  }
+
+  ydoc.transact(() => {
+    pages.set(defaultId, page);
+    pageOrder.push([defaultId]);
+  });
+
+  activePageByDoc.set(ydoc, defaultId);
+  return defaultId;
 }
 
 export function getPages(ydoc: Y.Doc): PageData[] {
-  const pages = ydoc.getMap('pages') as Y.Map<Y.Map<unknown>>;
-  const pageOrder = ydoc.getArray<string>('pageOrder');
+  const pages = getPagesMap(ydoc);
+  const pageOrder = getPageOrder(ydoc);
   const result: PageData[] = [];
 
   for (let i = 0; i < pageOrder.length; i++) {
@@ -56,16 +144,12 @@ export function getPages(ydoc: Y.Doc): PageData[] {
 }
 
 export function addPage(ydoc: Y.Doc, name?: string): string {
-  const pages = ydoc.getMap('pages') as Y.Map<Y.Map<unknown>>;
-  const pageOrder = ydoc.getArray<string>('pageOrder');
+  const pages = getPagesMap(ydoc);
+  const pageOrder = getPageOrder(ydoc);
 
   const id = generatePageId();
   const pageName = name ?? `Page ${pageOrder.length + 1}`;
-  const page = new Y.Map<unknown>();
-  page.set('id', id);
-  page.set('name', pageName);
-  page.set('shapes', new Y.Map());
-  page.set('zOrder', new Y.Array());
+  const page = createPage(id, pageName);
 
   ydoc.transact(() => {
     pages.set(id, page);
@@ -76,8 +160,8 @@ export function addPage(ydoc: Y.Doc, name?: string): string {
 }
 
 export function removePage(ydoc: Y.Doc, pageId: string) {
-  const pages = ydoc.getMap('pages') as Y.Map<Y.Map<unknown>>;
-  const pageOrder = ydoc.getArray<string>('pageOrder');
+  const pages = getPagesMap(ydoc);
+  const pageOrder = getPageOrder(ydoc);
 
   if (pageOrder.length <= 1) return;
 
@@ -90,12 +174,100 @@ export function removePage(ydoc: Y.Doc, pageId: string) {
       }
     }
   });
+
+  const active = activePageByDoc.get(ydoc);
+  if (active === pageId) {
+    const fallback = ensureActivePage(ydoc);
+    if (!fallback) {
+      activePageByDoc.delete(ydoc);
+    }
+  }
 }
 
 export function renamePage(ydoc: Y.Doc, pageId: string, name: string) {
-  const pages = ydoc.getMap('pages') as Y.Map<Y.Map<unknown>>;
+  const pages = getPagesMap(ydoc);
   const page = pages.get(pageId);
   if (page) {
     page.set('name', name);
   }
+}
+
+export function setActivePage(ydoc: Y.Doc, pageId: string): boolean {
+  const pages = getPagesMap(ydoc);
+  if (!pages.has(pageId)) return false;
+  activePageByDoc.set(ydoc, pageId);
+  return true;
+}
+
+export function getActivePageId(ydoc: Y.Doc): string | null {
+  return ensureActivePage(ydoc);
+}
+
+export function getActivePageShapesMap(ydoc: Y.Doc): Y.Map<Y.Map<unknown>> {
+  const legacyShapes = ydoc.getMap('shapes') as Y.Map<Y.Map<unknown>>;
+  const pages = getPagesMap(ydoc);
+  const activePageId = ensureActivePage(ydoc);
+  if (!activePageId) {
+    return legacyShapes;
+  }
+  const page = pages.get(activePageId);
+  if (!page) {
+    return legacyShapes;
+  }
+
+  let shapes = page.get('shapes') as Y.Map<Y.Map<unknown>> | undefined;
+  if (!shapes) {
+    shapes = new Y.Map<Y.Map<unknown>>();
+    page.set('shapes', shapes);
+  }
+  return shapes;
+}
+
+export function getActivePageZOrder(ydoc: Y.Doc): Y.Array<string> {
+  const legacyZOrder = ydoc.getArray<string>('zOrder');
+  const pages = getPagesMap(ydoc);
+  const activePageId = ensureActivePage(ydoc);
+  if (!activePageId) {
+    return legacyZOrder;
+  }
+  const page = pages.get(activePageId);
+  if (!page) {
+    return legacyZOrder;
+  }
+
+  let zOrder = page.get('zOrder') as Y.Array<string> | undefined;
+  if (!zOrder) {
+    zOrder = new Y.Array<string>();
+    page.set('zOrder', zOrder);
+  }
+  return zOrder;
+}
+
+export function observePages(
+  ydoc: Y.Doc,
+  callback: (pages: PageData[], activePageId: string | null) => void,
+): () => void {
+  const pages = getPagesMap(ydoc);
+  const pageOrder = getPageOrder(ydoc);
+
+  const emit = () => {
+    callback(getPages(ydoc), ensureActivePage(ydoc));
+  };
+
+  const handlePagesChange = () => {
+    emit();
+  };
+
+  const handleOrderChange = () => {
+    emit();
+  };
+
+  pages.observeDeep(handlePagesChange);
+  pageOrder.observe(handleOrderChange);
+  emit();
+
+  return () => {
+    pages.unobserveDeep(handlePagesChange);
+    pageOrder.unobserve(handleOrderChange);
+  };
 }

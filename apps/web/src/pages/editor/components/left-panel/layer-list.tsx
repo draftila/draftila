@@ -1,8 +1,15 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type * as Y from 'yjs';
 import type { Shape } from '@draftila/shared';
 import {
+  createComponent,
+  listComponentInstances,
+  listComponents,
+  observeComponents,
+} from '@draftila/engine';
+import {
   groupShapes,
+  getExpandedShapeIds,
   moveShapesInStack,
   ungroupShapes,
   updateShape,
@@ -47,6 +54,20 @@ export function LayerList({
 }: LayerListProps) {
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const setSelectedIds = useEditorStore((s) => s.setSelectedIds);
+  const [instanceShapeIds, setInstanceShapeIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const update = () => {
+      const ids = new Set<string>();
+      for (const item of listComponentInstances(ydoc)) {
+        ids.add(item.shapeId);
+      }
+      setInstanceShapeIds(ids);
+    };
+
+    update();
+    return observeComponents(ydoc, update);
+  }, [ydoc]);
 
   const handleSelect = useCallback(
     (id: string, e: React.MouseEvent) => {
@@ -80,6 +101,11 @@ export function LayerList({
     return [contextMenu.targetId];
   })();
 
+  const rowsWithInstanceFlag = useMemo(
+    () => rows.map((row) => ({ row, isComponentInstance: instanceShapeIds.has(row.shape.id) })),
+    [rows, instanceShapeIds],
+  );
+
   const handleGroup = useCallback(() => {
     const groupId = groupShapes(ydoc, activeSelectionIds);
     if (groupId) setSelectedIds([groupId]);
@@ -91,6 +117,18 @@ export function LayerList({
     if (childIds.length > 0) setSelectedIds(childIds);
     onCloseContextMenu();
   }, [activeSelectionIds, setSelectedIds, ydoc, onCloseContextMenu]);
+
+  const handleCreateComponent = useCallback(() => {
+    if (activeSelectionIds.length === 0) {
+      onCloseContextMenu();
+      return;
+    }
+
+    const expandedIds = getExpandedShapeIds(ydoc, activeSelectionIds);
+    const nextName = `Component ${listComponents(ydoc).length + 1}`;
+    createComponent(ydoc, expandedIds, nextName);
+    onCloseContextMenu();
+  }, [activeSelectionIds, ydoc, onCloseContextMenu]);
 
   const handleStackMove = useCallback(
     (direction: 'forward' | 'backward' | 'front' | 'back') => {
@@ -104,11 +142,12 @@ export function LayerList({
   return (
     <>
       <div className="flex-1 overflow-auto" onContextMenu={(e) => e.preventDefault()}>
-        {rows.map((row) => (
+        {rowsWithInstanceFlag.map(({ row, isComponentInstance }) => (
           <LayerRow
             key={row.shape.id}
             row={row}
             isSelected={selectedIds.includes(row.shape.id)}
+            isComponentInstance={isComponentInstance}
             dragState={dragState}
             onSelect={handleSelect}
             onContextMenu={onOpenContextMenu}
@@ -131,6 +170,7 @@ export function LayerList({
           shapeById={shapeById}
           onGroup={handleGroup}
           onUngroup={handleUngroup}
+          onCreateComponent={handleCreateComponent}
           onStackMove={handleStackMove}
         />
       )}

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type * as Y from 'yjs';
 import type { Shape } from '@draftila/shared';
 import { getLayerTree, observeShapes, type LayerTreeNode } from '@draftila/engine/scene-graph';
+import { useEditorStore } from '@/stores/editor-store';
 import type { LayerRow } from '../types';
 
 function flattenRows(tree: LayerTreeNode[], collapsedIds: Set<string>): LayerRow[] {
@@ -41,16 +42,18 @@ function flattenRows(tree: LayerTreeNode[], collapsedIds: Set<string>): LayerRow
 }
 
 export function useLayerTree(ydoc: Y.Doc) {
+  const activePageId = useEditorStore((s) => s.activePageId);
   const [layerTree, setLayerTree] = useState<LayerTreeNode[]>([]);
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
+    setCollapsedIds(new Set());
     setLayerTree(getLayerTree(ydoc));
     const unobserve = observeShapes(ydoc, () => {
       setLayerTree(getLayerTree(ydoc));
     });
     return unobserve;
-  }, [ydoc]);
+  }, [ydoc, activePageId]);
 
   const shapeById = useMemo(() => {
     const map = new Map<string, Shape>();

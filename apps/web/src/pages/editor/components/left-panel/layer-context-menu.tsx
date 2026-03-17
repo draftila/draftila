@@ -8,12 +8,13 @@ interface LayerContextMenuProps {
   shapeById: Map<string, Shape>;
   onGroup: () => void;
   onUngroup: () => void;
+  onCreateComponent: () => void;
   onStackMove: (direction: 'forward' | 'backward' | 'front' | 'back') => void;
 }
 
 export const LayerContextMenu = forwardRef<HTMLDivElement, LayerContextMenuProps>(
   function LayerContextMenu(
-    { contextMenu, selectedIds, shapeById, onGroup, onUngroup, onStackMove },
+    { contextMenu, selectedIds, shapeById, onGroup, onUngroup, onCreateComponent, onStackMove },
     ref,
   ) {
     const activeSelectionIds = useMemo(() => {
@@ -43,6 +44,13 @@ export const LayerContextMenu = forwardRef<HTMLDivElement, LayerContextMenuProps
           disabled={!canUngroup}
         >
           Ungroup
+        </button>
+        <button
+          className="hover:bg-accent hover:text-accent-foreground flex h-8 w-full items-center rounded px-2 text-xs disabled:pointer-events-none disabled:opacity-50"
+          onClick={onCreateComponent}
+          disabled={activeSelectionIds.length === 0}
+        >
+          Create Component
         </button>
         <div className="bg-border my-1 h-px" />
         <button

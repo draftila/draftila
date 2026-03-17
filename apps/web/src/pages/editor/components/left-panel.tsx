@@ -4,6 +4,8 @@ import { useEditorStore } from '@/stores/editor-store';
 import { PanelHeader } from './left-panel/panel-header';
 import { CollapsedHeader } from './left-panel/collapsed-header';
 import { LayerList } from './left-panel/layer-list';
+import { PageList } from './left-panel/page-list';
+import { ComponentsList } from './left-panel/components-list';
 import { useLayerTree } from './left-panel/hooks/use-layer-tree';
 import { useContextMenu } from './left-panel/hooks/use-context-menu';
 import { useLayerDragDrop } from './left-panel/hooks/use-layer-drag-drop';
@@ -48,6 +50,8 @@ export function LeftPanel({ ydoc, draftName, projectId }: LeftPanelProps) {
         onTogglePanel={() => setLeftPanelOpen(!leftPanelOpen)}
         ydoc={ydoc}
       />
+      <PageList ydoc={ydoc} />
+      <ComponentsList ydoc={ydoc} />
       <div className="flex h-8 items-center gap-2 border-b px-3">
         <span className="text-muted-foreground text-xs font-medium">Layers</span>
         <span className="text-muted-foreground ml-auto text-[10px]">{shapeById.size}</span>

@@ -34,6 +34,7 @@ import {
 import getStroke from 'perfect-freehand';
 
 export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
+  const activePageId = useEditorStore((s) => s.activePageId);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<Canvas2DRenderer | null>(null);
   const rafRef = useRef<number>(0);
@@ -84,7 +85,7 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
       unobserve();
       unsubscribeFonts();
     };
-  }, [ydoc]);
+  }, [ydoc, activePageId]);
 
   const draw = useCallback(() => {
     const renderer = rendererRef.current;

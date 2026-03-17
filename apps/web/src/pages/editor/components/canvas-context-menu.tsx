@@ -1,6 +1,7 @@
 import { forwardRef, useCallback, useMemo, useState } from 'react';
 import type * as Y from 'yjs';
 import { ChevronRight } from 'lucide-react';
+import { createComponent, listComponents } from '@draftila/engine';
 import { copyShapes, pasteShapes, cutShapes, duplicateShapes } from '@draftila/engine/clipboard';
 import { handlePaste as handleExternalPaste } from '@draftila/engine/figma-clipboard';
 import {
@@ -186,6 +187,20 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
       onClose();
     }, [ydoc, selectedIds, onClose]);
 
+    const handleCreateComponent = useCallback(() => {
+      if (!hasSelection) {
+        onClose();
+        return;
+      }
+      const expandedIds = getExpandedShapeIds(ydoc, selectedIds);
+      const nextName = `Component ${listComponents(ydoc).length + 1}`;
+      const componentId = createComponent(ydoc, expandedIds, nextName);
+      if (componentId) {
+        useEditorStore.getState().setSelectedIds(selectedIds);
+      }
+      onClose();
+    }, [ydoc, selectedIds, hasSelection, onClose]);
+
     const handleUngroup = useCallback(() => {
       const childIds = ungroupShapes(ydoc, selectedIds);
       if (childIds.length > 0) {
@@ -315,6 +330,9 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
             shortcut={isMac ? '\u21E7\u2318G' : 'Ctrl+Shift+G'}
           >
             Ungroup
+          </MenuItem>
+          <MenuItem onClick={handleCreateComponent} disabled={!hasSelection}>
+            Create component
           </MenuItem>
         </div>
 

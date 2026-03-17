@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import { initDocument } from '@draftila/engine/scene-graph';
+import { ensureDefaultPage } from '@draftila/engine';
 
 const SYNC_DEBOUNCE_MS = 100;
 
@@ -109,6 +110,9 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
 
     wsProvider.on('sync', (isSynced: boolean) => {
       setSynced(isSynced);
+      if (isSynced) {
+        ensureDefaultPage(ydoc);
+      }
     });
 
     return () => {

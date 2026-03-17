@@ -10,6 +10,7 @@ import {
   applyAutoLayout,
   applyAutoLayoutForAncestors,
 } from '@draftila/engine/scene-graph';
+import { getComponentById, getInstanceComponentId, observeComponents } from '@draftila/engine';
 import { isAutoLayoutFrame } from '@draftila/engine/auto-layout';
 import { useEditorStore } from '@/stores/editor-store';
 import { ExportSection } from './right-panel/sections/export-section';
@@ -107,8 +108,10 @@ function createCanvasScopeShape(scopeShapes: Shape[]): Shape {
 
 export function RightPanel({ ydoc }: RightPanelProps) {
   const selectedIds = useEditorStore((s) => s.selectedIds);
+  const activePageId = useEditorStore((s) => s.activePageId);
   const rightPanelOpen = useEditorStore((s) => s.rightPanelOpen);
   const [selectedShape, setSelectedShape] = useState<Shape | null>(null);
+  const [instanceLabel, setInstanceLabel] = useState<string | null>(null);
   const [shapeScope, setShapeScope] = useState<Shape[]>([]);
   const [canvasShape, setCanvasShape] = useState<Shape>(createCanvasScopeShape([]));
   const [revision, setRevision] = useState(0);
@@ -122,25 +125,41 @@ export function RightPanel({ ydoc }: RightPanelProps) {
       setSelectedShape(shape);
 
       if (shape) {
+        const componentId = getInstanceComponentId(ydoc, selectedShapeId);
+        if (componentId) {
+          const component = getComponentById(ydoc, componentId);
+          setInstanceLabel(component?.name ?? 'Component');
+        } else {
+          setInstanceLabel(null);
+        }
+
         const scopeIds = new Set(getExpandedShapeIds(ydoc, [selectedShapeId]));
         const scopedShapes = allVisibleShapes.filter((candidate) => scopeIds.has(candidate.id));
         setShapeScope(scopedShapes);
       } else {
+        setInstanceLabel(null);
         setShapeScope([]);
       }
     } else {
       setSelectedShape(null);
+      setInstanceLabel(null);
       setShapeScope(allVisibleShapes);
     }
 
     setCanvasShape(createCanvasScopeShape(allVisibleShapes));
-  }, [selectedIds, ydoc, revision]);
+  }, [selectedIds, ydoc, revision, activePageId]);
 
   useEffect(() => {
     const unobserve = observeShapes(ydoc, () => {
       setRevision((r) => r + 1);
     });
     return unobserve;
+  }, [ydoc, activePageId]);
+
+  useEffect(() => {
+    return observeComponents(ydoc, () => {
+      setRevision((r) => r + 1);
+    });
   }, [ydoc]);
 
   const handleUpdate = useCallback(
@@ -186,6 +205,14 @@ export function RightPanel({ ydoc }: RightPanelProps) {
         )}
         {selectedShape && (
           <div>
+            {instanceLabel && (
+              <div className="border-b px-3 py-2">
+                <p className="text-muted-foreground text-[11px] uppercase tracking-wide">
+                  Instance
+                </p>
+                <p className="text-xs font-medium">of {instanceLabel}</p>
+              </div>
+            )}
             {sections.map((Section, index) => (
               <div key={Section.name || index} className="border-b px-3 py-3">
                 <Section shape={selectedShape} shapeScope={shapeScope} onUpdate={handleUpdate} />
