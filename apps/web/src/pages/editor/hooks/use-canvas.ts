@@ -6,6 +6,7 @@ import { getAllShapes, observeShapes } from '@draftila/engine/scene-graph';
 import {
   renderShape,
   renderSelectionForShape,
+  renderHoverForShape,
   computeArrowHead,
 } from '@draftila/engine/shape-renderer';
 import { simpleStyle } from '@draftila/engine/renderer';
@@ -89,7 +90,7 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
     const renderer = rendererRef.current;
     if (!renderer) return;
 
-    const { camera, selectedIds, activeTool } = useEditorStore.getState();
+    const { camera, selectedIds, hoveredId, activeTool } = useEditorStore.getState();
     const shapes = shapeCacheRef.current;
     const shapeMap = new Map(shapes.map((shape) => [shape.id, shape]));
 
@@ -188,6 +189,14 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
     }
 
     const selectedSet = new Set(selectedIds);
+
+    if (hoveredId && !selectedSet.has(hoveredId)) {
+      const hoveredShape = shapeMap.get(hoveredId);
+      if (hoveredShape && isShapeVisible(hoveredShape)) {
+        renderHoverForShape(renderer, hoveredShape);
+      }
+    }
+
     const selectedShapes: Shape[] = [];
     for (const shape of shapes) {
       if (!isShapeVisible(shape)) continue;

@@ -1,4 +1,4 @@
-import type { Shape, Fill, Stroke, Shadow, Blur } from '@draftila/shared';
+import type { Shape, Fill, Stroke, Shadow, Blur, Gradient } from '@draftila/shared';
 import type {
   InterchangeNode,
   InterchangeDocument,
@@ -6,12 +6,21 @@ import type {
   InterchangeStroke,
   InterchangeShadow,
   InterchangeBlur,
+  InterchangeGradient,
   InterchangePathPoint,
 } from './interchange-format';
 import { createInterchangeNode, createInterchangeDocument } from './interchange-format';
 
 function fillToInterchange(fill: Fill): InterchangeFill {
   return { color: fill.color, opacity: fill.opacity, visible: fill.visible };
+}
+
+function interchangeGradientToGradient(g: InterchangeGradient): Gradient {
+  const stops = g.stops.map((s) => ({ color: s.color, position: s.position }));
+  if (g.type === 'radial') {
+    return { type: 'radial', stops, cx: g.cx ?? 0.5, cy: g.cy ?? 0.5, r: g.r ?? 0.5 };
+  }
+  return { type: 'linear', stops, angle: g.angle ?? 0 };
 }
 
 function interchangeToFill(fill: InterchangeFill): Fill {
@@ -131,6 +140,7 @@ function shapeToNode(shape: Shape, childrenByParent: Map<string, Shape[]>): Inte
       node.textTransform = shape.textTransform;
       break;
     case 'path':
+      node.svgPathData = shape.svgPathData;
       node.pathPoints = shape.points.map(
         (p): InterchangePathPoint => ({ x: p.x, y: p.y, pressure: p.pressure }),
       );
@@ -202,6 +212,14 @@ function nodeToFlatShapes(
   result: FlattenedShape[],
 ): void {
   const fills = node.fills.map(interchangeToFill);
+  if (node.gradients.length > 0) {
+    const gradient = interchangeGradientToGradient(node.gradients[0]!);
+    if (fills.length > 0) {
+      fills[0] = { ...fills[0]!, gradient };
+    } else {
+      fills.push({ color: '#000000', opacity: 1, visible: true, gradient });
+    }
+  }
   const strokes = node.strokes.map(interchangeToStroke);
   const shadows = node.shadows.map(interchangeToShadow);
   const blurs = node.blurs.map(interchangeToBlur);
@@ -270,6 +288,7 @@ function nodeToFlatShapes(
         strokes,
         shadows,
         blurs,
+        svgPathData: node.svgPathData,
         points: (node.pathPoints ?? []).map((p) => ({
           x: p.x,
           y: p.y,

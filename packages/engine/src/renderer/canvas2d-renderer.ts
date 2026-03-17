@@ -716,6 +716,23 @@ export class Canvas2DRenderer implements Renderer {
     ctx.restore();
   }
 
+  drawHoverOutline(x: number, y: number, width: number, height: number, rotation = 0) {
+    const { ctx } = this;
+    ctx.save();
+    ctx.strokeStyle = SELECTION_COLOR;
+    ctx.lineWidth = SELECTION_WIDTH / this.dpr;
+    if (rotation !== 0) {
+      const cx = x + width / 2;
+      const cy = y + height / 2;
+      ctx.translate(cx, cy);
+      ctx.rotate((rotation * Math.PI) / 180);
+      ctx.strokeRect(-width / 2, -height / 2, width, height);
+    } else {
+      ctx.strokeRect(x, y, width, height);
+    }
+    ctx.restore();
+  }
+
   drawMarquee(x: number, y: number, width: number, height: number) {
     const { ctx } = this;
     ctx.save();

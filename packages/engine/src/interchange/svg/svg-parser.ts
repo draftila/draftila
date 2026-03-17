@@ -23,6 +23,8 @@ import {
   getEffectiveAttribute,
   parseSvgPathData,
   pathCommandsToBounds,
+  translateSvgPathData,
+  scaleSvgPathData,
 } from './svg-utils';
 
 interface ParseContext {
@@ -30,6 +32,7 @@ interface ParseContext {
   clipPaths: Map<string, InterchangeClipPath>;
   classStyles: Map<string, Record<string, string>>;
   defs: Element | null;
+  inheritedStyles: Record<string, string>;
 }
 
 function buildContext(doc: Document): ParseContext {
@@ -38,6 +41,7 @@ function buildContext(doc: Document): ParseContext {
     clipPaths: new Map(),
     classStyles: new Map(),
     defs: null,
+    inheritedStyles: {},
   };
 
   const defs = doc.querySelector('defs');
@@ -186,12 +190,25 @@ function resolveColor(
   return { color: normalizeColor(raw), gradient: null };
 }
 
+function isFillExplicitlyNone(
+  el: Element,
+  inlineStyle: Record<string, string>,
+  classStyles: Record<string, string>,
+): boolean {
+  const raw = getEffectiveAttribute(el, 'fill', 'fill', inlineStyle, classStyles);
+  return raw === 'none' || raw === 'transparent';
+}
+
 function buildFills(
   el: Element,
   inlineStyle: Record<string, string>,
   classStyles: Record<string, string>,
   ctx: ParseContext,
-): { fills: InterchangeFill[]; gradients: InterchangeGradient[] } {
+): { fills: InterchangeFill[]; gradients: InterchangeGradient[]; fillNone: boolean } {
+  if (isFillExplicitlyNone(el, inlineStyle, classStyles)) {
+    return { fills: [], gradients: [], fillNone: true };
+  }
+
   const { color, gradient } = resolveColor(el, 'fill', 'fill', inlineStyle, classStyles, ctx);
   const fills: InterchangeFill[] = [];
   const gradients: InterchangeGradient[] = [];
@@ -218,7 +235,7 @@ function buildFills(
     fills[0]!.opacity *= parseFloat(fillOpacity);
   }
 
-  return { fills, gradients };
+  return { fills, gradients, fillNone: false };
 }
 
 function parseDashPattern(dasharray: string | null, strokeWidth: number): InterchangeDashPattern {
@@ -407,7 +424,7 @@ function parseRectElement(
   const ry = parseLength(el.getAttribute('ry'), rx);
   const cornerRadius = Math.max(rx, ry);
 
-  const { fills, gradients } = buildFills(el, inlineStyle, classStyles, ctx);
+  const { fills, gradients, fillNone } = buildFills(el, inlineStyle, classStyles, ctx);
   const strokes = buildStrokes(el, inlineStyle, classStyles, ctx);
   const shadows = buildShadows(el, ctx);
 
@@ -416,7 +433,7 @@ function parseRectElement(
     y,
     width,
     height,
-    fills: fills.length > 0 ? fills : [{ color: '#D9D9D9', opacity: 1, visible: true }],
+    fills: fills.length > 0 || fillNone ? fills : [{ color: '#D9D9D9', opacity: 1, visible: true }],
     gradients,
     strokes,
     shadows,
@@ -438,7 +455,7 @@ function parseEllipseElement(
   const rx = parseLength(isCircle ? el.getAttribute('r') : el.getAttribute('rx'), 50);
   const ry = parseLength(isCircle ? el.getAttribute('r') : el.getAttribute('ry'), 50);
 
-  const { fills, gradients } = buildFills(el, inlineStyle, classStyles, ctx);
+  const { fills, gradients, fillNone } = buildFills(el, inlineStyle, classStyles, ctx);
   const strokes = buildStrokes(el, inlineStyle, classStyles, ctx);
   const shadows = buildShadows(el, ctx);
 
@@ -447,7 +464,7 @@ function parseEllipseElement(
     y: cy - ry,
     width: rx * 2,
     height: ry * 2,
-    fills: fills.length > 0 ? fills : [{ color: '#D9D9D9', opacity: 1, visible: true }],
+    fills: fills.length > 0 || fillNone ? fills : [{ color: '#D9D9D9', opacity: 1, visible: true }],
     gradients,
     strokes,
     shadows,
@@ -539,22 +556,29 @@ function parsePolygonElement(
     maxY = 100;
   }
 
-  const { fills, gradients } = buildFills(el, inlineStyle, classStyles, ctx);
+  const { fills, gradients, fillNone } = buildFills(el, inlineStyle, classStyles, ctx);
   const strokes = buildStrokes(el, inlineStyle, classStyles, ctx);
   const shadows = buildShadows(el, ctx);
 
-  const numVertices = Math.floor(coords.length / 2);
+  const pathParts: string[] = [];
+  for (let i = 0; i < coords.length; i += 2) {
+    const px = coords[i]! - minX;
+    const py = coords[i + 1]! - minY;
+    pathParts.push(i === 0 ? `M${px} ${py}` : `L${px} ${py}`);
+  }
+  pathParts.push('Z');
 
-  return createInterchangeNode('polygon', {
+  return createInterchangeNode('path', {
+    name: 'Vector',
     x: minX,
     y: minY,
     width: maxX - minX || 100,
     height: maxY - minY || 100,
-    fills: fills.length > 0 ? fills : [{ color: '#D9D9D9', opacity: 1, visible: true }],
+    fills: fills.length > 0 || fillNone ? fills : [{ color: '#D9D9D9', opacity: 1, visible: true }],
     gradients,
     strokes,
     shadows,
-    sides: Math.max(3, numVertices),
+    svgPathData: pathParts.join(''),
     opacity: getElementOpacity(el, inlineStyle, classStyles),
   });
 }
@@ -593,20 +617,26 @@ function parsePolylineElement(
     maxY = 100;
   }
 
+  const { fills, gradients, fillNone } = buildFills(el, inlineStyle, classStyles, ctx);
   const strokes = buildStrokes(el, inlineStyle, classStyles, ctx);
   const shadows = buildShadows(el, ctx);
 
   if (coords.length >= 4) {
-    const x1 = coords[0]!;
-    const y1 = coords[1]!;
-    const x2 = coords[coords.length - 2]!;
-    const y2 = coords[coords.length - 1]!;
+    const pathParts: string[] = [];
+    for (let i = 0; i < coords.length; i += 2) {
+      const px = coords[i]! - minX;
+      const py = coords[i + 1]! - minY;
+      pathParts.push(i === 0 ? `M${px} ${py}` : `L${px} ${py}`);
+    }
 
-    return createInterchangeNode('line', {
+    return createInterchangeNode('path', {
+      name: 'Vector',
       x: minX,
       y: minY,
       width: maxX - minX || 1,
       height: maxY - minY || 1,
+      fills: fills.length > 0 || fillNone ? fills : [],
+      gradients,
       strokes:
         strokes.length > 0
           ? strokes
@@ -625,21 +655,21 @@ function parsePolylineElement(
               },
             ],
       shadows,
-      x1,
-      y1,
-      x2,
-      y2,
+      svgPathData: pathParts.join(''),
       opacity: getElementOpacity(el, inlineStyle, classStyles),
     });
   }
 
-  return createInterchangeNode('line', {
+  return createInterchangeNode('path', {
+    name: 'Vector',
     x: minX,
     y: minY,
     width: maxX - minX || 1,
     height: maxY - minY || 1,
+    fills: fills.length > 0 || fillNone ? fills : [],
     strokes,
     shadows,
+    svgPathData: '',
     opacity: getElementOpacity(el, inlineStyle, classStyles),
   });
 }
@@ -653,12 +683,14 @@ function parsePathElement(
   const d = el.getAttribute('d') ?? '';
   const commands = parseSvgPathData(d);
   const bounds = pathCommandsToBounds(commands);
+  const normalizedPath = translateSvgPathData(commands, -bounds.x, -bounds.y);
 
   const { fills, gradients } = buildFills(el, inlineStyle, classStyles, ctx);
   const strokes = buildStrokes(el, inlineStyle, classStyles, ctx);
   const shadows = buildShadows(el, ctx);
 
-  return createInterchangeNode('rectangle', {
+  return createInterchangeNode('path', {
+    name: 'Vector',
     x: bounds.x,
     y: bounds.y,
     width: bounds.width || 100,
@@ -667,7 +699,7 @@ function parsePathElement(
     gradients,
     strokes,
     shadows,
-    svgPathData: d,
+    svgPathData: normalizedPath,
     opacity: getElementOpacity(el, inlineStyle, classStyles),
     clipPath: getClipPath(el, ctx),
   });
@@ -794,6 +826,42 @@ function parseImageElement(
   });
 }
 
+const INHERITABLE_ATTRS = [
+  'fill',
+  'stroke',
+  'stroke-width',
+  'stroke-linecap',
+  'stroke-linejoin',
+  'stroke-dasharray',
+  'stroke-dashoffset',
+  'stroke-miterlimit',
+  'stroke-opacity',
+  'fill-opacity',
+  'fill-rule',
+  'font-size',
+  'font-family',
+  'font-weight',
+  'font-style',
+  'text-anchor',
+  'text-decoration',
+  'letter-spacing',
+  'color',
+];
+
+function collectInheritedStyles(
+  el: Element,
+  inlineStyle: Record<string, string>,
+  classStyles: Record<string, string>,
+  parentInherited: Record<string, string>,
+): Record<string, string> {
+  const merged = { ...parentInherited };
+  for (const attr of INHERITABLE_ATTRS) {
+    const val = inlineStyle[attr] ?? classStyles[attr] ?? el.getAttribute(attr);
+    if (val) merged[attr] = val;
+  }
+  return merged;
+}
+
 function parseElement(
   el: Element,
   ctx: ParseContext,
@@ -807,7 +875,8 @@ function parseElement(
   }
 
   const inlineStyle = parseCssInlineStyle(el.getAttribute('style'));
-  const classStyles = getClassStyles(el, ctx);
+  const ownClassStyles = getClassStyles(el, ctx);
+  const classStyles = { ...ctx.inheritedStyles, ...ownClassStyles };
 
   const transform = parseTransform(el.getAttribute('transform'));
   const decomposed = decomposeTransform(transform);
@@ -815,11 +884,16 @@ function parseElement(
   const ty = parentTransformY + decomposed.translateY;
 
   if (tagName === 'g') {
+    const prevInherited = ctx.inheritedStyles;
+    ctx.inheritedStyles = collectInheritedStyles(el, inlineStyle, classStyles, prevInherited);
+
     const children: InterchangeNode[] = [];
     for (const child of el.children) {
       const parsed = parseElement(child, ctx, tx, ty);
       if (parsed) children.push(parsed);
     }
+
+    ctx.inheritedStyles = prevInherited;
 
     if (children.length === 0) return null;
     if (children.length === 1) {
@@ -937,14 +1011,43 @@ function parseElement(
     node.y += ty;
     node.rotation += decomposed.rotation;
 
-    if (decomposed.scaleX !== 1) node.width *= Math.abs(decomposed.scaleX);
-    if (decomposed.scaleY !== 1) node.height *= Math.abs(decomposed.scaleY);
+    if (decomposed.scaleX !== 1 || decomposed.scaleY !== 1) {
+      const sx = Math.abs(decomposed.scaleX);
+      const sy = Math.abs(decomposed.scaleY);
+      node.width *= sx;
+      node.height *= sy;
+
+      if (node.svgPathData) {
+        const commands = parseSvgPathData(node.svgPathData);
+        const scaled = scaleSvgPathData(commands, sx, sy);
+        node.svgPathData = translateSvgPathData(scaled, 0, 0);
+      }
+    }
 
     const nameAttr = el.getAttribute('id') ?? el.getAttribute('data-name');
     if (nameAttr) node.name = nameAttr;
   }
 
   return node;
+}
+
+function parseSvgDimensions(svgEl: Element): {
+  width: number;
+  height: number;
+  minX: number;
+  minY: number;
+} {
+  const viewBox = svgEl.getAttribute('viewBox');
+  if (viewBox) {
+    const parts = viewBox.split(/[\s,]+/).map(Number);
+    if (parts.length === 4 && parts[2]! > 0 && parts[3]! > 0) {
+      return { minX: parts[0]!, minY: parts[1]!, width: parts[2]!, height: parts[3]! };
+    }
+  }
+  const w = parseLength(svgEl.getAttribute('width'), 0);
+  const h = parseLength(svgEl.getAttribute('height'), 0);
+  if (w > 0 && h > 0) return { minX: 0, minY: 0, width: w, height: h };
+  return { minX: 0, minY: 0, width: 100, height: 100 };
 }
 
 export function parseSvg(svgString: string): InterchangeDocument {
@@ -962,14 +1065,45 @@ export function parseSvg(svgString: string): InterchangeDocument {
   }
 
   const ctx = buildContext(doc);
-  const nodes: InterchangeNode[] = [];
+
+  const svgInlineStyle = parseCssInlineStyle(svgEl.getAttribute('style'));
+  const svgClassStyles = getClassStyles(svgEl, ctx);
+  ctx.inheritedStyles = collectInheritedStyles(svgEl, svgInlineStyle, svgClassStyles, {});
+
+  const children: InterchangeNode[] = [];
 
   for (const child of svgEl.children) {
     const parsed = parseElement(child, ctx);
-    if (parsed) nodes.push(parsed);
+    if (parsed) children.push(parsed);
   }
 
-  return createInterchangeDocument(nodes, { source: 'svg' });
+  if (children.length === 0) {
+    return createInterchangeDocument([], { source: 'svg' });
+  }
+
+  const { width, height, minX, minY } = parseSvgDimensions(svgEl);
+
+  if (minX !== 0 || minY !== 0) {
+    for (const child of children) {
+      child.x -= minX;
+      child.y -= minY;
+    }
+  }
+
+  if (children.length === 1) {
+    return createInterchangeDocument(children, { source: 'svg' });
+  }
+
+  const frame = createInterchangeNode('frame', {
+    x: 0,
+    y: 0,
+    width,
+    height,
+    clip: true,
+    children,
+  });
+
+  return createInterchangeDocument([frame], { source: 'svg' });
 }
 
 export function extractSvgFromHtml(html: string): string | null {
