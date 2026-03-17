@@ -7,7 +7,6 @@ import { DashboardLayout } from './layouts/dashboard-layout';
 import { EditorLayout } from './layouts/editor-layout';
 import { DraftsPage } from './pages/drafts/index';
 import { ProjectsPage } from './pages/projects/index';
-import { McpSettingsPage } from './pages/settings/mcp/index';
 import { EditorPage } from './pages/editor/index';
 import { LoginPage } from './pages/auth/login';
 
@@ -25,7 +24,6 @@ export function App() {
               <Route element={<DashboardLayout />}>
                 <Route path="/" element={<DraftsPage />} />
                 <Route path="/projects" element={<ProjectsPage />} />
-                <Route path="/settings/mcp" element={<McpSettingsPage />} />
               </Route>
               <Route element={<EditorLayout />}>
                 <Route path="/drafts/:draftId" element={<EditorPage />} />
