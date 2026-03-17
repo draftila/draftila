@@ -1,10 +1,11 @@
 import * as Y from 'yjs';
+import { getShapesMap, getZOrder } from './scene-graph';
 
 let undoManager: Y.UndoManager | null = null;
 
 export function initUndoManager(ydoc: Y.Doc): Y.UndoManager {
-  const shapes = ydoc.getMap('shapes');
-  const zOrder = ydoc.getArray('zOrder');
+  const shapes = getShapesMap(ydoc);
+  const zOrder = getZOrder(ydoc);
 
   undoManager = new Y.UndoManager([shapes, zOrder], {
     captureTimeout: 300,

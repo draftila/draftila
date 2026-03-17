@@ -142,13 +142,33 @@ export {
 
 export {
   type ComponentDefinition,
+  type ComponentInstanceInfo,
   getComponentsMap,
+  getComponentInstancesMap,
   createComponent,
   createInstance,
   listComponents,
+  removeComponent,
+  renameComponent,
+  getComponentById,
+  getInstanceComponentId,
+  isComponentInstance,
+  listComponentInstances,
+  observeComponents,
 } from './components';
 
-export { type PageData, initPages, getPages, addPage, removePage, renamePage } from './pages';
+export {
+  type PageData,
+  initPages,
+  ensureDefaultPage,
+  getPages,
+  addPage,
+  removePage,
+  renamePage,
+  setActivePage,
+  getActivePageId,
+  observePages,
+} from './pages';
 
 export {
   exportToPng,

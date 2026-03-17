@@ -1,11 +1,12 @@
 import { memo } from 'react';
 import { ChevronDown, ChevronRight, Eye, EyeOff, Lock, Unlock } from 'lucide-react';
 import type { DragState, LayerRow as LayerRowData } from './types';
-import { SHAPE_ICONS } from './types';
+import { INSTANCE_ICON, SHAPE_ICONS } from './types';
 
 interface LayerRowProps {
   row: LayerRowData;
   isSelected: boolean;
+  isComponentInstance: boolean;
   dragState: DragState | null;
   onSelect: (id: string, e: React.MouseEvent) => void;
   onContextMenu: (id: string, e: React.MouseEvent) => void;
@@ -21,6 +22,7 @@ interface LayerRowProps {
 export const LayerRow = memo(function LayerRow({
   row,
   isSelected,
+  isComponentInstance,
   dragState,
   onSelect,
   onContextMenu,
@@ -70,7 +72,9 @@ export const LayerRow = memo(function LayerRow({
           )
         ) : null}
       </span>
-      <span className="text-muted-foreground shrink-0">{SHAPE_ICONS[row.shape.type]}</span>
+      <span className="text-muted-foreground shrink-0">
+        {isComponentInstance ? INSTANCE_ICON : SHAPE_ICONS[row.shape.type]}
+      </span>
       <span className="min-w-0 flex-1 truncate">{row.shape.name}</span>
       <span
         className="text-muted-foreground shrink-0 opacity-0 transition-opacity group-hover:opacity-100"

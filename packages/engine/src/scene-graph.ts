@@ -16,6 +16,7 @@ import {
   lineToPath,
   arrowToPath,
 } from './path-gen';
+import { getActivePageShapesMap, getActivePageZOrder, initPages } from './pages';
 
 const ID_SIZE = 21;
 const ID_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-';
@@ -282,14 +283,15 @@ export function initDocument(ydoc: Y.Doc) {
   ydoc.getMap('shapes');
   ydoc.getArray<string>('zOrder');
   ydoc.getMap('meta');
+  initPages(ydoc);
 }
 
 export function getShapesMap(ydoc: Y.Doc): Y.Map<Y.Map<unknown>> {
-  return ydoc.getMap('shapes') as Y.Map<Y.Map<unknown>>;
+  return getActivePageShapesMap(ydoc);
 }
 
 export function getZOrder(ydoc: Y.Doc): Y.Array<string> {
-  return ydoc.getArray<string>('zOrder');
+  return getActivePageZOrder(ydoc);
 }
 
 function ymapToObject(ymap: Y.Map<unknown>): Record<string, unknown> {

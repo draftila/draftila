@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDraftById, useUpdateDraft } from '@/api/drafts';
 import { useSession } from '@/lib/auth-client';
@@ -6,6 +6,8 @@ import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { InlineEditableText } from '@/components/inline-editable-text';
 import { UserMenu } from '@/components/user-menu';
+import { getActivePageId, setActivePage } from '@draftila/engine';
+import { DEFAULT_CAMERA } from '@draftila/engine/camera';
 import { initUndoManager, destroyUndoManager } from '@draftila/engine/history';
 import { getMoveTool } from '@draftila/engine/tools/tool-manager';
 import { useEditorStore } from '@/stores/editor-store';
@@ -29,6 +31,9 @@ export function EditorPage() {
   const userName = session?.user?.name ?? 'Anonymous';
 
   const updateDraft = useUpdateDraft(draft?.projectId ?? '');
+  const activePageId = useEditorStore((s) => s.activePageId);
+  const setActivePageId = useEditorStore((s) => s.setActivePageId);
+  const lastPageIdRef = useRef<string | null>(null);
 
   const handleRenameDraft = useCallback(
     (name: string) => {
@@ -47,9 +52,29 @@ export function EditorPage() {
   useKeyboard({ ydoc });
 
   useEffect(() => {
+    const pageId = activePageId ?? getActivePageId(ydoc);
+    if (pageId) {
+      setActivePage(ydoc, pageId);
+    }
+    if (pageId && activePageId !== pageId) {
+      setActivePageId(pageId);
+    }
+
+    if (pageId && lastPageIdRef.current && lastPageIdRef.current !== pageId) {
+      const store = useEditorStore.getState();
+      store.clearSelection();
+      store.setEnteredGroupId(null);
+      store.setHoveredId(null);
+      store.setEditingTextId(null);
+      store.setCamera(DEFAULT_CAMERA);
+    }
+    if (pageId) {
+      lastPageIdRef.current = pageId;
+    }
+
     initUndoManager(ydoc);
     return () => destroyUndoManager();
-  }, [ydoc]);
+  }, [ydoc, activePageId, setActivePageId]);
 
   useEffect(() => {
     const unsubscribe = useEditorStore.subscribe((state, prev) => {
