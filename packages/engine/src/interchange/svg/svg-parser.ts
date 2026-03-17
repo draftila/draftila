@@ -18,6 +18,7 @@ import {
   parseLength,
   parseTransform,
   decomposeTransform,
+  multiplyMatrices,
   parseCssInlineStyle,
   parseCssStyleSheet,
   getEffectiveAttribute,
@@ -26,22 +27,44 @@ import {
   translateSvgPathData,
   scaleSvgPathData,
 } from './svg-utils';
+import type { TransformMatrix } from './svg-utils';
+
+interface RawGradient extends InterchangeGradient {
+  userSpaceOnUse?: boolean;
+  rawX1?: number;
+  rawY1?: number;
+  rawX2?: number;
+  rawY2?: number;
+  rawCx?: number;
+  rawCy?: number;
+  rawR?: number;
+}
+
+interface PatternInfo {
+  imageHref: string;
+}
 
 interface ParseContext {
-  gradients: Map<string, InterchangeGradient>;
+  gradients: Map<string, RawGradient>;
+  patterns: Map<string, PatternInfo>;
   clipPaths: Map<string, InterchangeClipPath>;
   classStyles: Map<string, Record<string, string>>;
   defs: Element | null;
   inheritedStyles: Record<string, string>;
+  viewBoxScale: { sx: number; sy: number };
+  currentColor: string;
 }
 
 function buildContext(doc: Document): ParseContext {
   const ctx: ParseContext = {
     gradients: new Map(),
+    patterns: new Map(),
     clipPaths: new Map(),
     classStyles: new Map(),
     defs: null,
     inheritedStyles: {},
+    viewBoxScale: { sx: 1, sy: 1 },
+    currentColor: '#000000',
   };
 
   const defs = doc.querySelector('defs');
@@ -50,6 +73,13 @@ function buildContext(doc: Document): ParseContext {
   if (defs) {
     parseGradients(defs, ctx);
     parseClipPaths(defs, ctx);
+    parsePatterns(defs, ctx, doc);
+  }
+
+  const allGradients = doc.querySelectorAll('linearGradient, radialGradient');
+  for (const grad of allGradients) {
+    if (grad.closest('defs')) continue;
+    parseGradientElement(grad, ctx);
   }
 
   const styleTags = doc.querySelectorAll('style');
@@ -66,49 +96,131 @@ function buildContext(doc: Document): ParseContext {
   return ctx;
 }
 
-function parseGradients(defs: Element, ctx: ParseContext): void {
-  const linearGrads = defs.querySelectorAll('linearGradient');
-  for (const grad of linearGrads) {
-    const id = grad.getAttribute('id');
-    if (!id) continue;
+function parseGradientElement(grad: Element, ctx: ParseContext): void {
+  const id = grad.getAttribute('id');
+  if (!id) return;
 
-    const x1 = parseLength(grad.getAttribute('x1'), 0);
-    const y1 = parseLength(grad.getAttribute('y1'), 0);
-    const x2 = parseLength(grad.getAttribute('x2'), 1);
-    const y2 = parseLength(grad.getAttribute('y2'), 0);
-    const angle = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI;
+  const href = resolveHref(grad) || null;
 
-    const stops: InterchangeGradientStop[] = [];
-    for (const stop of grad.querySelectorAll('stop')) {
-      const offset = parseLength(stop.getAttribute('offset'), 0);
-      const stopStyle = parseCssInlineStyle(stop.getAttribute('style'));
-      const color =
-        normalizeColor(stopStyle['stop-color'] ?? stop.getAttribute('stop-color')) ?? '#000000';
-      stops.push({ color, position: offset });
+  let baseStops: InterchangeGradientStop[] = [];
+  let baseAttrs: Record<string, string> = {};
+
+  if (href?.startsWith('#')) {
+    const refId = href.slice(1);
+    const refGrad = ctx.gradients.get(refId);
+    if (refGrad) {
+      baseStops = [...refGrad.stops];
+      if (refGrad.type === 'linear') {
+        baseAttrs.angle = String(refGrad.angle ?? 0);
+      } else {
+        baseAttrs.cx = String(refGrad.cx ?? 0.5);
+        baseAttrs.cy = String(refGrad.cy ?? 0.5);
+        baseAttrs.r = String(refGrad.r ?? 0.5);
+      }
     }
-
-    ctx.gradients.set(id, { type: 'linear', stops, angle });
   }
 
-  const radialGrads = defs.querySelectorAll('radialGradient');
-  for (const grad of radialGrads) {
-    const id = grad.getAttribute('id');
-    if (!id) continue;
+  const ownStops = parseGradientStops(grad);
+  const stops = ownStops.length > 0 ? ownStops : baseStops;
 
-    const cx = parseLength(grad.getAttribute('cx'), 0.5);
-    const cy = parseLength(grad.getAttribute('cy'), 0.5);
-    const r = parseLength(grad.getAttribute('r'), 0.5);
+  const tagName = grad.tagName.toLowerCase().replace(/^svg:/, '');
+  const units = grad.getAttribute('gradientUnits');
+  const isUserSpace = units === 'userSpaceOnUse';
 
-    const stops: InterchangeGradientStop[] = [];
-    for (const stop of grad.querySelectorAll('stop')) {
-      const offset = parseLength(stop.getAttribute('offset'), 0);
-      const stopStyle = parseCssInlineStyle(stop.getAttribute('style'));
-      const color =
-        normalizeColor(stopStyle['stop-color'] ?? stop.getAttribute('stop-color')) ?? '#000000';
-      stops.push({ color, position: offset });
+  if (tagName === 'lineargradient') {
+    const defaultX2 = isUserSpace ? 0 : 1;
+    const x1 = parseLength(grad.getAttribute('x1') ?? baseAttrs.x1, 0);
+    const y1 = parseLength(grad.getAttribute('y1') ?? baseAttrs.y1, 0);
+    const x2 = parseLength(grad.getAttribute('x2') ?? baseAttrs.x2, defaultX2);
+    const y2 = parseLength(grad.getAttribute('y2') ?? baseAttrs.y2, 0);
+    const angle = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI;
+
+    const gradient: RawGradient = { type: 'linear', stops, angle };
+    if (isUserSpace) {
+      gradient.userSpaceOnUse = true;
+      gradient.rawX1 = x1;
+      gradient.rawY1 = y1;
+      gradient.rawX2 = x2;
+      gradient.rawY2 = y2;
+    }
+    ctx.gradients.set(id, gradient);
+  } else if (tagName === 'radialgradient') {
+    const defaultCenter = isUserSpace ? 0 : 0.5;
+    const defaultR = isUserSpace ? 0 : 0.5;
+    const cx = parseLength(grad.getAttribute('cx') ?? baseAttrs.cx, defaultCenter);
+    const cy = parseLength(grad.getAttribute('cy') ?? baseAttrs.cy, defaultCenter);
+    const r = parseLength(grad.getAttribute('r') ?? baseAttrs.r, defaultR);
+
+    const gradient: RawGradient = { type: 'radial', stops, cx, cy, r };
+    if (isUserSpace) {
+      gradient.userSpaceOnUse = true;
+      gradient.rawCx = cx;
+      gradient.rawCy = cy;
+      gradient.rawR = r;
+    }
+    ctx.gradients.set(id, gradient);
+  }
+}
+
+function parseGradientStops(grad: Element): InterchangeGradientStop[] {
+  const stops: InterchangeGradientStop[] = [];
+  for (const stop of grad.querySelectorAll('stop')) {
+    const offset = parseLength(stop.getAttribute('offset'), 0);
+    const stopStyle = parseCssInlineStyle(stop.getAttribute('style'));
+
+    const rawColor = stopStyle['stop-color'] ?? stop.getAttribute('stop-color');
+    const color = normalizeColor(rawColor) ?? '#000000';
+
+    const rawOpacity = stopStyle['stop-opacity'] ?? stop.getAttribute('stop-opacity');
+    const stopOpacity =
+      rawOpacity !== null && rawOpacity !== undefined ? parseFloat(rawOpacity) : 1;
+
+    let finalColor = color;
+    if (!isNaN(stopOpacity) && stopOpacity < 1 && finalColor.length === 7) {
+      const alpha = Math.round(stopOpacity * 255)
+        .toString(16)
+        .padStart(2, '0');
+      finalColor = `${finalColor}${alpha}`.toUpperCase();
+    } else if (finalColor.length === 9 && !isNaN(stopOpacity) && stopOpacity < 1) {
+      const existingAlpha = parseInt(finalColor.slice(7, 9), 16) / 255;
+      const combinedAlpha = existingAlpha * stopOpacity;
+      const alpha = Math.round(combinedAlpha * 255)
+        .toString(16)
+        .padStart(2, '0');
+      finalColor = `${finalColor.slice(0, 7)}${alpha}`.toUpperCase();
     }
 
-    ctx.gradients.set(id, { type: 'radial', stops, cx, cy, r });
+    stops.push({ color: finalColor, position: offset });
+  }
+  return stops;
+}
+
+function parseGradients(defs: Element, ctx: ParseContext): void {
+  const allGrads = defs.querySelectorAll('linearGradient, radialGradient');
+
+  const gradMap = new Map<string, Element>();
+  for (const grad of allGrads) {
+    const id = grad.getAttribute('id');
+    if (id) gradMap.set(id, grad);
+  }
+
+  const parsed = new Set<string>();
+  function ensureParsed(id: string) {
+    if (parsed.has(id)) return;
+    const grad = gradMap.get(id);
+    if (!grad) return;
+
+    const href = resolveHref(grad);
+    if (href.startsWith('#')) {
+      ensureParsed(href.slice(1));
+    }
+
+    parsed.add(id);
+    parseGradientElement(grad, ctx);
+  }
+
+  for (const id of gradMap.keys()) {
+    ensureParsed(id);
   }
 }
 
@@ -154,6 +266,46 @@ function parseClipPaths(defs: Element, ctx: ParseContext): void {
   }
 }
 
+function resolveHref(el: Element): string {
+  return (
+    el.getAttribute('href') ??
+    el.getAttributeNS('http://www.w3.org/1999/xlink', 'href') ??
+    el.getAttribute('xlink:href') ??
+    ''
+  );
+}
+
+function parsePatterns(defs: Element, ctx: ParseContext, doc: Document): void {
+  const patternEls = defs.querySelectorAll('pattern');
+  for (const pat of patternEls) {
+    const id = pat.getAttribute('id');
+    if (!id) continue;
+
+    const useEl = pat.querySelector('use');
+    if (useEl) {
+      const href = resolveHref(useEl);
+      if (href.startsWith('#')) {
+        const refEl = doc.getElementById(href.slice(1));
+        if (refEl && refEl.tagName.toLowerCase() === 'image') {
+          const imageHref = resolveHref(refEl);
+          if (imageHref) {
+            ctx.patterns.set(id, { imageHref });
+          }
+        }
+      }
+      continue;
+    }
+
+    const imgEl = pat.querySelector('image');
+    if (imgEl) {
+      const imageHref = resolveHref(imgEl);
+      if (imageHref) {
+        ctx.patterns.set(id, { imageHref });
+      }
+    }
+  }
+}
+
 function getClassStyles(el: Element, ctx: ParseContext): Record<string, string> {
   const classAttr = el.getAttribute('class');
   if (!classAttr) return {};
@@ -167,6 +319,53 @@ function getClassStyles(el: Element, ctx: ParseContext): Record<string, string> 
   return merged;
 }
 
+function isElementHidden(
+  el: Element,
+  inlineStyle: Record<string, string>,
+  classStyles: Record<string, string>,
+): boolean {
+  const display = getEffectiveAttribute(el, 'display', 'display', inlineStyle, classStyles);
+  if (display === 'none') return true;
+
+  const visibility = getEffectiveAttribute(
+    el,
+    'visibility',
+    'visibility',
+    inlineStyle,
+    classStyles,
+  );
+  if (visibility === 'hidden' || visibility === 'collapse') return true;
+
+  return false;
+}
+
+function normalizeGradientForElement(
+  raw: RawGradient,
+  elX: number,
+  elY: number,
+  elW: number,
+  elH: number,
+): InterchangeGradient {
+  if (!raw.userSpaceOnUse) {
+    return { type: raw.type, stops: raw.stops, angle: raw.angle, cx: raw.cx, cy: raw.cy, r: raw.r };
+  }
+
+  if (raw.type === 'linear') {
+    return { type: 'linear', stops: raw.stops, angle: raw.angle };
+  }
+
+  const w = elW || 1;
+  const h = elH || 1;
+  const maxDim = Math.max(w, h);
+  return {
+    type: 'radial',
+    stops: raw.stops,
+    cx: w > 0 ? ((raw.rawCx ?? 0) - elX) / w : 0.5,
+    cy: h > 0 ? ((raw.rawCy ?? 0) - elY) / h : 0.5,
+    r: maxDim > 0 ? (raw.rawR ?? 0) / maxDim : 0.5,
+  };
+}
+
 function resolveColor(
   el: Element,
   attr: string,
@@ -174,20 +373,32 @@ function resolveColor(
   inlineStyle: Record<string, string>,
   classStyles: Record<string, string>,
   ctx: ParseContext,
-): { color: string | null; gradient: InterchangeGradient | null } {
+): { color: string | null; gradient: RawGradient | null; pattern: PatternInfo | null } {
   const raw = getEffectiveAttribute(el, attr, cssProperty, inlineStyle, classStyles);
-  if (!raw) return { color: null, gradient: null };
+  if (!raw) return { color: null, gradient: null, pattern: null };
 
-  const urlMatch = raw.match(/url\(#([^)]+)\)/);
-  if (urlMatch) {
-    const gradient = ctx.gradients.get(urlMatch[1]!) ?? null;
-    if (gradient && gradient.stops.length > 0) {
-      return { color: gradient.stops[0]!.color, gradient };
-    }
-    return { color: null, gradient };
+  if (raw === 'currentColor' || raw === 'currentcolor') {
+    return { color: ctx.currentColor, gradient: null, pattern: null };
   }
 
-  return { color: normalizeColor(raw), gradient: null };
+  const urlMatch = raw.match(/url\(["']?#([^)"']+)["']?\)/);
+  if (urlMatch) {
+    const refId = urlMatch[1]!;
+
+    const gradient = ctx.gradients.get(refId) ?? null;
+    if (gradient && gradient.stops.length > 0) {
+      return { color: gradient.stops[0]!.color, gradient, pattern: null };
+    }
+
+    const pattern = ctx.patterns.get(refId) ?? null;
+    if (pattern) {
+      return { color: null, gradient: null, pattern };
+    }
+
+    return { color: null, gradient: null, pattern: null };
+  }
+
+  return { color: normalizeColor(raw), gradient: null, pattern: null };
 }
 
 function isFillExplicitlyNone(
@@ -204,17 +415,36 @@ function buildFills(
   inlineStyle: Record<string, string>,
   classStyles: Record<string, string>,
   ctx: ParseContext,
-): { fills: InterchangeFill[]; gradients: InterchangeGradient[]; fillNone: boolean } {
+  elBounds?: { x: number; y: number; w: number; h: number },
+): {
+  fills: InterchangeFill[];
+  gradients: InterchangeGradient[];
+  fillNone: boolean;
+  patternImage: string | null;
+} {
   if (isFillExplicitlyNone(el, inlineStyle, classStyles)) {
-    return { fills: [], gradients: [], fillNone: true };
+    return { fills: [], gradients: [], fillNone: true, patternImage: null };
   }
 
-  const { color, gradient } = resolveColor(el, 'fill', 'fill', inlineStyle, classStyles, ctx);
+  const { color, gradient, pattern } = resolveColor(
+    el,
+    'fill',
+    'fill',
+    inlineStyle,
+    classStyles,
+    ctx,
+  );
+
+  if (pattern) {
+    return { fills: [], gradients: [], fillNone: false, patternImage: pattern.imageHref };
+  }
+
   const fills: InterchangeFill[] = [];
   const gradients: InterchangeGradient[] = [];
 
   if (gradient) {
-    gradients.push(gradient);
+    const bounds = elBounds ?? { x: 0, y: 0, w: 100, h: 100 };
+    gradients.push(normalizeGradientForElement(gradient, bounds.x, bounds.y, bounds.w, bounds.h));
     if (color) {
       const { hex, opacity } = colorToOpacity(color);
       fills.push({ color: hex, opacity, visible: true });
@@ -235,7 +465,7 @@ function buildFills(
     fills[0]!.opacity *= parseFloat(fillOpacity);
   }
 
-  return { fills, gradients, fillNone: false };
+  return { fills, gradients, fillNone: false, patternImage: null };
 }
 
 function parseDashPattern(dasharray: string | null, strokeWidth: number): InterchangeDashPattern {
@@ -261,9 +491,9 @@ function buildStrokes(
   inlineStyle: Record<string, string>,
   classStyles: Record<string, string>,
   ctx: ParseContext,
-): InterchangeStroke[] {
-  const { color } = resolveColor(el, 'stroke', 'stroke', inlineStyle, classStyles, ctx);
-  if (!color) return [];
+): { strokes: InterchangeStroke[]; strokeGradients: InterchangeGradient[] } {
+  const { color, gradient } = resolveColor(el, 'stroke', 'stroke', inlineStyle, classStyles, ctx);
+  if (!color && !gradient) return { strokes: [], strokeGradients: [] };
 
   const widthStr = getEffectiveAttribute(
     el,
@@ -273,9 +503,15 @@ function buildStrokes(
     classStyles,
   );
   const width = parseLength(widthStr, 1);
-  if (width <= 0) return [];
+  if (width <= 0) return { strokes: [], strokeGradients: [] };
 
-  const { hex, opacity: colorOpacity } = colorToOpacity(color);
+  const strokeGradients: InterchangeGradient[] = [];
+  if (gradient) {
+    strokeGradients.push(gradient);
+  }
+
+  const strokeColor = color ?? '#000000';
+  const { hex, opacity: colorOpacity } = colorToOpacity(strokeColor);
 
   const strokeOpacity = getEffectiveAttribute(
     el,
@@ -332,27 +568,30 @@ function buildStrokes(
     classStyles,
   );
 
-  return [
-    {
-      color: hex,
-      width,
-      opacity: colorOpacity * opacityMultiplier,
-      visible: true,
-      cap,
-      join,
-      align: 'center',
-      dashPattern,
-      dashOffset: parseLength(dashOffsetStr),
-      miterLimit: parseLength(miterStr, 4),
-    },
-  ];
+  return {
+    strokes: [
+      {
+        color: hex,
+        width,
+        opacity: colorOpacity * opacityMultiplier,
+        visible: true,
+        cap,
+        join,
+        align: 'center',
+        dashPattern,
+        dashOffset: parseLength(dashOffsetStr),
+        miterLimit: parseLength(miterStr, 4),
+      },
+    ],
+    strokeGradients,
+  };
 }
 
 function buildShadows(el: Element, ctx: ParseContext): InterchangeShadow[] {
   const filterAttr = el.getAttribute('filter');
   if (!filterAttr) return [];
 
-  const urlMatch = filterAttr.match(/url\(#([^)]+)\)/);
+  const urlMatch = filterAttr.match(/url\(["']?#([^)"']+)["']?\)/);
   if (!urlMatch || !ctx.defs) return [];
 
   const filter = ctx.defs.querySelector(`filter#${CSS.escape(urlMatch[1]!)}`);
@@ -404,10 +643,20 @@ function getClipPath(el: Element, ctx: ParseContext): InterchangeClipPath | unde
   const clipAttr = el.getAttribute('clip-path');
   if (!clipAttr) return undefined;
 
-  const urlMatch = clipAttr.match(/url\(#([^)]+)\)/);
+  const urlMatch = clipAttr.match(/url\(["']?#([^)"']+)["']?\)/);
   if (!urlMatch) return undefined;
 
   return ctx.clipPaths.get(urlMatch[1]!) ?? undefined;
+}
+
+function getFillRule(
+  el: Element,
+  inlineStyle: Record<string, string>,
+  classStyles: Record<string, string>,
+): 'nonzero' | 'evenodd' {
+  const raw = getEffectiveAttribute(el, 'fill-rule', 'fill-rule', inlineStyle, classStyles);
+  if (raw === 'evenodd') return 'evenodd';
+  return 'nonzero';
 }
 
 function parseRectElement(
@@ -424,9 +673,31 @@ function parseRectElement(
   const ry = parseLength(el.getAttribute('ry'), rx);
   const cornerRadius = Math.max(rx, ry);
 
-  const { fills, gradients, fillNone } = buildFills(el, inlineStyle, classStyles, ctx);
-  const strokes = buildStrokes(el, inlineStyle, classStyles, ctx);
+  const elBounds = { x, y, w: width, h: height };
+  const { fills, gradients, fillNone, patternImage } = buildFills(
+    el,
+    inlineStyle,
+    classStyles,
+    ctx,
+    elBounds,
+  );
+
+  if (patternImage) {
+    return createInterchangeNode('image', {
+      x,
+      y,
+      width,
+      height,
+      src: patternImage,
+      fit: 'fill',
+      opacity: getElementOpacity(el, inlineStyle, classStyles),
+    });
+  }
+
+  const { strokes, strokeGradients } = buildStrokes(el, inlineStyle, classStyles, ctx);
   const shadows = buildShadows(el, ctx);
+
+  const allGradients = [...gradients, ...strokeGradients];
 
   return createInterchangeNode('rectangle', {
     x,
@@ -434,7 +705,7 @@ function parseRectElement(
     width,
     height,
     fills: fills.length > 0 || fillNone ? fills : [{ color: '#D9D9D9', opacity: 1, visible: true }],
-    gradients,
+    gradients: allGradients,
     strokes,
     shadows,
     cornerRadius,
@@ -455,9 +726,12 @@ function parseEllipseElement(
   const rx = parseLength(isCircle ? el.getAttribute('r') : el.getAttribute('rx'), 50);
   const ry = parseLength(isCircle ? el.getAttribute('r') : el.getAttribute('ry'), 50);
 
-  const { fills, gradients, fillNone } = buildFills(el, inlineStyle, classStyles, ctx);
-  const strokes = buildStrokes(el, inlineStyle, classStyles, ctx);
+  const elBounds = { x: cx - rx, y: cy - ry, w: rx * 2, h: ry * 2 };
+  const { fills, gradients, fillNone } = buildFills(el, inlineStyle, classStyles, ctx, elBounds);
+  const { strokes, strokeGradients } = buildStrokes(el, inlineStyle, classStyles, ctx);
   const shadows = buildShadows(el, ctx);
+
+  const allGradients = [...gradients, ...strokeGradients];
 
   return createInterchangeNode('ellipse', {
     x: cx - rx,
@@ -465,7 +739,7 @@ function parseEllipseElement(
     width: rx * 2,
     height: ry * 2,
     fills: fills.length > 0 || fillNone ? fills : [{ color: '#D9D9D9', opacity: 1, visible: true }],
-    gradients,
+    gradients: allGradients,
     strokes,
     shadows,
     opacity: getElementOpacity(el, inlineStyle, classStyles),
@@ -488,7 +762,7 @@ function parseLineElement(
   const width = Math.abs(x2 - x1) || 1;
   const height = Math.abs(y2 - y1) || 1;
 
-  const strokes = buildStrokes(el, inlineStyle, classStyles, ctx);
+  const { strokes } = buildStrokes(el, inlineStyle, classStyles, ctx);
   const shadows = buildShadows(el, ctx);
 
   return createInterchangeNode('line', {
@@ -556,9 +830,14 @@ function parsePolygonElement(
     maxY = 100;
   }
 
-  const { fills, gradients, fillNone } = buildFills(el, inlineStyle, classStyles, ctx);
-  const strokes = buildStrokes(el, inlineStyle, classStyles, ctx);
+  const elW = maxX - minX || 100;
+  const elH = maxY - minY || 100;
+  const elBounds = { x: minX, y: minY, w: elW, h: elH };
+  const { fills, gradients, fillNone } = buildFills(el, inlineStyle, classStyles, ctx, elBounds);
+  const { strokes, strokeGradients } = buildStrokes(el, inlineStyle, classStyles, ctx);
   const shadows = buildShadows(el, ctx);
+
+  const allGradients = [...gradients, ...strokeGradients];
 
   const pathParts: string[] = [];
   for (let i = 0; i < coords.length; i += 2) {
@@ -568,17 +847,20 @@ function parsePolygonElement(
   }
   pathParts.push('Z');
 
+  const fillRule = getFillRule(el, inlineStyle, classStyles);
+
   return createInterchangeNode('path', {
     name: 'Vector',
     x: minX,
     y: minY,
-    width: maxX - minX || 100,
-    height: maxY - minY || 100,
+    width: elW,
+    height: elH,
     fills: fills.length > 0 || fillNone ? fills : [{ color: '#D9D9D9', opacity: 1, visible: true }],
-    gradients,
+    gradients: allGradients,
     strokes,
     shadows,
     svgPathData: pathParts.join(''),
+    fillRule,
     opacity: getElementOpacity(el, inlineStyle, classStyles),
   });
 }
@@ -618,8 +900,10 @@ function parsePolylineElement(
   }
 
   const { fills, gradients, fillNone } = buildFills(el, inlineStyle, classStyles, ctx);
-  const strokes = buildStrokes(el, inlineStyle, classStyles, ctx);
+  const { strokes, strokeGradients } = buildStrokes(el, inlineStyle, classStyles, ctx);
   const shadows = buildShadows(el, ctx);
+
+  const allGradients = [...gradients, ...strokeGradients];
 
   if (coords.length >= 4) {
     const pathParts: string[] = [];
@@ -636,7 +920,7 @@ function parsePolylineElement(
       width: maxX - minX || 1,
       height: maxY - minY || 1,
       fills: fills.length > 0 || fillNone ? fills : [],
-      gradients,
+      gradients: allGradients,
       strokes:
         strokes.length > 0
           ? strokes
@@ -685,21 +969,30 @@ function parsePathElement(
   const bounds = pathCommandsToBounds(commands);
   const normalizedPath = translateSvgPathData(commands, -bounds.x, -bounds.y);
 
-  const { fills, gradients } = buildFills(el, inlineStyle, classStyles, ctx);
-  const strokes = buildStrokes(el, inlineStyle, classStyles, ctx);
+  const elBounds = { x: bounds.x, y: bounds.y, w: bounds.width || 100, h: bounds.height || 100 };
+  const { fills, gradients, fillNone } = buildFills(el, inlineStyle, classStyles, ctx, elBounds);
+  const { strokes, strokeGradients } = buildStrokes(el, inlineStyle, classStyles, ctx);
   const shadows = buildShadows(el, ctx);
+
+  const allGradients = [...gradients, ...strokeGradients];
+
+  const defaultFill: InterchangeFill[] =
+    fills.length === 0 && !fillNone ? [{ color: '#000000', opacity: 1, visible: true }] : fills;
+
+  const fillRule = getFillRule(el, inlineStyle, classStyles);
 
   return createInterchangeNode('path', {
     name: 'Vector',
     x: bounds.x,
     y: bounds.y,
-    width: bounds.width || 100,
-    height: bounds.height || 100,
-    fills,
-    gradients,
+    width: elBounds.w,
+    height: elBounds.h,
+    fills: defaultFill,
+    gradients: allGradients,
     strokes,
     shadows,
     svgPathData: normalizedPath,
+    fillRule,
     opacity: getElementOpacity(el, inlineStyle, classStyles),
     clipPath: getClipPath(el, ctx),
   });
@@ -812,8 +1105,17 @@ function parseImageElement(
   const width = parseLength(el.getAttribute('width'), 100);
   const height = parseLength(el.getAttribute('height'), 100);
 
-  const href =
-    el.getAttribute('href') ?? el.getAttributeNS('http://www.w3.org/1999/xlink', 'href') ?? '';
+  const href = resolveHref(el);
+
+  const par = el.getAttribute('preserveAspectRatio') ?? 'xMidYMid meet';
+  let fit: 'fill' | 'fit' | 'crop' = 'fill';
+  if (par === 'none') {
+    fit = 'fill';
+  } else if (par.includes('meet')) {
+    fit = 'fit';
+  } else if (par.includes('slice')) {
+    fit = 'crop';
+  }
 
   return createInterchangeNode('image', {
     x,
@@ -821,7 +1123,7 @@ function parseImageElement(
     width,
     height,
     src: href,
-    fit: 'fill',
+    fit,
     opacity: getElementOpacity(el, inlineStyle, classStyles),
   });
 }
@@ -862,6 +1164,49 @@ function collectInheritedStyles(
   return merged;
 }
 
+function applyMatrixToNode(
+  node: InterchangeNode,
+  matrix: TransformMatrix,
+  parentOffsetX: number,
+  parentOffsetY: number,
+): void {
+  const decomposed = decomposeTransform(matrix);
+
+  node.x += parentOffsetX + decomposed.translateX;
+  node.y += parentOffsetY + decomposed.translateY;
+  node.rotation += decomposed.rotation;
+
+  const sx = Math.abs(decomposed.scaleX);
+  const sy = Math.abs(decomposed.scaleY);
+
+  if (sx !== 1 || sy !== 1) {
+    node.width *= sx;
+    node.height *= sy;
+
+    if (node.svgPathData) {
+      const commands = parseSvgPathData(node.svgPathData);
+      const scaled = scaleSvgPathData(commands, sx, sy);
+      node.svgPathData = translateSvgPathData(scaled, 0, 0);
+    }
+
+    if (
+      node.x1 !== undefined &&
+      node.y1 !== undefined &&
+      node.x2 !== undefined &&
+      node.y2 !== undefined
+    ) {
+      node.x1 *= sx;
+      node.y1 *= sy;
+      node.x2 *= sx;
+      node.y2 *= sy;
+    }
+
+    for (const stroke of node.strokes) {
+      stroke.width *= Math.max(sx, sy);
+    }
+  }
+}
+
 function parseElement(
   el: Element,
   ctx: ParseContext,
@@ -870,7 +1215,19 @@ function parseElement(
 ): InterchangeNode | null {
   const tagName = el.tagName.toLowerCase();
 
-  if (['defs', 'style', 'title', 'desc', 'metadata', 'clippath', 'filter'].includes(tagName)) {
+  if (
+    [
+      'defs',
+      'style',
+      'title',
+      'desc',
+      'metadata',
+      'clippath',
+      'filter',
+      'symbol',
+      'marker',
+    ].includes(tagName)
+  ) {
     return null;
   }
 
@@ -878,12 +1235,23 @@ function parseElement(
   const ownClassStyles = getClassStyles(el, ctx);
   const classStyles = { ...ctx.inheritedStyles, ...ownClassStyles };
 
+  if (isElementHidden(el, inlineStyle, classStyles)) {
+    return null;
+  }
+
   const transform = parseTransform(el.getAttribute('transform'));
   const decomposed = decomposeTransform(transform);
   const tx = parentTransformX + decomposed.translateX;
   const ty = parentTransformY + decomposed.translateY;
 
-  if (tagName === 'g') {
+  const colorAttr = getEffectiveAttribute(el, 'color', 'color', inlineStyle, classStyles);
+  const prevColor = ctx.currentColor;
+  if (colorAttr) {
+    const resolved = normalizeColor(colorAttr);
+    if (resolved) ctx.currentColor = resolved;
+  }
+
+  if (tagName === 'g' || tagName === 'a' || tagName === 'svg') {
     const prevInherited = ctx.inheritedStyles;
     ctx.inheritedStyles = collectInheritedStyles(el, inlineStyle, classStyles, prevInherited);
 
@@ -894,6 +1262,7 @@ function parseElement(
     }
 
     ctx.inheritedStyles = prevInherited;
+    ctx.currentColor = prevColor;
 
     if (children.length === 0) return null;
     if (children.length === 1) {
@@ -958,10 +1327,9 @@ function parseElement(
       node = parseImageElement(el, inlineStyle, classStyles, ctx);
       break;
     case 'use': {
-      const href =
-        el.getAttribute('href') ?? el.getAttributeNS('http://www.w3.org/1999/xlink', 'href') ?? '';
-      if (href.startsWith('#') && ctx.defs) {
-        const refEl = ctx.defs.ownerDocument.getElementById(href.slice(1));
+      const href = resolveHref(el);
+      if (href.startsWith('#')) {
+        const refEl = (ctx.defs?.ownerDocument ?? el.ownerDocument).getElementById(href.slice(1));
         if (refEl) {
           node = parseElement(refEl, ctx, tx, ty);
           if (node) {
@@ -976,12 +1344,28 @@ function parseElement(
       }
       break;
     }
+    case 'foreignobject': {
+      const x = parseLength(el.getAttribute('x'));
+      const y = parseLength(el.getAttribute('y'));
+      const w = parseLength(el.getAttribute('width'), 100);
+      const h = parseLength(el.getAttribute('height'), 100);
+      node = createInterchangeNode('rectangle', {
+        x: x + tx,
+        y: y + ty,
+        width: w,
+        height: h,
+        fills: [{ color: '#E0E0E0', opacity: 0.5, visible: true }],
+      });
+      ctx.currentColor = prevColor;
+      return node;
+    }
     default: {
       const children: InterchangeNode[] = [];
       for (const child of el.children) {
         const parsed = parseElement(child, ctx, tx, ty);
         if (parsed) children.push(parsed);
       }
+      ctx.currentColor = prevColor;
       if (children.length === 1) return children[0]!;
       if (children.length > 1) {
         let minX = Infinity;
@@ -1017,6 +1401,13 @@ function parseElement(
       node.width *= sx;
       node.height *= sy;
 
+      if (decomposed.scaleX < 0) {
+        node.x -= node.width;
+      }
+      if (decomposed.scaleY < 0) {
+        node.y -= node.height;
+      }
+
       if (node.svgPathData) {
         const commands = parseSvgPathData(node.svgPathData);
         const scaled = scaleSvgPathData(commands, sx, sy);
@@ -1028,6 +1419,7 @@ function parseElement(
     if (nameAttr) node.name = nameAttr;
   }
 
+  ctx.currentColor = prevColor;
   return node;
 }
 
@@ -1036,18 +1428,58 @@ function parseSvgDimensions(svgEl: Element): {
   height: number;
   minX: number;
   minY: number;
+  vbWidth: number;
+  vbHeight: number;
+  hasViewBox: boolean;
 } {
+  let vbMinX = 0;
+  let vbMinY = 0;
+  let vbWidth = 0;
+  let vbHeight = 0;
+  let hasViewBox = false;
+
   const viewBox = svgEl.getAttribute('viewBox');
   if (viewBox) {
     const parts = viewBox.split(/[\s,]+/).map(Number);
     if (parts.length === 4 && parts[2]! > 0 && parts[3]! > 0) {
-      return { minX: parts[0]!, minY: parts[1]!, width: parts[2]!, height: parts[3]! };
+      vbMinX = parts[0]!;
+      vbMinY = parts[1]!;
+      vbWidth = parts[2]!;
+      vbHeight = parts[3]!;
+      hasViewBox = true;
     }
   }
+
   const w = parseLength(svgEl.getAttribute('width'), 0);
   const h = parseLength(svgEl.getAttribute('height'), 0);
-  if (w > 0 && h > 0) return { minX: 0, minY: 0, width: w, height: h };
-  return { minX: 0, minY: 0, width: 100, height: 100 };
+
+  if (hasViewBox) {
+    const outputW = w > 0 ? w : vbWidth;
+    const outputH = h > 0 ? h : vbHeight;
+    return {
+      width: outputW,
+      height: outputH,
+      minX: vbMinX,
+      minY: vbMinY,
+      vbWidth,
+      vbHeight,
+      hasViewBox: true,
+    };
+  }
+
+  if (w > 0 && h > 0) {
+    return { minX: 0, minY: 0, width: w, height: h, vbWidth: w, vbHeight: h, hasViewBox: false };
+  }
+
+  return {
+    minX: 0,
+    minY: 0,
+    width: 100,
+    height: 100,
+    vbWidth: 100,
+    vbHeight: 100,
+    hasViewBox: false,
+  };
 }
 
 export function parseSvg(svgString: string): InterchangeDocument {
@@ -1070,6 +1502,22 @@ export function parseSvg(svgString: string): InterchangeDocument {
   const svgClassStyles = getClassStyles(svgEl, ctx);
   ctx.inheritedStyles = collectInheritedStyles(svgEl, svgInlineStyle, svgClassStyles, {});
 
+  const colorAttr = getEffectiveAttribute(svgEl, 'color', 'color', svgInlineStyle, svgClassStyles);
+  if (colorAttr) {
+    const resolved = normalizeColor(colorAttr);
+    if (resolved) ctx.currentColor = resolved;
+  }
+
+  const { width, height, minX, minY, vbWidth, vbHeight, hasViewBox } = parseSvgDimensions(svgEl);
+
+  let scaleX = 1;
+  let scaleY = 1;
+  if (hasViewBox && vbWidth > 0 && vbHeight > 0) {
+    scaleX = width / vbWidth;
+    scaleY = height / vbHeight;
+  }
+  ctx.viewBoxScale = { sx: scaleX, sy: scaleY };
+
   const children: InterchangeNode[] = [];
 
   for (const child of svgEl.children) {
@@ -1081,12 +1529,16 @@ export function parseSvg(svgString: string): InterchangeDocument {
     return createInterchangeDocument([], { source: 'svg' });
   }
 
-  const { width, height, minX, minY } = parseSvgDimensions(svgEl);
-
   if (minX !== 0 || minY !== 0) {
     for (const child of children) {
       child.x -= minX;
       child.y -= minY;
+    }
+  }
+
+  if (scaleX !== 1 || scaleY !== 1) {
+    for (const child of children) {
+      scaleNode(child, scaleX, scaleY);
     }
   }
 
@@ -1104,6 +1556,44 @@ export function parseSvg(svgString: string): InterchangeDocument {
   });
 
   return createInterchangeDocument([frame], { source: 'svg' });
+}
+
+function scaleNode(node: InterchangeNode, sx: number, sy: number): void {
+  node.x *= sx;
+  node.y *= sy;
+  node.width *= sx;
+  node.height *= sy;
+
+  if (node.svgPathData) {
+    const commands = parseSvgPathData(node.svgPathData);
+    const scaled = scaleSvgPathData(commands, sx, sy);
+    node.svgPathData = translateSvgPathData(scaled, 0, 0);
+  }
+
+  if (node.x1 !== undefined) node.x1 *= sx;
+  if (node.y1 !== undefined) node.y1 *= sy;
+  if (node.x2 !== undefined) node.x2 *= sx;
+  if (node.y2 !== undefined) node.y2 *= sy;
+
+  if (node.cornerRadius !== undefined) {
+    node.cornerRadius *= Math.min(sx, sy);
+  }
+  if (node.cornerRadiusTL !== undefined) node.cornerRadiusTL *= Math.min(sx, sy);
+  if (node.cornerRadiusTR !== undefined) node.cornerRadiusTR *= Math.min(sx, sy);
+  if (node.cornerRadiusBL !== undefined) node.cornerRadiusBL *= Math.min(sx, sy);
+  if (node.cornerRadiusBR !== undefined) node.cornerRadiusBR *= Math.min(sx, sy);
+
+  if (node.fontSize !== undefined) {
+    node.fontSize *= Math.min(sx, sy);
+  }
+
+  for (const stroke of node.strokes) {
+    stroke.width *= Math.max(sx, sy);
+  }
+
+  for (const child of node.children) {
+    scaleNode(child, sx, sy);
+  }
 }
 
 export function extractSvgFromHtml(html: string): string | null {

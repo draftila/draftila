@@ -107,7 +107,12 @@ export interface Renderer {
 
   drawPath(points: Array<[number, number]>, style: RenderStyle, closed?: boolean): void;
 
-  drawSvgPath(transform: RenderTransform, pathData: string, style: RenderStyle): void;
+  drawSvgPath(
+    transform: RenderTransform,
+    pathData: string,
+    style: RenderStyle,
+    fillRule?: 'nonzero' | 'evenodd',
+  ): void;
 
   drawText(transform: RenderTransform, options: TextRenderOptions): void;
 

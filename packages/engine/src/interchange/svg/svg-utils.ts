@@ -125,8 +125,11 @@ export function decomposeTransform(m: TransformMatrix): {
 } {
   const translateX = m.e;
   const translateY = m.f;
-  const scaleX = Math.sqrt(m.a * m.a + m.b * m.b);
-  const scaleY = Math.sqrt(m.c * m.c + m.d * m.d);
+  const det = m.a * m.d - m.b * m.c;
+  const scaleXMag = Math.sqrt(m.a * m.a + m.b * m.b);
+  const scaleYMag = Math.sqrt(m.c * m.c + m.d * m.d);
+  const scaleX = det < 0 ? -scaleXMag : scaleXMag;
+  const scaleY = scaleYMag;
   const rotation = Math.atan2(m.b, m.a);
   return { translateX, translateY, rotation, scaleX, scaleY };
 }
@@ -282,10 +285,61 @@ const NAMED_COLORS: Record<string, string> = {
   yellowgreen: '#9ACD32',
 };
 
+function parseColorComponent(val: string): number {
+  if (val.endsWith('%')) {
+    return Math.min(255, Math.round((parseFloat(val) / 100) * 255));
+  }
+  return Math.min(255, Math.round(parseFloat(val)));
+}
+
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  h = ((h % 360) + 360) % 360;
+  s = Math.max(0, Math.min(100, s)) / 100;
+  l = Math.max(0, Math.min(100, l)) / 100;
+
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+
+  let r = 0;
+  let g = 0;
+  let b = 0;
+
+  if (h < 60) {
+    r = c;
+    g = x;
+    b = 0;
+  } else if (h < 120) {
+    r = x;
+    g = c;
+    b = 0;
+  } else if (h < 180) {
+    r = 0;
+    g = c;
+    b = x;
+  } else if (h < 240) {
+    r = 0;
+    g = x;
+    b = c;
+  } else if (h < 300) {
+    r = x;
+    g = 0;
+    b = c;
+  } else {
+    r = c;
+    g = 0;
+    b = x;
+  }
+
+  return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+}
+
 export function normalizeColor(color: string | null | undefined): string | null {
   if (!color || color === 'none' || color === 'transparent') return null;
 
   const trimmed = color.trim().toLowerCase();
+
+  if (trimmed === 'currentcolor') return '#000000';
 
   if (NAMED_COLORS[trimmed]) return NAMED_COLORS[trimmed]!;
 
@@ -302,20 +356,53 @@ export function normalizeColor(color: string | null | undefined): string | null 
     return trimmed.toUpperCase();
   }
 
-  const rgbMatch = trimmed.match(/^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/);
+  const rgbMatch = trimmed.match(
+    /^rgb\(\s*([\d.]+%?)\s*[,\s]\s*([\d.]+%?)\s*[,\s]\s*([\d.]+%?)\s*\)$/,
+  );
   if (rgbMatch) {
-    const r = Math.min(255, parseInt(rgbMatch[1]!, 10));
-    const g = Math.min(255, parseInt(rgbMatch[2]!, 10));
-    const b = Math.min(255, parseInt(rgbMatch[3]!, 10));
+    const r = parseColorComponent(rgbMatch[1]!);
+    const g = parseColorComponent(rgbMatch[2]!);
+    const b = parseColorComponent(rgbMatch[3]!);
     return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`.toUpperCase();
   }
 
-  const rgbaMatch = trimmed.match(/^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)$/);
+  const rgbaMatch = trimmed.match(
+    /^rgba\(\s*([\d.]+%?)\s*[,\s]\s*([\d.]+%?)\s*[,\s]\s*([\d.]+%?)\s*[,/\s]\s*([\d.]+%?)\s*\)$/,
+  );
   if (rgbaMatch) {
-    const r = Math.min(255, parseInt(rgbaMatch[1]!, 10));
-    const g = Math.min(255, parseInt(rgbaMatch[2]!, 10));
-    const b = Math.min(255, parseInt(rgbaMatch[3]!, 10));
-    const a = Math.round(parseFloat(rgbaMatch[4]!) * 255);
+    const r = parseColorComponent(rgbaMatch[1]!);
+    const g = parseColorComponent(rgbaMatch[2]!);
+    const b = parseColorComponent(rgbaMatch[3]!);
+    const aStr = rgbaMatch[4]!;
+    const a = aStr.endsWith('%')
+      ? Math.round((parseFloat(aStr) / 100) * 255)
+      : Math.round(parseFloat(aStr) * 255);
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}${a.toString(16).padStart(2, '0')}`.toUpperCase();
+  }
+
+  const hslMatch = trimmed.match(/^hsl\(\s*([\d.]+)\s*[,\s]\s*([\d.]+)%\s*[,\s]\s*([\d.]+)%\s*\)$/);
+  if (hslMatch) {
+    const [r, g, b] = hslToRgb(
+      parseFloat(hslMatch[1]!),
+      parseFloat(hslMatch[2]!),
+      parseFloat(hslMatch[3]!),
+    );
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`.toUpperCase();
+  }
+
+  const hslaMatch = trimmed.match(
+    /^hsla\(\s*([\d.]+)\s*[,\s]\s*([\d.]+)%\s*[,\s]\s*([\d.]+)%\s*[,/\s]\s*([\d.]+%?)\s*\)$/,
+  );
+  if (hslaMatch) {
+    const [r, g, b] = hslToRgb(
+      parseFloat(hslaMatch[1]!),
+      parseFloat(hslaMatch[2]!),
+      parseFloat(hslaMatch[3]!),
+    );
+    const aStr = hslaMatch[4]!;
+    const a = aStr.endsWith('%')
+      ? Math.round((parseFloat(aStr) / 100) * 255)
+      : Math.round(parseFloat(aStr) * 255);
     return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}${a.toString(16).padStart(2, '0')}`.toUpperCase();
   }
 
@@ -375,8 +462,10 @@ export function getEffectiveAttribute(
   classStyles: Record<string, string>,
 ): string | null {
   if (inlineStyle[cssProperty]) return inlineStyle[cssProperty]!;
+  const ownAttr = el.getAttribute(attr);
+  if (ownAttr !== null) return ownAttr;
   if (classStyles[cssProperty]) return classStyles[cssProperty]!;
-  return el.getAttribute(attr);
+  return null;
 }
 
 export interface PathCommand {

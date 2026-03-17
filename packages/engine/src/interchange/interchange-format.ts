@@ -122,6 +122,7 @@ export interface InterchangeNode {
 
   pathPoints?: InterchangePathPoint[];
   svgPathData?: string;
+  fillRule?: 'nonzero' | 'evenodd';
 
   x1?: number;
   y1?: number;
