@@ -1,5 +1,7 @@
 import { Hono } from 'hono';
+import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { requireMcpAuth, type McpAuthEnv } from './mcp-auth.middleware';
+import { McpError } from './mcp-errors';
 import { callTool, createInitializeResult, listTools } from './mcp.service';
 
 const mcpRoutes = new Hono<McpAuthEnv>();
@@ -56,35 +58,10 @@ mcpRoutes.post('/', requireMcpAuth(), async (c) => {
       const result = await callTool(auth, body.params as { name?: string; arguments?: unknown });
       return c.json(jsonRpcResult(id, result));
     } catch (error) {
-      if (error instanceof Error && error.message === 'Forbidden') {
-        return c.json(jsonRpcError(id, -32003, 'Forbidden'), 403);
-      }
-      if (error instanceof Error && error.message === 'Draft not found') {
-        return c.json(jsonRpcError(id, -32004, 'Draft not found'), 404);
-      }
-      if (error instanceof Error && error.message === 'Unknown tool') {
-        return c.json(jsonRpcError(id, -32601, 'Method not found'), 404);
-      }
-      if (error instanceof Error && error.message === 'Invalid tool call') {
-        return c.json(jsonRpcError(id, -32602, 'Invalid params'), 400);
-      }
-      if (error instanceof Error && error.message.startsWith('Invalid tool arguments')) {
-        return c.json(jsonRpcError(id, -32602, error.message), 400);
-      }
-      if (error instanceof Error && error.message === 'No editor connected') {
+      if (error instanceof McpError) {
         return c.json(
-          jsonRpcError(
-            id,
-            -32005,
-            'No editor connected. Open the draft in the Draftila editor to use this tool.',
-          ),
-          409,
-        );
-      }
-      if (error instanceof Error && error.message === 'RPC timeout') {
-        return c.json(
-          jsonRpcError(id, -32006, 'Editor did not respond in time. Please try again.'),
-          504,
+          jsonRpcError(id, error.rpcCode, error.message),
+          error.httpStatus as ContentfulStatusCode,
         );
       }
       console.error('MCP tool call failed:', error);
