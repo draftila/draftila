@@ -55,6 +55,13 @@ function svgColor(hex: string, opacity: number): string {
   return `rgba(${r},${g},${b},${opacity})`;
 }
 
+function resolveDashArraySvg(stroke: InterchangeStroke): string {
+  if (stroke.dashArray && stroke.dashArray.length > 0) {
+    return stroke.dashArray.join(',');
+  }
+  return dashPatternToSvg(stroke.dashPattern, stroke.width);
+}
+
 function dashPatternToSvg(pattern: InterchangeDashPattern, strokeWidth: number): string {
   switch (pattern) {
     case 'dash':
@@ -197,6 +204,17 @@ function buildShapeGeometry(
   ox: number,
   oy: number,
 ): { tag: string; attrs: string; selfClose: boolean } | null {
+  const translateAttr = ox !== 0 || oy !== 0 ? ` transform="translate(${ox},${oy})"` : '';
+
+  if (node.svgPathData && node.type !== 'frame') {
+    const fillRuleAttr = node.fillRule === 'evenodd' ? ' fill-rule="evenodd"' : '';
+    return {
+      tag: 'path',
+      attrs: `d="${node.svgPathData}"${fillRuleAttr}${translateAttr}`,
+      selfClose: true,
+    };
+  }
+
   switch (node.type) {
     case 'rectangle':
     case 'frame': {
@@ -267,7 +285,6 @@ function buildShapeGeometry(
 
     case 'path': {
       if (node.svgPathData) {
-        const translateAttr = ox !== 0 || oy !== 0 ? ` transform="translate(${ox},${oy})"` : '';
         const fillRuleAttr = node.fillRule === 'evenodd' ? ' fill-rule="evenodd"' : '';
         return {
           tag: 'path',
@@ -313,7 +330,7 @@ function renderFillsAndStrokes(
     let strokeAttrs = `stroke="${color}" stroke-width="${stroke.width}"`;
     if (stroke.cap !== 'butt') strokeAttrs += ` stroke-linecap="${stroke.cap}"`;
     if (stroke.join !== 'miter') strokeAttrs += ` stroke-linejoin="${stroke.join}"`;
-    const dash = dashPatternToSvg(stroke.dashPattern, stroke.width);
+    const dash = resolveDashArraySvg(stroke);
     if (dash) strokeAttrs += ` stroke-dasharray="${dash}"`;
     if (stroke.dashOffset) strokeAttrs += ` stroke-dashoffset="${stroke.dashOffset}"`;
 
@@ -535,12 +552,14 @@ function nodeToSvg(
     }
   }
 
-  const needsGroup = node.opacity < 1 || node.rotation !== 0 || dropFilterAttr;
+  const hasBlendMode = node.blendMode && node.blendMode !== 'normal';
+  const needsGroup = node.opacity < 1 || node.rotation !== 0 || dropFilterAttr || hasBlendMode;
   if (!needsGroup) return content;
 
   let gAttrs = '';
   if (node.opacity < 1) gAttrs += ` opacity="${node.opacity}"`;
   if (dropFilterAttr) gAttrs += ` ${dropFilterAttr}`;
+  if (hasBlendMode) gAttrs += ` style="mix-blend-mode:${node.blendMode}"`;
   if (node.rotation !== 0) {
     const cx = ox + node.width / 2;
     const cy = oy + node.height / 2;

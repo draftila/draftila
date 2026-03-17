@@ -13,6 +13,7 @@ import {
   type HandlePosition,
 } from '../selection';
 import { snapPosition, type SnapLine, type DistanceIndicator } from '../snap';
+import { transformPath } from '../path-gen';
 
 interface InitialShapeData {
   x: number;
@@ -24,6 +25,7 @@ interface InitialShapeData {
   x2?: number;
   y2?: number;
   points?: Array<{ x: number; y: number; pressure: number }>;
+  svgPathData?: string;
   shapeType: string;
 }
 
@@ -72,6 +74,9 @@ function captureShapeData(shape: Shape): InitialShapeData {
   if (shape.type === 'path') {
     data.points = shape.points.map((p) => ({ x: p.x, y: p.y, pressure: p.pressure }));
   }
+  if ('svgPathData' in shape && typeof shape.svgPathData === 'string') {
+    data.svgPathData = shape.svgPathData;
+  }
   return data;
 }
 
@@ -104,6 +109,7 @@ export interface ResizePreviewEntry {
   y1?: number;
   x2?: number;
   y2?: number;
+  svgPathData?: string;
 }
 
 function buildResizeEntry(
@@ -117,11 +123,14 @@ function buildResizeEntry(
   const relX = initial.x - oldBounds.x;
   const relY = initial.y - oldBounds.y;
 
+  const newWidth = Math.max(1, initial.width * scaleX);
+  const newHeight = Math.max(1, initial.height * scaleY);
+
   const entry: ResizePreviewEntry = {
     x: newBounds.x + relX * scaleX,
     y: newBounds.y + relY * scaleY,
-    width: Math.max(1, initial.width * scaleX),
-    height: Math.max(1, initial.height * scaleY),
+    width: newWidth,
+    height: newHeight,
   };
 
   if (initial.points) {
@@ -142,6 +151,15 @@ function buildResizeEntry(
     entry.y1 = newBounds.y + (initial.y1 - oldBounds.y) * scaleY;
     entry.x2 = newBounds.x + (initial.x2 - oldBounds.x) * scaleX;
     entry.y2 = newBounds.y + (initial.y2 - oldBounds.y) * scaleY;
+  }
+
+  if (initial.svgPathData && initial.width > 0 && initial.height > 0) {
+    const pathScaleX = newWidth / initial.width;
+    const pathScaleY = newHeight / initial.height;
+    entry.svgPathData = transformPath(initial.svgPathData, {
+      scaleX: pathScaleX,
+      scaleY: pathScaleY,
+    });
   }
 
   return entry;

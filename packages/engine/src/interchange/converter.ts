@@ -45,6 +45,7 @@ function strokeToInterchange(stroke: Stroke): InterchangeStroke {
     join: stroke.join,
     align: stroke.align,
     dashPattern: stroke.dashPattern,
+    dashArray: stroke.dashArray,
     dashOffset: stroke.dashOffset,
     miterLimit: stroke.miterLimit,
   };
@@ -60,6 +61,7 @@ function interchangeToStroke(stroke: InterchangeStroke): Stroke {
     join: stroke.join,
     align: stroke.align,
     dashPattern: stroke.dashPattern,
+    dashArray: stroke.dashArray,
     dashOffset: stroke.dashOffset,
     miterLimit: stroke.miterLimit,
   };
@@ -141,6 +143,7 @@ function shapeToNode(shape: Shape, childrenByParent: Map<string, Shape[]>): Inte
       node.cornerRadiusBL = shape.cornerRadiusBL;
       node.cornerRadiusBR = shape.cornerRadiusBR;
       node.cornerSmoothing = shape.cornerSmoothing;
+      node.svgPathData = shape.svgPathData;
       break;
     case 'text':
       node.content = shape.content;
@@ -167,6 +170,7 @@ function shapeToNode(shape: Shape, childrenByParent: Map<string, Shape[]>): Inte
       node.y1 = shape.y1;
       node.x2 = shape.x2;
       node.y2 = shape.y2;
+      node.svgPathData = shape.svgPathData;
       break;
     case 'arrow':
       node.x1 = shape.x1;
@@ -175,13 +179,16 @@ function shapeToNode(shape: Shape, childrenByParent: Map<string, Shape[]>): Inte
       node.y2 = shape.y2;
       node.startArrowhead = shape.startArrowhead;
       node.endArrowhead = shape.endArrowhead;
+      node.svgPathData = shape.svgPathData;
       break;
     case 'polygon':
       node.sides = shape.sides;
+      node.svgPathData = shape.svgPathData;
       break;
     case 'star':
       node.starPoints = shape.points as number;
       node.innerRadius = shape.innerRadius;
+      node.svgPathData = shape.svgPathData;
       break;
     case 'frame':
       node.clip = shape.clip;
@@ -271,10 +278,11 @@ function nodeToFlatShapes(
         cornerRadiusBL: node.cornerRadiusBL,
         cornerRadiusBR: node.cornerRadiusBR,
         cornerSmoothing: node.cornerSmoothing ?? 0,
+        svgPathData: node.svgPathData,
       });
       break;
     case 'ellipse':
-      Object.assign(base, { fills, strokes, shadows, blurs });
+      Object.assign(base, { fills, strokes, shadows, blurs, svgPathData: node.svgPathData });
       break;
     case 'frame':
       Object.assign(base, {
@@ -327,6 +335,7 @@ function nodeToFlatShapes(
         y1: node.y1 ?? 0,
         x2: node.x2 ?? node.width,
         y2: node.y2 ?? 0,
+        svgPathData: node.svgPathData,
       });
       break;
     case 'arrow':
@@ -340,6 +349,7 @@ function nodeToFlatShapes(
         y2: node.y2 ?? 0,
         startArrowhead: node.startArrowhead ?? false,
         endArrowhead: node.endArrowhead ?? true,
+        svgPathData: node.svgPathData,
       });
       break;
     case 'polygon':
@@ -349,6 +359,7 @@ function nodeToFlatShapes(
         shadows,
         blurs,
         sides: node.sides ?? 6,
+        svgPathData: node.svgPathData,
       });
       break;
     case 'star':
@@ -359,6 +370,7 @@ function nodeToFlatShapes(
         blurs,
         points: node.starPoints ?? 5,
         innerRadius: node.innerRadius ?? 0.38,
+        svgPathData: node.svgPathData,
       });
       break;
     case 'image':

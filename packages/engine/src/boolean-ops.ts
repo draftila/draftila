@@ -1,4 +1,6 @@
 import type { Shape } from '@draftila/shared';
+import paper from 'paper/dist/paper-core';
+import { transformPath, normalizePathToOrigin } from './path-gen';
 
 export type BooleanOperation = 'union' | 'subtract' | 'intersect' | 'exclude';
 
@@ -6,35 +8,100 @@ export interface BooleanResult {
   operation: BooleanOperation;
   sourceIds: string[];
   bounds: { x: number; y: number; width: number; height: number };
+  svgPathData: string;
+  fillRule: 'nonzero' | 'evenodd';
 }
 
-export function computeBooleanBounds(
+let paperInitialized = false;
+
+function ensurePaper() {
+  if (paperInitialized) return;
+  paper.setup(new paper.Size(1, 1));
+  paper.settings.insertItems = false;
+  paperInitialized = true;
+}
+
+function getShapeSvgPath(shape: Shape): string | null {
+  if (
+    'svgPathData' in shape &&
+    typeof shape.svgPathData === 'string' &&
+    shape.svgPathData.length > 0
+  ) {
+    return shape.svgPathData;
+  }
+  return null;
+}
+
+function shapePathToWorld(shape: Shape): string | null {
+  const localPath = getShapeSvgPath(shape);
+  if (!localPath) return null;
+  return transformPath(localPath, { translateX: shape.x, translateY: shape.y });
+}
+
+function createPaperPath(svgPathData: string): paper.PathItem {
+  const item = paper.PathItem.create(svgPathData);
+  return item;
+}
+
+export function computePathBoolean(
   shapes: Shape[],
-  _operation: BooleanOperation,
+  operation: BooleanOperation,
 ): BooleanResult | null {
   if (shapes.length < 2) return null;
 
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
+  ensurePaper();
 
-  for (const shape of shapes) {
-    minX = Math.min(minX, shape.x);
-    minY = Math.min(minY, shape.y);
-    maxX = Math.max(maxX, shape.x + shape.width);
-    maxY = Math.max(maxY, shape.y + shape.height);
+  const firstShape = shapes[0]!;
+  const firstWorldPath = shapePathToWorld(firstShape);
+  if (!firstWorldPath) return null;
+
+  let current = createPaperPath(firstWorldPath);
+  const opts = { insert: false };
+
+  for (let i = 1; i < shapes.length; i++) {
+    const nextShape = shapes[i]!;
+    const nextWorldPath = shapePathToWorld(nextShape);
+    if (!nextWorldPath) return null;
+
+    const next = createPaperPath(nextWorldPath);
+
+    try {
+      switch (operation) {
+        case 'union':
+          current = current.unite(next, opts);
+          break;
+        case 'subtract':
+          current = current.subtract(next, opts);
+          break;
+        case 'intersect':
+          current = current.intersect(next, opts);
+          break;
+        case 'exclude':
+          current = current.exclude(next, opts);
+          break;
+      }
+    } catch {
+      return null;
+    }
+
+    next.remove();
   }
 
+  const resultPathData = current.pathData;
+  current.remove();
+
+  if (!resultPathData) return null;
+
+  const { pathData: localPath, bounds } = normalizePathToOrigin(resultPathData);
+
+  if (bounds.width === 0 && bounds.height === 0) return null;
+
   return {
-    operation: _operation,
+    operation,
     sourceIds: shapes.map((s) => s.id),
-    bounds: {
-      x: minX,
-      y: minY,
-      width: maxX - minX,
-      height: maxY - minY,
-    },
+    bounds,
+    svgPathData: localPath,
+    fillRule: 'evenodd',
   };
 }
 

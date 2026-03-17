@@ -172,20 +172,62 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
 
     const { editingTextId } = useEditorStore.getState();
 
+    const clipStack: string[] = [];
+
     for (const shape of shapes) {
-      if (!isShapeVisible(shape)) continue;
-      const resized = resizePreview?.get(shape.id);
-      if (endpointPreview?.shapeId === shape.id) {
-        renderShape(renderer, applyEndpointPreviewToShape(shape));
-      } else if (resized) {
-        renderShape(renderer, applyResizeToShape(shape, resized));
-      } else if (dragPositions?.has(shape.id)) {
-        renderShape(renderer, applyDragToShape(shape));
-      } else if (rotationPreview?.has(shape.id)) {
-        renderShape(renderer, applyRotationToShape(shape));
-      } else {
-        renderShape(renderer, shape);
+      while (clipStack.length > 0) {
+        const clipParentId = clipStack[clipStack.length - 1]!;
+        let isDescendant = false;
+        let checkId: string | null = shape.parentId ?? null;
+        while (checkId) {
+          if (checkId === clipParentId) {
+            isDescendant = true;
+            break;
+          }
+          const parent = shapeMap.get(checkId);
+          checkId = parent?.parentId ?? null;
+        }
+        if (!isDescendant) {
+          renderer.endClip();
+          clipStack.pop();
+        } else {
+          break;
+        }
       }
+
+      if (!isShapeVisible(shape)) continue;
+
+      let displayShape = shape;
+      if (endpointPreview?.shapeId === shape.id) {
+        displayShape = applyEndpointPreviewToShape(shape);
+      } else if (resizePreview?.get(shape.id)) {
+        displayShape = applyResizeToShape(shape, resizePreview.get(shape.id)!);
+      } else if (dragPositions?.has(shape.id)) {
+        displayShape = applyDragToShape(shape);
+      } else if (rotationPreview?.has(shape.id)) {
+        displayShape = applyRotationToShape(shape);
+      }
+
+      renderShape(renderer, displayShape);
+
+      if (
+        displayShape.type === 'frame' &&
+        (displayShape as Shape & { clip?: boolean }).clip !== false
+      ) {
+        renderer.beginClip(
+          displayShape.x,
+          displayShape.y,
+          displayShape.width,
+          displayShape.height,
+          displayShape.rotation,
+        );
+        clipStack.push(displayShape.id);
+      }
+    }
+
+    while (clipStack.length > 0) {
+      renderer.endClip();
+      clipStack.pop();
     }
 
     const selectedSet = new Set(selectedIds);

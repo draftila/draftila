@@ -46,6 +46,7 @@ export interface InterchangeStroke {
   join: InterchangeStrokeJoin;
   align: InterchangeStrokeAlign;
   dashPattern: InterchangeDashPattern;
+  dashArray?: number[];
   dashOffset: number;
   miterLimit: number;
 }

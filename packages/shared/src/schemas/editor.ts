@@ -25,6 +25,7 @@ export const TOOL_TYPES = [
   'frame',
   'text',
   'pen',
+  'node',
   'line',
   'polygon',
   'star',
@@ -42,6 +43,21 @@ export const pressurePointSchema = z.object({
   x: z.number(),
   y: z.number(),
   pressure: z.number().min(0).max(1).default(0.5),
+});
+
+export const vectorNodeSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+  handleInX: z.number().default(0),
+  handleInY: z.number().default(0),
+  handleOutX: z.number().default(0),
+  handleOutY: z.number().default(0),
+  type: z.enum(['corner', 'smooth', 'symmetric']).default('corner'),
+});
+
+export const subpathSchema = z.object({
+  nodes: z.array(vectorNodeSchema),
+  closed: z.boolean().default(true),
 });
 
 export const colorSchema = z.string().regex(/^#[0-9a-fA-F]{6,8}$/);
@@ -98,6 +114,7 @@ export const strokeSchema = z.object({
   join: strokeJoinSchema.default('miter'),
   align: strokeAlignSchema.default('center'),
   dashPattern: strokeDashPatternSchema.default('solid'),
+  dashArray: z.array(z.number()).optional(),
   dashOffset: z.number().default(0),
   miterLimit: z.number().min(0).default(4),
   sides: strokeSidesSchema.optional(),
@@ -177,6 +194,7 @@ export const rectangleShapeSchema = baseShapeSchema.extend({
   cornerRadiusBL: z.number().min(0).optional(),
   cornerRadiusBR: z.number().min(0).optional(),
   cornerSmoothing: z.number().min(0).max(1).default(0),
+  svgPathData: z.string().optional(),
   shadows: z.array(shadowSchema).default([]),
   blurs: z.array(blurSchema).default([]),
 });
@@ -185,6 +203,7 @@ export const ellipseShapeSchema = baseShapeSchema.extend({
   type: z.literal('ellipse'),
   fills: z.array(fillSchema).default([{ color: '#D9D9D9', opacity: 1, visible: true }]),
   strokes: z.array(strokeSchema).default([]),
+  svgPathData: z.string().optional(),
   shadows: z.array(shadowSchema).default([]),
   blurs: z.array(blurSchema).default([]),
 });
@@ -232,6 +251,7 @@ export const pathShapeSchema = baseShapeSchema.extend({
   type: z.literal('path'),
   points: z.array(pressurePointSchema).default([]),
   svgPathData: z.string().optional(),
+  vectorNodes: z.array(subpathSchema).optional(),
   fillRule: z.enum(['nonzero', 'evenodd']).default('nonzero'),
   fills: z.array(fillSchema).default([{ color: '#000000', opacity: 1, visible: true }]),
   strokes: z.array(strokeSchema).default([]),
@@ -248,6 +268,7 @@ export const lineShapeSchema = baseShapeSchema.extend({
   strokes: z
     .array(strokeSchema)
     .default([{ color: '#000000', width: 2, opacity: 1, visible: true }]),
+  svgPathData: z.string().optional(),
   shadows: z.array(shadowSchema).default([]),
   blurs: z.array(blurSchema).default([]),
 });
@@ -257,6 +278,7 @@ export const polygonShapeSchema = baseShapeSchema.extend({
   sides: z.number().min(3).default(6),
   fills: z.array(fillSchema).default([{ color: '#D9D9D9', opacity: 1, visible: true }]),
   strokes: z.array(strokeSchema).default([]),
+  svgPathData: z.string().optional(),
   shadows: z.array(shadowSchema).default([]),
   blurs: z.array(blurSchema).default([]),
 });
@@ -267,6 +289,7 @@ export const starShapeSchema = baseShapeSchema.extend({
   innerRadius: z.number().min(0).max(1).default(0.38),
   fills: z.array(fillSchema).default([{ color: '#D9D9D9', opacity: 1, visible: true }]),
   strokes: z.array(strokeSchema).default([]),
+  svgPathData: z.string().optional(),
   shadows: z.array(shadowSchema).default([]),
   blurs: z.array(blurSchema).default([]),
 });
@@ -282,6 +305,7 @@ export const arrowShapeSchema = baseShapeSchema.extend({
     .default([{ color: '#000000', width: 2, opacity: 1, visible: true }]),
   startArrowhead: z.boolean().default(false),
   endArrowhead: z.boolean().default(true),
+  svgPathData: z.string().optional(),
   shadows: z.array(shadowSchema).default([]),
   blurs: z.array(blurSchema).default([]),
 });
