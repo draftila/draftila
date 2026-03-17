@@ -26,7 +26,6 @@ packages/    shared (Zod schemas + types), eslint-config, typescript-config
 
 ### API (`apps/api`)
 
-- **100% test coverage.** Every route, service function, and utility must have tests. No exceptions.
 - Tests live in `apps/api/tests/`, mirroring `src/` structure. File naming: `*.test.ts`.
 - Integration tests use `app.request()` — no server startup needed.
 - Use test helpers from `tests/helpers.ts` (`cleanDatabase`, `createTestUser`, `getAuthHeaders`).
@@ -41,7 +40,6 @@ packages/    shared (Zod schemas + types), eslint-config, typescript-config
 
 ### Frontend (`apps/web`)
 
-- 100% test coverage.
 - Use shadcn/ui components from `src/components/ui/`. Do not install alternative UI libraries.
 - State: Zustand for client state, TanStack Query for server state. No prop drilling.
 - Use the `@/*` path alias for imports.

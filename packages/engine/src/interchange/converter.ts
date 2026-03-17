@@ -304,7 +304,7 @@ function nodeToFlatShapes(
         fontWeight: node.fontWeight ?? 400,
         fontStyle: node.fontStyle ?? 'normal',
         textAlign: node.textAlign ?? 'left',
-        verticalAlign: node.verticalAlign ?? 'top',
+        verticalAlign: node.verticalAlign ?? 'middle',
         lineHeight: node.lineHeight ?? 1.2,
         letterSpacing: node.letterSpacing ?? 0,
         textDecoration: node.textDecoration ?? 'none',

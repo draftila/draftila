@@ -6,6 +6,7 @@ import {
   getAllShapes,
   getShape,
   getShapesMap,
+  getZOrder,
   groupShapes,
   moveShapesInStack,
   moveShapesByDrop,
@@ -14,6 +15,8 @@ import {
   applyAutoLayout,
 } from '@draftila/engine/scene-graph';
 import { isAutoLayoutFrame } from '@draftila/engine/auto-layout';
+import { shapesToInterchange, generateSvg } from '@draftila/engine/interchange';
+import { Resvg } from '@resvg/resvg-js';
 import * as collaborationService from '../collaboration/collaboration.service';
 import * as draftsService from '../drafts/drafts.service';
 
@@ -348,6 +351,11 @@ function summarizeShape(shape: Shape): Record<string, unknown> {
   if (shape.opacity !== 1) base.opacity = shape.opacity;
   if (!shape.visible) base.visible = false;
   if (shape.locked) base.locked = true;
+  if (shape.blendMode !== 'normal') base.blendMode = shape.blendMode;
+  if (shape.layoutSizingHorizontal !== 'fixed')
+    base.layoutSizingHorizontal = shape.layoutSizingHorizontal;
+  if (shape.layoutSizingVertical !== 'fixed')
+    base.layoutSizingVertical = shape.layoutSizingVertical;
 
   const typed = shape as Record<string, unknown>;
 
@@ -367,6 +375,12 @@ function summarizeShape(shape: Shape): Record<string, unknown> {
   if (typed.strokes && Array.isArray(typed.strokes) && (typed.strokes as unknown[]).length > 0) {
     base.strokes = typed.strokes;
   }
+  if (typed.shadows && Array.isArray(typed.shadows) && (typed.shadows as unknown[]).length > 0) {
+    base.shadows = typed.shadows;
+  }
+  if (typed.blurs && Array.isArray(typed.blurs) && (typed.blurs as unknown[]).length > 0) {
+    base.blurs = typed.blurs;
+  }
 
   if (shape.type === 'frame') {
     const frame = shape as Shape & {
@@ -374,6 +388,10 @@ function summarizeShape(shape: Shape): Record<string, unknown> {
       layoutGap?: number;
       layoutAlign?: string;
       layoutJustify?: string;
+      paddingTop?: number;
+      paddingRight?: number;
+      paddingBottom?: number;
+      paddingLeft?: number;
       clip?: boolean;
     };
     if (frame.layoutMode && frame.layoutMode !== 'none') {
@@ -381,6 +399,10 @@ function summarizeShape(shape: Shape): Record<string, unknown> {
       base.layoutGap = frame.layoutGap;
       base.layoutAlign = frame.layoutAlign;
       base.layoutJustify = frame.layoutJustify;
+      if (frame.paddingTop) base.paddingTop = frame.paddingTop;
+      if (frame.paddingRight) base.paddingRight = frame.paddingRight;
+      if (frame.paddingBottom) base.paddingBottom = frame.paddingBottom;
+      if (frame.paddingLeft) base.paddingLeft = frame.paddingLeft;
     }
     if (frame.clip === false) base.clip = false;
   }
@@ -388,7 +410,14 @@ function summarizeShape(shape: Shape): Record<string, unknown> {
   if (typed.cornerRadius && (typed.cornerRadius as number) > 0)
     base.cornerRadius = typed.cornerRadius;
   if (typed.svgPathData) base.svgPathData = typed.svgPathData;
-  if (shape.type === 'image') base.src = typed.src;
+  if (shape.type === 'image') {
+    base.src = typed.src;
+    if (typed.fit && typed.fit !== 'fill') base.fit = typed.fit;
+  }
+  if (shape.type === 'svg') {
+    base.svgContent = typed.svgContent;
+    if (typed.preserveAspectRatio) base.preserveAspectRatio = typed.preserveAspectRatio;
+  }
 
   return base;
 }
@@ -535,6 +564,30 @@ function collectTargetShapes(
   return targetShapes;
 }
 
+function getOrderedShapeIds(allShapes: Shape[], zOrderIds: string[]) {
+  const shapeIdSet = new Set(allShapes.map((shape) => shape.id));
+  const orderedShapeIds: string[] = [];
+  const seen = new Set<string>();
+
+  for (const id of zOrderIds) {
+    if (!shapeIdSet.has(id) || seen.has(id)) {
+      continue;
+    }
+    orderedShapeIds.push(id);
+    seen.add(id);
+  }
+
+  for (const shape of allShapes) {
+    if (seen.has(shape.id)) {
+      continue;
+    }
+    orderedShapeIds.push(shape.id);
+    seen.add(shape.id);
+  }
+
+  return orderedShapeIds;
+}
+
 interface LayoutNode {
   id: string;
   name: string;
@@ -559,6 +612,10 @@ function detectProblems(shape: Shape, siblings: Shape[], parentShape: Shape | nu
       ) {
         problems.push('clipped_by_parent');
       }
+    }
+
+    if (isAutoLayoutFrame(parentShape)) {
+      return problems;
     }
   }
 
@@ -641,7 +698,12 @@ export async function getLayout(
   });
 }
 
-export async function moveToParent(draftId: string, ids: string[], parentId: string | null) {
+export async function moveToParent(
+  draftId: string,
+  ids: string[],
+  parentId: string | null,
+  index?: number,
+) {
   return withDraftDoc(draftId, true, (ydoc) => {
     const allShapes = getAllShapes(ydoc);
     const shapesById = new Map(allShapes.map((s) => [s.id, s]));
@@ -665,21 +727,75 @@ export async function moveToParent(draftId: string, ids: string[], parentId: str
       }
     }
 
-    if (parentId) {
-      moveShapesByDrop(ydoc, validIds, parentId, 'inside');
-    } else {
-      const shapes = getShapesMap(ydoc);
-      ydoc.transact(() => {
-        for (const id of validIds) {
-          const shapeData = shapes.get(id);
-          if (shapeData) {
-            shapeData.set('parentId', null);
+    if (index === undefined) {
+      if (parentId) {
+        moveShapesByDrop(ydoc, validIds, parentId, 'inside');
+      } else {
+        const shapes = getShapesMap(ydoc);
+        ydoc.transact(() => {
+          for (const id of validIds) {
+            const shapeData = shapes.get(id);
+            if (shapeData) {
+              shapeData.set('parentId', null);
+            }
           }
-        }
-      });
+        });
+      }
+      return { moved: validIds.length, parentId };
     }
 
-    return { moved: validIds.length, parentId };
+    const zOrder = getZOrder(ydoc);
+    const clampedIndex = Math.max(0, Math.floor(index));
+    const movedSet = new Set(validIds);
+    const shapes = getShapesMap(ydoc);
+
+    ydoc.transact(() => {
+      for (const id of validIds) {
+        const shapeData = shapes.get(id);
+        if (shapeData) {
+          shapeData.set('parentId', parentId);
+        }
+      }
+
+      const nextShapes = getAllShapes(ydoc);
+      const nextShapeMap = new Map(nextShapes.map((shape) => [shape.id, shape]));
+      const orderedIds = getOrderedShapeIds(nextShapes, zOrder.toArray());
+      const movingOrdered = orderedIds.filter((id) => movedSet.has(id));
+      const remainingOrder = orderedIds.filter((id) => !movedSet.has(id));
+      const targetSiblings = remainingOrder.filter(
+        (id) => nextShapeMap.get(id)?.parentId === parentId,
+      );
+
+      const targetIndex = Math.min(clampedIndex, targetSiblings.length);
+      let insertionIndex = remainingOrder.length;
+
+      if (targetSiblings.length > 0) {
+        if (targetIndex >= targetSiblings.length) {
+          const lastSiblingId = targetSiblings[targetSiblings.length - 1];
+          const lastSiblingIndex = lastSiblingId ? remainingOrder.lastIndexOf(lastSiblingId) : -1;
+          insertionIndex = lastSiblingIndex >= 0 ? lastSiblingIndex + 1 : remainingOrder.length;
+        } else {
+          const siblingIdAtIndex = targetSiblings[targetIndex];
+          insertionIndex = siblingIdAtIndex
+            ? remainingOrder.indexOf(siblingIdAtIndex)
+            : remainingOrder.length;
+          if (insertionIndex < 0) {
+            insertionIndex = remainingOrder.length;
+          }
+        }
+      }
+
+      const nextOrder = [
+        ...remainingOrder.slice(0, insertionIndex),
+        ...movingOrdered,
+        ...remainingOrder.slice(insertionIndex),
+      ];
+
+      zOrder.delete(0, zOrder.length);
+      zOrder.insert(0, nextOrder);
+    });
+
+    return { moved: validIds.length, parentId, index: clampedIndex };
   });
 }
 
@@ -1014,4 +1130,185 @@ export async function findEmptySpace(
 
     return { x: Math.round(candidateX), y: Math.round(candidateY), width, height };
   });
+}
+
+function ensureDomParser() {
+  if (typeof globalThis.DOMParser === 'undefined') {
+    try {
+      const { parseHTML } = require('linkedom');
+      const { document: dom } = parseHTML('<!DOCTYPE html><html></html>');
+      globalThis.DOMParser = dom.defaultView.DOMParser;
+    } catch {
+      // DOMParser unavailable; SVG shapes with embedded SVG content will fallback to image tags
+    }
+  }
+}
+
+export async function takeScreenshot(
+  draftId: string,
+  shapeIds: string[] | null,
+  scale: number,
+): Promise<{ data: string; mimeType: string }> {
+  return withDraftDoc(draftId, false, (ydoc) => {
+    const allShapes = getAllShapes(ydoc);
+    if (allShapes.length === 0) {
+      throw new Error('No shapes to screenshot');
+    }
+
+    let targetShapes: Shape[];
+    if (shapeIds && shapeIds.length > 0) {
+      const idSet = new Set(shapeIds);
+      const shapesById = new Map(allShapes.map((s) => [s.id, s]));
+      targetShapes = allShapes.filter((shape) => {
+        if (idSet.has(shape.id)) return true;
+        let cursor = shape.parentId;
+        while (cursor) {
+          if (idSet.has(cursor)) return true;
+          cursor = shapesById.get(cursor)?.parentId ?? null;
+        }
+        return false;
+      });
+    } else {
+      targetShapes = allShapes;
+    }
+
+    if (targetShapes.length === 0) {
+      throw new Error('No matching shapes found');
+    }
+
+    ensureDomParser();
+
+    const doc = shapesToInterchange(targetShapes);
+    const svgString = generateSvg(doc);
+
+    const resvg = new Resvg(svgString, {
+      fitTo: { mode: 'zoom' as const, value: scale },
+      font: {
+        defaultFontFamily: 'Inter',
+      },
+    });
+    const rendered = resvg.render();
+    const pngBuffer = rendered.asPng();
+    const base64 = Buffer.from(pngBuffer).toString('base64');
+
+    return { data: base64, mimeType: 'image/png' };
+  });
+}
+
+export async function alignShapes(draftId: string, ids: string[], axis: string) {
+  return withDraftDoc(draftId, true, (ydoc) => {
+    const allShapes = getAllShapes(ydoc);
+    const shapesById = new Map(allShapes.map((s) => [s.id, s]));
+    const targets = ids.map((id) => shapesById.get(id)).filter((s): s is Shape => s !== undefined);
+
+    if (targets.length === 0) {
+      return { aligned: 0 };
+    }
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const shape of targets) {
+      minX = Math.min(minX, shape.x);
+      minY = Math.min(minY, shape.y);
+      maxX = Math.max(maxX, shape.x + shape.width);
+      maxY = Math.max(maxY, shape.y + shape.height);
+    }
+
+    ydoc.transact(() => {
+      for (const shape of targets) {
+        let newX = shape.x;
+        let newY = shape.y;
+        if (axis === 'left') newX = minX;
+        else if (axis === 'right') newX = maxX - shape.width;
+        else if (axis === 'center_horizontal') newX = (minX + maxX) / 2 - shape.width / 2;
+        else if (axis === 'top') newY = minY;
+        else if (axis === 'bottom') newY = maxY - shape.height;
+        else if (axis === 'center_vertical') newY = (minY + maxY) / 2 - shape.height / 2;
+        updateShape(ydoc, shape.id, { x: newX, y: newY });
+      }
+    });
+
+    return { aligned: targets.length };
+  });
+}
+
+export async function distributeShapes(draftId: string, ids: string[], axis: string, gap?: number) {
+  return withDraftDoc(draftId, true, (ydoc) => {
+    const allShapes = getAllShapes(ydoc);
+    const shapesById = new Map(allShapes.map((s) => [s.id, s]));
+    const targets = ids.map((id) => shapesById.get(id)).filter((s): s is Shape => s !== undefined);
+
+    if (targets.length < 3) {
+      return { distributed: 0 };
+    }
+
+    const isHorizontal = axis === 'horizontal';
+    const sorted = [...targets].sort((a, b) => (isHorizontal ? a.x - b.x : a.y - b.y));
+
+    ydoc.transact(() => {
+      if (gap !== undefined) {
+        let pos = isHorizontal ? sorted[0]!.x : sorted[0]!.y;
+        for (const shape of sorted) {
+          if (isHorizontal) {
+            updateShape(ydoc, shape.id, { x: pos });
+            pos += shape.width + gap;
+          } else {
+            updateShape(ydoc, shape.id, { y: pos });
+            pos += shape.height + gap;
+          }
+        }
+      } else {
+        const first = sorted[0]!;
+        const last = sorted[sorted.length - 1]!;
+        const totalSize = sorted.reduce((sum, s) => sum + (isHorizontal ? s.width : s.height), 0);
+        const totalSpan = isHorizontal
+          ? last.x + last.width - first.x
+          : last.y + last.height - first.y;
+        const evenGap = (totalSpan - totalSize) / (sorted.length - 1);
+
+        let pos = isHorizontal ? first.x : first.y;
+        for (const shape of sorted) {
+          if (isHorizontal) {
+            updateShape(ydoc, shape.id, { x: pos });
+            pos += shape.width + evenGap;
+          } else {
+            updateShape(ydoc, shape.id, { y: pos });
+            pos += shape.height + evenGap;
+          }
+        }
+      }
+    });
+
+    return { distributed: targets.length };
+  });
+}
+
+export async function measureText(
+  draftId: string,
+  content: string,
+  fontSize: number,
+  fontFamily: string,
+  fontWeight: number,
+  maxWidth?: number,
+) {
+  const avgCharWidth = fontSize * 0.6;
+  const lineHeight = fontSize * 1.4;
+  const heavyMultiplier = fontWeight >= 700 ? 1.08 : 1;
+  const rawWidth = content.length * avgCharWidth * heavyMultiplier;
+
+  const effectiveWidth = maxWidth ? Math.min(rawWidth, maxWidth) : rawWidth;
+  const lineCount = maxWidth ? Math.max(1, Math.ceil(rawWidth / maxWidth)) : 1;
+  const effectiveHeight = lineCount * lineHeight;
+
+  return {
+    draftId,
+    width: Math.ceil(effectiveWidth),
+    height: Math.ceil(effectiveHeight),
+    lineCount,
+    fontSize,
+    fontFamily,
+    fontWeight,
+  };
 }

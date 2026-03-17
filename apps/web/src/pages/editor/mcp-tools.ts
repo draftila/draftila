@@ -11,6 +11,7 @@ import {
   getAllShapes,
   getShape,
   getShapesMap,
+  getZOrder,
   addShape,
   updateShape,
   deleteShapes,
@@ -59,6 +60,11 @@ function summarizeShape(shape: Shape): Record<string, unknown> {
   if (shape.opacity !== 1) base.opacity = shape.opacity;
   if (!shape.visible) base.visible = false;
   if (shape.locked) base.locked = true;
+  if (shape.blendMode !== 'normal') base.blendMode = shape.blendMode;
+  if (shape.layoutSizingHorizontal !== 'fixed')
+    base.layoutSizingHorizontal = shape.layoutSizingHorizontal;
+  if (shape.layoutSizingVertical !== 'fixed')
+    base.layoutSizingVertical = shape.layoutSizingVertical;
 
   const typed = shape as Record<string, unknown>;
 
@@ -78,6 +84,12 @@ function summarizeShape(shape: Shape): Record<string, unknown> {
   if (typed.strokes && Array.isArray(typed.strokes) && (typed.strokes as unknown[]).length > 0) {
     base.strokes = typed.strokes;
   }
+  if (typed.shadows && Array.isArray(typed.shadows) && (typed.shadows as unknown[]).length > 0) {
+    base.shadows = typed.shadows;
+  }
+  if (typed.blurs && Array.isArray(typed.blurs) && (typed.blurs as unknown[]).length > 0) {
+    base.blurs = typed.blurs;
+  }
 
   if (shape.type === 'frame') {
     const frame = shape as Shape & {
@@ -85,6 +97,10 @@ function summarizeShape(shape: Shape): Record<string, unknown> {
       layoutGap?: number;
       layoutAlign?: string;
       layoutJustify?: string;
+      paddingTop?: number;
+      paddingRight?: number;
+      paddingBottom?: number;
+      paddingLeft?: number;
       clip?: boolean;
     };
     if (frame.layoutMode && frame.layoutMode !== 'none') {
@@ -92,6 +108,10 @@ function summarizeShape(shape: Shape): Record<string, unknown> {
       base.layoutGap = frame.layoutGap;
       base.layoutAlign = frame.layoutAlign;
       base.layoutJustify = frame.layoutJustify;
+      if (frame.paddingTop) base.paddingTop = frame.paddingTop;
+      if (frame.paddingRight) base.paddingRight = frame.paddingRight;
+      if (frame.paddingBottom) base.paddingBottom = frame.paddingBottom;
+      if (frame.paddingLeft) base.paddingLeft = frame.paddingLeft;
     }
     if (frame.clip === false) base.clip = false;
   }
@@ -99,8 +119,14 @@ function summarizeShape(shape: Shape): Record<string, unknown> {
   if (typed.cornerRadius && (typed.cornerRadius as number) > 0)
     base.cornerRadius = typed.cornerRadius;
   if (typed.svgPathData) base.svgPathData = typed.svgPathData;
-  if (shape.type === 'image') base.src = typed.src;
-  if (shape.type === 'svg') base.preserveAspectRatio = typed.preserveAspectRatio;
+  if (shape.type === 'image') {
+    base.src = typed.src;
+    if (typed.fit && typed.fit !== 'fill') base.fit = typed.fit;
+  }
+  if (shape.type === 'svg') {
+    base.svgContent = typed.svgContent;
+    if (typed.preserveAspectRatio) base.preserveAspectRatio = typed.preserveAspectRatio;
+  }
 
   return base;
 }
@@ -502,6 +528,30 @@ function getTopLevelIds(ids: string[], shapesById: Map<string, Shape>) {
   return topLevelIds;
 }
 
+function getOrderedShapeIds(allShapes: Shape[], zOrderIds: string[]) {
+  const shapeIdSet = new Set(allShapes.map((shape) => shape.id));
+  const orderedShapeIds: string[] = [];
+  const seen = new Set<string>();
+
+  for (const id of zOrderIds) {
+    if (!shapeIdSet.has(id) || seen.has(id)) {
+      continue;
+    }
+    orderedShapeIds.push(id);
+    seen.add(id);
+  }
+
+  for (const shape of allShapes) {
+    if (seen.has(shape.id)) {
+      continue;
+    }
+    orderedShapeIds.push(shape.id);
+    seen.add(shape.id);
+  }
+
+  return orderedShapeIds;
+}
+
 function duplicateShapesInDoc(
   ydoc: Y.Doc,
   ids: string[],
@@ -748,6 +798,273 @@ registerTool('canvas.apply_op', (ydoc, args) => {
   return handler(ydoc, adaptedArgs);
 });
 
+registerTool('canvas.stack_layout', (ydoc, args) => {
+  const parentId = typeof args.parentId === 'string' ? args.parentId : null;
+  if (!parentId) {
+    throw new Error('Invalid tool arguments: parentId is required');
+  }
+
+  const direction = args.direction === 'horizontal' ? 'horizontal' : 'vertical';
+  const gap = typeof args.gap === 'number' ? args.gap : 16;
+  const align =
+    args.align === 'center' || args.align === 'end' || args.align === 'stretch'
+      ? args.align
+      : 'start';
+  const justify =
+    args.justify === 'center' ||
+    args.justify === 'end' ||
+    args.justify === 'space_between' ||
+    args.justify === 'space_around'
+      ? args.justify
+      : 'start';
+
+  const padding = (() => {
+    if (typeof args.padding === 'number') {
+      return {
+        top: args.padding,
+        right: args.padding,
+        bottom: args.padding,
+        left: args.padding,
+      };
+    }
+    if (!args.padding || typeof args.padding !== 'object') {
+      return null;
+    }
+    const raw = args.padding as Record<string, unknown>;
+    return {
+      top: typeof raw.top === 'number' ? raw.top : 0,
+      right: typeof raw.right === 'number' ? raw.right : 0,
+      bottom: typeof raw.bottom === 'number' ? raw.bottom : 0,
+      left: typeof raw.left === 'number' ? raw.left : 0,
+    };
+  })();
+
+  updateShape(ydoc, parentId, {
+    layoutMode: direction,
+    layoutGap: gap,
+    layoutAlign: align,
+    layoutJustify: justify,
+    ...(padding
+      ? {
+          paddingTop: padding.top,
+          paddingRight: padding.right,
+          paddingBottom: padding.bottom,
+          paddingLeft: padding.left,
+        }
+      : {}),
+  } as Partial<Shape>);
+
+  applyAutoLayout(ydoc, parentId);
+
+  return {
+    parentId,
+    layoutMode: direction,
+    layoutGap: gap,
+    layoutAlign: align,
+    layoutJustify: justify,
+  };
+});
+
+registerTool('canvas.create_chart', (ydoc, args) => {
+  const chartType = args.type === 'line' ? 'line' : args.type === 'bar' ? 'bar' : null;
+  const data = Array.isArray(args.data)
+    ? args.data
+        .map((item) => {
+          if (!item || typeof item !== 'object') {
+            return null;
+          }
+          const raw = item as Record<string, unknown>;
+          if (typeof raw.label !== 'string' || typeof raw.value !== 'number') {
+            return null;
+          }
+          return { label: raw.label, value: raw.value };
+        })
+        .filter((item): item is { label: string; value: number } => item !== null)
+    : [];
+
+  if (!chartType || data.length === 0) {
+    throw new Error(
+      'Invalid tool arguments: expected { type: "bar"|"line", data: [{label, value}] }',
+    );
+  }
+
+  const x = typeof args.x === 'number' ? args.x : 0;
+  const y = typeof args.y === 'number' ? args.y : 0;
+  const width = typeof args.width === 'number' ? args.width : 640;
+  const height = typeof args.height === 'number' ? args.height : 360;
+  const parentId = typeof args.parentId === 'string' ? args.parentId : null;
+  const color = typeof args.color === 'string' ? args.color : '#3B82F6';
+  const axisColor = typeof args.axisColor === 'string' ? args.axisColor : '#475569';
+  const title = typeof args.title === 'string' ? args.title : null;
+
+  const chartPadding = { top: 44, right: 28, bottom: 48, left: 48 };
+  const plotWidth = Math.max(width - chartPadding.left - chartPadding.right, 120);
+  const plotHeight = Math.max(height - chartPadding.top - chartPadding.bottom, 80);
+  const maxValue = Math.max(...data.map((d) => d.value), 1);
+  const chartX = (value: number) => x + value;
+  const chartY = (value: number) => y + value;
+
+  const chartFrameId = addShape(ydoc, 'frame', {
+    x,
+    y,
+    width,
+    height,
+    parentId,
+    name: 'Chart',
+    fills: [{ color: '#FFFFFF', opacity: 1, visible: true }],
+    strokes: [{ color: '#E2E8F0', width: 1, opacity: 1, visible: true }],
+    clip: true,
+  } as Partial<Shape>);
+
+  const shapeIds: string[] = [chartFrameId];
+
+  shapeIds.push(
+    addShape(ydoc, 'line', {
+      parentId: chartFrameId,
+      x: chartX(chartPadding.left),
+      y: chartY(chartPadding.top),
+      x1: 0,
+      y1: plotHeight,
+      x2: plotWidth,
+      y2: plotHeight,
+      strokes: [{ color: axisColor, width: 1, opacity: 1, visible: true }],
+      name: 'X Axis',
+    } as Partial<Shape>),
+  );
+
+  shapeIds.push(
+    addShape(ydoc, 'line', {
+      parentId: chartFrameId,
+      x: chartX(chartPadding.left),
+      y: chartY(chartPadding.top),
+      x1: 0,
+      y1: 0,
+      x2: 0,
+      y2: plotHeight,
+      strokes: [{ color: axisColor, width: 1, opacity: 1, visible: true }],
+      name: 'Y Axis',
+    } as Partial<Shape>),
+  );
+
+  if (title) {
+    shapeIds.push(
+      addShape(ydoc, 'text', {
+        parentId: chartFrameId,
+        x: chartX(chartPadding.left),
+        y: chartY(12),
+        width: plotWidth,
+        height: 24,
+        content: title,
+        fontSize: 16,
+        fontWeight: 600,
+        fills: [{ color: '#0F172A', opacity: 1, visible: true }],
+        name: 'Chart Title',
+      } as Partial<Shape>),
+    );
+  }
+
+  if (chartType === 'bar') {
+    const slotWidth = plotWidth / data.length;
+    const barWidth = Math.max(slotWidth * 0.56, 8);
+    data.forEach((point, index) => {
+      const barHeight = Math.max((point.value / maxValue) * plotHeight, 2);
+      const barX = chartPadding.left + slotWidth * index + (slotWidth - barWidth) / 2;
+      const barY = chartPadding.top + (plotHeight - barHeight);
+
+      shapeIds.push(
+        addShape(ydoc, 'rectangle', {
+          parentId: chartFrameId,
+          x: chartX(barX),
+          y: chartY(barY),
+          width: barWidth,
+          height: barHeight,
+          fills: [{ color, opacity: 1, visible: true }],
+          cornerRadius: 6,
+          name: `Bar ${point.label}`,
+        } as Partial<Shape>),
+      );
+
+      shapeIds.push(
+        addShape(ydoc, 'text', {
+          parentId: chartFrameId,
+          x: chartX(chartPadding.left + slotWidth * index),
+          y: chartY(chartPadding.top + plotHeight + 8),
+          width: slotWidth,
+          height: 18,
+          content: point.label,
+          fontSize: 12,
+          textAlign: 'center',
+          fills: [{ color: '#475569', opacity: 1, visible: true }],
+          name: `Label ${point.label}`,
+        } as Partial<Shape>),
+      );
+    });
+  }
+
+  if (chartType === 'line') {
+    const stepX = data.length === 1 ? 0 : plotWidth / (data.length - 1);
+    const points = data.map((point, index) => {
+      const px = chartPadding.left + stepX * index;
+      const py = chartPadding.top + (1 - point.value / maxValue) * plotHeight;
+      return { ...point, px, py };
+    });
+    const pathData = points
+      .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.px} ${point.py}`)
+      .join(' ');
+
+    shapeIds.push(
+      addShape(ydoc, 'path', {
+        parentId: chartFrameId,
+        x,
+        y,
+        width,
+        height,
+        svgPathData: pathData,
+        fills: [{ color, opacity: 0, visible: false }],
+        strokes: [{ color, width: 3, opacity: 1, visible: true }],
+        name: 'Line Series',
+      } as Partial<Shape>),
+    );
+
+    points.forEach((point) => {
+      shapeIds.push(
+        addShape(ydoc, 'ellipse', {
+          parentId: chartFrameId,
+          x: chartX(point.px - 4),
+          y: chartY(point.py - 4),
+          width: 8,
+          height: 8,
+          fills: [{ color, opacity: 1, visible: true }],
+          strokes: [{ color: '#FFFFFF', width: 1, opacity: 1, visible: true }],
+          name: `Point ${point.label}`,
+        } as Partial<Shape>),
+      );
+
+      shapeIds.push(
+        addShape(ydoc, 'text', {
+          parentId: chartFrameId,
+          x: chartX(point.px - 30),
+          y: chartY(chartPadding.top + plotHeight + 8),
+          width: 60,
+          height: 18,
+          content: point.label,
+          fontSize: 12,
+          textAlign: 'center',
+          fills: [{ color: '#475569', opacity: 1, visible: true }],
+          name: `Label ${point.label}`,
+        } as Partial<Shape>),
+      );
+    });
+  }
+
+  return {
+    chartType,
+    chartFrameId,
+    createdShapeIds: shapeIds,
+    points: data.length,
+  };
+});
+
 registerTool('canvas.set_image', (ydoc, args) => {
   const shapeId = typeof args.shapeId === 'string' ? args.shapeId : null;
   const src = typeof args.src === 'string' ? args.src : null;
@@ -932,6 +1249,7 @@ registerTool('canvas.move_to_parent', (ydoc, args) => {
   }
 
   const { ids, parentId } = parsed.data;
+  const requestedIndex = parsed.data.index;
   const allShapes = getAllShapes(ydoc);
   const shapesById = new Map(allShapes.map((s) => [s.id, s]));
 
@@ -954,21 +1272,76 @@ registerTool('canvas.move_to_parent', (ydoc, args) => {
     }
   }
 
-  if (parentId) {
-    moveShapesByDrop(ydoc, validIds, parentId, 'inside');
-  } else {
-    const shapes = getShapesMap(ydoc);
-    ydoc.transact(() => {
-      for (const id of validIds) {
-        const shapeData = shapes.get(id);
-        if (shapeData) {
-          shapeData.set('parentId', null);
+  if (requestedIndex === undefined) {
+    if (parentId) {
+      moveShapesByDrop(ydoc, validIds, parentId, 'inside');
+    } else {
+      const shapes = getShapesMap(ydoc);
+      ydoc.transact(() => {
+        for (const id of validIds) {
+          const shapeData = shapes.get(id);
+          if (shapeData) {
+            shapeData.set('parentId', null);
+          }
         }
-      }
-    });
+      });
+    }
+
+    return { moved: validIds.length, parentId };
   }
 
-  return { moved: validIds.length, parentId };
+  const zOrder = getZOrder(ydoc);
+  const clampedIndex = Math.max(0, requestedIndex);
+  const movedSet = new Set(validIds);
+  const shapes = getShapesMap(ydoc);
+
+  ydoc.transact(() => {
+    for (const id of validIds) {
+      const shapeData = shapes.get(id);
+      if (shapeData) {
+        shapeData.set('parentId', parentId);
+      }
+    }
+
+    const nextShapes = getAllShapes(ydoc);
+    const nextShapeMap = new Map(nextShapes.map((shape) => [shape.id, shape]));
+    const orderedIds = getOrderedShapeIds(nextShapes, zOrder.toArray());
+    const movingOrdered = orderedIds.filter((id) => movedSet.has(id));
+    const remainingOrder = orderedIds.filter((id) => !movedSet.has(id));
+    const targetSiblings = remainingOrder.filter(
+      (id) => nextShapeMap.get(id)?.parentId === parentId,
+    );
+
+    const targetIndex = Math.min(clampedIndex, targetSiblings.length);
+    let insertionIndex = remainingOrder.length;
+
+    if (targetSiblings.length > 0) {
+      if (targetIndex >= targetSiblings.length) {
+        const lastSiblingId = targetSiblings[targetSiblings.length - 1];
+        const lastSiblingIndex = lastSiblingId ? remainingOrder.lastIndexOf(lastSiblingId) : -1;
+        insertionIndex = lastSiblingIndex >= 0 ? lastSiblingIndex + 1 : remainingOrder.length;
+      } else {
+        const siblingIdAtIndex = targetSiblings[targetIndex];
+        insertionIndex = siblingIdAtIndex
+          ? remainingOrder.indexOf(siblingIdAtIndex)
+          : remainingOrder.length;
+        if (insertionIndex < 0) {
+          insertionIndex = remainingOrder.length;
+        }
+      }
+    }
+
+    const nextOrder = [
+      ...remainingOrder.slice(0, insertionIndex),
+      ...movingOrdered,
+      ...remainingOrder.slice(insertionIndex),
+    ];
+
+    zOrder.delete(0, zOrder.length);
+    zOrder.insert(0, nextOrder);
+  });
+
+  return { moved: validIds.length, parentId, index: clampedIndex };
 });
 
 registerTool('canvas.replace_properties', (ydoc, args) => {

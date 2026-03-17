@@ -80,7 +80,8 @@ describe('mcp server routes', () => {
       if (tool === 'canvas.move_to_parent') {
         const ids = Array.isArray(args.ids) ? (args.ids as string[]) : [];
         const parentId = args.parentId as string | null;
-        return mcpCanvasService.moveToParent(_draftId, ids, parentId);
+        const index = typeof args.index === 'number' ? args.index : undefined;
+        return mcpCanvasService.moveToParent(_draftId, ids, parentId, index);
       }
       if (tool === 'canvas.replace_properties') {
         const parentIds = Array.isArray(args.parentIds) ? (args.parentIds as string[]) : [];
@@ -137,6 +138,27 @@ describe('mcp server routes', () => {
     });
 
     expect(res.status).toBe(401);
+  });
+
+  test('POST /api/mcp returns parse error for invalid JSON', async () => {
+    const secret = await createTokenSecret(ctx.userId, ['mcp:projects:read']);
+
+    const res = await app.request('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${secret}`,
+        'x-mcp-token': secret,
+      },
+      body: '{"jsonrpc":"2.0",',
+    });
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as {
+      error: { code: number; message: string };
+    };
+    expect(body.error.code).toBe(-32700);
+    expect(body.error.message).toBe('Parse error');
   });
 
   test('initialize and tools/list work with bearer token', async () => {
@@ -233,6 +255,35 @@ describe('mcp server routes', () => {
     expect(body.result.structuredContent.data.some((project) => project.id === ctx.projectId)).toBe(
       true,
     );
+  });
+
+  test('tools/call rejects non-object arguments', async () => {
+    const secret = await createTokenSecret(ctx.userId, ['mcp:projects:read']);
+
+    const res = await app.request('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${secret}`,
+        'x-mcp-token': secret,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'projects.list',
+          arguments: 'invalid',
+        },
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as {
+      error: { code: number; message: string };
+    };
+    expect(body.error.code).toBe(-32602);
+    expect(body.error.message).toBe('Invalid params');
   });
 
   test('drafts.get rejects token with restricted draft ids', async () => {
@@ -996,12 +1047,18 @@ describe('mcp server routes', () => {
     const body = (await res.json()) as {
       result: {
         content: Array<{ type: string; data: string; mimeType: string }>;
+        structuredContent: {
+          image: { data: string; mimeType: string; dataUrl: string };
+        };
       };
     };
 
     expect(body.result.content[0]?.type).toBe('image');
     expect(body.result.content[0]?.mimeType).toBe('image/png');
     expect(body.result.content[0]?.data).toBe('dGVzdA==');
+    expect(body.result.structuredContent.image.mimeType).toBe('image/png');
+    expect(body.result.structuredContent.image.data).toBe('dGVzdA==');
+    expect(body.result.structuredContent.image.dataUrl).toBe('data:image/png;base64,dGVzdA==');
   });
 
   test('tools/list includes canvas.screenshot', async () => {
@@ -1297,6 +1354,96 @@ describe('mcp server routes', () => {
 
     const orphan = snapshotBody.result.structuredContent.shapes.find((s) => s.id === orphanId);
     expect(orphan?.parentId).toBe(containerId);
+  });
+
+  test('canvas.move_to_parent supports sibling index', async () => {
+    const secret = await createTokenSecret(ctx.userId, ['mcp:canvas:read', 'mcp:canvas:write']);
+
+    const addRes = await app.request('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${secret}`,
+        'x-mcp-token': secret,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'canvas.apply_ops',
+          arguments: {
+            draftId: ctx.draftId,
+            ops: [
+              {
+                type: 'add_shape',
+                ref: 'container',
+                shapeType: 'frame',
+                props: { x: 0, y: 0, width: 400, height: 400, name: 'Container Frame' },
+              },
+              {
+                type: 'add_shape',
+                ref: 'first',
+                shapeType: 'rectangle',
+                props: { x: 10, y: 10, width: 40, height: 40, name: 'First Rect' },
+              },
+              {
+                type: 'add_shape',
+                ref: 'second',
+                shapeType: 'rectangle',
+                props: { x: 70, y: 10, width: 40, height: 40, name: 'Second Rect' },
+              },
+            ],
+          },
+        },
+      }),
+    });
+
+    const addBody = (await addRes.json()) as {
+      result: {
+        structuredContent: { createdRefs: Record<string, string> };
+      };
+    };
+    const containerId = addBody.result.structuredContent.createdRefs.container;
+    const firstId = addBody.result.structuredContent.createdRefs.first;
+    const secondId = addBody.result.structuredContent.createdRefs.second;
+
+    if (!containerId || !firstId || !secondId) {
+      throw new Error('Expected created refs for container, first, and second');
+    }
+
+    const moveRes = await app.request('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${secret}`,
+        'x-mcp-token': secret,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tools/call',
+        params: {
+          name: 'canvas.move_to_parent',
+          arguments: {
+            draftId: ctx.draftId,
+            ids: [firstId, secondId],
+            parentId: containerId,
+            index: 0,
+          },
+        },
+      }),
+    });
+
+    expect(moveRes.status).toBe(200);
+    const moveBody = (await moveRes.json()) as {
+      result: {
+        structuredContent: { moved: number; parentId: string; index: number };
+      };
+    };
+    expect(moveBody.result.structuredContent.moved).toBe(2);
+    expect(moveBody.result.structuredContent.parentId).toBe(containerId);
+    expect(moveBody.result.structuredContent.index).toBe(0);
   });
 
   test('canvas.search_properties finds unique colors and fonts', async () => {
@@ -1841,7 +1988,7 @@ describe('mcp no editor connected', () => {
     await resetMcpState(ctx.draftId);
   });
 
-  test('canvas tools return 409 when no editor is connected', async () => {
+  test('canvas.snapshot works without an editor connection', async () => {
     setRpcInterceptor(null);
     const created = await createMcpToken({
       ownerId: ctx.userId,
@@ -1868,8 +2015,707 @@ describe('mcp no editor connected', () => {
       }),
     });
 
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      result: {
+        structuredContent: {
+          shapeCount: number;
+        };
+      };
+    };
+    expect(body.result.structuredContent.shapeCount).toBe(0);
+  });
+
+  test('canvas.create_chart works without an editor connection', async () => {
+    setRpcInterceptor(null);
+    const created = await createMcpToken({
+      ownerId: ctx.userId,
+      name: 'Server Token',
+      scopes: ['mcp:canvas:write', 'mcp:canvas:read'],
+      expiresInDays: 30,
+    });
+
+    const createRes = await app.request('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${created.secret}`,
+        'x-mcp-token': created.secret,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'canvas.create_chart',
+          arguments: {
+            draftId: ctx.draftId,
+            type: 'bar',
+            title: 'Traffic',
+            data: [
+              { label: 'Mon', value: 120 },
+              { label: 'Tue', value: 180 },
+              { label: 'Wed', value: 90 },
+            ],
+          },
+        },
+      }),
+    });
+
+    expect(createRes.status).toBe(200);
+
+    const snapshotRes = await app.request('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${created.secret}`,
+        'x-mcp-token': created.secret,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tools/call',
+        params: {
+          name: 'canvas.find_shapes',
+          arguments: { draftId: ctx.draftId, nameContains: 'Chart' },
+        },
+      }),
+    });
+
+    expect(snapshotRes.status).toBe(200);
+    const snapshotBody = (await snapshotRes.json()) as {
+      result: {
+        structuredContent: {
+          total: number;
+        };
+      };
+    };
+    expect(snapshotBody.result.structuredContent.total).toBeGreaterThan(0);
+  });
+
+  test('tools/list includes new tool definitions', async () => {
+    const secret = await createTokenSecret(ctx.userId, ['mcp:canvas:read']);
+
+    const res = await app.request('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${secret}`,
+        'x-mcp-token': secret,
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      result: { tools: Array<{ name: string }> };
+    };
+
+    const toolNames = body.result.tools.map((t) => t.name);
+    expect(toolNames).toContain('canvas.measure_text');
+    expect(toolNames).toContain('canvas.focus_view');
+    expect(toolNames).toContain('canvas.create_frame');
+  });
+
+  test('canvas.align works headlessly', async () => {
+    setRpcInterceptor(null);
+    const created = await createMcpToken({
+      ownerId: ctx.userId,
+      name: 'Server Token',
+      scopes: ['mcp:canvas:write', 'mcp:canvas:read'],
+      expiresInDays: 30,
+    });
+
+    const addRes = await app.request('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${created.secret}`,
+        'x-mcp-token': created.secret,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'canvas.apply_ops',
+          arguments: {
+            draftId: ctx.draftId,
+            ops: [
+              {
+                type: 'add_shape',
+                shapeType: 'rectangle',
+                ref: 'r1',
+                props: { x: 10, y: 20, width: 50, height: 50, name: 'Rect1' },
+              },
+              {
+                type: 'add_shape',
+                shapeType: 'rectangle',
+                ref: 'r2',
+                props: { x: 80, y: 60, width: 50, height: 50, name: 'Rect2' },
+              },
+            ],
+          },
+        },
+      }),
+    });
+
+    expect(addRes.status).toBe(200);
+    const addBody = (await addRes.json()) as {
+      result: { structuredContent: { createdRefs: Record<string, string> } };
+    };
+    const r1Id = addBody.result.structuredContent.createdRefs.r1;
+    const r2Id = addBody.result.structuredContent.createdRefs.r2;
+
+    const alignRes = await app.request('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${created.secret}`,
+        'x-mcp-token': created.secret,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tools/call',
+        params: {
+          name: 'canvas.align',
+          arguments: { draftId: ctx.draftId, ids: [r1Id, r2Id], axis: 'left' },
+        },
+      }),
+    });
+
+    expect(alignRes.status).toBe(200);
+    const alignBody = (await alignRes.json()) as {
+      result: { structuredContent: { aligned: number } };
+    };
+    expect(alignBody.result.structuredContent.aligned).toBe(2);
+  });
+
+  test('canvas.distribute works headlessly', async () => {
+    setRpcInterceptor(null);
+    const created = await createMcpToken({
+      ownerId: ctx.userId,
+      name: 'Server Token',
+      scopes: ['mcp:canvas:write', 'mcp:canvas:read'],
+      expiresInDays: 30,
+    });
+
+    const addRes = await app.request('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${created.secret}`,
+        'x-mcp-token': created.secret,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'canvas.apply_ops',
+          arguments: {
+            draftId: ctx.draftId,
+            ops: [
+              {
+                type: 'add_shape',
+                shapeType: 'rectangle',
+                ref: 'd1',
+                props: { x: 0, y: 0, width: 40, height: 40, name: 'D1' },
+              },
+              {
+                type: 'add_shape',
+                shapeType: 'rectangle',
+                ref: 'd2',
+                props: { x: 60, y: 0, width: 40, height: 40, name: 'D2' },
+              },
+              {
+                type: 'add_shape',
+                shapeType: 'rectangle',
+                ref: 'd3',
+                props: { x: 200, y: 0, width: 40, height: 40, name: 'D3' },
+              },
+            ],
+          },
+        },
+      }),
+    });
+
+    expect(addRes.status).toBe(200);
+    const addBody = (await addRes.json()) as {
+      result: { structuredContent: { createdRefs: Record<string, string> } };
+    };
+    const d1Id = addBody.result.structuredContent.createdRefs.d1;
+    const d2Id = addBody.result.structuredContent.createdRefs.d2;
+    const d3Id = addBody.result.structuredContent.createdRefs.d3;
+
+    const distRes = await app.request('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${created.secret}`,
+        'x-mcp-token': created.secret,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tools/call',
+        params: {
+          name: 'canvas.distribute',
+          arguments: {
+            draftId: ctx.draftId,
+            ids: [d1Id, d2Id, d3Id],
+            axis: 'horizontal',
+          },
+        },
+      }),
+    });
+
+    expect(distRes.status).toBe(200);
+    const distBody = (await distRes.json()) as {
+      result: { structuredContent: { distributed: number } };
+    };
+    expect(distBody.result.structuredContent.distributed).toBe(3);
+  });
+
+  test('canvas.measure_text works headlessly', async () => {
+    setRpcInterceptor(null);
+    const created = await createMcpToken({
+      ownerId: ctx.userId,
+      name: 'Server Token',
+      scopes: ['mcp:canvas:read'],
+      expiresInDays: 30,
+    });
+
+    const res = await app.request('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${created.secret}`,
+        'x-mcp-token': created.secret,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'canvas.measure_text',
+          arguments: {
+            draftId: ctx.draftId,
+            content: 'Hello World',
+            fontSize: 16,
+          },
+        },
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      result: {
+        structuredContent: {
+          width: number;
+          height: number;
+          lineCount: number;
+          fontSize: number;
+          fontFamily: string;
+        };
+      };
+    };
+    expect(body.result.structuredContent.width).toBeGreaterThan(0);
+    expect(body.result.structuredContent.height).toBeGreaterThan(0);
+    expect(body.result.structuredContent.lineCount).toBe(1);
+    expect(body.result.structuredContent.fontSize).toBe(16);
+    expect(body.result.structuredContent.fontFamily).toBe('Inter');
+  });
+
+  test('canvas.measure_text with maxWidth wraps text', async () => {
+    setRpcInterceptor(null);
+    const created = await createMcpToken({
+      ownerId: ctx.userId,
+      name: 'Server Token',
+      scopes: ['mcp:canvas:read'],
+      expiresInDays: 30,
+    });
+
+    const res = await app.request('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${created.secret}`,
+        'x-mcp-token': created.secret,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'canvas.measure_text',
+          arguments: {
+            draftId: ctx.draftId,
+            content: 'This is a longer text string that should wrap across multiple lines',
+            fontSize: 16,
+            maxWidth: 100,
+          },
+        },
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      result: { structuredContent: { lineCount: number; width: number } };
+    };
+    expect(body.result.structuredContent.lineCount).toBeGreaterThan(1);
+    expect(body.result.structuredContent.width).toBeLessThanOrEqual(100);
+  });
+
+  test('canvas.create_frame works headlessly', async () => {
+    setRpcInterceptor(null);
+    const created = await createMcpToken({
+      ownerId: ctx.userId,
+      name: 'Server Token',
+      scopes: ['mcp:canvas:write', 'mcp:canvas:read'],
+      expiresInDays: 30,
+    });
+
+    const res = await app.request('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${created.secret}`,
+        'x-mcp-token': created.secret,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'canvas.create_frame',
+          arguments: {
+            draftId: ctx.draftId,
+            ref: 'myframe',
+            props: { x: 0, y: 0, width: 400, height: 300, name: 'Test Frame' },
+            layout: { direction: 'vertical', gap: 16, align: 'stretch', padding: 24 },
+            children: [
+              { shapeType: 'text', ref: 'title', props: { content: 'Hello' } },
+              { shapeType: 'rectangle', ref: 'box', props: { width: 100, height: 50 } },
+            ],
+          },
+        },
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      result: {
+        structuredContent: {
+          createdRefs: Record<string, string>;
+          createdShapeIds: string[];
+        };
+      };
+    };
+    expect(body.result.structuredContent.createdRefs.myframe).toBeDefined();
+    expect(body.result.structuredContent.createdRefs.title).toBeDefined();
+    expect(body.result.structuredContent.createdRefs.box).toBeDefined();
+    expect(body.result.structuredContent.createdShapeIds.length).toBe(3);
+  });
+
+  test('canvas.create_chart with gridlines creates gridline shapes', async () => {
+    setRpcInterceptor(null);
+    const created = await createMcpToken({
+      ownerId: ctx.userId,
+      name: 'Server Token',
+      scopes: ['mcp:canvas:write', 'mcp:canvas:read'],
+      expiresInDays: 30,
+    });
+
+    const createRes = await app.request('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${created.secret}`,
+        'x-mcp-token': created.secret,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'canvas.create_chart',
+          arguments: {
+            draftId: ctx.draftId,
+            type: 'bar',
+            title: 'Sales',
+            gridlines: true,
+            gridlineCount: 3,
+            data: [
+              { label: 'Q1', value: 100 },
+              { label: 'Q2', value: 200 },
+            ],
+          },
+        },
+      }),
+    });
+
+    expect(createRes.status).toBe(200);
+
+    const findRes = await app.request('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${created.secret}`,
+        'x-mcp-token': created.secret,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tools/call',
+        params: {
+          name: 'canvas.find_shapes',
+          arguments: { draftId: ctx.draftId, nameContains: 'Gridline' },
+        },
+      }),
+    });
+
+    expect(findRes.status).toBe(200);
+    const findBody = (await findRes.json()) as {
+      result: { structuredContent: { total: number } };
+    };
+    expect(findBody.result.structuredContent.total).toBeGreaterThan(0);
+  });
+
+  test('canvas.create_chart with smooth line creates path shapes', async () => {
+    setRpcInterceptor(null);
+    const created = await createMcpToken({
+      ownerId: ctx.userId,
+      name: 'Server Token',
+      scopes: ['mcp:canvas:write', 'mcp:canvas:read'],
+      expiresInDays: 30,
+    });
+
+    const createRes = await app.request('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${created.secret}`,
+        'x-mcp-token': created.secret,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'canvas.create_chart',
+          arguments: {
+            draftId: ctx.draftId,
+            type: 'line',
+            smooth: true,
+            data: [
+              { label: 'A', value: 10 },
+              { label: 'B', value: 30 },
+              { label: 'C', value: 20 },
+              { label: 'D', value: 50 },
+            ],
+          },
+        },
+      }),
+    });
+
+    expect(createRes.status).toBe(200);
+
+    const findRes = await app.request('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${created.secret}`,
+        'x-mcp-token': created.secret,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tools/call',
+        params: {
+          name: 'canvas.find_shapes',
+          arguments: { draftId: ctx.draftId, nameContains: 'Line Series' },
+        },
+      }),
+    });
+
+    expect(findRes.status).toBe(200);
+    const findBody = (await findRes.json()) as {
+      result: { structuredContent: { total: number } };
+    };
+    expect(findBody.result.structuredContent.total).toBeGreaterThan(0);
+  });
+
+  test('overlap detection skips children in auto-layout frames', async () => {
+    setRpcInterceptor(null);
+    const created = await createMcpToken({
+      ownerId: ctx.userId,
+      name: 'Server Token',
+      scopes: ['mcp:canvas:write', 'mcp:canvas:read'],
+      expiresInDays: 30,
+    });
+
+    await app.request('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${created.secret}`,
+        'x-mcp-token': created.secret,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'canvas.apply_ops',
+          arguments: {
+            draftId: ctx.draftId,
+            ops: [
+              {
+                type: 'add_shape',
+                shapeType: 'frame',
+                ref: 'alframe',
+                props: {
+                  x: 0,
+                  y: 0,
+                  width: 200,
+                  height: 200,
+                  name: 'AutoLayout Frame',
+                  layoutMode: 'vertical',
+                  layoutGap: 0,
+                },
+              },
+              {
+                type: 'add_shape',
+                shapeType: 'rectangle',
+                props: {
+                  parentId: '@alframe',
+                  x: 0,
+                  y: 0,
+                  width: 200,
+                  height: 100,
+                  name: 'OverlapChild1',
+                },
+              },
+              {
+                type: 'add_shape',
+                shapeType: 'rectangle',
+                props: {
+                  parentId: '@alframe',
+                  x: 0,
+                  y: 50,
+                  width: 200,
+                  height: 100,
+                  name: 'OverlapChild2',
+                },
+              },
+            ],
+          },
+        },
+      }),
+    });
+
+    const layoutRes = await app.request('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${created.secret}`,
+        'x-mcp-token': created.secret,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tools/call',
+        params: {
+          name: 'canvas.get_layout',
+          arguments: { draftId: ctx.draftId, maxDepth: 2, problemsOnly: true },
+        },
+      }),
+    });
+
+    expect(layoutRes.status).toBe(200);
+    const layoutBody = (await layoutRes.json()) as {
+      result: {
+        structuredContent: {
+          layout: Array<{ problems?: string[]; children?: Array<{ problems?: string[] }> }>;
+        };
+      };
+    };
+
+    const allProblems: string[] = [];
+    for (const node of layoutBody.result.structuredContent.layout ?? []) {
+      if (node.problems) allProblems.push(...node.problems);
+      for (const child of node.children ?? []) {
+        if (child.problems) allProblems.push(...child.problems);
+      }
+    }
+    const overlapProblems = allProblems.filter((p) => p.startsWith('overlaps_with:'));
+    expect(overlapProblems.length).toBe(0);
+  });
+
+  test('canvas.screenshot requires an active editor connection', async () => {
+    setRpcInterceptor(null);
+    const created = await createMcpToken({
+      ownerId: ctx.userId,
+      name: 'Server Token',
+      scopes: ['mcp:canvas:write', 'mcp:canvas:read'],
+      expiresInDays: 30,
+    });
+
+    await app.request('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${created.secret}`,
+        'x-mcp-token': created.secret,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'canvas.apply_ops',
+          arguments: {
+            draftId: ctx.draftId,
+            ops: [
+              {
+                type: 'add_shape',
+                shapeType: 'rectangle',
+                props: { x: 0, y: 0, width: 100, height: 100, name: 'Screenshot Rect' },
+              },
+            ],
+          },
+        },
+      }),
+    });
+
+    const res = await app.request('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${created.secret}`,
+        'x-mcp-token': created.secret,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tools/call',
+        params: {
+          name: 'canvas.screenshot',
+          arguments: { draftId: ctx.draftId },
+        },
+      }),
+    });
+
     expect(res.status).toBe(409);
-    const body = (await res.json()) as { error: { message: string } };
+    const body = (await res.json()) as {
+      error: {
+        code: number;
+        message: string;
+      };
+    };
+    expect(body.error.code).toBe(-32005);
     expect(body.error.message).toContain('No editor connected');
   });
 });

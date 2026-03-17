@@ -33,7 +33,12 @@ function jsonRpcResult(id: string | number | null | undefined, result: unknown) 
 }
 
 mcpRoutes.post('/', requireMcpAuth(), async (c) => {
-  const body = (await c.req.json()) as JsonRpcRequest;
+  let body: JsonRpcRequest;
+  try {
+    body = (await c.req.json()) as JsonRpcRequest;
+  } catch {
+    return c.json(jsonRpcError(null, -32700, 'Parse error'), 400);
+  }
   const id = body.id;
 
   if (body.jsonrpc !== '2.0' || !body.method) {
