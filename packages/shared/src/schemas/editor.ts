@@ -231,6 +231,7 @@ export const pathShapeSchema = baseShapeSchema.extend({
   type: z.literal('path'),
   points: z.array(pressurePointSchema).default([]),
   svgPathData: z.string().optional(),
+  fillRule: z.enum(['nonzero', 'evenodd']).default('nonzero'),
   fills: z.array(fillSchema).default([{ color: '#000000', opacity: 1, visible: true }]),
   strokes: z.array(strokeSchema).default([]),
   shadows: z.array(shadowSchema).default([]),

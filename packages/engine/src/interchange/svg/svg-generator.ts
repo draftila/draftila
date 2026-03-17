@@ -240,7 +240,12 @@ function buildShapeGeometry(
     case 'path': {
       if (node.svgPathData) {
         const translateAttr = ox !== 0 || oy !== 0 ? ` transform="translate(${ox},${oy})"` : '';
-        return { tag: 'path', attrs: `d="${node.svgPathData}"${translateAttr}`, selfClose: true };
+        const fillRuleAttr = node.fillRule === 'evenodd' ? ' fill-rule="evenodd"' : '';
+        return {
+          tag: 'path',
+          attrs: `d="${node.svgPathData}"${fillRuleAttr}${translateAttr}`,
+          selfClose: true,
+        };
       }
       return null;
     }

@@ -315,7 +315,12 @@ export class Canvas2DRenderer implements Renderer {
     ctx.restore();
   }
 
-  drawSvgPath(transform: RenderTransform, pathData: string, style: RenderStyle) {
+  drawSvgPath(
+    transform: RenderTransform,
+    pathData: string,
+    style: RenderStyle,
+    fillRule: 'nonzero' | 'evenodd' = 'nonzero',
+  ) {
     const { ctx } = this;
     ctx.save();
     this.applyTransform(transform);
@@ -331,11 +336,11 @@ export class Canvas2DRenderer implements Renderer {
       if (dropShadows.length > 0) {
         for (const shadow of dropShadows) {
           this.applyDropShadow(shadow);
-          ctx.fill(path);
+          ctx.fill(path, fillRule);
         }
         this.clearShadow();
       } else {
-        ctx.fill(path);
+        ctx.fill(path, fillRule);
       }
     }
 
@@ -343,7 +348,7 @@ export class Canvas2DRenderer implements Renderer {
       for (const shadow of dropShadows) {
         this.applyDropShadow(shadow);
         ctx.fillStyle = 'rgba(0,0,0,0)';
-        ctx.fill(path);
+        ctx.fill(path, fillRule);
       }
       this.clearShadow();
     }
@@ -364,7 +369,7 @@ export class Canvas2DRenderer implements Renderer {
     const innerShadows = style.shadows.filter((s) => s.type === 'inner' && s.visible !== false);
     if (innerShadows.length > 0) {
       ctx.save();
-      ctx.clip(path);
+      ctx.clip(path, fillRule);
       for (const shadow of innerShadows) {
         this.applyDropShadow(shadow);
         ctx.fillStyle = 'rgba(0,0,0,0)';

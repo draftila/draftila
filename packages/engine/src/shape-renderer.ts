@@ -153,7 +153,12 @@ export function renderShape(renderer: Renderer, shape: Shape) {
     }
     case 'path': {
       if (shape.svgPathData) {
-        renderer.drawSvgPath(getTransform(shape), shape.svgPathData, getStyle(shape));
+        renderer.drawSvgPath(
+          getTransform(shape),
+          shape.svgPathData,
+          getStyle(shape),
+          shape.fillRule,
+        );
         break;
       }
       if (shape.points.length < 2) break;

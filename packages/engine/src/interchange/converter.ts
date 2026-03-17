@@ -141,6 +141,7 @@ function shapeToNode(shape: Shape, childrenByParent: Map<string, Shape[]>): Inte
       break;
     case 'path':
       node.svgPathData = shape.svgPathData;
+      node.fillRule = shape.fillRule;
       node.pathPoints = shape.points.map(
         (p): InterchangePathPoint => ({ x: p.x, y: p.y, pressure: p.pressure }),
       );
@@ -289,6 +290,7 @@ function nodeToFlatShapes(
         shadows,
         blurs,
         svgPathData: node.svgPathData,
+        fillRule: node.fillRule ?? 'nonzero',
         points: (node.pathPoints ?? []).map((p) => ({
           x: p.x,
           y: p.y,

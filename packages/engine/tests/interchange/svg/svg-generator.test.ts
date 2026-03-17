@@ -249,4 +249,86 @@ describe('SVG Generator', () => {
     const svg = generateSvg(doc);
     expect(svg).toContain('xmlns="http://www.w3.org/2000/svg"');
   });
+
+  test('generates SVG with fill-rule evenodd for path', () => {
+    const node = createInterchangeNode('path', {
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      svgPathData: 'M0 0L100 0L100 100L0 100Z M25 25L75 25L75 75L25 75Z',
+      fillRule: 'evenodd',
+      fills: [{ color: '#000000', opacity: 1, visible: true }],
+    });
+    const doc = createInterchangeDocument([node], { source: 'test' });
+    const svg = generateSvg(doc);
+    expect(svg).toContain('fill-rule="evenodd"');
+  });
+
+  test('does not include fill-rule for nonzero default', () => {
+    const node = createInterchangeNode('path', {
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      svgPathData: 'M0 0L100 0L100 100Z',
+      fillRule: 'nonzero',
+      fills: [{ color: '#000000', opacity: 1, visible: true }],
+    });
+    const doc = createInterchangeDocument([node], { source: 'test' });
+    const svg = generateSvg(doc);
+    expect(svg).not.toContain('fill-rule');
+  });
+
+  test('generates gradient definitions', () => {
+    const node = createInterchangeNode('rectangle', {
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      fills: [{ color: '#FF0000', opacity: 1, visible: true }],
+      gradients: [
+        {
+          type: 'linear',
+          stops: [
+            { color: '#FF0000', position: 0 },
+            { color: '#0000FF', position: 1 },
+          ],
+          angle: 0,
+        },
+      ],
+    });
+    const doc = createInterchangeDocument([node], { source: 'test' });
+    const svg = generateSvg(doc);
+    expect(svg).toContain('linearGradient');
+    expect(svg).toContain('<stop');
+  });
+
+  test('generates SVG for a group', () => {
+    const child1 = createInterchangeNode('rectangle', {
+      x: 0,
+      y: 0,
+      width: 50,
+      height: 50,
+      fills: [{ color: '#FF0000', opacity: 1, visible: true }],
+    });
+    const child2 = createInterchangeNode('ellipse', {
+      x: 60,
+      y: 0,
+      width: 50,
+      height: 50,
+      fills: [{ color: '#00FF00', opacity: 1, visible: true }],
+    });
+    const group = createInterchangeNode('group', {
+      x: 0,
+      y: 0,
+      width: 110,
+      height: 50,
+      children: [child1, child2],
+    });
+    const doc = createInterchangeDocument([group], { source: 'test' });
+    const svg = generateSvg(doc);
+    expect(svg).toContain('<rect');
+    expect(svg).toContain('<ellipse');
+  });
 });
