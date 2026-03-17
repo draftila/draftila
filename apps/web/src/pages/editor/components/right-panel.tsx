@@ -120,6 +120,35 @@ export function RightPanel({ ydoc }: RightPanelProps) {
   const [canvasShape, setCanvasShape] = useState<Shape>(createCanvasScopeShape([]));
   const [revision, setRevision] = useState(0);
 
+  const selectedShapes = selectedIds
+    .map((id) => getShape(ydoc, id))
+    .filter((shape): shape is Shape => Boolean(shape));
+
+  const multiSelected = selectedShapes.length > 1;
+
+  const sharedOpacity = (() => {
+    if (!multiSelected) return null;
+    const first = selectedShapes[0]?.opacity;
+    if (first === undefined) return null;
+    return selectedShapes.every((shape) => shape.opacity === first) ? first : null;
+  })();
+
+  const sharedFillColor = (() => {
+    if (!multiSelected) return null;
+    const firstShape = selectedShapes[0] as
+      | (Shape & { fills?: Array<{ color?: string }> })
+      | undefined;
+    const firstColor = firstShape?.fills?.[0]?.color;
+    if (!firstColor) return null;
+
+    const allHaveSame = selectedShapes.every((shape) => {
+      const withFills = shape as Shape & { fills?: Array<{ color?: string }> };
+      return withFills.fills?.[0]?.color === firstColor;
+    });
+
+    return allHaveSame ? firstColor : null;
+  })();
+
   useEffect(() => {
     const allVisibleShapes = filterEffectivelyVisibleShapes(getAllShapes(ydoc));
 
@@ -186,15 +215,51 @@ export function RightPanel({ ydoc }: RightPanelProps) {
     [ydoc, selectedIds],
   );
 
+  const handleBatchOpacityUpdate = useCallback(
+    (nextOpacity: number) => {
+      const clamped = Math.max(0, Math.min(1, nextOpacity));
+      for (const shape of selectedShapes) {
+        updateShape(ydoc, shape.id, { opacity: clamped });
+        applyAutoLayoutForAncestors(ydoc, shape.id);
+      }
+      setRevision((r) => r + 1);
+    },
+    [ydoc, selectedShapes],
+  );
+
+  const handleBatchFillColorUpdate = useCallback(
+    (nextColor: string) => {
+      for (const shape of selectedShapes) {
+        const withFills = shape as Shape & {
+          fills?: Array<Record<string, unknown>>;
+        };
+        const fills = withFills.fills;
+        if (!fills || fills.length === 0) continue;
+        const [first, ...rest] = fills;
+        const nextFirst = {
+          ...first,
+          color: nextColor,
+          gradient: undefined,
+        };
+        updateShape(ydoc, shape.id, {
+          fills: [nextFirst, ...rest],
+        } as Partial<Shape>);
+        applyAutoLayoutForAncestors(ydoc, shape.id);
+      }
+      setRevision((r) => r + 1);
+    },
+    [ydoc, selectedShapes],
+  );
+
   if (!rightPanelOpen) return null;
 
   const sections = selectedShape ? getSectionsForShape(selectedShape.type) : [];
 
   return (
     <div className="flex h-full w-60 shrink-0 flex-col border-l">
-      <ZoomControls />
+      <ZoomControls ydoc={ydoc} />
       <div className="flex-1 overflow-auto">
-        {!selectedShape && (
+        {!selectedShape && !multiSelected && (
           <div>
             <div className="border-b px-3 py-3">
               <ExportSection
@@ -215,6 +280,68 @@ export function RightPanel({ ydoc }: RightPanelProps) {
             {shapeScope.length === 0 && (
               <div className="text-muted-foreground px-3 py-3 text-xs">Canvas is empty</div>
             )}
+          </div>
+        )}
+        {!selectedShape && multiSelected && (
+          <div>
+            <div className="border-b px-3 py-3">
+              <p className="text-muted-foreground text-[11px] uppercase tracking-wide">Selection</p>
+              <p className="text-xs font-medium">{selectedShapes.length} objects selected</p>
+            </div>
+            <div className="border-b px-3 py-3">
+              <div className="space-y-2">
+                <div>
+                  <p className="text-muted-foreground mb-1 text-[11px] font-medium">Opacity</p>
+                  <div className="border-input flex h-7 items-center rounded border px-2">
+                    <input
+                      type="text"
+                      value={
+                        sharedOpacity === null
+                          ? 'Mixed'
+                          : Math.round(sharedOpacity * 100).toString()
+                      }
+                      onChange={(event) => {
+                        const next = Number.parseFloat(event.target.value);
+                        if (!Number.isFinite(next)) return;
+                        handleBatchOpacityUpdate(next / 100);
+                      }}
+                      className="h-full w-full bg-transparent text-[11px] outline-none"
+                    />
+                    <span className="text-muted-foreground text-[11px]">%</span>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-muted-foreground mb-1 text-[11px] font-medium">Fill</p>
+                  <div className="border-input flex h-7 items-center gap-2 rounded border px-2">
+                    <input
+                      type="color"
+                      value={sharedFillColor ?? '#d9d9d9'}
+                      onChange={(event) => handleBatchFillColorUpdate(event.target.value)}
+                      className="h-4 w-4 rounded border-0 p-0"
+                    />
+                    <span className="text-[11px]">
+                      {sharedFillColor ? sharedFillColor : 'Mixed'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="border-b px-3 py-3">
+              <ExportSection
+                ydoc={ydoc}
+                shape={canvasShape}
+                shapeScope={shapeScope}
+                onUpdate={() => {}}
+              />
+            </div>
+            <div className="border-b px-3 py-3">
+              <PreviewSection
+                ydoc={ydoc}
+                shape={canvasShape}
+                shapeScope={shapeScope}
+                onUpdate={() => {}}
+              />
+            </div>
           </div>
         )}
         {selectedShape && (
