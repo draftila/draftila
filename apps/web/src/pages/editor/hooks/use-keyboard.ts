@@ -66,6 +66,53 @@ async function pasteImageFiles(
 
 export function useKeyboard({ ydoc }: UseKeyboardOptions) {
   useEffect(() => {
+    const getBounds = (shapes: Array<{ x: number; y: number; width: number; height: number }>) => {
+      if (shapes.length === 0) return null;
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      for (const shape of shapes) {
+        minX = Math.min(minX, shape.x);
+        minY = Math.min(minY, shape.y);
+        maxX = Math.max(maxX, shape.x + shape.width);
+        maxY = Math.max(maxY, shape.y + shape.height);
+      }
+      return { minX, minY, maxX, maxY };
+    };
+
+    const getCanvasViewportRect = (): DOMRect | null => {
+      const canvas = document.querySelector('canvas');
+      if (!(canvas instanceof HTMLCanvasElement)) return null;
+      return canvas.getBoundingClientRect();
+    };
+
+    const fitCameraToBounds = (
+      bounds: { minX: number; minY: number; maxX: number; maxY: number },
+      viewport: DOMRect,
+      padding: number,
+    ) => {
+      const contentWidth = bounds.maxX - bounds.minX;
+      const contentHeight = bounds.maxY - bounds.minY;
+      if (contentWidth <= 0 || contentHeight <= 0) return null;
+
+      const availableWidth = Math.max(1, viewport.width - padding * 2);
+      const availableHeight = Math.max(1, viewport.height - padding * 2);
+      const zoom = Math.min(
+        64,
+        Math.max(0.02, Math.min(availableWidth / contentWidth, availableHeight / contentHeight)),
+      );
+
+      const centerX = (bounds.minX + bounds.maxX) / 2;
+      const centerY = (bounds.minY + bounds.maxY) / 2;
+
+      return {
+        x: viewport.width / 2 - centerX * zoom,
+        y: viewport.height / 2 - centerY * zoom,
+        zoom,
+      };
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (useEditorStore.getState().editingTextId) return;
@@ -74,6 +121,37 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
       const key = e.key.toLowerCase();
       const code = e.code;
       const { activeTool } = useEditorStore.getState();
+
+      if (e.shiftKey && code === 'Digit1' && !isMod) {
+        e.preventDefault();
+        const shapes = getAllShapes(ydoc).filter((shape) => shape.visible);
+        const bounds = getBounds(shapes);
+        if (!bounds) return;
+        const viewport = getCanvasViewportRect();
+        if (!viewport) return;
+        const next = fitCameraToBounds(bounds, viewport, 80);
+        if (!next) return;
+        useEditorStore.getState().setCamera(next);
+        return;
+      }
+
+      if (e.shiftKey && code === 'Digit2' && !isMod) {
+        e.preventDefault();
+        const { selectedIds } = useEditorStore.getState();
+        if (selectedIds.length === 0) return;
+        const selectedSet = new Set(selectedIds);
+        const selectedShapes = getAllShapes(ydoc).filter(
+          (shape) => selectedSet.has(shape.id) && shape.visible,
+        );
+        const bounds = getBounds(selectedShapes);
+        if (!bounds) return;
+        const viewport = getCanvasViewportRect();
+        if (!viewport) return;
+        const next = fitCameraToBounds(bounds, viewport, 120);
+        if (!next) return;
+        useEditorStore.getState().setCamera(next);
+        return;
+      }
 
       if (activeTool === 'node' && (key === 'delete' || key === 'backspace' || key === 'escape')) {
         e.preventDefault();
