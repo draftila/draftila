@@ -244,8 +244,16 @@ export class NodeTool extends BaseTool {
     if (!shape) return;
 
     const { target, startCanvas, initialNode } = this.state;
-    const dx = ctx.canvasPoint.x - startCanvas.x;
-    const dy = ctx.canvasPoint.y - startCanvas.y;
+    let dx = ctx.canvasPoint.x - startCanvas.x;
+    let dy = ctx.canvasPoint.y - startCanvas.y;
+
+    if (ctx.shiftKey) {
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        dy = 0;
+      } else {
+        dx = 0;
+      }
+    }
 
     let updates: Partial<VectorNode>;
 
