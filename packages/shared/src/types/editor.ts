@@ -32,6 +32,7 @@ import type {
   shadowSchema,
   blurSchema,
   textSegmentSchema,
+  textAutoResizeSchema,
   layoutGuideSchema,
   layoutDirectionSchema,
   layoutAlignSchema,
@@ -76,6 +77,7 @@ export type LayoutDirection = z.infer<typeof layoutDirectionSchema>;
 export type LayoutAlign = z.infer<typeof layoutAlignSchema>;
 export type LayoutJustify = z.infer<typeof layoutJustifySchema>;
 export type SizingMode = z.infer<typeof sizingModeSchema>;
+export type TextAutoResize = z.infer<typeof textAutoResizeSchema>;
 
 export interface Camera {
   x: number;

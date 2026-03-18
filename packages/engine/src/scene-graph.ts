@@ -19,6 +19,7 @@ import {
 import { getActivePageShapesMap, getActivePageZOrder, initPages } from './pages';
 import { DEFAULT_CONSTRAINTS, applyConstraints } from './constraints';
 import { type BooleanOperation, computePathBoolean, isBooleanCompatibleShape } from './boolean-ops';
+import { applyTextAutoResize } from './text-measure';
 
 const ID_SIZE = 21;
 const ID_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-';
@@ -764,6 +765,37 @@ export function updateShape(ydoc: Y.Doc, id: string, props: Partial<Shape>) {
       }
     }
   });
+
+  if (beforeShape.type === 'text') {
+    const textKeys = [
+      'content',
+      'fontSize',
+      'fontFamily',
+      'fontWeight',
+      'fontStyle',
+      'lineHeight',
+      'letterSpacing',
+      'textTransform',
+      'textAutoResize',
+    ];
+    const hasTextChange = Object.keys(props).some((k) => textKeys.includes(k));
+    if (hasTextChange) {
+      const updatedText = getShape(ydoc, id);
+      if (updatedText) {
+        const autoResizePatch = applyTextAutoResize(updatedText);
+        if (autoResizePatch) {
+          const textData = shapes.get(id);
+          if (textData) {
+            ydoc.transact(() => {
+              for (const [key, value] of Object.entries(autoResizePatch)) {
+                textData.set(key, valueToYjs(key, value));
+              }
+            });
+          }
+        }
+      }
+    }
+  }
 
   const resizedOrMoved =
     typeof props.width === 'number' ||

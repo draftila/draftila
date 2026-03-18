@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type * as Y from 'yjs';
 import type { TextShape, Camera } from '@draftila/shared';
 import { getShape, updateShape, deleteShape } from '@draftila/engine/scene-graph';
+import { computeTextAutoResizeDimensions } from '@draftila/engine/text-measure';
 import { useEditorStore } from '@/stores/editor-store';
 
 interface TextEditOverlayProps {
@@ -78,6 +79,7 @@ function computeTextLayout(shape: TextShape, camera: Camera) {
 }
 
 function computeStyle(shape: TextShape, camera: Camera): React.CSSProperties {
+  const autoResize = (shape as TextShape & { textAutoResize?: string }).textAutoResize ?? 'none';
   const fontSize = shape.fontSize * camera.zoom;
   const screenX = shape.x * camera.zoom + camera.x;
   const screenY = shape.y * camera.zoom + camera.y;
@@ -91,7 +93,8 @@ function computeStyle(shape: TextShape, camera: Camera): React.CSSProperties {
     position: 'absolute',
     left: screenX,
     top: screenY + layout.topOffset,
-    width: screenWidth,
+    width: autoResize === 'width' ? 'auto' : screenWidth,
+    minWidth: autoResize === 'width' ? screenWidth : undefined,
     minHeight: layout.height,
     fontSize,
     fontFamily: shape.fontFamily,
@@ -173,6 +176,20 @@ function TextEditor({ ydoc, camera, shapeId }: { ydoc: Y.Doc; camera: Camera; sh
     const value = e.target.value;
     setLocalContent(value);
     updateShape(ydoc, shapeId, { content: value } as Partial<TextShape>);
+
+    const updated = getShape(ydoc, shapeId);
+    if (updated && updated.type === 'text') {
+      const textUpdated = updated as TextShape & {
+        textAutoResize?: 'none' | 'width' | 'height';
+      };
+      const dims = computeTextAutoResizeDimensions(textUpdated);
+      if (dims) {
+        updateShape(ydoc, shapeId, {
+          width: dims.width,
+          height: dims.height,
+        } as Partial<TextShape>);
+      }
+    }
   };
 
   const handleBlur = () => {

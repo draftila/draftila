@@ -239,9 +239,12 @@ export const frameShapeSchema = baseShapeSchema.extend({
   layoutSizingVertical: sizingModeSchema.default('fixed'),
 });
 
+export const textAutoResizeSchema = z.enum(['none', 'width', 'height']);
+
 export const textShapeSchema = baseShapeSchema.extend({
   type: z.literal('text'),
   content: z.string().default(''),
+  textAutoResize: textAutoResizeSchema.default('none'),
   fontSize: z.number().min(1).default(16),
   fontFamily: z.string().default('Inter'),
   fontWeight: z.number().default(400),
