@@ -12,7 +12,20 @@ import {
 } from '@draftila/engine/scene-graph';
 import { getComponentById, getInstanceComponentId, observeComponents } from '@draftila/engine';
 import { isAutoLayoutFrame } from '@draftila/engine/auto-layout';
+import { alignShapes, distributeShapes } from '@draftila/engine/selection';
 import { useEditorStore } from '@/stores/editor-store';
+import {
+  AlignStartVertical,
+  AlignCenterVertical,
+  AlignEndVertical,
+  AlignStartHorizontal,
+  AlignCenterHorizontal,
+  AlignEndHorizontal,
+  AlignHorizontalSpaceAround,
+  AlignVerticalSpaceAround,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ExportSection } from './right-panel/sections/export-section';
 import { PreviewSection } from './right-panel/sections/preview-section';
 import { getSectionsForShape } from './right-panel/section-registry';
@@ -227,6 +240,30 @@ export function RightPanel({ ydoc }: RightPanelProps) {
     [ydoc, selectedShapes],
   );
 
+  const handleAlign = useCallback(
+    (alignment: 'left' | 'center-h' | 'right' | 'top' | 'center-v' | 'bottom') => {
+      if (selectedShapes.length < 2) return;
+      const updates = alignShapes(selectedShapes, alignment);
+      for (const [id, pos] of updates) {
+        updateShape(ydoc, id, pos as Partial<Shape>);
+      }
+      setRevision((r) => r + 1);
+    },
+    [ydoc, selectedShapes],
+  );
+
+  const handleDistribute = useCallback(
+    (direction: 'horizontal' | 'vertical') => {
+      if (selectedShapes.length < 3) return;
+      const updates = distributeShapes(selectedShapes, direction);
+      for (const [id, pos] of updates) {
+        updateShape(ydoc, id, pos as Partial<Shape>);
+      }
+      setRevision((r) => r + 1);
+    },
+    [ydoc, selectedShapes],
+  );
+
   const handleBatchFillColorUpdate = useCallback(
     (nextColor: string) => {
       for (const shape of selectedShapes) {
@@ -287,6 +324,125 @@ export function RightPanel({ ydoc }: RightPanelProps) {
             <div className="border-b px-3 py-3">
               <p className="text-muted-foreground text-[11px] uppercase tracking-wide">Selection</p>
               <p className="text-xs font-medium">{selectedShapes.length} objects selected</p>
+            </div>
+            <div className="border-b px-3 py-3">
+              <p className="text-muted-foreground mb-2 text-[11px] font-medium">Align</p>
+              <div className="flex items-center gap-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => handleAlign('left')}
+                    >
+                      <AlignStartVertical className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Align Left</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => handleAlign('center-h')}
+                    >
+                      <AlignCenterVertical className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Align Center</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => handleAlign('right')}
+                    >
+                      <AlignEndVertical className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Align Right</TooltipContent>
+                </Tooltip>
+                <div className="bg-border mx-1 h-4 w-px" />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => handleAlign('top')}
+                    >
+                      <AlignStartHorizontal className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Align Top</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => handleAlign('center-v')}
+                    >
+                      <AlignCenterHorizontal className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Align Middle</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => handleAlign('bottom')}
+                    >
+                      <AlignEndHorizontal className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Align Bottom</TooltipContent>
+                </Tooltip>
+              </div>
+              {selectedShapes.length >= 3 && (
+                <>
+                  <p className="text-muted-foreground mb-2 mt-3 text-[11px] font-medium">
+                    Distribute
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => handleDistribute('horizontal')}
+                        >
+                          <AlignHorizontalSpaceAround className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">Distribute Horizontally</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => handleDistribute('vertical')}
+                        >
+                          <AlignVerticalSpaceAround className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">Distribute Vertically</TooltipContent>
+                    </Tooltip>
+                  </div>
+                </>
+              )}
             </div>
             <div className="border-b px-3 py-3">
               <div className="space-y-2">
