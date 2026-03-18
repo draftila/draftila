@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import type { TextShape, TextSegment, Shape } from '@draftila/shared';
+import type { TextShape, TextSegment, Shape, TextAutoResize } from '@draftila/shared';
 import {
   AlignLeft,
   AlignCenter,
@@ -17,6 +17,9 @@ import {
   Plus,
   Minus,
   SplitSquareHorizontal,
+  MoveHorizontal,
+  MoveVertical,
+  Lock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -116,6 +119,29 @@ export function TypographySection({ shape, onUpdate }: PropertySectionProps) {
           </div>
         </PopoverContent>
       </Popover>
+
+      <div className="space-y-1.5">
+        <Label className="text-muted-foreground text-[11px]">Auto Resize</Label>
+        <ToggleGroup
+          type="single"
+          value={(text as TextShape & { textAutoResize?: TextAutoResize }).textAutoResize ?? 'none'}
+          onValueChange={(v) => {
+            if (v) onUpdate({ textAutoResize: v } as Partial<Shape>);
+          }}
+          className="w-full"
+          size="sm"
+        >
+          <ToggleGroupItem value="none" className="flex-1">
+            <Lock className="h-3.5 w-3.5" />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="width" className="flex-1">
+            <MoveHorizontal className="h-3.5 w-3.5" />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="height" className="flex-1">
+            <MoveVertical className="h-3.5 w-3.5" />
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </div>
 
       <div className="grid grid-cols-2 gap-1.5">
         <NumberInput

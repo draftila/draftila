@@ -246,3 +246,5 @@ export {
   addNodeToSubpath,
   deleteNodeFromSubpath,
 } from './vector-nodes';
+
+export { computeTextAutoResizeDimensions, applyTextAutoResize } from './text-measure';
