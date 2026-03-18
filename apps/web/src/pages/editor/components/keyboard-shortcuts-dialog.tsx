@@ -1,3 +1,5 @@
+import { useMemo, useState } from 'react';
+import { Search } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface KeyboardShortcutsDialogProps {
@@ -45,6 +47,9 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { label: 'Duplicate', keys: `${mod}D` },
       { label: 'Group', keys: `${mod}G` },
       { label: 'Ungroup', keys: `${mod}\u21E7G` },
+      { label: 'Frame Selection', keys: `${mod}\u2325G` },
+      { label: 'Flip Horizontal', keys: '\u21E7H' },
+      { label: 'Flip Vertical', keys: '\u21E7V' },
       { label: 'Lock / Unlock', keys: `${mod}\u21E7L` },
       { label: 'Hide / Show', keys: `${mod}\u21E7H` },
       { label: 'Next Sibling', keys: 'Tab' },
@@ -93,14 +98,55 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
 ];
 
 export function KeyboardShortcutsDialog({ open, onOpenChange }: KeyboardShortcutsDialogProps) {
+  const [query, setQuery] = useState('');
+
+  const filteredGroups = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return SHORTCUT_GROUPS;
+
+    return SHORTCUT_GROUPS.map((group) => ({
+      ...group,
+      shortcuts: group.shortcuts.filter(
+        (s) => s.label.toLowerCase().includes(q) || s.keys.toLowerCase().includes(q),
+      ),
+    })).filter((group) => group.shortcuts.length > 0);
+  }, [query]);
+
+  const totalResults = filteredGroups.reduce((sum, g) => sum + g.shortcuts.length, 0);
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[80vh] max-w-lg overflow-auto">
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) setQuery('');
+        onOpenChange(next);
+      }}
+    >
+      <DialogContent className="flex max-h-[80vh] max-w-lg flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>Keyboard Shortcuts</DialogTitle>
         </DialogHeader>
-        <div className="space-y-5 pt-2">
-          {SHORTCUT_GROUPS.map((group) => (
+        <div className="border-input flex items-center gap-2 rounded-md border px-2.5 py-1.5">
+          <Search className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search shortcuts..."
+            className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-xs outline-none"
+            autoFocus
+          />
+          {query && (
+            <span className="text-muted-foreground shrink-0 text-[10px]">
+              {totalResults} result{totalResults !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+        <div className="space-y-5 overflow-auto pt-1">
+          {filteredGroups.length === 0 && (
+            <p className="text-muted-foreground py-6 text-center text-xs">No shortcuts found</p>
+          )}
+          {filteredGroups.map((group) => (
             <div key={group.title}>
               <h3 className="text-muted-foreground mb-2 text-[11px] font-medium uppercase tracking-wide">
                 {group.title}

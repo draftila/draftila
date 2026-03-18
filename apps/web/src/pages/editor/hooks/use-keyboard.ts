@@ -16,6 +16,8 @@ import { addImageFromFile } from '@draftila/engine/image-manager';
 import { getNodeTool, getPenTool } from '@draftila/engine/tools/tool-manager';
 import {
   deleteShapes,
+  flipShapes,
+  frameSelection,
   getAllShapes,
   getSelectedContainer,
   getShape,
@@ -244,6 +246,24 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
         return;
       }
 
+      if (!isMod && e.shiftKey && code === 'KeyH') {
+        e.preventDefault();
+        const { selectedIds } = useEditorStore.getState();
+        if (selectedIds.length > 0) {
+          flipShapes(ydoc, selectedIds, 'horizontal');
+        }
+        return;
+      }
+
+      if (!isMod && e.shiftKey && code === 'KeyV') {
+        e.preventDefault();
+        const { selectedIds } = useEditorStore.getState();
+        if (selectedIds.length > 0) {
+          flipShapes(ydoc, selectedIds, 'vertical');
+        }
+        return;
+      }
+
       if (!isMod && TOOL_SHORTCUTS[key]) {
         if (key === 'p') {
           e.preventDefault();
@@ -274,7 +294,20 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
         return;
       }
 
-      if (isMod && key === 'g' && !e.shiftKey) {
+      if (isMod && e.altKey && code === 'KeyG') {
+        e.preventDefault();
+        const { selectedIds, setSelectedIds } = useEditorStore.getState();
+        if (selectedIds.length > 0) {
+          const frameId = frameSelection(ydoc, selectedIds);
+          if (frameId) {
+            setSelectedIds([frameId]);
+            useEditorStore.getState().setEnteredGroupId(null);
+          }
+        }
+        return;
+      }
+
+      if (isMod && key === 'g' && !e.shiftKey && !e.altKey) {
         e.preventDefault();
         const { selectedIds, setSelectedIds } = useEditorStore.getState();
         const groupId = groupShapes(ydoc, selectedIds);

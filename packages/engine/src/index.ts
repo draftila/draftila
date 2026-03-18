@@ -30,6 +30,8 @@ export {
   resolveGroupTarget,
   getDescendantShapeIds,
   nudgeShapes,
+  flipShapes,
+  frameSelection,
   getShape,
   getAllShapes,
   getShapeCount,

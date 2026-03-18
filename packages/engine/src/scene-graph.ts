@@ -15,6 +15,7 @@ import {
   starToPath,
   lineToPath,
   arrowToPath,
+  transformPath,
 } from './path-gen';
 import { getActivePageShapesMap, getActivePageZOrder, initPages } from './pages';
 import { DEFAULT_CONSTRAINTS, applyConstraints } from './constraints';
@@ -1170,6 +1171,142 @@ export function ungroupShapes(ydoc: Y.Doc, ids: string[]): string[] {
   });
 
   return selectedChildIds;
+}
+
+export function flipShapes(ydoc: Y.Doc, ids: string[], axis: 'horizontal' | 'vertical'): void {
+  const shapeMap = getShapeSnapshotMap(ydoc);
+  const topLevelIds = getTopLevelIds(ids, shapeMap);
+  if (topLevelIds.length === 0) return;
+
+  const selectedShapes = topLevelIds
+    .map((id) => shapeMap.get(id))
+    .filter((shape): shape is Shape => Boolean(shape));
+
+  if (selectedShapes.length === 0) return;
+
+  const bounds = getShapeBoundingRect(selectedShapes);
+  if (!bounds) return;
+
+  const isMulti = selectedShapes.length > 1;
+
+  ydoc.transact(() => {
+    for (const shape of selectedShapes) {
+      const update: Record<string, unknown> = {};
+
+      if (isMulti) {
+        if (axis === 'horizontal') {
+          update.x = bounds.x + (bounds.x + bounds.width - (shape.x + shape.width));
+        } else {
+          update.y = bounds.y + (bounds.y + bounds.height - (shape.y + shape.height));
+        }
+      }
+
+      if (shape.rotation !== 0) {
+        update.rotation = -shape.rotation;
+      }
+
+      if (shape.type === 'line' || shape.type === 'arrow') {
+        const s = shape as Shape & { x1: number; y1: number; x2: number; y2: number };
+        if (axis === 'horizontal') {
+          const newX = (update.x as number | undefined) ?? shape.x;
+          update.x1 = newX + (shape.width - (s.x1 - shape.x));
+          update.x2 = newX + (shape.width - (s.x2 - shape.x));
+          update.y1 = s.y1 - shape.y + ((update.y as number | undefined) ?? shape.y);
+          update.y2 = s.y2 - shape.y + ((update.y as number | undefined) ?? shape.y);
+        } else {
+          update.x1 = s.x1 - shape.x + ((update.x as number | undefined) ?? shape.x);
+          update.x2 = s.x2 - shape.x + ((update.x as number | undefined) ?? shape.x);
+          const newY = (update.y as number | undefined) ?? shape.y;
+          update.y1 = newY + (shape.height - (s.y1 - shape.y));
+          update.y2 = newY + (shape.height - (s.y2 - shape.y));
+        }
+      } else if ('svgPathData' in shape && shape.svgPathData) {
+        if (axis === 'horizontal') {
+          update.svgPathData = transformPath(shape.svgPathData, {
+            scaleX: -1,
+            translateX: shape.width,
+          });
+        } else {
+          update.svgPathData = transformPath(shape.svgPathData, {
+            scaleY: -1,
+            translateY: shape.height,
+          });
+        }
+
+        const rec = shape as Record<string, unknown>;
+        if (rec.cornerRadiusTL !== undefined) {
+          if (axis === 'horizontal') {
+            update.cornerRadiusTL = rec.cornerRadiusTR;
+            update.cornerRadiusTR = rec.cornerRadiusTL;
+            update.cornerRadiusBL = rec.cornerRadiusBR;
+            update.cornerRadiusBR = rec.cornerRadiusBL;
+          } else {
+            update.cornerRadiusTL = rec.cornerRadiusBL;
+            update.cornerRadiusTR = rec.cornerRadiusBR;
+            update.cornerRadiusBL = rec.cornerRadiusTL;
+            update.cornerRadiusBR = rec.cornerRadiusTR;
+          }
+        }
+      }
+
+      if (Object.keys(update).length > 0) {
+        updateShape(ydoc, shape.id, update as Partial<Shape>);
+      }
+    }
+  });
+}
+
+export function frameSelection(ydoc: Y.Doc, ids: string[]): string | null {
+  const shapeMap = getShapeSnapshotMap(ydoc);
+  const topLevelIds = getTopLevelIds(ids, shapeMap);
+  if (topLevelIds.length === 0) return null;
+
+  const selectedShapes = topLevelIds
+    .map((id) => shapeMap.get(id))
+    .filter((shape): shape is Shape => Boolean(shape));
+
+  if (selectedShapes.length === 0) return null;
+
+  const bounds = getShapeBoundingRect(selectedShapes);
+  if (!bounds) return null;
+
+  const firstParentId = getValidParentId(shapeMap, selectedShapes[0]?.parentId ?? null);
+  const sameParent = selectedShapes.every(
+    (shape) => getValidParentId(shapeMap, shape.parentId ?? null) === firstParentId,
+  );
+  const frameParentId = sameParent ? firstParentId : null;
+
+  const frameId = addShape(ydoc, 'frame', {
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
+    parentId: frameParentId,
+    name: 'Frame',
+  });
+
+  const shapes = getShapesMap(ydoc);
+  const zOrder = getZOrder(ydoc);
+
+  ydoc.transact(() => {
+    for (const id of topLevelIds) {
+      const shapeData = shapes.get(id);
+      if (!shapeData) continue;
+      shapeData.set('parentId', frameId);
+    }
+
+    const currentOrder = getOrderedIds(getShapeSnapshotMap(ydoc), zOrder.toArray());
+    const maxSelectedIndex = Math.max(
+      ...topLevelIds.map((id) => currentOrder.indexOf(id)).filter((index) => index >= 0),
+    );
+
+    const withoutFrame = currentOrder.filter((id) => id !== frameId);
+    const insertionIndex = maxSelectedIndex >= 0 ? maxSelectedIndex : withoutFrame.length;
+    withoutFrame.splice(Math.min(insertionIndex, withoutFrame.length), 0, frameId);
+    replaceZOrder(zOrder, withoutFrame);
+  });
+
+  return frameId;
 }
 
 export function moveShapesInStack(
