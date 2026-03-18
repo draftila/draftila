@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDraftById, useUpdateDraft } from '@/api/drafts';
 import { useSession } from '@/lib/auth-client';
@@ -17,6 +17,8 @@ import { Canvas } from './components/canvas';
 import { useYjs } from './hooks/use-yjs';
 import { useKeyboard } from './hooks/use-keyboard';
 import { useAwareness } from './hooks/use-awareness';
+import { KeyboardShortcutsDialog } from './components/keyboard-shortcuts-dialog';
+
 export function EditorPage() {
   const { draftId } = useParams<{ draftId: string }>();
   const navigate = useNavigate();
@@ -34,6 +36,21 @@ export function EditorPage() {
   const activePageId = useEditorStore((s) => s.activePageId);
   const setActivePageId = useEditorStore((s) => s.setActivePageId);
   const lastPageIdRef = useRef<string | null>(null);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+
+  useEffect(() => {
+    const handleShortcutKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (useEditorStore.getState().editingTextId) return;
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault();
+        setShortcutsOpen((prev) => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleShortcutKey);
+    return () => window.removeEventListener('keydown', handleShortcutKey);
+  }, []);
 
   const handleRenameDraft = useCallback(
     (name: string) => {
@@ -172,6 +189,7 @@ export function EditorPage() {
         />
         <RightPanel ydoc={ydoc} />
       </div>
+      <KeyboardShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </div>
   );
 }

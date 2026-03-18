@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import type * as Y from 'yjs';
+import { Search, X } from 'lucide-react';
 import { useProject } from '@/api/projects';
 import { useEditorStore } from '@/stores/editor-store';
 import { PanelHeader } from './left-panel/panel-header';
@@ -23,7 +25,12 @@ export function LeftPanel({ ydoc, draftName, projectId }: LeftPanelProps) {
   const setLeftPanelOpen = useEditorStore((s) => s.setLeftPanelOpen);
   const { data: project } = useProject(projectId);
 
+  const [layerSearch, setLayerSearch] = useState('');
   const { rows, shapeById, toggleExpanded, expandNode } = useLayerTree(ydoc);
+
+  const filteredRows = layerSearch.trim()
+    ? rows.filter((row) => row.shape.name.toLowerCase().includes(layerSearch.trim().toLowerCase()))
+    : rows;
   const { contextMenu, contextMenuRef, openContextMenu, closeContextMenu } = useContextMenu(
     selectedIds,
     setSelectedIds,
@@ -56,9 +63,23 @@ export function LeftPanel({ ydoc, draftName, projectId }: LeftPanelProps) {
         <span className="text-muted-foreground text-xs font-medium">Layers</span>
         <span className="text-muted-foreground ml-auto text-[10px]">{shapeById.size}</span>
       </div>
+      <div className="flex items-center gap-1 border-b px-2 py-1">
+        <Search className="text-muted-foreground h-3 w-3 shrink-0" />
+        <input
+          value={layerSearch}
+          onChange={(e) => setLayerSearch(e.target.value)}
+          placeholder="Filter layers..."
+          className="min-w-0 flex-1 bg-transparent text-[11px] outline-none"
+        />
+        {layerSearch && (
+          <button onClick={() => setLayerSearch('')} className="text-muted-foreground shrink-0">
+            <X className="h-3 w-3" />
+          </button>
+        )}
+      </div>
       <LayerList
         ydoc={ydoc}
-        rows={rows}
+        rows={filteredRows}
         shapeById={shapeById}
         dragState={dragState}
         contextMenu={contextMenu}
