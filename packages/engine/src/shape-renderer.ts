@@ -314,6 +314,8 @@ export function renderShape(renderer: Renderer, shape: Shape) {
       renderer.drawImage(getTransform(shape), {
         src: shape.src,
         fit: shape.fit,
+        cropX: (shape as Shape & { cropX?: number }).cropX,
+        cropY: (shape as Shape & { cropY?: number }).cropY,
         opacity: shape.opacity,
         shadows: shape.shadows ?? [],
         blurs: shape.blurs ?? [],

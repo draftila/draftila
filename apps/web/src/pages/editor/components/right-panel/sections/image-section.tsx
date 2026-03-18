@@ -4,6 +4,7 @@ import type { ImageShape, Shape } from '@draftila/shared';
 import type { PropertySectionProps } from '../types';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Label } from '@/components/ui/label';
+import { NumberInput } from '../number-input';
 
 export function ImageSection({ shape, onUpdate }: PropertySectionProps) {
   const image = shape as ImageShape;
@@ -105,6 +106,35 @@ export function ImageSection({ shape, onUpdate }: PropertySectionProps) {
           </ToggleGroupItem>
         </ToggleGroup>
       </div>
+
+      {image.fit === 'crop' && hasSrc && (
+        <div className="space-y-1.5">
+          <Label className="text-muted-foreground text-[11px]">Crop Position</Label>
+          <div className="grid grid-cols-2 gap-1.5">
+            <NumberInput
+              label="X"
+              value={Math.round(((image as ImageShape & { cropX?: number }).cropX ?? 0.5) * 100)}
+              onChange={(v) =>
+                onUpdate({ cropX: Math.max(0, Math.min(1, v / 100)) } as Partial<Shape>)
+              }
+              min={0}
+              max={100}
+              step={1}
+            />
+            <NumberInput
+              label="Y"
+              value={Math.round(((image as ImageShape & { cropY?: number }).cropY ?? 0.5) * 100)}
+              onChange={(v) =>
+                onUpdate({ cropY: Math.max(0, Math.min(1, v / 100)) } as Partial<Shape>)
+              }
+              min={0}
+              max={100}
+              step={1}
+            />
+          </div>
+          <p className="text-muted-foreground text-[10px]">0% = top/left, 100% = bottom/right</p>
+        </div>
+      )}
 
       {!hasSrc && (
         <button

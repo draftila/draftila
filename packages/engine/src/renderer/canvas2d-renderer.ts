@@ -670,20 +670,16 @@ export class Canvas2DRenderer implements Renderer {
         return;
       }
 
-      let srcX = 0;
-      let srcY = 0;
-      let srcWidth = imageWidth;
-      let srcHeight = imageHeight;
+      const anchorX = options.cropX ?? 0.5;
+      const anchorY = options.cropY ?? 0.5;
 
-      if (imageRatio > frameRatio) {
-        srcWidth = imageHeight * frameRatio;
-        srcX = (imageWidth - srcWidth) / 2;
-      } else {
-        srcHeight = imageWidth / frameRatio;
-        srcY = (imageHeight - srcHeight) / 2;
-      }
+      const scale = Math.max(frameWidth / imageWidth, frameHeight / imageHeight);
+      const scaledW = imageWidth * scale;
+      const scaledH = imageHeight * scale;
+      const offsetX = (frameWidth - scaledW) * anchorX;
+      const offsetY = (frameHeight - scaledH) * anchorY;
 
-      ctx.drawImage(image, srcX, srcY, srcWidth, srcHeight, 0, 0, frameWidth, frameHeight);
+      ctx.drawImage(image, offsetX, offsetY, scaledW, scaledH);
     };
 
     ctx.save();
