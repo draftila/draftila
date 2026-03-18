@@ -19,10 +19,12 @@ import {
   getAllShapes,
   getSelectedContainer,
   getShape,
+  getZOrder,
   groupShapes,
   moveShapesInStack,
   nudgeShapes,
   ungroupShapes,
+  updateShape,
 } from '@draftila/engine/scene-graph';
 import { useEditorStore } from '@/stores/editor-store';
 
@@ -321,6 +323,14 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
         return;
       }
 
+      if (isMod && e.shiftKey && key === 'v' && !e.altKey) {
+        e.preventDefault();
+        const { selectedIds } = useEditorStore.getState();
+        const fallbackIds = pasteShapes(ydoc, { selectedIds, inPlace: true });
+        if (fallbackIds.length > 0) useEditorStore.getState().setSelectedIds(fallbackIds);
+        return;
+      }
+
       if (isMod && key === 'v') {
         e.preventDefault();
         const { selectedIds, cursorCanvasPoint } = useEditorStore.getState();
@@ -417,6 +427,79 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
         return;
       }
 
+      if (isMod && e.shiftKey && code === 'KeyL') {
+        e.preventDefault();
+        const { selectedIds } = useEditorStore.getState();
+        if (selectedIds.length === 0) return;
+
+        const selectedShapes = selectedIds
+          .map((id) => getShape(ydoc, id))
+          .filter((shape): shape is NonNullable<typeof shape> => shape !== null);
+
+        if (selectedShapes.length === 0) return;
+
+        const shouldLock = selectedShapes.some((shape) => !shape.locked);
+        for (const shape of selectedShapes) {
+          updateShape(ydoc, shape.id, { locked: shouldLock });
+        }
+        return;
+      }
+
+      if (isMod && e.shiftKey && code === 'KeyH') {
+        e.preventDefault();
+        const { selectedIds } = useEditorStore.getState();
+        if (selectedIds.length === 0) return;
+
+        const selectedShapes = selectedIds
+          .map((id) => getShape(ydoc, id))
+          .filter((shape): shape is NonNullable<typeof shape> => shape !== null);
+
+        if (selectedShapes.length === 0) return;
+
+        const shouldShow = selectedShapes.some((shape) => !shape.visible);
+        for (const shape of selectedShapes) {
+          updateShape(ydoc, shape.id, { visible: shouldShow });
+        }
+        return;
+      }
+
+      if (!isMod && code === 'Tab') {
+        e.preventDefault();
+        const { selectedIds, setSelectedIds, setEnteredGroupId } = useEditorStore.getState();
+        const baseSelectedId = selectedIds[0] ?? null;
+        const allShapes = getAllShapes(ydoc);
+
+        if (allShapes.length === 0) return;
+
+        const zOrder = getZOrder(ydoc).toArray();
+        const shapeById = new Map(allShapes.map((shape) => [shape.id, shape]));
+        const baseShape = baseSelectedId ? shapeById.get(baseSelectedId) : null;
+        const parentId = baseShape?.parentId ?? null;
+
+        const siblingIds = zOrder.filter((id: string) => {
+          const shape = shapeById.get(id);
+          if (!shape || !shape.visible) return false;
+          return shape.parentId === parentId;
+        });
+
+        if (siblingIds.length === 0) return;
+
+        const currentIndex = baseSelectedId ? siblingIds.indexOf(baseSelectedId) : -1;
+        const delta = e.shiftKey ? -1 : 1;
+        const nextIndex =
+          currentIndex === -1
+            ? e.shiftKey
+              ? siblingIds.length - 1
+              : 0
+            : (currentIndex + delta + siblingIds.length) % siblingIds.length;
+        const nextId = siblingIds[nextIndex];
+        if (!nextId) return;
+
+        setSelectedIds([nextId]);
+        setEnteredGroupId(null);
+        return;
+      }
+
       if (key === 'delete' || key === 'backspace') {
         e.preventDefault();
         const { selectedIds, enteredGroupId } = useEditorStore.getState();
@@ -478,6 +561,26 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
         const { camera, setCamera } = useEditorStore.getState();
         setCamera({ ...camera, zoom: 1 });
         return;
+      }
+
+      if (isMod && code === 'Digit1') {
+        e.preventDefault();
+        const { camera, setCamera } = useEditorStore.getState();
+        setCamera({ ...camera, zoom: 1 });
+        return;
+      }
+
+      if (isMod && code === 'Digit2') {
+        e.preventDefault();
+        const { camera, setCamera } = useEditorStore.getState();
+        setCamera({ ...camera, zoom: 2 });
+        return;
+      }
+
+      if (isMod && code === 'Digit5') {
+        e.preventDefault();
+        const { camera, setCamera } = useEditorStore.getState();
+        setCamera({ ...camera, zoom: 0.5 });
       }
     };
 

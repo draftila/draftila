@@ -263,6 +263,16 @@ export function AppearanceSection({ shape, onUpdate }: PropertySectionProps) {
     [onUpdate],
   );
 
+  const isFrame = shape.type === 'frame';
+
+  const handleClipToggle = useCallback(() => {
+    if (shape.type !== 'frame') {
+      return;
+    }
+
+    onUpdate({ clip: !shape.clip } as Partial<Shape>);
+  }, [shape, onUpdate]);
+
   const rect = hasCornerRadius(shape) ? shape : null;
 
   const hasMixedCorners =
@@ -487,6 +497,26 @@ export function AppearanceSection({ shape, onUpdate }: PropertySectionProps) {
           </div>
           <div className="w-[18px] shrink-0" />
         </div>
+
+        {isFrame && (
+          <div className="flex items-center gap-1.5">
+            <div className="border-input flex h-6 min-w-0 flex-1 items-center justify-between rounded-md border pl-2 pr-1">
+              <span className="text-[11px]">Clip content</span>
+              <button
+                type="button"
+                onClick={handleClipToggle}
+                className={`h-4.5 rounded px-1.5 text-[10px] leading-none transition-colors ${
+                  shape.clip
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {shape.clip ? 'On' : 'Off'}
+              </button>
+            </div>
+            <div className="w-[18px] shrink-0" />
+          </div>
+        )}
       </div>
     </section>
   );
