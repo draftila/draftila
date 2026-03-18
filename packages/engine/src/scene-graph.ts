@@ -58,17 +58,21 @@ function computeSvgPathForShape(
       return starToPath(width, height, points, innerRadius);
     }
     case 'line': {
-      const x1 = (props['x1'] as number) ?? 0;
-      const y1 = (props['y1'] as number) ?? 0;
-      const x2 = (props['x2'] as number) ?? width;
-      const y2 = (props['y2'] as number) ?? 0;
+      const ox = (props['x'] as number) ?? 0;
+      const oy = (props['y'] as number) ?? 0;
+      const x1 = ((props['x1'] as number) ?? 0) - ox;
+      const y1 = ((props['y1'] as number) ?? 0) - oy;
+      const x2 = ((props['x2'] as number) ?? width) - ox;
+      const y2 = ((props['y2'] as number) ?? 0) - oy;
       return lineToPath(x1, y1, x2, y2);
     }
     case 'arrow': {
-      const x1 = (props['x1'] as number) ?? 0;
-      const y1 = (props['y1'] as number) ?? 0;
-      const x2 = (props['x2'] as number) ?? width;
-      const y2 = (props['y2'] as number) ?? 0;
+      const ox = (props['x'] as number) ?? 0;
+      const oy = (props['y'] as number) ?? 0;
+      const x1 = ((props['x1'] as number) ?? 0) - ox;
+      const y1 = ((props['y1'] as number) ?? 0) - oy;
+      const x2 = ((props['x2'] as number) ?? width) - ox;
+      const y2 = ((props['y2'] as number) ?? 0) - oy;
       const sw = 2;
       const startHead = (props['startArrowhead'] as boolean) ?? false;
       const endHead = (props['endArrowhead'] as boolean) ?? true;
