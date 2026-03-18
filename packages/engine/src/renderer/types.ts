@@ -47,6 +47,8 @@ export interface TextRenderOptions {
 export interface ImageRenderOptions {
   src: string;
   fit: 'fill' | 'fit' | 'crop';
+  cropX?: number;
+  cropY?: number;
   opacity: number;
   shadows: Shadow[];
   blurs: Blur[];

@@ -328,6 +328,8 @@ export const imageShapeSchema = baseShapeSchema.extend({
   type: z.literal('image'),
   src: z.string().default(''),
   fit: z.enum(['fill', 'fit', 'crop']).default('fill'),
+  cropX: z.number().min(0).max(1).default(0.5),
+  cropY: z.number().min(0).max(1).default(0.5),
   shadows: z.array(shadowSchema).default([]),
   blurs: z.array(blurSchema).default([]),
 });
