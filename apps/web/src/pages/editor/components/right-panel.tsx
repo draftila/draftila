@@ -324,6 +324,25 @@ export function RightPanel({ ydoc }: RightPanelProps) {
             <div className="border-b px-3 py-3">
               <p className="text-muted-foreground text-[11px] uppercase tracking-wide">Selection</p>
               <p className="text-xs font-medium">{selectedShapes.length} objects selected</p>
+              {(() => {
+                let minX = Infinity;
+                let minY = Infinity;
+                let maxX = -Infinity;
+                let maxY = -Infinity;
+                for (const s of selectedShapes) {
+                  minX = Math.min(minX, s.x);
+                  minY = Math.min(minY, s.y);
+                  maxX = Math.max(maxX, s.x + s.width);
+                  maxY = Math.max(maxY, s.y + s.height);
+                }
+                const bw = Math.round(maxX - minX);
+                const bh = Math.round(maxY - minY);
+                return (
+                  <p className="text-muted-foreground mt-1 text-[10px]">
+                    {bw} x {bh}
+                  </p>
+                );
+              })()}
             </div>
             <div className="border-b px-3 py-3">
               <p className="text-muted-foreground mb-2 text-[11px] font-medium">Align</p>
