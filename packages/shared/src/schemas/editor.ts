@@ -25,6 +25,7 @@ export const TOOL_TYPES = [
   'frame',
   'text',
   'pen',
+  'pencil',
   'node',
   'line',
   'polygon',

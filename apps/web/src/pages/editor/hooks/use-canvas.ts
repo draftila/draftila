@@ -16,6 +16,7 @@ import {
   getEllipseTool,
   getFrameTool,
   getPenTool,
+  getPencilTool,
   getNodeTool,
   getLineTool,
   getArrowTool,
@@ -528,20 +529,60 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
     }
 
     const penTool = getPenTool();
-    if (activeTool === 'pen' && penTool.currentPoints.length >= 2) {
-      const inputPoints = penTool.currentPoints.map(
-        (p) => [p.x, p.y, p.pressure] as [number, number, number],
-      );
-      const strokePoints = getStroke(inputPoints, {
-        size: 4,
-        thinning: 0.5,
-        smoothing: 0.5,
-        streamline: 0.5,
-        simulatePressure: true,
-      });
-      if (strokePoints.length > 0) {
-        const outlinePoints = strokePoints.map((p) => [p[0]!, p[1]!] as [number, number]);
-        renderer.drawPath(outlinePoints, simpleStyle({ fill: '#000000', opacity: 0.7 }));
+    const pencilTool = getPencilTool();
+    if (activeTool === 'pencil') {
+      const freehandPoints = pencilTool.currentPoints;
+      if (freehandPoints.length >= 2) {
+        const inputPoints = freehandPoints.map(
+          (p) => [p.x, p.y, p.pressure] as [number, number, number],
+        );
+        const strokePoints = getStroke(inputPoints, {
+          size: 4,
+          thinning: 0.5,
+          smoothing: 0.5,
+          streamline: 0.5,
+          simulatePressure: true,
+        });
+
+        if (strokePoints.length > 0) {
+          const outlinePoints = strokePoints.map((p) => [p[0]!, p[1]!] as [number, number]);
+          renderer.drawPath(outlinePoints, simpleStyle({ fill: '#000000', opacity: 0.7 }));
+        }
+      }
+    }
+
+    if (activeTool === 'pen') {
+      const freehandPoints = penTool.getFreehandPoints();
+      if (freehandPoints.length >= 2) {
+        const inputPoints = freehandPoints.map(
+          (p) => [p.x, p.y, p.pressure] as [number, number, number],
+        );
+        const strokePoints = getStroke(inputPoints, {
+          size: 4,
+          thinning: 0.5,
+          smoothing: 0.5,
+          streamline: 0.5,
+          simulatePressure: true,
+        });
+
+        if (strokePoints.length > 0) {
+          const outlinePoints = strokePoints.map((p) => [p[0]!, p[1]!] as [number, number]);
+          renderer.drawPath(outlinePoints, simpleStyle({ fill: '#000000', opacity: 0.7 }));
+        }
+      }
+
+      const previewPath = penTool.getPreviewPathData();
+      if (previewPath) {
+        renderer.drawSvgPath(
+          { x: 0, y: 0, width: 1, height: 1, rotation: 0 },
+          previewPath,
+          simpleStyle({ stroke: '#0D99FF', strokeWidth: 1 / camera.zoom, opacity: 0.9 }),
+          'nonzero',
+        );
+      }
+
+      for (const node of penTool.getPlacedNodes()) {
+        renderer.drawPathNode(node.x, node.y, camera.zoom, false);
       }
     }
 
@@ -572,6 +613,7 @@ export function getCursorForTool(tool: string, isPanning: boolean): string {
     case 'ellipse':
     case 'frame':
     case 'pen':
+    case 'pencil':
     case 'node':
     case 'line':
     case 'polygon':
