@@ -57,6 +57,7 @@ function cloneStyleValue<T>(value: T): T {
 interface PasteOptions {
   selectedIds?: string[];
   cursorPosition?: Point | null;
+  inPlace?: boolean;
 }
 
 function getClipboardBounds(shapes: Shape[], clipboardById: Map<string, Shape>) {
@@ -108,7 +109,7 @@ export function copyShapes(ydoc: Y.Doc, ids: string[]): Shape[] {
 export function pasteShapes(ydoc: Y.Doc, options: PasteOptions = {}): string[] {
   if (clipboardShapes.length === 0) return [];
 
-  const { selectedIds, cursorPosition } = options;
+  const { selectedIds, cursorPosition, inPlace } = options;
   const targetParentId = selectedIds ? getSelectedContainer(ydoc, selectedIds) : null;
 
   const clipboardById = new Map<string, Shape>(clipboardShapes.map((shape) => [shape.id, shape]));
@@ -119,7 +120,10 @@ export function pasteShapes(ydoc: Y.Doc, options: PasteOptions = {}): string[] {
   let offsetX: number;
   let offsetY: number;
 
-  if (cursorPosition) {
+  if (inPlace) {
+    offsetX = 0;
+    offsetY = 0;
+  } else if (cursorPosition) {
     const bounds = getClipboardBounds(clipboardShapes, clipboardById);
     offsetX = cursorPosition.x - bounds.centerX;
     offsetY = cursorPosition.y - bounds.centerY;
@@ -164,6 +168,31 @@ export function cutShapes(ydoc: Y.Doc, ids: string[]): Shape[] {
 export function duplicateShapes(ydoc: Y.Doc, ids: string[]): string[] {
   copyShapes(ydoc, ids);
   return pasteShapes(ydoc, { selectedIds: ids });
+}
+
+export function duplicateShapesInPlace(ydoc: Y.Doc, ids: string[]): Map<string, string> {
+  const topLevelIds = getTopLevelSelectedShapeIds(ydoc, ids);
+  const expandedIds = new Set(getExpandedShapeIds(ydoc, topLevelIds));
+  const shapes = getAllShapes(ydoc).filter((shape) => expandedIds.has(shape.id));
+
+  if (shapes.length === 0) return new Map();
+
+  const shapeById = new Map<string, Shape>(shapes.map((shape) => [shape.id, shape]));
+  const oldToNewIds = new Map<string, string>();
+
+  for (const shape of shapes) {
+    const isTopLevel = !shape.parentId || !shapeById.has(shape.parentId);
+    const parentId = isTopLevel ? shape.parentId : (oldToNewIds.get(shape.parentId!) ?? null);
+    const { id: _id, ...rest } = shape;
+    const newId = addShape(ydoc, shape.type, {
+      ...rest,
+      parentId,
+      name: shape.name,
+    });
+    oldToNewIds.set(shape.id, newId);
+  }
+
+  return oldToNewIds;
 }
 
 export function hasClipboardContent(): boolean {

@@ -15,6 +15,7 @@ import {
 import { snapPosition, type SnapLine, type DistanceIndicator } from '../snap';
 import { transformPath } from '../path-gen';
 import { DEFAULT_CONSTRAINTS, applyConstraints } from '../constraints';
+import { duplicateShapesInPlace } from '../clipboard';
 
 type ConstraintHorizontal = 'left' | 'right' | 'left-right' | 'center' | 'scale';
 type ConstraintVertical = 'top' | 'bottom' | 'top-bottom' | 'center' | 'scale';
@@ -288,17 +289,32 @@ export class MoveTool extends BaseTool {
         store.setSelectedIds([targetId]);
       }
 
-      const selectedIds = getToolStore().selectedIds;
+      let selectedIds = getToolStore().selectedIds;
+
+      if (ctx.altKey && selectedIds.length > 0) {
+        const oldToNew = duplicateShapesInPlace(ctx.ydoc, selectedIds);
+        if (oldToNew.size > 0) {
+          const newTopLevelIds = selectedIds
+            .map((id) => oldToNew.get(id))
+            .filter((id): id is string => id !== undefined);
+          if (newTopLevelIds.length > 0) {
+            store.setSelectedIds(newTopLevelIds);
+            selectedIds = newTopLevelIds;
+          }
+        }
+      }
+
+      const refreshedShapes = getAllShapes(ctx.ydoc);
       const movableIds = getExpandedShapeIds(ctx.ydoc, selectedIds);
       const initialData = new Map<string, InitialShapeData>();
       for (const id of movableIds) {
-        const shape = shapes.find((s) => s.id === id);
+        const shape = refreshedShapes.find((s) => s.id === id);
         if (shape) initialData.set(id, captureShapeData(shape));
       }
 
       this.dragInitialData = initialData;
       const selectedIdSet = new Set(movableIds);
-      this.dragShapesCache = shapes.filter(
+      this.dragShapesCache = refreshedShapes.filter(
         (s) => !selectedIdSet.has(s.id) && s.visible && !s.locked,
       );
       this.state = {
