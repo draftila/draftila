@@ -588,33 +588,6 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
         setCamera({ ...camera, zoom: Math.max(0.02, camera.zoom / 1.25) });
         return;
       }
-
-      if (isMod && key === '0') {
-        e.preventDefault();
-        const { camera, setCamera } = useEditorStore.getState();
-        setCamera({ ...camera, zoom: 1 });
-        return;
-      }
-
-      if (isMod && code === 'Digit1') {
-        e.preventDefault();
-        const { camera, setCamera } = useEditorStore.getState();
-        setCamera({ ...camera, zoom: 1 });
-        return;
-      }
-
-      if (isMod && code === 'Digit2') {
-        e.preventDefault();
-        const { camera, setCamera } = useEditorStore.getState();
-        setCamera({ ...camera, zoom: 2 });
-        return;
-      }
-
-      if (isMod && code === 'Digit5') {
-        e.preventDefault();
-        const { camera, setCamera } = useEditorStore.getState();
-        setCamera({ ...camera, zoom: 0.5 });
-      }
     };
 
     const handlePasteEvent = (e: ClipboardEvent) => {
