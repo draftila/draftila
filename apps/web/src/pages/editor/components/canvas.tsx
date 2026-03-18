@@ -77,13 +77,15 @@ export function Canvas({ ydoc, remoteUsers, onActiveInteraction }: CanvasProps) 
     };
   }, [contextMenu]);
 
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+
+    const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       setContextMenu(null);
       const { camera: cam, setCamera } = useEditorStore.getState();
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (!rect) return;
+      const rect = el.getBoundingClientRect();
 
       const screenX = e.clientX - rect.left;
       const screenY = e.clientY - rect.top;
@@ -95,9 +97,11 @@ export function Canvas({ ydoc, remoteUsers, onActiveInteraction }: CanvasProps) 
       } else {
         setCamera(panCamera(cam, -e.deltaX, -e.deltaY));
       }
-    },
-    [canvasRef],
-  );
+    };
+
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, [canvasRef]);
 
   const handleDoubleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -208,7 +212,6 @@ export function Canvas({ ydoc, remoteUsers, onActiveInteraction }: CanvasProps) 
         ref={canvasRef}
         className="absolute inset-0"
         style={{ cursor, touchAction: 'none' }}
-        onWheel={handleWheel}
         onPointerDown={wrappedPointerDown}
         onPointerMove={wrappedPointerMove}
         onPointerUp={handlePointerUp}
