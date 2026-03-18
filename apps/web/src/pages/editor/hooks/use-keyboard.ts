@@ -13,7 +13,7 @@ import {
 } from '@draftila/engine/clipboard';
 import { handlePaste as handleExternalPaste } from '@draftila/engine/figma-clipboard';
 import { addImageFromFile } from '@draftila/engine/image-manager';
-import { getNodeTool } from '@draftila/engine/tools/tool-manager';
+import { getNodeTool, getPenTool } from '@draftila/engine/tools/tool-manager';
 import {
   deleteShapes,
   getAllShapes,
@@ -33,7 +33,6 @@ const TOOL_SHORTCUTS: Record<string, ToolType> = {
   o: 'ellipse',
   f: 'frame',
   t: 'text',
-  p: 'pen',
   l: 'line',
   y: 'polygon',
   s: 'star',
@@ -193,6 +192,38 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
         return;
       }
 
+      if (activeTool === 'pen' && (key === 'delete' || key === 'backspace' || key === 'escape')) {
+        e.preventDefault();
+        getPenTool().onKeyDown(key === 'escape' ? 'Escape' : 'Delete', {
+          ydoc,
+          camera: useEditorStore.getState().camera,
+          canvasPoint: useEditorStore.getState().cursorCanvasPoint ?? { x: 0, y: 0 },
+          screenPoint: { x: 0, y: 0 },
+          shiftKey: e.shiftKey,
+          altKey: e.altKey,
+          metaKey: e.metaKey,
+          ctrlKey: e.ctrlKey,
+          button: 0,
+        });
+        return;
+      }
+
+      if (activeTool === 'pen' && !isMod && key === 'enter') {
+        e.preventDefault();
+        getPenTool().onKeyDown('Enter', {
+          ydoc,
+          camera: useEditorStore.getState().camera,
+          canvasPoint: useEditorStore.getState().cursorCanvasPoint ?? { x: 0, y: 0 },
+          screenPoint: { x: 0, y: 0 },
+          shiftKey: e.shiftKey,
+          altKey: e.altKey,
+          metaKey: e.metaKey,
+          ctrlKey: e.ctrlKey,
+          button: 0,
+        });
+        return;
+      }
+
       if (!isMod && key === 'enter') {
         e.preventDefault();
         const state = useEditorStore.getState();
@@ -212,8 +243,20 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
       }
 
       if (!isMod && TOOL_SHORTCUTS[key]) {
+        if (key === 'p') {
+          e.preventDefault();
+          useEditorStore.getState().setActiveTool(e.shiftKey ? 'pencil' : 'pen');
+          return;
+        }
+
         e.preventDefault();
         useEditorStore.getState().setActiveTool(TOOL_SHORTCUTS[key]!);
+        return;
+      }
+
+      if (!isMod && key === 'p') {
+        e.preventDefault();
+        useEditorStore.getState().setActiveTool(e.shiftKey ? 'pencil' : 'pen');
         return;
       }
 
