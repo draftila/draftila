@@ -50,7 +50,7 @@ export class ArrowTool extends BaseTool {
       return;
     }
 
-    const id = addShape(ctx.ydoc, 'arrow', {
+    const id = addShape(ctx.ydoc, 'line', {
       x: minX,
       y: minY,
       width: Math.max(width, 1),
@@ -59,6 +59,7 @@ export class ArrowTool extends BaseTool {
       y1,
       x2,
       y2,
+      endArrowhead: 'line_arrow',
       parentId: this.containerId,
     });
 

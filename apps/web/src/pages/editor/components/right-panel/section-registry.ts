@@ -109,15 +109,7 @@ const sectionRegistry: Record<ShapeType, PropertySection[]> = {
     ExportSection,
     PreviewSection,
   ],
-  arrow: [
-    TransformSection,
-    AppearanceSection,
-    ConstraintsSection,
-    StrokeSection,
-    EffectsSection,
-    ExportSection,
-    PreviewSection,
-  ],
+
   image: [
     TransformSection,
     AppearanceSection,

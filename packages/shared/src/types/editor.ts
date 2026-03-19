@@ -15,7 +15,6 @@ import type {
   lineShapeSchema,
   polygonShapeSchema,
   starShapeSchema,
-  arrowShapeSchema,
   imageShapeSchema,
   svgShapeSchema,
   groupShapeSchema,
@@ -29,6 +28,7 @@ import type {
   strokeAlignSchema,
   strokeDashPatternSchema,
   strokeSidesSchema,
+  arrowheadTypeSchema,
   shadowSchema,
   blurSchema,
   textSegmentSchema,
@@ -55,7 +55,6 @@ export type PathShape = z.infer<typeof pathShapeSchema>;
 export type LineShape = z.infer<typeof lineShapeSchema>;
 export type PolygonShape = z.infer<typeof polygonShapeSchema>;
 export type StarShape = z.infer<typeof starShapeSchema>;
-export type ArrowShape = z.infer<typeof arrowShapeSchema>;
 export type ImageShape = z.infer<typeof imageShapeSchema>;
 export type SvgShape = z.infer<typeof svgShapeSchema>;
 export type GroupShape = z.infer<typeof groupShapeSchema>;
@@ -69,6 +68,7 @@ export type StrokeJoin = z.infer<typeof strokeJoinSchema>;
 export type StrokeAlign = z.infer<typeof strokeAlignSchema>;
 export type StrokeDashPattern = z.infer<typeof strokeDashPatternSchema>;
 export type StrokeSides = z.infer<typeof strokeSidesSchema>;
+export type ArrowheadType = z.infer<typeof arrowheadTypeSchema>;
 export type Shadow = z.infer<typeof shadowSchema>;
 export type Blur = z.infer<typeof blurSchema>;
 export type TextSegment = z.infer<typeof textSegmentSchema>;

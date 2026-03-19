@@ -75,8 +75,8 @@ export {
 export { Canvas2DRenderer } from './renderer/canvas2d-renderer';
 
 export {
-  type ArrowHeadPoints,
-  computeArrowHead,
+  type ArrowheadGeometry,
+  computeArrowheadGeometry,
   generatePolygonPoints,
   generateStarPoints,
   renderShape,

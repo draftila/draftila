@@ -495,27 +495,17 @@ function nodeToSvg(
         ? svgColor(visibleStroke.color, visibleStroke.opacity)
         : '#000000';
       const sw = visibleStroke?.width ?? 2;
-      content = `<line x1="${lx1}" y1="${ly1}" x2="${lx2}" y2="${ly2}" stroke="${strokeColor}" stroke-width="${sw}" stroke-linecap="round"/>`;
-      break;
-    }
-
-    case 'arrow': {
-      const ax1 = (node.x1 ?? node.x) - offsetX;
-      const ay1 = (node.y1 ?? node.y) - offsetY;
-      const ax2 = (node.x2 ?? node.x + node.width) - offsetX;
-      const ay2 = (node.y2 ?? node.y) - offsetY;
-      const visibleStroke = node.strokes.find((s) => s.visible && s.width > 0);
-      const strokeColor = visibleStroke
-        ? svgColor(visibleStroke.color, visibleStroke.opacity)
-        : '#000000';
-      const sw = visibleStroke?.width ?? 2;
-      const strokeAttrs = `stroke="${strokeColor}" stroke-width="${sw}" stroke-linecap="round"`;
-      content = `<line x1="${ax1}" y1="${ay1}" x2="${ax2}" y2="${ay2}" ${strokeAttrs}/>`;
-      if (node.endArrowhead) {
-        content += buildArrowheadSvg(ax2, ay2, ax1, ay1, sw, strokeAttrs);
+      const lineCap = visibleStroke?.cap ?? 'butt';
+      const capAttr = lineCap !== 'butt' ? ` stroke-linecap="${lineCap}"` : '';
+      const strokeAttrs = `stroke="${strokeColor}" stroke-width="${sw}"${capAttr}`;
+      content = `<line x1="${lx1}" y1="${ly1}" x2="${lx2}" y2="${ly2}" ${strokeAttrs}/>`;
+      const endType = node.endArrowhead ?? 'none';
+      const startType = node.startArrowhead ?? 'none';
+      if (endType !== 'none') {
+        content += buildArrowheadSvg(lx2, ly2, lx1, ly1, sw, strokeColor, endType, lineCap);
       }
-      if (node.startArrowhead) {
-        content += buildArrowheadSvg(ax1, ay1, ax2, ay2, sw, strokeAttrs);
+      if (startType !== 'none') {
+        content += buildArrowheadSvg(lx1, ly1, lx2, ly2, sw, strokeColor, startType, lineCap);
       }
       break;
     }
@@ -569,24 +559,75 @@ function nodeToSvg(
   return `<g${gAttrs}>${content}</g>`;
 }
 
+type SvgArrowheadType =
+  | 'none'
+  | 'line_arrow'
+  | 'triangle_arrow'
+  | 'reversed_triangle'
+  | 'circle_arrow'
+  | 'diamond_arrow';
+
 function buildArrowheadSvg(
   tipX: number,
   tipY: number,
   fromX: number,
   fromY: number,
   sw: number,
-  strokeAttrs: string,
+  strokeColor: string,
+  type: SvgArrowheadType,
+  cap: string = 'butt',
 ): string {
-  const headLen = Math.max(10, sw * 4);
+  if (type === 'none') return '';
+
+  const swClamped = Math.max(sw, 1);
+  const headLen = swClamped * 4 + 4;
   const angle = Math.atan2(tipY - fromY, tipX - fromX);
-  const spreadAngle = Math.PI / 6;
+  const halfSpread = Math.PI / 6;
+  const capAttr = cap !== 'butt' ? ` stroke-linecap="${cap}"` : '';
+  const joinAttr = cap === 'round' ? ' stroke-linejoin="round"' : '';
+  const strokeAttrs = `stroke="${strokeColor}" stroke-width="${sw}"${capAttr}`;
 
-  const lx = tipX - headLen * Math.cos(angle - spreadAngle);
-  const ly = tipY - headLen * Math.sin(angle - spreadAngle);
-  const rx = tipX - headLen * Math.cos(angle + spreadAngle);
-  const ry = tipY - headLen * Math.sin(angle + spreadAngle);
-
-  return `<polyline points="${lx},${ly} ${tipX},${tipY} ${rx},${ry}" fill="none" ${strokeAttrs} stroke-linejoin="round"/>`;
+  switch (type) {
+    case 'line_arrow': {
+      const lx = tipX - headLen * Math.cos(angle - halfSpread);
+      const ly = tipY - headLen * Math.sin(angle - halfSpread);
+      const rx = tipX - headLen * Math.cos(angle + halfSpread);
+      const ry = tipY - headLen * Math.sin(angle + halfSpread);
+      return `<polyline points="${lx},${ly} ${tipX},${tipY} ${rx},${ry}" fill="none" ${strokeAttrs}${joinAttr}/>`;
+    }
+    case 'triangle_arrow': {
+      const lx = tipX - headLen * Math.cos(angle - halfSpread);
+      const ly = tipY - headLen * Math.sin(angle - halfSpread);
+      const rx = tipX - headLen * Math.cos(angle + halfSpread);
+      const ry = tipY - headLen * Math.sin(angle + halfSpread);
+      return `<polygon points="${tipX},${tipY} ${lx},${ly} ${rx},${ry}" fill="${strokeColor}" ${strokeAttrs}${joinAttr}/>`;
+    }
+    case 'reversed_triangle': {
+      const baseX = tipX + headLen * Math.cos(angle);
+      const baseY = tipY + headLen * Math.sin(angle);
+      const lx = tipX - headLen * Math.cos(angle - halfSpread);
+      const ly = tipY - headLen * Math.sin(angle - halfSpread);
+      const rx = tipX - headLen * Math.cos(angle + halfSpread);
+      const ry = tipY - headLen * Math.sin(angle + halfSpread);
+      return `<polygon points="${baseX},${baseY} ${lx},${ly} ${rx},${ry}" fill="${strokeColor}" ${strokeAttrs}${joinAttr}/>`;
+    }
+    case 'circle_arrow': {
+      const r = swClamped * 2.5 + 2;
+      return `<circle cx="${tipX}" cy="${tipY}" r="${r}" fill="${strokeColor}" ${strokeAttrs}/>`;
+    }
+    case 'diamond_arrow': {
+      const half = swClamped * 2.5 + 2;
+      const cx = tipX - half * Math.cos(angle);
+      const cy = tipY - half * Math.sin(angle);
+      const backX = cx - half * Math.cos(angle);
+      const backY = cy - half * Math.sin(angle);
+      const leftX = cx - half * Math.sin(angle);
+      const leftY = cy + half * Math.cos(angle);
+      const rightX = cx + half * Math.sin(angle);
+      const rightY = cy - half * Math.cos(angle);
+      return `<polygon points="${tipX},${tipY} ${leftX},${leftY} ${backX},${backY} ${rightX},${rightY}" fill="${strokeColor}" ${strokeAttrs}${joinAttr}/>`;
+    }
+  }
 }
 
 export function generateSvg(doc: InterchangeDocument): string {

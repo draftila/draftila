@@ -25,7 +25,7 @@ function shapeToBBox(shape: Shape): ShapeBBox {
 }
 
 function needsPadding(type: string): boolean {
-  return type === 'line' || type === 'arrow' || type === 'path';
+  return type === 'line' || type === 'path';
 }
 
 export class SpatialIndex {

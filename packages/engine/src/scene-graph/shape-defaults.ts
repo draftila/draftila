@@ -1,4 +1,4 @@
-import type { ShapeType } from '@draftila/shared';
+import type { ArrowheadType, ShapeType } from '@draftila/shared';
 import {
   rectToPath,
   ellipseToPath,
@@ -59,18 +59,12 @@ export function computeSvgPathForShape(
       const y1 = ((props['y1'] as number) ?? 0) - oy;
       const x2 = ((props['x2'] as number) ?? width) - ox;
       const y2 = ((props['y2'] as number) ?? 0) - oy;
-      return lineToPath(x1, y1, x2, y2);
-    }
-    case 'arrow': {
-      const ox = (props['x'] as number) ?? 0;
-      const oy = (props['y'] as number) ?? 0;
-      const x1 = ((props['x1'] as number) ?? 0) - ox;
-      const y1 = ((props['y1'] as number) ?? 0) - oy;
-      const x2 = ((props['x2'] as number) ?? width) - ox;
-      const y2 = ((props['y2'] as number) ?? 0) - oy;
+      const startHead = (props['startArrowhead'] as ArrowheadType) ?? 'none';
+      const endHead = (props['endArrowhead'] as ArrowheadType) ?? 'none';
+      if (startHead === 'none' && endHead === 'none') {
+        return lineToPath(x1, y1, x2, y2);
+      }
       const sw = 2;
-      const startHead = (props['startArrowhead'] as boolean) ?? false;
-      const endHead = (props['endArrowhead'] as boolean) ?? true;
       return arrowToPath(x1, y1, x2, y2, sw, startHead, endHead);
     }
     default:
@@ -140,6 +134,8 @@ export const SHAPE_DEFAULTS: Record<ShapeType, Omit<Record<string, unknown>, 'id
     x2: 100,
     y2: 0,
     strokes: [{ color: '#000000', width: 2, opacity: 1, visible: true }],
+    startArrowhead: 'none',
+    endArrowhead: 'none',
     shadows: [],
     blurs: [],
   },
@@ -158,17 +154,7 @@ export const SHAPE_DEFAULTS: Record<ShapeType, Omit<Record<string, unknown>, 'id
     shadows: [],
     blurs: [],
   },
-  arrow: {
-    x1: 0,
-    y1: 0,
-    x2: 100,
-    y2: 0,
-    strokes: [{ color: '#000000', width: 2, opacity: 1, visible: true }],
-    startArrowhead: false,
-    endArrowhead: true,
-    shadows: [],
-    blurs: [],
-  },
+
   image: {
     src: '',
     fit: 'fill',

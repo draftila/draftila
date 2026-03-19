@@ -10,7 +10,6 @@ export const SHAPE_TYPES = [
   'line',
   'polygon',
   'star',
-  'arrow',
   'image',
   'svg',
 ] as const;
@@ -98,6 +97,17 @@ export const strokeCapSchema = z.enum(['butt', 'round', 'square']);
 export const strokeJoinSchema = z.enum(['miter', 'round', 'bevel']);
 export const strokeAlignSchema = z.enum(['center', 'inside', 'outside']);
 export const strokeDashPatternSchema = z.enum(['solid', 'dash', 'dot', 'dash-dot']);
+
+export const ARROWHEAD_TYPES = [
+  'none',
+  'line_arrow',
+  'triangle_arrow',
+  'reversed_triangle',
+  'circle_arrow',
+  'diamond_arrow',
+] as const;
+
+export const arrowheadTypeSchema = z.enum(ARROWHEAD_TYPES);
 
 export const strokeSidesSchema = z.object({
   top: z.boolean().default(true),
@@ -282,6 +292,8 @@ export const lineShapeSchema = baseShapeSchema.extend({
   strokes: z
     .array(strokeSchema)
     .default([{ color: '#000000', width: 2, opacity: 1, visible: true }]),
+  startArrowhead: arrowheadTypeSchema.default('none'),
+  endArrowhead: arrowheadTypeSchema.default('none'),
   svgPathData: z.string().optional(),
   shadows: z.array(shadowSchema).default([]),
   blurs: z.array(blurSchema).default([]),
@@ -303,22 +315,6 @@ export const starShapeSchema = baseShapeSchema.extend({
   innerRadius: z.number().min(0).max(1).default(0.38),
   fills: z.array(fillSchema).default([{ color: '#D9D9D9', opacity: 1, visible: true }]),
   strokes: z.array(strokeSchema).default([]),
-  svgPathData: z.string().optional(),
-  shadows: z.array(shadowSchema).default([]),
-  blurs: z.array(blurSchema).default([]),
-});
-
-export const arrowShapeSchema = baseShapeSchema.extend({
-  type: z.literal('arrow'),
-  x1: z.number().default(0),
-  y1: z.number().default(0),
-  x2: z.number().default(100),
-  y2: z.number().default(0),
-  strokes: z
-    .array(strokeSchema)
-    .default([{ color: '#000000', width: 2, opacity: 1, visible: true }]),
-  startArrowhead: z.boolean().default(false),
-  endArrowhead: z.boolean().default(true),
   svgPathData: z.string().optional(),
   shadows: z.array(shadowSchema).default([]),
   blurs: z.array(blurSchema).default([]),
@@ -357,7 +353,6 @@ export const shapeSchema = z.discriminatedUnion('type', [
   lineShapeSchema,
   polygonShapeSchema,
   starShapeSchema,
-  arrowShapeSchema,
   imageShapeSchema,
   svgShapeSchema,
   groupShapeSchema,

@@ -79,7 +79,7 @@ function buildHandles(
 }
 
 export function isEndpointShape(shape: Shape): boolean {
-  return shape.type === 'line' || shape.type === 'arrow';
+  return shape.type === 'line';
 }
 
 export function getSelectionBounds(shapes: Shape[]): SelectionBounds | null {

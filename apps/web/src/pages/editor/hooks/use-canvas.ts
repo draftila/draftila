@@ -7,7 +7,7 @@ import {
   renderShape,
   renderSelectionForShape,
   renderHoverForShape,
-  computeArrowHead,
+  computeArrowheadGeometry,
 } from '@draftila/engine/shape-renderer';
 import { simpleStyle } from '@draftila/engine/renderer';
 import {
@@ -127,7 +127,7 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
       const dragPos = dragPositions?.get(s.id);
       if (!dragPos || !dragEndpointOffset) return s;
       const updated = { ...s, x: dragPos.x, y: dragPos.y } as Shape;
-      if ((s.type === 'line' || s.type === 'arrow') && dragEndpointOffset) {
+      if (s.type === 'line' && dragEndpointOffset) {
         const orig = s as Shape & { x1: number; y1: number; x2: number; y2: number };
         return {
           ...updated,
@@ -173,6 +173,7 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
         y1: ep.y1,
         x2: ep.x2,
         y2: ep.y2,
+        svgPathData: undefined,
       } as Shape;
     };
 
@@ -464,14 +465,17 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
         arrowPreviewRenderStyle,
         false,
       );
-      const head = computeArrowHead(
+      const headGeom = computeArrowheadGeometry(
         arrowPreview.x2,
         arrowPreview.y2,
         arrowPreview.x1,
         arrowPreview.y1,
         2,
+        'line_arrow',
       );
-      renderer.drawPath([head.left, head.tip, head.right], arrowPreviewRenderStyle, false);
+      if (headGeom) {
+        renderer.drawPath(headGeom.points, arrowPreviewRenderStyle, false);
+      }
     }
 
     const polygonPreview = getPolygonTool().previewRect;

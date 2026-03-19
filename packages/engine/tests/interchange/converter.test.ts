@@ -402,23 +402,23 @@ describe('Converter', () => {
       expect(data[0]!.props['fit']).toBe('fit');
     });
 
-    test('converts arrow node', () => {
+    test('converts line node with arrowheads', () => {
       const doc = createInterchangeDocument(
         [
-          createInterchangeNode('arrow', {
+          createInterchangeNode('line', {
             x1: 0,
             y1: 0,
             x2: 100,
             y2: 50,
-            startArrowhead: false,
-            endArrowhead: true,
+            startArrowhead: 'none',
+            endArrowhead: 'triangle_arrow',
           }),
         ],
         { source: 'test' },
       );
       const data = interchangeToShapeData(doc);
-      expect(data[0]!.props['startArrowhead']).toBe(false);
-      expect(data[0]!.props['endArrowhead']).toBe(true);
+      expect(data[0]!.props['startArrowhead']).toBe('none');
+      expect(data[0]!.props['endArrowhead']).toBe('triangle_arrow');
     });
   });
 });

@@ -76,7 +76,7 @@ function captureShapeData(shape: Shape): InitialShapeData {
     height: shape.height,
     shapeType: shape.type,
   };
-  if (shape.type === 'line' || shape.type === 'arrow') {
+  if (shape.type === 'line') {
     data.x1 = shape.x1;
     data.y1 = shape.y1;
     data.x2 = shape.x2;
