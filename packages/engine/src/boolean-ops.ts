@@ -41,7 +41,8 @@ export function getShapeSvgPath(shape: Shape): string | null {
   switch (shape.type) {
     case 'rectangle': {
       const cr = (shape as Shape & { cornerRadius?: number }).cornerRadius ?? 0;
-      return rectToPath(shape.width, shape.height, cr);
+      const cornerSmoothing = (shape as Shape & { cornerSmoothing?: number }).cornerSmoothing ?? 0;
+      return rectToPath(shape.width, shape.height, cr, cornerSmoothing);
     }
     case 'ellipse':
       return ellipseToPath(shape.width, shape.height);

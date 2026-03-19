@@ -30,6 +30,7 @@ export function computeSvgPathForShape(
   switch (type) {
     case 'rectangle': {
       const cr = (props['cornerRadius'] as number) ?? 0;
+      const cornerSmoothing = (props['cornerSmoothing'] as number) ?? 0;
       const tl = (props['cornerRadiusTL'] as number) ?? cr;
       const tr = (props['cornerRadiusTR'] as number) ?? cr;
       const br = (props['cornerRadiusBR'] as number) ?? cr;
@@ -39,7 +40,7 @@ export function computeSvgPathForShape(
         props['cornerRadiusTR'] !== undefined ||
         props['cornerRadiusBL'] !== undefined ||
         props['cornerRadiusBR'] !== undefined;
-      return rectToPath(width, height, hasIndependent ? [tl, tr, br, bl] : cr);
+      return rectToPath(width, height, hasIndependent ? [tl, tr, br, bl] : cr, cornerSmoothing);
     }
     case 'ellipse':
       return ellipseToPath(width, height);
@@ -198,6 +199,7 @@ export const PATH_AFFECTING_KEYS = new Set([
   'cornerRadiusTR',
   'cornerRadiusBL',
   'cornerRadiusBR',
+  'cornerSmoothing',
   'sides',
   'innerRadius',
   'x1',
