@@ -12,7 +12,14 @@ import {
   getResizeCursor,
   type HandlePosition,
 } from '../selection';
-import { snapPosition, type SnapLine, type DistanceIndicator } from '../snap';
+import {
+  snapPosition,
+  snapResize,
+  type SnapLine,
+  type DistanceIndicator,
+  type ParentFrameRect,
+  type ResizeSnapEdges,
+} from '../snap';
 import { transformPath } from '../path-gen';
 import { DEFAULT_CONSTRAINTS, applyConstraints } from '../constraints';
 import { duplicateShapesInPlace } from '../clipboard';
@@ -176,6 +183,29 @@ function buildResizeEntry(
   return entry;
 }
 
+function handleToMovingEdges(handle: HandlePosition): ResizeSnapEdges {
+  switch (handle) {
+    case 'top-left':
+      return { left: true, right: false, top: true, bottom: false };
+    case 'top-center':
+      return { left: false, right: false, top: true, bottom: false };
+    case 'top-right':
+      return { left: false, right: true, top: true, bottom: false };
+    case 'middle-left':
+      return { left: true, right: false, top: false, bottom: false };
+    case 'middle-right':
+      return { left: false, right: true, top: false, bottom: false };
+    case 'bottom-left':
+      return { left: true, right: false, top: false, bottom: true };
+    case 'bottom-center':
+      return { left: false, right: false, top: false, bottom: true };
+    case 'bottom-right':
+      return { left: false, right: true, top: false, bottom: true };
+    default:
+      return { left: false, right: false, top: false, bottom: false };
+  }
+}
+
 function resolveShapeConstraints(shape: Shape): {
   horizontal: ConstraintHorizontal;
   vertical: ConstraintVertical;
@@ -203,6 +233,7 @@ export class MoveTool extends BaseTool {
   activeDistanceIndicators: DistanceIndicator[] = [];
   private dragInitialData: Map<string, InitialShapeData> | null = null;
   private dragShapesCache: Shape[] = [];
+  private parentFrameCache: ParentFrameRect | undefined = undefined;
 
   onPointerDown(ctx: ToolContext): ToolResult | void {
     const shapes = getAllShapes(ctx.ydoc);
@@ -254,6 +285,11 @@ export class MoveTool extends BaseTool {
             for (const shape of selectedShapes) {
               initialData.set(shape.id, captureShapeData(shape));
             }
+            const selectedIdSet = new Set(store.selectedIds);
+            this.dragShapesCache = shapes.filter(
+              (s) => !selectedIdSet.has(s.id) && s.visible && !s.locked,
+            );
+            this.parentFrameCache = this.resolveParentFrame(shapes, store.selectedIds);
             this.state = {
               type: 'resizing',
               handle,
@@ -317,6 +353,7 @@ export class MoveTool extends BaseTool {
       this.dragShapesCache = refreshedShapes.filter(
         (s) => !selectedIdSet.has(s.id) && s.visible && !s.locked,
       );
+      this.parentFrameCache = this.resolveParentFrame(refreshedShapes, selectedIds);
       this.state = {
         type: 'dragging',
         startCanvas: { x: ctx.canvasPoint.x, y: ctx.canvasPoint.y },
@@ -345,6 +382,7 @@ export class MoveTool extends BaseTool {
       this.dragShapesCache = shapes.filter(
         (s) => !selectedIdSet.has(s.id) && s.visible && !s.locked,
       );
+      this.parentFrameCache = this.resolveParentFrame(shapes, selectedIds);
       this.state = {
         type: 'dragging',
         startCanvas: { x: ctx.canvasPoint.x, y: ctx.canvasPoint.y },
@@ -395,6 +433,17 @@ export class MoveTool extends BaseTool {
       const boundsW = maxX - minX;
       const boundsH = maxY - minY;
 
+      const store = getToolStore();
+
+      if (store.snapToPixelGrid) {
+        const pixelDx = Math.round(rawDx);
+        const pixelDy = Math.round(rawDy);
+        this.dragOffset = { dx: pixelDx, dy: pixelDy };
+        this.activeSnapLines = [];
+        this.activeDistanceIndicators = [];
+        return { cursor: 'move' };
+      }
+
       const result = snapPosition(
         boundsX,
         boundsY,
@@ -402,6 +451,7 @@ export class MoveTool extends BaseTool {
         boundsH,
         this.dragShapesCache,
         ctx.camera.zoom,
+        this.parentFrameCache,
       );
 
       const dx = rawDx + (result.x - boundsX);
@@ -418,13 +468,38 @@ export class MoveTool extends BaseTool {
         y: ctx.canvasPoint.y - this.state.startCanvas.y,
       };
 
-      const newSelectionBounds = computeResize(
+      let newSelectionBounds = computeResize(
         this.state.handle,
         this.state.selectionBounds,
         delta,
         ctx.shiftKey,
         ctx.altKey,
       );
+
+      const store = getToolStore();
+
+      if (store.snapToPixelGrid) {
+        newSelectionBounds = {
+          x: Math.round(newSelectionBounds.x),
+          y: Math.round(newSelectionBounds.y),
+          width: Math.round(newSelectionBounds.width),
+          height: Math.round(newSelectionBounds.height),
+        };
+        this.activeSnapLines = [];
+        this.activeDistanceIndicators = [];
+      } else {
+        const moving = handleToMovingEdges(this.state.handle);
+        const resizeSnap = snapResize(
+          newSelectionBounds,
+          moving,
+          this.dragShapesCache,
+          ctx.camera.zoom,
+          this.parentFrameCache,
+        );
+        newSelectionBounds = resizeSnap.bounds;
+        this.activeSnapLines = resizeSnap.snapLines;
+        this.activeDistanceIndicators = [];
+      }
 
       const preview = new Map<string, ResizePreviewEntry>();
       for (const [id, initial] of this.state.initialData) {
@@ -650,6 +725,33 @@ export class MoveTool extends BaseTool {
     this.resetState();
   }
 
+  private resolveParentFrame(shapes: Shape[], selectedIds: string[]): ParentFrameRect | undefined {
+    const shapeById = new Map(shapes.map((s) => [s.id, s]));
+    let commonParentId: string | null | undefined = undefined;
+    for (const id of selectedIds) {
+      const shape = shapeById.get(id);
+      const pid = shape?.parentId ?? null;
+      if (commonParentId === undefined) {
+        commonParentId = pid;
+      } else if (commonParentId !== pid) {
+        return undefined;
+      }
+    }
+    if (!commonParentId) return undefined;
+    const parent = shapeById.get(commonParentId);
+    if (!parent || parent.type !== 'frame') return undefined;
+    return {
+      x: parent.x,
+      y: parent.y,
+      width: parent.width,
+      height: parent.height,
+      paddingTop: parent.paddingTop,
+      paddingRight: parent.paddingRight,
+      paddingBottom: parent.paddingBottom,
+      paddingLeft: parent.paddingLeft,
+    };
+  }
+
   private hitSelectedFrame(
     px: number,
     py: number,
@@ -705,6 +807,7 @@ export class MoveTool extends BaseTool {
     this.endpointPreview = null;
     this.dragInitialData = null;
     this.dragShapesCache = [];
+    this.parentFrameCache = undefined;
     this.activeSnapLines = [];
     this.activeDistanceIndicators = [];
   }

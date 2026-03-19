@@ -575,6 +575,12 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
         return;
       }
 
+      if (!isMod && key === "'") {
+        e.preventDefault();
+        useEditorStore.getState().toggleSnapToPixelGrid();
+        return;
+      }
+
       if (isMod && (key === '=' || key === '+')) {
         e.preventDefault();
         const { camera, setCamera } = useEditorStore.getState();

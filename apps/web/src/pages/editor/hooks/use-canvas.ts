@@ -395,6 +395,32 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
       );
     }
 
+    const drawingTools = [
+      getRectangleTool(),
+      getEllipseTool(),
+      getFrameTool(),
+      getPolygonTool(),
+      getStarTool(),
+      getLineTool(),
+      getArrowTool(),
+      getTextTool(),
+    ] as const;
+
+    for (const tool of drawingTools) {
+      for (const line of tool.getSnapLines()) {
+        renderer.drawSnapLine(line.axis, line.position, line.start, line.end);
+      }
+      for (const indicator of tool.getDistanceIndicators()) {
+        renderer.drawDistanceIndicator(
+          indicator.axis,
+          indicator.from,
+          indicator.to,
+          indicator.position,
+          camera.zoom,
+        );
+      }
+    }
+
     const previewStroke = 1 / camera.zoom;
 
     const rectPreview = getRectangleTool().previewRect;

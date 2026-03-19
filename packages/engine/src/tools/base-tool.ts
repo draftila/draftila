@@ -5,6 +5,7 @@ export interface ToolStore {
   readonly selectedIds: string[];
   readonly enteredGroupId: string | null;
   readonly camera: Camera;
+  readonly snapToPixelGrid: boolean;
   setSelectedIds(ids: string[]): void;
   setActiveTool(tool: ToolType): void;
   setIsDrawing(drawing: boolean): void;
