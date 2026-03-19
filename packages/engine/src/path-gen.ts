@@ -1,38 +1,120 @@
 import type { ArrowheadType } from '@draftila/shared';
 import SVGPathCommander from 'svg-path-commander';
 
-export function rectToPath(
+const CIRCLE_KAPPA = 0.5522847498;
+const MAX_SMOOTH_CONTROL_FACTOR = 0.92;
+
+type CornerRadii = {
+  tl: number;
+  tr: number;
+  br: number;
+  bl: number;
+};
+
+function clampToNonNegative(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, value);
+}
+
+function normalizeCornerRadii(
   width: number,
   height: number,
-  cornerRadius: number | [number, number, number, number] = 0,
-): string {
-  if ((Array.isArray(cornerRadius) && cornerRadius.every((r) => r === 0)) || cornerRadius === 0) {
-    return `M0 0H${width}V${height}H0Z`;
-  }
+  cornerRadius: number | [number, number, number, number],
+): CornerRadii {
+  let tl: number;
+  let tr: number;
+  let br: number;
+  let bl: number;
 
-  let tl: number, tr: number, br: number, bl: number;
   if (Array.isArray(cornerRadius)) {
     [tl, tr, br, bl] = cornerRadius;
   } else {
     tl = tr = br = bl = cornerRadius;
   }
 
-  const maxR = Math.min(width, height) / 2;
-  tl = Math.min(tl, maxR);
-  tr = Math.min(tr, maxR);
-  br = Math.min(br, maxR);
-  bl = Math.min(bl, maxR);
+  tl = clampToNonNegative(tl);
+  tr = clampToNonNegative(tr);
+  br = clampToNonNegative(br);
+  bl = clampToNonNegative(bl);
+
+  const maxCorner = Math.min(width, height);
+  tl = Math.min(tl, maxCorner);
+  tr = Math.min(tr, maxCorner);
+  br = Math.min(br, maxCorner);
+  bl = Math.min(bl, maxCorner);
+
+  const top = tl + tr;
+  const bottom = bl + br;
+  const left = tl + bl;
+  const right = tr + br;
+
+  const scale = Math.min(
+    1,
+    top > 0 ? width / top : 1,
+    bottom > 0 ? width / bottom : 1,
+    left > 0 ? height / left : 1,
+    right > 0 ? height / right : 1,
+  );
+
+  if (scale < 1) {
+    tl *= scale;
+    tr *= scale;
+    br *= scale;
+    bl *= scale;
+  }
+
+  return { tl, tr, br, bl };
+}
+
+export function rectToPath(
+  width: number,
+  height: number,
+  cornerRadius: number | [number, number, number, number] = 0,
+  cornerSmoothing = 0,
+): string {
+  const { tl, tr, br, bl } = normalizeCornerRadii(width, height, cornerRadius);
+
+  if (tl === 0 && tr === 0 && br === 0 && bl === 0) {
+    return `M0 0H${width}V${height}H0Z`;
+  }
+
+  const smoothing = Math.min(1, Math.max(0, clampToNonNegative(cornerSmoothing)));
+
+  if (smoothing === 0) {
+    return [
+      `M${tl} 0`,
+      `H${width - tr}`,
+      tr > 0 ? `A${tr} ${tr} 0 0 1 ${width} ${tr}` : '',
+      `V${height - br}`,
+      br > 0 ? `A${br} ${br} 0 0 1 ${width - br} ${height}` : '',
+      `H${bl}`,
+      bl > 0 ? `A${bl} ${bl} 0 0 1 0 ${height - bl}` : '',
+      `V${tl}`,
+      tl > 0 ? `A${tl} ${tl} 0 0 1 ${tl} 0` : '',
+      'Z',
+    ]
+      .filter(Boolean)
+      .join('');
+  }
+
+  const controlFactor = CIRCLE_KAPPA + (MAX_SMOOTH_CONTROL_FACTOR - CIRCLE_KAPPA) * smoothing;
+  const trControl = tr * controlFactor;
+  const brControl = br * controlFactor;
+  const blControl = bl * controlFactor;
+  const tlControl = tl * controlFactor;
 
   return [
     `M${tl} 0`,
     `H${width - tr}`,
-    tr > 0 ? `A${tr} ${tr} 0 0 1 ${width} ${tr}` : '',
+    tr > 0 ? `C${width - tr + trControl} 0 ${width} ${tr - trControl} ${width} ${tr}` : '',
     `V${height - br}`,
-    br > 0 ? `A${br} ${br} 0 0 1 ${width - br} ${height}` : '',
+    br > 0
+      ? `C${width} ${height - br + brControl} ${width - br + brControl} ${height} ${width - br} ${height}`
+      : '',
     `H${bl}`,
-    bl > 0 ? `A${bl} ${bl} 0 0 1 0 ${height - bl}` : '',
+    bl > 0 ? `C${bl - blControl} ${height} 0 ${height - bl + blControl} 0 ${height - bl}` : '',
     `V${tl}`,
-    tl > 0 ? `A${tl} ${tl} 0 0 1 ${tl} 0` : '',
+    tl > 0 ? `C0 ${tl - tlControl} ${tl - tlControl} 0 ${tl} 0` : '',
     'Z',
   ]
     .filter(Boolean)
