@@ -1,6 +1,7 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ChevronDown, Eye, EyeOff, Minus, Plus, Settings2, X } from 'lucide-react';
 import type {
+  ArrowheadType,
   Stroke,
   StrokeAlign,
   StrokeCap,
@@ -313,6 +314,169 @@ function DashPreview({ pattern, className }: { pattern: StrokeDashPattern; class
   );
 }
 
+const ARROWHEAD_LABELS: Record<ArrowheadType, string> = {
+  none: 'None',
+  line_arrow: 'Line arrow',
+  triangle_arrow: 'Triangle arrow',
+  reversed_triangle: 'Reversed triangle',
+  circle_arrow: 'Circle arrow',
+  diamond_arrow: 'Diamond arrow',
+};
+
+function EndpointNoneIcon({ className }: { className?: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className={className}>
+      <line x1="2" y1="8" x2="14" y2="8" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  );
+}
+
+function EndpointLineArrowIcon({ className }: { className?: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className={className}>
+      <line x1="2" y1="8" x2="14" y2="8" stroke="currentColor" strokeWidth="1.5" />
+      <polyline
+        points="6,4 2,8 6,12"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function EndpointTriangleArrowIcon({ className }: { className?: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className={className}>
+      <line x1="7" y1="8" x2="14" y2="8" stroke="currentColor" strokeWidth="1.5" />
+      <polygon points="2,8 7,4.5 7,11.5" fill="currentColor" />
+    </svg>
+  );
+}
+
+function EndpointReversedTriangleIcon({ className }: { className?: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className={className}>
+      <line x1="2" y1="8" x2="14" y2="8" stroke="currentColor" strokeWidth="1.5" />
+      <polygon points="7,8 2,4.5 2,11.5" fill="currentColor" />
+    </svg>
+  );
+}
+
+function EndpointCircleArrowIcon({ className }: { className?: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className={className}>
+      <line x1="6" y1="8" x2="14" y2="8" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="3" cy="8" r="3" fill="currentColor" />
+    </svg>
+  );
+}
+
+function EndpointDiamondArrowIcon({ className }: { className?: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className={className}>
+      <line x1="7" y1="8" x2="14" y2="8" stroke="currentColor" strokeWidth="1.5" />
+      <polygon points="3.5,4.5 7,8 3.5,11.5 0,8" fill="currentColor" />
+    </svg>
+  );
+}
+
+interface EndpointOption {
+  value: ArrowheadType;
+  label: string;
+  Icon: (props: { className?: string }) => React.JSX.Element;
+}
+
+const ENDPOINT_OPTIONS: EndpointOption[] = [
+  { value: 'none', label: 'None', Icon: EndpointNoneIcon },
+  { value: 'line_arrow', label: 'Line arrow', Icon: EndpointLineArrowIcon },
+  { value: 'triangle_arrow', label: 'Triangle arrow', Icon: EndpointTriangleArrowIcon },
+  { value: 'reversed_triangle', label: 'Reversed triangle', Icon: EndpointReversedTriangleIcon },
+  { value: 'circle_arrow', label: 'Circle arrow', Icon: EndpointCircleArrowIcon },
+  { value: 'diamond_arrow', label: 'Diamond arrow', Icon: EndpointDiamondArrowIcon },
+];
+
+function endpointIcon(val: ArrowheadType): (props: { className?: string }) => React.JSX.Element {
+  const match = ENDPOINT_OPTIONS.find((o) => o.value === val);
+  return match?.Icon ?? EndpointNoneIcon;
+}
+
+function EndpointDropdown({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: ArrowheadType;
+  onChange: (val: ArrowheadType) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const committedRef = useRef(value);
+  const didCommitRef = useRef(false);
+  const CurrentIcon = endpointIcon(value);
+
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (nextOpen) {
+        committedRef.current = value;
+        didCommitRef.current = false;
+      } else if (!didCommitRef.current) {
+        onChange(committedRef.current);
+      }
+      setOpen(nextOpen);
+    },
+    [value, onChange],
+  );
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-muted-foreground w-8 shrink-0 text-[10px]">{label}</span>
+      <Popover open={open} onOpenChange={handleOpenChange}>
+        <PopoverTrigger asChild>
+          <button className="border-input flex h-6 min-w-0 flex-1 items-center gap-1.5 rounded-md border px-1.5">
+            <CurrentIcon className="h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0 flex-1 truncate text-left text-[11px]">
+              {ARROWHEAD_LABELS[value]}
+            </span>
+            <ChevronDown className="text-muted-foreground h-3 w-3 shrink-0" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          side="left"
+          align="start"
+          className="w-48 p-0"
+          onPointerLeave={() => onChange(committedRef.current)}
+        >
+          <div className="flex flex-col py-1">
+            {ENDPOINT_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onPointerEnter={() => onChange(opt.value)}
+                onClick={() => {
+                  committedRef.current = opt.value;
+                  didCommitRef.current = true;
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center gap-2 px-2 py-1.5 text-[11px] transition-colors ${
+                  committedRef.current === opt.value
+                    ? 'bg-accent text-accent-foreground'
+                    : 'hover:bg-muted/50'
+                }`}
+              >
+                <opt.Icon className="h-3.5 w-3.5 shrink-0" />
+                <span>{opt.label}</span>
+              </button>
+            ))}
+          </div>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
 const CAP_OPTIONS: Array<{ value: StrokeCap; label: string; Icon: typeof CapButtIcon }> = [
   { value: 'butt', label: 'None', Icon: CapButtIcon },
   { value: 'round', label: 'Round', Icon: CapRoundIcon },
@@ -349,6 +513,11 @@ function dashPatternLabel(pattern: StrokeDashPattern) {
 
 export function StrokeSection({ shape, onUpdate }: PropertySectionProps) {
   const strokes = 'strokes' in shape ? (shape as Shape & { strokes: Stroke[] }).strokes : null;
+  const isLine = shape.type === 'line';
+  const startArrowhead =
+    isLine && 'startArrowhead' in shape ? (shape.startArrowhead as ArrowheadType) : 'none';
+  const endArrowhead =
+    isLine && 'endArrowhead' in shape ? (shape.endArrowhead as ArrowheadType) : 'none';
 
   const updateStroke = useCallback(
     (index: number, patch: Partial<Stroke>) => {
@@ -372,6 +541,14 @@ export function StrokeSection({ shape, onUpdate }: PropertySectionProps) {
     if (!strokes) return;
     onUpdate({ strokes: [...strokes, { ...DEFAULT_STROKE }] } as Partial<Shape>);
   }, [strokes, onUpdate]);
+
+  const handleEndpointChange = useCallback(
+    (endpoint: 'start' | 'end', val: ArrowheadType) => {
+      const arrowheadKey = endpoint === 'start' ? 'startArrowhead' : 'endArrowhead';
+      onUpdate({ [arrowheadKey]: val } as Partial<Shape>);
+    },
+    [onUpdate],
+  );
 
   if (!strokes) return null;
 
@@ -409,22 +586,39 @@ export function StrokeSection({ shape, onUpdate }: PropertySectionProps) {
             <StrokeEntry
               key={index}
               stroke={stroke}
+              isLine={isLine}
               onUpdate={(patch) => updateStroke(index, patch)}
               onRemove={() => removeStroke(index)}
             />
           );
         })}
       </div>
+      {isLine && strokes.length > 0 && (
+        <div className="mt-2 space-y-1.5">
+          <EndpointDropdown
+            label="Start"
+            value={startArrowhead}
+            onChange={(val) => handleEndpointChange('start', val)}
+          />
+          <EndpointDropdown
+            label="End"
+            value={endArrowhead}
+            onChange={(val) => handleEndpointChange('end', val)}
+          />
+        </div>
+      )}
     </section>
   );
 }
 
 function StrokeEntry({
   stroke,
+  isLine,
   onUpdate,
   onRemove,
 }: {
   stroke: Stroke;
+  isLine: boolean;
   onUpdate: (patch: Partial<Stroke>) => void;
   onRemove: () => void;
 }) {
@@ -535,76 +729,82 @@ function StrokeEntry({
             ))}
           </div>
 
-          <div className="bg-border mx-0.5 h-3.5 w-px shrink-0" />
+          {!isLine && (
+            <>
+              <div className="bg-border mx-0.5 h-3.5 w-px shrink-0" />
 
-          <div className="flex items-center">
-            {JOIN_OPTIONS.map(({ value, label, Icon }) => (
-              <Tooltip key={value}>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => onUpdate({ join: value })}
-                    className={`rounded p-1 transition-colors ${
-                      join === value
-                        ? 'bg-accent text-accent-foreground'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                    }`}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>{label} join</TooltipContent>
-              </Tooltip>
-            ))}
-          </div>
+              <div className="flex items-center">
+                {JOIN_OPTIONS.map(({ value, label, Icon }) => (
+                  <Tooltip key={value}>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => onUpdate({ join: value })}
+                        className={`rounded p-1 transition-colors ${
+                          join === value
+                            ? 'bg-accent text-accent-foreground'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                        }`}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>{label} join</TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
 
-          <Popover open={settingsOpen} onOpenChange={setSettingsOpen}>
-            <Tooltip>
-              <PopoverTrigger asChild>
-                <TooltipTrigger asChild>
-                  <button
-                    className={`ml-auto shrink-0 rounded p-1 transition-colors ${
-                      settingsOpen
-                        ? 'bg-accent text-accent-foreground'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                    }`}
-                  >
-                    <Settings2 className="h-3.5 w-3.5" />
-                  </button>
-                </TooltipTrigger>
-              </PopoverTrigger>
-              <TooltipContent>Stroke settings</TooltipContent>
-            </Tooltip>
-            <StrokeSettingsPopover
-              stroke={stroke}
-              onUpdate={onUpdate}
-              onClose={() => setSettingsOpen(false)}
-            />
-          </Popover>
+              <Popover open={settingsOpen} onOpenChange={setSettingsOpen}>
+                <Tooltip>
+                  <PopoverTrigger asChild>
+                    <TooltipTrigger asChild>
+                      <button
+                        className={`ml-auto shrink-0 rounded p-1 transition-colors ${
+                          settingsOpen
+                            ? 'bg-accent text-accent-foreground'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                        }`}
+                      >
+                        <Settings2 className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                  </PopoverTrigger>
+                  <TooltipContent>Stroke settings</TooltipContent>
+                </Tooltip>
+                <StrokeSettingsPopover
+                  stroke={stroke}
+                  onUpdate={onUpdate}
+                  onClose={() => setSettingsOpen(false)}
+                />
+              </Popover>
+            </>
+          )}
         </TooltipProvider>
       </div>
 
       <div className="flex items-center gap-1">
-        <TooltipProvider>
-          <div className="flex items-center">
-            {ALIGN_OPTIONS.map(({ value, label, Icon }) => (
-              <Tooltip key={value}>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => onUpdate({ align: value })}
-                    className={`rounded p-1 transition-colors ${
-                      align === value
-                        ? 'bg-accent text-accent-foreground'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                    }`}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>{label}</TooltipContent>
-              </Tooltip>
-            ))}
-          </div>
-        </TooltipProvider>
+        {!isLine && (
+          <TooltipProvider>
+            <div className="flex items-center">
+              {ALIGN_OPTIONS.map(({ value, label, Icon }) => (
+                <Tooltip key={value}>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => onUpdate({ align: value })}
+                      className={`rounded p-1 transition-colors ${
+                        align === value
+                          ? 'bg-accent text-accent-foreground'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                      }`}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>{label}</TooltipContent>
+                </Tooltip>
+              ))}
+            </div>
+          </TooltipProvider>
+        )}
 
         <Popover open={dashOpen} onOpenChange={setDashOpen}>
           <PopoverTrigger asChild>

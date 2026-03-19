@@ -7,7 +7,6 @@ export type InterchangeNodeType =
   | 'line'
   | 'polygon'
   | 'star'
-  | 'arrow'
   | 'image'
   | 'svg'
   | 'group';
@@ -136,8 +135,20 @@ export interface InterchangeNode {
   starPoints?: number;
   innerRadius?: number;
 
-  startArrowhead?: boolean;
-  endArrowhead?: boolean;
+  startArrowhead?:
+    | 'none'
+    | 'line_arrow'
+    | 'triangle_arrow'
+    | 'reversed_triangle'
+    | 'circle_arrow'
+    | 'diamond_arrow';
+  endArrowhead?:
+    | 'none'
+    | 'line_arrow'
+    | 'triangle_arrow'
+    | 'reversed_triangle'
+    | 'circle_arrow'
+    | 'diamond_arrow';
 
   clip?: boolean;
 

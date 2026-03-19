@@ -1,4 +1,4 @@
-import type { Blur, Fill, Shadow, Shape, Stroke } from '@draftila/shared';
+import type { ArrowheadType, Blur, Fill, Shadow, Shape, Stroke } from '@draftila/shared';
 import type { Renderer, RenderStyle, RenderTransform } from './renderer/types';
 import { simpleStyle } from './renderer/types';
 import getStroke from 'perfect-freehand';
@@ -76,33 +76,98 @@ export function generateStarPoints(
   return points;
 }
 
-export interface ArrowHeadPoints {
-  left: [number, number];
-  tip: [number, number];
-  right: [number, number];
+export interface ArrowheadGeometry {
+  points: Array<[number, number]>;
+  closed: boolean;
 }
 
-export function computeArrowHead(
+export function computeArrowheadGeometry(
   tipX: number,
   tipY: number,
   tailX: number,
   tailY: number,
   strokeWidth: number,
-): ArrowHeadPoints {
-  const headSize = Math.max(16, strokeWidth * 5);
-  const headAngle = Math.PI / 6;
+  type: ArrowheadType,
+): ArrowheadGeometry | null {
+  if (type === 'none') return null;
+
+  const sw = Math.max(strokeWidth, 1);
+  const headLen = sw * 4 + 4;
+  const halfSpread = Math.PI / 6;
   const angle = Math.atan2(tipY - tailY, tipX - tailX);
-  return {
-    left: [
-      tipX - headSize * Math.cos(angle - headAngle),
-      tipY - headSize * Math.sin(angle - headAngle),
-    ],
-    tip: [tipX, tipY],
-    right: [
-      tipX - headSize * Math.cos(angle + headAngle),
-      tipY - headSize * Math.sin(angle + headAngle),
-    ],
-  };
+
+  switch (type) {
+    case 'line_arrow': {
+      const lx = tipX - headLen * Math.cos(angle - halfSpread);
+      const ly = tipY - headLen * Math.sin(angle - halfSpread);
+      const rx = tipX - headLen * Math.cos(angle + halfSpread);
+      const ry = tipY - headLen * Math.sin(angle + halfSpread);
+      return {
+        points: [
+          [lx, ly],
+          [tipX, tipY],
+          [rx, ry],
+        ],
+        closed: false,
+      };
+    }
+    case 'triangle_arrow': {
+      const lx = tipX - headLen * Math.cos(angle - halfSpread);
+      const ly = tipY - headLen * Math.sin(angle - halfSpread);
+      const rx = tipX - headLen * Math.cos(angle + halfSpread);
+      const ry = tipY - headLen * Math.sin(angle + halfSpread);
+      return {
+        points: [
+          [tipX, tipY],
+          [lx, ly],
+          [rx, ry],
+        ],
+        closed: true,
+      };
+    }
+    case 'reversed_triangle': {
+      const baseX = tipX + headLen * Math.cos(angle);
+      const baseY = tipY + headLen * Math.sin(angle);
+      const lx = tipX - headLen * Math.cos(angle - halfSpread);
+      const ly = tipY - headLen * Math.sin(angle - halfSpread);
+      const rx = tipX - headLen * Math.cos(angle + halfSpread);
+      const ry = tipY - headLen * Math.sin(angle + halfSpread);
+      return {
+        points: [
+          [baseX, baseY],
+          [lx, ly],
+          [rx, ry],
+        ],
+        closed: true,
+      };
+    }
+    case 'circle_arrow': {
+      const r = sw * 2.5 + 2;
+      const segments = 32;
+      const pts: Array<[number, number]> = [];
+      for (let i = 0; i <= segments; i++) {
+        const a = (i / segments) * Math.PI * 2;
+        pts.push([tipX + r * Math.cos(a), tipY + r * Math.sin(a)]);
+      }
+      return { points: pts, closed: true };
+    }
+    case 'diamond_arrow': {
+      const half = sw * 2.5 + 2;
+      const cx = tipX - half * Math.cos(angle);
+      const cy = tipY - half * Math.sin(angle);
+      const backX = cx - half * Math.cos(angle);
+      const backY = cy - half * Math.sin(angle);
+      return {
+        points: [
+          [tipX, tipY],
+          [cx - half * Math.sin(angle), cy + half * Math.cos(angle)],
+          [backX, backY],
+          [cx + half * Math.sin(angle), cy - half * Math.cos(angle)],
+        ],
+        closed: true,
+      };
+    }
+  }
 }
 
 function primaryStrokeWidth(strokes: Stroke[]): number {
@@ -212,7 +277,11 @@ export function renderShape(renderer: Renderer, shape: Shape) {
       break;
     }
     case 'line': {
-      if (hasSvgPathData(shape)) {
+      if (
+        hasSvgPathData(shape) &&
+        shape.startArrowhead === 'none' &&
+        shape.endArrowhead === 'none'
+      ) {
         renderer.drawSvgPath(getTransform(shape), shape.svgPathData, {
           fills: [],
           strokes: shape.strokes,
@@ -226,17 +295,73 @@ export function renderShape(renderer: Renderer, shape: Shape) {
         [shape.x1, shape.y1],
         [shape.x2, shape.y2],
       ];
-      renderer.drawPath(
-        linePoints,
-        {
-          fills: [],
-          strokes: shape.strokes,
-          shadows: shape.shadows ?? [],
-          blurs: shape.blurs ?? [],
-          opacity: shape.opacity,
-        },
-        false,
-      );
+      const lineStyle: RenderStyle = {
+        fills: [],
+        strokes: shape.strokes,
+        shadows: shape.shadows ?? [],
+        blurs: shape.blurs ?? [],
+        opacity: shape.opacity,
+      };
+      renderer.drawPath(linePoints, lineStyle, false);
+
+      const sw = primaryStrokeWidth(shape.strokes);
+      const primaryStroke = shape.strokes.find((s) => s.visible);
+      const strokeColor = primaryStroke?.color ?? '#000000';
+      const strokeOpacity = primaryStroke?.opacity ?? 1;
+
+      const strokeCap = primaryStroke?.cap ?? 'butt';
+      const arrowJoin = strokeCap === 'round' ? ('round' as const) : ('miter' as const);
+      const headStroke = {
+        color: strokeColor,
+        width: sw,
+        opacity: strokeOpacity,
+        visible: true,
+        cap: strokeCap,
+        join: arrowJoin,
+        align: 'center' as const,
+        dashPattern: 'solid' as const,
+        dashOffset: 0,
+        miterLimit: 4,
+      };
+
+      const renderArrowhead = (
+        tipX: number,
+        tipY: number,
+        tailX: number,
+        tailY: number,
+        type: ArrowheadType,
+      ) => {
+        const geom = computeArrowheadGeometry(tipX, tipY, tailX, tailY, sw, type);
+        if (!geom) return;
+        if (geom.closed) {
+          renderer.drawPath(
+            geom.points,
+            {
+              fills: [{ color: strokeColor, opacity: strokeOpacity, visible: true }],
+              strokes: [headStroke],
+              shadows: [],
+              blurs: [],
+              opacity: shape.opacity,
+            },
+            true,
+          );
+        } else {
+          renderer.drawPath(
+            geom.points,
+            {
+              fills: [],
+              strokes: [headStroke],
+              shadows: [],
+              blurs: [],
+              opacity: shape.opacity,
+            },
+            false,
+          );
+        }
+      };
+
+      renderArrowhead(shape.x2, shape.y2, shape.x1, shape.y1, shape.endArrowhead);
+      renderArrowhead(shape.x1, shape.y1, shape.x2, shape.y2, shape.startArrowhead);
       break;
     }
     case 'polygon': {
@@ -274,42 +399,7 @@ export function renderShape(renderer: Renderer, shape: Shape) {
       renderer.drawPath(starPts, getStyle(shape));
       break;
     }
-    case 'arrow': {
-      if (hasSvgPathData(shape)) {
-        renderer.drawSvgPath(getTransform(shape), shape.svgPathData, {
-          fills: [],
-          strokes: shape.strokes,
-          shadows: shape.shadows ?? [],
-          blurs: shape.blurs ?? [],
-          opacity: shape.opacity,
-        });
-        break;
-      }
-      const shaftPoints: Array<[number, number]> = [
-        [shape.x1, shape.y1],
-        [shape.x2, shape.y2],
-      ];
-      const arrowStyle: RenderStyle = {
-        fills: [],
-        strokes: shape.strokes,
-        shadows: shape.shadows ?? [],
-        blurs: shape.blurs ?? [],
-        opacity: shape.opacity,
-      };
-      renderer.drawPath(shaftPoints, arrowStyle, false);
 
-      const sw = primaryStrokeWidth(shape.strokes);
-      if (shape.endArrowhead) {
-        const head = computeArrowHead(shape.x2, shape.y2, shape.x1, shape.y1, sw);
-        renderer.drawPath([head.left, head.tip, head.right], arrowStyle, false);
-      }
-
-      if (shape.startArrowhead) {
-        const head = computeArrowHead(shape.x1, shape.y1, shape.x2, shape.y2, sw);
-        renderer.drawPath([head.left, head.tip, head.right], arrowStyle, false);
-      }
-      break;
-    }
     case 'image': {
       renderer.drawImage(getTransform(shape), {
         src: shape.src,
@@ -340,12 +430,11 @@ export function renderShape(renderer: Renderer, shape: Shape) {
 }
 
 export function renderSelectionForShape(renderer: Renderer, shape: Shape) {
-  if (shape.type === 'line' || shape.type === 'arrow') {
-    const s = shape as Shape & { x1: number; y1: number; x2: number; y2: number };
+  if (shape.type === 'line') {
     renderer.drawPath(
       [
-        [s.x1, s.y1],
-        [s.x2, s.y2],
+        [shape.x1, shape.y1],
+        [shape.x2, shape.y2],
       ],
       simpleStyle({ fill: null, stroke: '#0D99FF', strokeWidth: 2, opacity: 1 }),
       false,
@@ -356,12 +445,11 @@ export function renderSelectionForShape(renderer: Renderer, shape: Shape) {
 }
 
 export function renderHoverForShape(renderer: Renderer, shape: Shape) {
-  if (shape.type === 'line' || shape.type === 'arrow') {
-    const s = shape as Shape & { x1: number; y1: number; x2: number; y2: number };
+  if (shape.type === 'line') {
     renderer.drawPath(
       [
-        [s.x1, s.y1],
-        [s.x2, s.y2],
+        [shape.x1, shape.y1],
+        [shape.x2, shape.y2],
       ],
       simpleStyle({ fill: null, stroke: '#0D99FF', strokeWidth: 2, opacity: 1 }),
       false,

@@ -300,8 +300,8 @@ export class Canvas2DRenderer implements Renderer {
       if (!stroke.visible || stroke.width <= 0) continue;
       ctx.strokeStyle = colorWithOpacity(stroke.color, stroke.opacity);
       ctx.lineWidth = stroke.width;
-      ctx.lineCap = stroke.cap ?? 'round';
-      ctx.lineJoin = stroke.join ?? 'round';
+      ctx.lineCap = stroke.cap ?? 'butt';
+      ctx.lineJoin = stroke.join ?? 'miter';
       ctx.miterLimit = stroke.miterLimit ?? 4;
       ctx.setLineDash(resolveDashArray(stroke));
       ctx.lineDashOffset = stroke.dashOffset ?? 0;

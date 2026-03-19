@@ -164,7 +164,7 @@ export function nudgeShapes(ydoc: Y.Doc, ids: string[], dx: number, dy: number) 
       shapeData.set('x', (shapeData.get('x') as number) + dx);
       shapeData.set('y', (shapeData.get('y') as number) + dy);
 
-      if (shapeType === 'line' || shapeType === 'arrow') {
+      if (shapeType === 'line') {
         shapeData.set('x1', (shapeData.get('x1') as number) + dx);
         shapeData.set('y1', (shapeData.get('y1') as number) + dy);
         shapeData.set('x2', (shapeData.get('x2') as number) + dx);
@@ -219,8 +219,8 @@ export function flipShapes(ydoc: Y.Doc, ids: string[], axis: 'horizontal' | 'ver
         update.rotation = -shape.rotation;
       }
 
-      if (shape.type === 'line' || shape.type === 'arrow') {
-        const s = shape as Shape & { x1: number; y1: number; x2: number; y2: number };
+      if (shape.type === 'line') {
+        const s = shape;
         if (axis === 'horizontal') {
           const newX = (update.x as number | undefined) ?? shape.x;
           update.x1 = newX + (shape.width - (s.x1 - shape.x));

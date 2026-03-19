@@ -329,13 +329,6 @@ function narrowPhaseHitTest(px: number, py: number, shape: Shape, zoom: number):
       return distanceToLineSegment(px, py, shape.x1, shape.y1, shape.x2, shape.y2) <= tolerance;
     }
 
-    case 'arrow': {
-      if (shapeHasSvgPath(shape)) {
-        return pointNearSvgPathData(px, py, shape, [], shape.strokes, tolerance);
-      }
-      return distanceToLineSegment(px, py, shape.x1, shape.y1, shape.x2, shape.y2) <= tolerance;
-    }
-
     default:
       return false;
   }

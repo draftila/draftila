@@ -1,3 +1,4 @@
+import type { ArrowheadType } from '@draftila/shared';
 import SVGPathCommander from 'svg-path-commander';
 
 export function rectToPath(
@@ -92,37 +93,76 @@ export function lineToPath(x1: number, y1: number, x2: number, y2: number): stri
   return `M${x1} ${y1}L${x2} ${y2}`;
 }
 
+function arrowheadPath(
+  tipX: number,
+  tipY: number,
+  fromX: number,
+  fromY: number,
+  strokeWidth: number,
+  type: ArrowheadType,
+): string {
+  if (type === 'none') return '';
+
+  const sw = Math.max(strokeWidth, 1);
+  const headLen = sw * 4 + 4;
+  const halfSpread = Math.PI / 6;
+  const angle = Math.atan2(tipY - fromY, tipX - fromX);
+
+  switch (type) {
+    case 'line_arrow': {
+      const lx = tipX - headLen * Math.cos(angle - halfSpread);
+      const ly = tipY - headLen * Math.sin(angle - halfSpread);
+      const rx = tipX - headLen * Math.cos(angle + halfSpread);
+      const ry = tipY - headLen * Math.sin(angle + halfSpread);
+      return `M${lx} ${ly}L${tipX} ${tipY}L${rx} ${ry}`;
+    }
+    case 'triangle_arrow': {
+      const lx = tipX - headLen * Math.cos(angle - halfSpread);
+      const ly = tipY - headLen * Math.sin(angle - halfSpread);
+      const rx = tipX - headLen * Math.cos(angle + halfSpread);
+      const ry = tipY - headLen * Math.sin(angle + halfSpread);
+      return `M${tipX} ${tipY}L${lx} ${ly}L${rx} ${ry}Z`;
+    }
+    case 'reversed_triangle': {
+      const baseX = tipX + headLen * Math.cos(angle);
+      const baseY = tipY + headLen * Math.sin(angle);
+      const lx = tipX - headLen * Math.cos(angle - halfSpread);
+      const ly = tipY - headLen * Math.sin(angle - halfSpread);
+      const rx = tipX - headLen * Math.cos(angle + halfSpread);
+      const ry = tipY - headLen * Math.sin(angle + halfSpread);
+      return `M${baseX} ${baseY}L${lx} ${ly}L${rx} ${ry}Z`;
+    }
+    case 'circle_arrow': {
+      const r = sw * 2.5 + 2;
+      return `M${tipX + r} ${tipY}A${r} ${r} 0 1 0 ${tipX - r} ${tipY}A${r} ${r} 0 1 0 ${tipX + r} ${tipY}Z`;
+    }
+    case 'diamond_arrow': {
+      const half = sw * 2.5 + 2;
+      const cx = tipX - half * Math.cos(angle);
+      const cy = tipY - half * Math.sin(angle);
+      const backX = cx - half * Math.cos(angle);
+      const backY = cy - half * Math.sin(angle);
+      return `M${tipX} ${tipY}L${cx - half * Math.sin(angle)} ${cy + half * Math.cos(angle)}L${backX} ${backY}L${cx + half * Math.sin(angle)} ${cy - half * Math.cos(angle)}Z`;
+    }
+  }
+}
+
 export function arrowToPath(
   x1: number,
   y1: number,
   x2: number,
   y2: number,
   strokeWidth: number,
-  startArrowhead: boolean,
-  endArrowhead: boolean,
+  startArrowhead: ArrowheadType,
+  endArrowhead: ArrowheadType,
 ): string {
   const parts: string[] = [`M${x1} ${y1}L${x2} ${y2}`];
 
-  const headSize = Math.max(16, strokeWidth * 5);
-  const headAngle = Math.PI / 6;
+  const endPath = arrowheadPath(x2, y2, x1, y1, strokeWidth, endArrowhead);
+  if (endPath) parts.push(endPath);
 
-  if (endArrowhead) {
-    const angle = Math.atan2(y2 - y1, x2 - x1);
-    const lx = x2 - headSize * Math.cos(angle - headAngle);
-    const ly = y2 - headSize * Math.sin(angle - headAngle);
-    const rx = x2 - headSize * Math.cos(angle + headAngle);
-    const ry = y2 - headSize * Math.sin(angle + headAngle);
-    parts.push(`M${lx} ${ly}L${x2} ${y2}L${rx} ${ry}`);
-  }
-
-  if (startArrowhead) {
-    const angle = Math.atan2(y1 - y2, x1 - x2);
-    const lx = x1 - headSize * Math.cos(angle - headAngle);
-    const ly = y1 - headSize * Math.sin(angle - headAngle);
-    const rx = x1 - headSize * Math.cos(angle + headAngle);
-    const ry = y1 - headSize * Math.sin(angle + headAngle);
-    parts.push(`M${lx} ${ly}L${x1} ${y1}L${rx} ${ry}`);
-  }
+  const startPath = arrowheadPath(x1, y1, x2, y2, strokeWidth, startArrowhead);
+  if (startPath) parts.push(startPath);
 
   return parts.join('');
 }

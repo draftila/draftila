@@ -170,13 +170,6 @@ function shapeToNode(shape: Shape, childrenByParent: Map<string, Shape[]>): Inte
       node.y1 = shape.y1;
       node.x2 = shape.x2;
       node.y2 = shape.y2;
-      node.svgPathData = shape.svgPathData;
-      break;
-    case 'arrow':
-      node.x1 = shape.x1;
-      node.y1 = shape.y1;
-      node.x2 = shape.x2;
-      node.y2 = shape.y2;
       node.startArrowhead = shape.startArrowhead;
       node.endArrowhead = shape.endArrowhead;
       node.svgPathData = shape.svgPathData;
@@ -335,20 +328,8 @@ function nodeToFlatShapes(
         y1: node.y1 ?? 0,
         x2: node.x2 ?? node.width,
         y2: node.y2 ?? 0,
-        svgPathData: node.svgPathData,
-      });
-      break;
-    case 'arrow':
-      Object.assign(base, {
-        strokes,
-        shadows,
-        blurs,
-        x1: node.x1 ?? 0,
-        y1: node.y1 ?? 0,
-        x2: node.x2 ?? node.width,
-        y2: node.y2 ?? 0,
-        startArrowhead: node.startArrowhead ?? false,
-        endArrowhead: node.endArrowhead ?? true,
+        startArrowhead: node.startArrowhead ?? 'none',
+        endArrowhead: node.endArrowhead ?? 'none',
         svgPathData: node.svgPathData,
       });
       break;

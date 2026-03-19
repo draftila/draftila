@@ -1,4 +1,4 @@
-import type { Shape } from '@draftila/shared';
+import type { ArrowheadType, Shape } from '@draftila/shared';
 import paper from 'paper/dist/paper-core';
 import {
   arrowToPath,
@@ -55,21 +55,16 @@ export function getShapeSvgPath(shape: Shape): string | null {
       return starToPath(shape.width, shape.height, points, innerRadius);
     }
     case 'line': {
-      const x1 = (shape as Shape & { x1?: number }).x1 ?? 0;
-      const y1 = (shape as Shape & { y1?: number }).y1 ?? 0;
-      const x2 = (shape as Shape & { x2?: number }).x2 ?? shape.width;
-      const y2 = (shape as Shape & { y2?: number }).y2 ?? 0;
-      return lineToPath(x1, y1, x2, y2);
-    }
-    case 'arrow': {
-      const x1 = (shape as Shape & { x1?: number }).x1 ?? 0;
-      const y1 = (shape as Shape & { y1?: number }).y1 ?? 0;
-      const x2 = (shape as Shape & { x2?: number }).x2 ?? shape.width;
-      const y2 = (shape as Shape & { y2?: number }).y2 ?? 0;
-      const startArrowhead =
-        (shape as Shape & { startArrowhead?: boolean }).startArrowhead ?? false;
-      const endArrowhead = (shape as Shape & { endArrowhead?: boolean }).endArrowhead ?? true;
-      return arrowToPath(x1, y1, x2, y2, 2, startArrowhead, endArrowhead);
+      const x1 = shape.x1 ?? 0;
+      const y1 = shape.y1 ?? 0;
+      const x2 = shape.x2 ?? shape.width;
+      const y2 = shape.y2 ?? 0;
+      const startHead = (shape.startArrowhead as ArrowheadType) ?? 'none';
+      const endHead = (shape.endArrowhead as ArrowheadType) ?? 'none';
+      if (startHead === 'none' && endHead === 'none') {
+        return lineToPath(x1, y1, x2, y2);
+      }
+      return arrowToPath(x1, y1, x2, y2, 2, startHead, endHead);
     }
     default:
       return null;
