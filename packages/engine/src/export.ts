@@ -76,8 +76,75 @@ export async function downloadSvg(svg: string, filename: string) {
   await downloadBlob(blob, filename);
 }
 
+export async function exportToJpg(shapes: Shape[], scale = 2, quality = 1): Promise<Blob> {
+  if (shapes.length === 0) {
+    throw new Error('No shapes to export');
+  }
+
+  const families = collectFontFamilies(shapes);
+  if (families.length > 0) {
+    await ensureFontsLoadedAsync(families);
+  }
+
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
+  for (const s of shapes) {
+    minX = Math.min(minX, s.x);
+    minY = Math.min(minY, s.y);
+    maxX = Math.max(maxX, s.x + s.width);
+    maxY = Math.max(maxY, s.y + s.height);
+  }
+
+  const padding = 16;
+  const width = maxX - minX + padding * 2;
+  const height = maxY - minY + padding * 2;
+
+  const canvas = document.createElement('canvas');
+  const renderer = new Canvas2DRenderer(canvas);
+  renderer.resize(width, height, scale);
+  renderer.clear();
+
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  renderer.save();
+  renderer.applyCamera({ x: -minX + padding, y: -minY + padding, zoom: 1 });
+
+  for (const shape of shapes) {
+    renderShape(renderer, shape);
+  }
+
+  renderer.restore();
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error('Failed to create JPEG blob'));
+      },
+      'image/jpeg',
+      quality,
+    );
+  });
+}
+
 export async function exportAndDownloadPng(shapes: Shape[], filename: string, scale = 2) {
   const blob = await exportToPng(shapes, scale);
+  await downloadBlob(blob, filename);
+}
+
+export async function exportAndDownloadJpg(
+  shapes: Shape[],
+  filename: string,
+  scale = 2,
+  quality = 1,
+) {
+  const blob = await exportToJpg(shapes, scale, quality);
   await downloadBlob(blob, filename);
 }
 
