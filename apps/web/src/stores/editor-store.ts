@@ -15,6 +15,7 @@ interface EditorState {
   leftPanelOpen: boolean;
   rightPanelOpen: boolean;
   cursorCanvasPoint: Point | null;
+  snapToPixelGrid: boolean;
 
   setActiveTool: (tool: ToolType) => void;
   setActivePageId: (pageId: string | null) => void;
@@ -34,6 +35,8 @@ interface EditorState {
   setRightPanelOpen: (open: boolean) => void;
   setCursorCanvasPoint: (point: Point | null) => void;
   setEnteredGroupId: (id: string | null) => void;
+  setSnapToPixelGrid: (enabled: boolean) => void;
+  toggleSnapToPixelGrid: () => void;
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
@@ -49,6 +52,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   leftPanelOpen: true,
   rightPanelOpen: true,
   cursorCanvasPoint: null,
+  snapToPixelGrid: false,
 
   setActiveTool: (tool) => set({ activeTool: tool }),
 
@@ -102,6 +106,10 @@ export const useEditorStore = create<EditorState>((set) => ({
   setCursorCanvasPoint: (point) => set({ cursorCanvasPoint: point }),
 
   setEnteredGroupId: (id) => set({ enteredGroupId: id }),
+
+  setSnapToPixelGrid: (enabled) => set({ snapToPixelGrid: enabled }),
+
+  toggleSnapToPixelGrid: () => set((state) => ({ snapToPixelGrid: !state.snapToPixelGrid })),
 }));
 
 configureToolStore({
@@ -113,6 +121,9 @@ configureToolStore({
   },
   get camera() {
     return useEditorStore.getState().camera;
+  },
+  get snapToPixelGrid() {
+    return useEditorStore.getState().snapToPixelGrid;
   },
   setSelectedIds: (ids) => useEditorStore.getState().setSelectedIds(ids),
   setActiveTool: (tool) => useEditorStore.getState().setActiveTool(tool),

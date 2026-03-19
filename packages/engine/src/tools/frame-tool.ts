@@ -1,5 +1,9 @@
 import { BaseTool, getToolStore, type ToolContext, type ToolResult } from './base-tool';
 import { addShape, findContainerAtPoint } from '../scene-graph';
+import type { SnapLine, DistanceIndicator } from '../snap';
+import { snapDrawnRect, type DrawSnapState } from './draw-snap';
+
+const EMPTY_SNAP: DrawSnapState = { snapLines: [], distanceIndicators: [] };
 
 export class FrameTool extends BaseTool {
   readonly name = 'frame';
@@ -8,6 +12,7 @@ export class FrameTool extends BaseTool {
   private startPoint: { x: number; y: number } | null = null;
   private containerId: string | null = null;
   previewRect: { x: number; y: number; width: number; height: number } | null = null;
+  private drawSnap: DrawSnapState = EMPTY_SNAP;
 
   onPointerDown(ctx: ToolContext): ToolResult | void {
     this.startPoint = { x: ctx.canvasPoint.x, y: ctx.canvasPoint.y };
@@ -18,34 +23,19 @@ export class FrameTool extends BaseTool {
   onPointerMove(ctx: ToolContext): ToolResult | void {
     if (!this.startPoint) return;
 
-    let x = this.startPoint.x;
-    let y = this.startPoint.y;
-    let width = ctx.canvasPoint.x - x;
-    let height = ctx.canvasPoint.y - y;
+    const { rect, snap } = snapDrawnRect(
+      ctx.ydoc,
+      this.startPoint.x,
+      this.startPoint.y,
+      ctx.canvasPoint.x,
+      ctx.canvasPoint.y,
+      ctx.shiftKey,
+      ctx.altKey,
+      ctx.camera.zoom,
+    );
 
-    if (ctx.shiftKey) {
-      const size = Math.max(Math.abs(width), Math.abs(height));
-      width = width >= 0 ? size : -size;
-      height = height >= 0 ? size : -size;
-    }
-
-    if (ctx.altKey) {
-      x = this.startPoint.x - Math.abs(width);
-      y = this.startPoint.y - Math.abs(height);
-      width = Math.abs(width) * 2;
-      height = Math.abs(height) * 2;
-    } else {
-      if (width < 0) {
-        x += width;
-        width = -width;
-      }
-      if (height < 0) {
-        y += height;
-        height = -height;
-      }
-    }
-
-    this.previewRect = { x, y, width, height };
+    this.previewRect = rect;
+    this.drawSnap = snap;
   }
 
   onPointerUp(ctx: ToolContext): ToolResult | void {
@@ -73,10 +63,19 @@ export class FrameTool extends BaseTool {
     this.reset();
   }
 
+  getSnapLines(): SnapLine[] {
+    return this.drawSnap.snapLines;
+  }
+
+  getDistanceIndicators(): DistanceIndicator[] {
+    return this.drawSnap.distanceIndicators;
+  }
+
   private reset() {
     this.startPoint = null;
     this.containerId = null;
     this.previewRect = null;
+    this.drawSnap = EMPTY_SNAP;
     getToolStore().setIsDrawing(false);
   }
 }

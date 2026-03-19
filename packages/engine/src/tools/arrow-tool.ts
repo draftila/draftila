@@ -1,5 +1,9 @@
 import { BaseTool, getToolStore, type ToolContext, type ToolResult } from './base-tool';
 import { addShape, findContainerAtPoint } from '../scene-graph';
+import type { SnapLine, DistanceIndicator } from '../snap';
+import { snapDrawnLine, type DrawSnapState } from './draw-snap';
+
+const EMPTY_SNAP: DrawSnapState = { snapLines: [], distanceIndicators: [] };
 
 export class ArrowTool extends BaseTool {
   readonly name = 'arrow';
@@ -8,6 +12,7 @@ export class ArrowTool extends BaseTool {
   private startPoint: { x: number; y: number } | null = null;
   private containerId: string | null = null;
   previewLine: { x1: number; y1: number; x2: number; y2: number } | null = null;
+  private drawSnap: DrawSnapState = EMPTY_SNAP;
 
   onPointerDown(ctx: ToolContext): ToolResult | void {
     this.startPoint = { x: ctx.canvasPoint.x, y: ctx.canvasPoint.y };
@@ -24,13 +29,23 @@ export class ArrowTool extends BaseTool {
       const dx = x2 - this.startPoint.x;
       const dy = y2 - this.startPoint.y;
       const angle = Math.atan2(dy, dx);
-      const snapped = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+      const snappedAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
       const length = Math.sqrt(dx * dx + dy * dy);
-      x2 = this.startPoint.x + Math.cos(snapped) * length;
-      y2 = this.startPoint.y + Math.sin(snapped) * length;
+      x2 = this.startPoint.x + Math.cos(snappedAngle) * length;
+      y2 = this.startPoint.y + Math.sin(snappedAngle) * length;
     }
 
-    this.previewLine = { x1: this.startPoint.x, y1: this.startPoint.y, x2, y2 };
+    const { line, snap } = snapDrawnLine(
+      ctx.ydoc,
+      this.startPoint.x,
+      this.startPoint.y,
+      x2,
+      y2,
+      ctx.camera.zoom,
+    );
+
+    this.previewLine = line;
+    this.drawSnap = snap;
   }
 
   onPointerUp(ctx: ToolContext): ToolResult | void {
@@ -73,10 +88,19 @@ export class ArrowTool extends BaseTool {
     this.reset();
   }
 
+  getSnapLines(): SnapLine[] {
+    return this.drawSnap.snapLines;
+  }
+
+  getDistanceIndicators(): DistanceIndicator[] {
+    return this.drawSnap.distanceIndicators;
+  }
+
   private reset() {
     this.startPoint = null;
     this.containerId = null;
     this.previewLine = null;
+    this.drawSnap = EMPTY_SNAP;
     getToolStore().setIsDrawing(false);
   }
 }

@@ -87,7 +87,16 @@ export { hitTestPoint, hitTestRect } from './hit-test';
 
 export { type ShapeBBox, SpatialIndex } from './spatial-index';
 
-export { type SnapLine, type DistanceIndicator, type SnapResult, snapPosition } from './snap';
+export {
+  type SnapLine,
+  type DistanceIndicator,
+  type SnapResult,
+  type ParentFrameRect,
+  type ResizeSnapEdges,
+  type ResizeSnapResult,
+  snapPosition,
+  snapResize,
+} from './snap';
 
 export { initUndoManager, undo, redo, canUndo, canRedo, destroyUndoManager } from './history';
 

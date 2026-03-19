@@ -14,6 +14,7 @@ import {
   Star,
   MoveRight,
   ChevronDown,
+  Grid3x3,
 } from 'lucide-react';
 import { Toggle } from '@/components/ui/toggle';
 import { Separator } from '@/components/ui/separator';
@@ -168,6 +169,31 @@ const PEN_TOOLS: ToolOption[] = [
   },
 ];
 
+function PixelGridToggle() {
+  const snapToPixelGrid = useEditorStore((s) => s.snapToPixelGrid);
+  const toggleSnapToPixelGrid = useEditorStore((s) => s.toggleSnapToPixelGrid);
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Toggle
+          size="sm"
+          pressed={snapToPixelGrid}
+          onPressedChange={toggleSnapToPixelGrid}
+          aria-label="Snap to pixel grid"
+          className="h-8 w-8 p-0"
+        >
+          <Grid3x3 className="h-4 w-4" />
+        </Toggle>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="flex items-center gap-2">
+        <span>Snap to pixel grid</span>
+        <kbd className="bg-muted/20 rounded px-1.5 py-0.5 font-mono text-[10px]">{`'`}</kbd>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 export function EditorToolbar() {
   return (
     <div className="bg-background flex items-center gap-1 rounded-lg border p-1 shadow-sm">
@@ -184,6 +210,8 @@ export function EditorToolbar() {
       <Separator orientation="vertical" className="mx-1 h-full" />
       <ToolButton tool="text" icon={<Type className="h-4 w-4" />} label="Text" shortcut="T" />
       <ToolGroup options={PEN_TOOLS} />
+      <Separator orientation="vertical" className="mx-1 h-full" />
+      <PixelGridToggle />
     </div>
   );
 }
