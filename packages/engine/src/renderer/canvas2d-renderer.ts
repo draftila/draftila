@@ -140,6 +140,16 @@ export class Canvas2DRenderer implements Renderer {
     this.ctx.clearRect(0, 0, this._width, this._height);
   }
 
+  fillBackground(color: string) {
+    const { ctx } = this;
+    ctx.save();
+    ctx.resetTransform();
+    ctx.scale(this.dpr, this.dpr);
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, this._width, this._height);
+    ctx.restore();
+  }
+
   save() {
     this.ctx.save();
   }

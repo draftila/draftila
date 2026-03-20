@@ -7,6 +7,7 @@ import { hitTestPoint } from '@draftila/engine/hit-test';
 import { getAllShapes } from '@draftila/engine/scene-graph';
 import { SpatialIndex } from '@draftila/engine/spatial-index';
 import { getNodeTool, setTextToolCallback } from '@draftila/engine/tools/tool-manager';
+import { DEFAULT_PAGE_BACKGROUND } from '@draftila/engine';
 import { useCanvas, getCursorForTool } from '../hooks/use-canvas';
 import { useTool } from '../hooks/use-tool';
 import { useFileDrop } from '../hooks/use-file-drop';
@@ -207,7 +208,10 @@ export function Canvas({ ydoc, remoteUsers, onActiveInteraction }: CanvasProps) 
   const cursor = getCursorForTool(activeTool, isPanning);
 
   return (
-    <div className="bg-muted/30 relative flex-1 overflow-hidden">
+    <div
+      className="relative flex-1 overflow-hidden"
+      style={{ backgroundColor: DEFAULT_PAGE_BACKGROUND }}
+    >
       <canvas
         ref={canvasRef}
         className="absolute inset-0"

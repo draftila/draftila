@@ -5,6 +5,8 @@ import {
   exportAndDownloadPng,
   exportAndDownloadSvg,
 } from '@draftila/engine/export';
+import { getPageBackgroundColor } from '@draftila/engine';
+import { useEditorStore } from '@/stores/editor-store';
 import type { PropertySectionProps } from '../types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
@@ -45,7 +47,7 @@ function hasScaleSetting(format: ExportFormat): boolean {
   return format === 'PNG' || format === 'JPG';
 }
 
-export function ExportSection({ shape, shapeScope }: PropertySectionProps) {
+export function ExportSection({ ydoc, shape, shapeScope }: PropertySectionProps) {
   const [exports, setExports] = useState<ExportConfig[]>([]);
   const hasExportableShapes = shapeScope.length > 0;
 
@@ -72,16 +74,25 @@ export function ExportSection({ shape, shapeScope }: PropertySectionProps) {
         return;
       }
 
+      const currentPageId = useEditorStore.getState().activePageId;
+      const pageBg = currentPageId ? getPageBackgroundColor(ydoc, currentPageId) : null;
+
       if (config.format === 'PNG') {
-        await exportAndDownloadPng(exportShapes, `${baseName}${suffix}.png`, scale);
+        await exportAndDownloadPng(exportShapes, `${baseName}${suffix}.png`, scale, pageBg);
       } else if (config.format === 'JPG') {
         const quality = QUALITY_VALUES[config.quality];
-        await exportAndDownloadJpg(exportShapes, `${baseName}${suffix}.jpg`, scale, quality);
+        await exportAndDownloadJpg(
+          exportShapes,
+          `${baseName}${suffix}.jpg`,
+          scale,
+          quality,
+          pageBg,
+        );
       } else if (config.format === 'SVG') {
         await exportAndDownloadSvg(exportShapes, `${baseName}${suffix}.svg`);
       }
     },
-    [shape, shapeScope],
+    [ydoc, shape, shapeScope],
   );
 
   const handleExportAll = useCallback(async () => {

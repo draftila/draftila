@@ -23,7 +23,7 @@ export function EditorPage() {
   const { draftId } = useParams<{ draftId: string }>();
   const navigate = useNavigate();
   const { data: draft, isLoading, isError } = useDraftById(draftId ?? '');
-  const { ydoc, provider, connected, applyingRemoteChanges } = useYjs({
+  const { ydoc, provider, connected, synced, applyingRemoteChanges } = useYjs({
     draftId: draftId ?? '',
     enabled: !!draft,
   });
@@ -114,7 +114,7 @@ export function EditorPage() {
     [updateCursor],
   );
 
-  if (isLoading) {
+  if (isLoading || !synced) {
     return (
       <div className="flex h-screen items-center justify-center">
         <p className="text-muted-foreground text-sm">Loading...</p>
