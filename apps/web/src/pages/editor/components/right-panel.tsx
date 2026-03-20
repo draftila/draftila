@@ -13,6 +13,12 @@ import {
 import { getComponentById, getInstanceComponentId, observeComponents } from '@draftila/engine';
 import { isAutoLayoutFrame } from '@draftila/engine/auto-layout';
 import { alignShapes, distributeShapes } from '@draftila/engine/selection';
+import {
+  getPageBackgroundColor,
+  setPageBackgroundColor,
+  observePages,
+  DEFAULT_PAGE_BACKGROUND,
+} from '@draftila/engine';
 import { useEditorStore } from '@/stores/editor-store';
 import {
   AlignStartVertical,
@@ -26,6 +32,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+
+import { ColorPicker } from './color-picker';
 import { ExportSection } from './right-panel/sections/export-section';
 import { PreviewSection } from './right-panel/sections/preview-section';
 import { getSectionsForShape } from './right-panel/section-registry';
@@ -132,6 +140,29 @@ export function RightPanel({ ydoc }: RightPanelProps) {
   const [shapeScope, setShapeScope] = useState<Shape[]>([]);
   const [canvasShape, setCanvasShape] = useState<Shape>(createCanvasScopeShape([]));
   const [revision, setRevision] = useState(0);
+  const [pageBgColor, setPageBgColor] = useState(DEFAULT_PAGE_BACKGROUND);
+
+  useEffect(() => {
+    setPageBgColor(
+      activePageId ? getPageBackgroundColor(ydoc, activePageId) : DEFAULT_PAGE_BACKGROUND,
+    );
+
+    return observePages(ydoc, () => {
+      const currentPageId = useEditorStore.getState().activePageId;
+      setPageBgColor(
+        currentPageId ? getPageBackgroundColor(ydoc, currentPageId) : DEFAULT_PAGE_BACKGROUND,
+      );
+    });
+  }, [ydoc, activePageId]);
+
+  const handlePageBgColorChange = useCallback(
+    (color: string) => {
+      if (!activePageId) return;
+      setPageBackgroundColor(ydoc, activePageId, color);
+      setPageBgColor(color);
+    },
+    [ydoc, activePageId],
+  );
 
   const selectedShapes = selectedIds
     .map((id) => getShape(ydoc, id))
@@ -298,6 +329,26 @@ export function RightPanel({ ydoc }: RightPanelProps) {
       <div className="flex-1 overflow-auto">
         {!selectedShape && !multiSelected && (
           <div>
+            <div className="border-b px-3 py-3">
+              <p className="text-muted-foreground mb-2 text-[11px] font-medium">Page</p>
+              <div className="flex items-center gap-1.5">
+                <ColorPicker
+                  color={pageBgColor}
+                  opacity={1}
+                  onChange={handlePageBgColorChange}
+                  onOpacityChange={() => {}}
+                >
+                  <button className="hover:bg-muted/50 flex min-w-0 flex-1 items-center gap-2.5 rounded py-0.5">
+                    <div className="border-border relative h-5 w-5 shrink-0 overflow-hidden rounded border">
+                      <div className="absolute inset-0" style={{ backgroundColor: pageBgColor }} />
+                    </div>
+                    <span className="truncate font-mono text-[11px] leading-snug">
+                      {pageBgColor.replace('#', '').toUpperCase()}
+                    </span>
+                  </button>
+                </ColorPicker>
+              </div>
+            </div>
             <div className="border-b px-3 py-3">
               <ExportSection
                 ydoc={ydoc}

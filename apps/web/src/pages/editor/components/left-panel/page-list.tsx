@@ -166,7 +166,7 @@ export function PageList({ ydoc }: PageListProps) {
                   type="button"
                   className={`flex h-7 flex-1 items-center rounded-md px-2 text-left text-xs transition-colors ${
                     isActive
-                      ? 'bg-primary/10 text-primary font-medium'
+                      ? 'bg-muted text-foreground font-medium'
                       : 'hover:bg-muted text-foreground'
                   }`}
                   onClick={() => handleSwitchPage(page.id)}

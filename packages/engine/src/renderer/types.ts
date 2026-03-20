@@ -93,6 +93,7 @@ export interface Renderer {
 
   resize(width: number, height: number, dpr: number): void;
   clear(): void;
+  fillBackground(color: string): void;
 
   save(): void;
   restore(): void;

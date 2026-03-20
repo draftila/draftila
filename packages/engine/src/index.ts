@@ -182,6 +182,9 @@ export {
   setActivePage,
   getActivePageId,
   observePages,
+  setPageBackgroundColor,
+  getPageBackgroundColor,
+  DEFAULT_PAGE_BACKGROUND,
 } from './pages';
 
 export {

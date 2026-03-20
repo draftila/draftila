@@ -3,6 +3,7 @@ import type * as Y from 'yjs';
 import type { Shape } from '@draftila/shared';
 import { Canvas2DRenderer } from '@draftila/engine/renderer/canvas2d';
 import { getAllShapes, observeShapes } from '@draftila/engine/scene-graph';
+import { getPageBackgroundColor, observePages, DEFAULT_PAGE_BACKGROUND } from '@draftila/engine';
 import {
   renderShape,
   renderSelectionForShape,
@@ -69,6 +70,20 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
   }, []);
 
   const needsRedrawRef = useRef(false);
+  const pageBgRef = useRef(DEFAULT_PAGE_BACKGROUND);
+
+  useEffect(() => {
+    pageBgRef.current = activePageId
+      ? getPageBackgroundColor(ydoc, activePageId)
+      : DEFAULT_PAGE_BACKGROUND;
+
+    return observePages(ydoc, () => {
+      const currentPageId = useEditorStore.getState().activePageId;
+      pageBgRef.current = currentPageId
+        ? getPageBackgroundColor(ydoc, currentPageId)
+        : DEFAULT_PAGE_BACKGROUND;
+    });
+  }, [ydoc, activePageId]);
 
   useEffect(() => {
     shapeCacheRef.current = getAllShapes(ydoc);
@@ -110,6 +125,8 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
     };
 
     renderer.clear();
+    renderer.fillBackground(pageBgRef.current);
+
     renderer.save();
     renderer.applyCamera(camera);
 

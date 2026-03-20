@@ -3,6 +3,8 @@ import * as Y from 'yjs';
 const PAGE_ID_SIZE = 12;
 const PAGE_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 
+export const DEFAULT_PAGE_BACKGROUND = '#333333';
+
 function generatePageId(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(PAGE_ID_SIZE));
   let id = '';
@@ -15,6 +17,7 @@ function generatePageId(): string {
 export interface PageData {
   id: string;
   name: string;
+  backgroundColor: string;
 }
 
 type PagesMap = Y.Map<Y.Map<unknown>>;
@@ -53,6 +56,7 @@ function createPage(id: string, name: string): Y.Map<unknown> {
   const page = new Y.Map<unknown>();
   page.set('id', id);
   page.set('name', name);
+  page.set('backgroundColor', DEFAULT_PAGE_BACKGROUND);
   page.set('shapes', new Y.Map<unknown>());
   page.set('zOrder', new Y.Array<string>());
   return page;
@@ -136,6 +140,8 @@ export function getPages(ydoc: Y.Doc): PageData[] {
       result.push({
         id,
         name: (page.get('name') as string) ?? 'Untitled',
+        backgroundColor:
+          (page.get('backgroundColor') as string | undefined) ?? DEFAULT_PAGE_BACKGROUND,
       });
     }
   }
@@ -190,6 +196,25 @@ export function renamePage(ydoc: Y.Doc, pageId: string, name: string) {
   if (page) {
     page.set('name', name);
   }
+}
+
+export function setPageBackgroundColor(ydoc: Y.Doc, pageId: string, color: string | null) {
+  const pages = getPagesMap(ydoc);
+  const page = pages.get(pageId);
+  if (page) {
+    if (color === null) {
+      page.delete('backgroundColor');
+    } else {
+      page.set('backgroundColor', color);
+    }
+  }
+}
+
+export function getPageBackgroundColor(ydoc: Y.Doc, pageId: string): string {
+  const pages = getPagesMap(ydoc);
+  const page = pages.get(pageId);
+  if (!page) return DEFAULT_PAGE_BACKGROUND;
+  return (page.get('backgroundColor') as string | undefined) ?? DEFAULT_PAGE_BACKGROUND;
 }
 
 export function setActivePage(ydoc: Y.Doc, pageId: string): boolean {

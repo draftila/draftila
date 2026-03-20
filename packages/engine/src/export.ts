@@ -5,7 +5,11 @@ import { shapesToInterchange } from './interchange/converter';
 import { generateSvg } from './interchange/svg/svg-generator';
 import { collectFontFamilies, ensureFontsLoadedAsync } from './font-manager';
 
-export async function exportToPng(shapes: Shape[], scale = 2): Promise<Blob> {
+export async function exportToPng(
+  shapes: Shape[],
+  scale = 2,
+  backgroundColor?: string | null,
+): Promise<Blob> {
   if (shapes.length === 0) {
     throw new Error('No shapes to export');
   }
@@ -34,6 +38,11 @@ export async function exportToPng(shapes: Shape[], scale = 2): Promise<Blob> {
   const renderer = new Canvas2DRenderer(canvas);
   renderer.resize(width, height, scale);
   renderer.clear();
+
+  if (backgroundColor) {
+    renderer.fillBackground(backgroundColor);
+  }
+
   renderer.save();
   renderer.applyCamera({ x: -minX + padding, y: -minY + padding, zoom: 1 });
 
@@ -76,7 +85,12 @@ export async function downloadSvg(svg: string, filename: string) {
   await downloadBlob(blob, filename);
 }
 
-export async function exportToJpg(shapes: Shape[], scale = 2, quality = 1): Promise<Blob> {
+export async function exportToJpg(
+  shapes: Shape[],
+  scale = 2,
+  quality = 1,
+  backgroundColor?: string | null,
+): Promise<Blob> {
   if (shapes.length === 0) {
     throw new Error('No shapes to export');
   }
@@ -105,12 +119,7 @@ export async function exportToJpg(shapes: Shape[], scale = 2, quality = 1): Prom
   const renderer = new Canvas2DRenderer(canvas);
   renderer.resize(width, height, scale);
   renderer.clear();
-
-  const ctx = canvas.getContext('2d');
-  if (ctx) {
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }
+  renderer.fillBackground(backgroundColor ?? '#ffffff');
 
   renderer.save();
   renderer.applyCamera({ x: -minX + padding, y: -minY + padding, zoom: 1 });
@@ -133,8 +142,13 @@ export async function exportToJpg(shapes: Shape[], scale = 2, quality = 1): Prom
   });
 }
 
-export async function exportAndDownloadPng(shapes: Shape[], filename: string, scale = 2) {
-  const blob = await exportToPng(shapes, scale);
+export async function exportAndDownloadPng(
+  shapes: Shape[],
+  filename: string,
+  scale = 2,
+  backgroundColor?: string | null,
+) {
+  const blob = await exportToPng(shapes, scale, backgroundColor);
   await downloadBlob(blob, filename);
 }
 
@@ -143,8 +157,9 @@ export async function exportAndDownloadJpg(
   filename: string,
   scale = 2,
   quality = 1,
+  backgroundColor?: string | null,
 ) {
-  const blob = await exportToJpg(shapes, scale, quality);
+  const blob = await exportToJpg(shapes, scale, quality, backgroundColor);
   await downloadBlob(blob, filename);
 }
 
