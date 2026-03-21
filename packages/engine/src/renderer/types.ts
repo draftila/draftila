@@ -101,6 +101,8 @@ export interface Renderer {
   applyCamera(camera: Camera): void;
   getViewport(camera: Camera): Viewport;
 
+  drawPixelGrid(viewport: Viewport, zoom: number): void;
+
   drawRect(
     transform: RenderTransform,
     style: RenderStyle,
@@ -126,17 +128,31 @@ export interface Renderer {
 
   endClip(): void;
 
-  drawSelectionBox(x: number, y: number, width: number, height: number, rotation?: number): void;
+  drawSelectionBox(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    zoom: number,
+    rotation?: number,
+  ): void;
 
-  drawHoverOutline(x: number, y: number, width: number, height: number, rotation?: number): void;
+  drawHoverOutline(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    zoom: number,
+    rotation?: number,
+  ): void;
 
-  drawMarquee(x: number, y: number, width: number, height: number): void;
+  drawMarquee(x: number, y: number, width: number, height: number, zoom: number): void;
 
   drawHandle(x: number, y: number, zoom: number): void;
 
   drawRotationHandle(x: number, y: number, zoom: number): void;
 
-  drawSnapLine(axis: 'x' | 'y', position: number, start: number, end: number): void;
+  drawSnapLine(axis: 'x' | 'y', position: number, start: number, end: number, zoom: number): void;
 
   drawDistanceIndicator(
     axis: 'x' | 'y',

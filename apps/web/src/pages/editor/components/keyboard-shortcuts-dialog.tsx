@@ -72,7 +72,6 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { label: 'Zoom to Fit All', keys: '\u21E71' },
       { label: 'Zoom to Selection', keys: '\u21E72' },
       { label: 'Pan', keys: 'Space + Drag' },
-      { label: 'Snap to Pixel Grid', keys: "'" },
     ],
   },
   {
