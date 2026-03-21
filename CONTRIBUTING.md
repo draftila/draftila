@@ -15,5 +15,5 @@ To keep Draftila sustainably open source and preserve future licensing flexibili
 ## What submitting a pull request confirms
 
 - You have the right to submit your contribution.
-- You grant the project maintainer the rights needed to use, redistribute, and relicense your contribution under AGPL-3.0 and other future license terms.
+- You grant the project maintainer the rights needed to use, redistribute, and relicense your contribution under Apache-2.0 and other future license terms.
 - You understand your contribution remains available under this repository's open source license for the community.

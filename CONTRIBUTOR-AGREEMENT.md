@@ -14,7 +14,7 @@ You retain ownership of your contribution.
 
 You grant the Maintainer a perpetual, worldwide, non-exclusive, irrevocable, royalty-free license to use, reproduce, modify, distribute, sublicense, and relicense your contribution.
 
-This grant includes relicensing under AGPL-3.0 and other future license terms.
+This grant includes relicensing under Apache-2.0 and other future license terms.
 
 ## Your confirmations
 
