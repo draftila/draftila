@@ -48,7 +48,7 @@ describe('user', () => {
       };
       expect(body.user.email).toBe('test@draftila.com');
       expect(body.user.name).toBe('Test User');
-      expect(Object.keys(body.user).sort()).toEqual(['email', 'id', 'image', 'name']);
+      expect(Object.keys(body.user).sort()).toEqual(['email', 'id', 'image', 'name', 'role']);
     });
 
     test('returns 401 with invalid session token', async () => {

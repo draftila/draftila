@@ -5,6 +5,9 @@ import type {
   loginSchema,
   userSchema,
   createUserSchema,
+  adminUserSchema,
+  createAdminUserSchema,
+  updateAdminUserSchema,
   projectSchema,
   createProjectSchema,
   draftSchema,
@@ -17,6 +20,9 @@ import type {
 export type Login = z.infer<typeof loginSchema>;
 export type User = z.infer<typeof userSchema>;
 export type CreateUser = z.infer<typeof createUserSchema>;
+export type AdminUser = z.infer<typeof adminUserSchema>;
+export type CreateAdminUser = z.infer<typeof createAdminUserSchema>;
+export type UpdateAdminUser = z.infer<typeof updateAdminUserSchema>;
 export type Project = z.infer<typeof projectSchema>;
 export type CreateProject = z.infer<typeof createProjectSchema>;
 export type Draft = z.infer<typeof draftSchema>;

@@ -6,8 +6,8 @@ const userRoutes = new Hono<AuthEnv>();
 userRoutes.use(requireAuth);
 
 userRoutes.get('/me', (c) => {
-  const { id, email, name, image } = c.get('user');
-  return c.json({ user: { id, email, name, image } });
+  const { id, email, name, image, role } = c.get('user');
+  return c.json({ user: { id, email, name, image, role } });
 });
 
 export { userRoutes };
