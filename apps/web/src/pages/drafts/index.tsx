@@ -8,12 +8,18 @@ import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
 import { UserMenu } from '@/components/user-menu';
+import { ErrorState } from '@/components/error-state';
 import { DraftCard } from './components/draft-card';
 import { DraftListItem } from './components/draft-list-item';
 import { DraftsToolbar } from './components/drafts-toolbar';
 
 export function DraftsPage() {
-  const { data: projectsResponse, isLoading: projectsLoading } = useProjects();
+  const {
+    data: projectsResponse,
+    isLoading: projectsLoading,
+    isError: projectsError,
+    error: projectsErr,
+  } = useProjects();
   const selectedProjectId = useDashboardStore((s) => s.selectedProjectId);
   const setSelectedProjectId = useDashboardStore((s) => s.setSelectedProjectId);
   const sortOrder = useDashboardStore((s) => s.sortOrder);
@@ -37,6 +43,8 @@ export function DraftsPage() {
   const draftsQuery = isAllProjects ? allDraftsQuery : projectDraftsQuery;
   const drafts = draftsQuery.data?.data ?? [];
   const isLoading = projectsLoading || draftsQuery.isLoading;
+  const isError = projectsError || draftsQuery.isError;
+  const error = projectsErr ?? draftsQuery.error;
 
   const navigate = useNavigate();
   const createProjectId = selectedProjectId ?? projects.find((p) => p.isPersonal)?.id ?? '';
@@ -68,7 +76,9 @@ export function DraftsPage() {
         <div className="mb-6">
           <DraftsToolbar projects={projects} />
         </div>
-        {isLoading ? null : drafts.length === 0 ? (
+        {isError ? (
+          <ErrorState error={error} />
+        ) : isLoading ? null : drafts.length === 0 ? (
           <EmptyState onCreateDraft={handleCreateDraft} disabled={!createProjectId} />
         ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">

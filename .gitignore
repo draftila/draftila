@@ -4,6 +4,7 @@ node_modules/
 # Build outputs
 dist/
 .turbo/
+*.tsbuildinfo
 apps/api/src/generated/
 
 # Environment
