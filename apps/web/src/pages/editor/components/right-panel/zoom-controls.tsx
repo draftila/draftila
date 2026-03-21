@@ -46,7 +46,7 @@ function fitCameraToBounds(
   const availableWidth = Math.max(1, viewport.width - padding * 2);
   const availableHeight = Math.max(1, viewport.height - padding * 2);
   const zoom = Math.min(
-    64,
+    256,
     Math.max(0.02, Math.min(availableWidth / contentWidth, availableHeight / contentHeight)),
   );
 
@@ -124,7 +124,7 @@ export function ZoomControls({ ydoc }: ZoomControlsProps) {
         variant="ghost"
         size="icon"
         className="h-6 w-6"
-        onClick={() => setCamera({ ...camera, zoom: Math.min(64, camera.zoom * 1.25) })}
+        onClick={() => setCamera({ ...camera, zoom: Math.min(256, camera.zoom * 1.25) })}
       >
         <Plus className="h-3 w-3" />
       </Button>

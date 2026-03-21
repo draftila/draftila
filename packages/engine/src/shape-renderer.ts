@@ -429,32 +429,32 @@ export function renderShape(renderer: Renderer, shape: Shape) {
   }
 }
 
-export function renderSelectionForShape(renderer: Renderer, shape: Shape) {
+export function renderSelectionForShape(renderer: Renderer, shape: Shape, zoom: number) {
   if (shape.type === 'line') {
     renderer.drawPath(
       [
         [shape.x1, shape.y1],
         [shape.x2, shape.y2],
       ],
-      simpleStyle({ fill: null, stroke: '#0D99FF', strokeWidth: 2, opacity: 1 }),
+      simpleStyle({ fill: null, stroke: '#0D99FF', strokeWidth: 2 / zoom, opacity: 1 }),
       false,
     );
     return;
   }
-  renderer.drawSelectionBox(shape.x, shape.y, shape.width, shape.height, shape.rotation);
+  renderer.drawSelectionBox(shape.x, shape.y, shape.width, shape.height, zoom, shape.rotation);
 }
 
-export function renderHoverForShape(renderer: Renderer, shape: Shape) {
+export function renderHoverForShape(renderer: Renderer, shape: Shape, zoom: number) {
   if (shape.type === 'line') {
     renderer.drawPath(
       [
         [shape.x1, shape.y1],
         [shape.x2, shape.y2],
       ],
-      simpleStyle({ fill: null, stroke: '#0D99FF', strokeWidth: 2, opacity: 1 }),
+      simpleStyle({ fill: null, stroke: '#0D99FF', strokeWidth: 2 / zoom, opacity: 1 }),
       false,
     );
     return;
   }
-  renderer.drawHoverOutline(shape.x, shape.y, shape.width, shape.height, shape.rotation);
+  renderer.drawHoverOutline(shape.x, shape.y, shape.width, shape.height, zoom, shape.rotation);
 }

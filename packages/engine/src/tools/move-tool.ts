@@ -433,17 +433,6 @@ export class MoveTool extends BaseTool {
       const boundsW = maxX - minX;
       const boundsH = maxY - minY;
 
-      const store = getToolStore();
-
-      if (store.snapToPixelGrid) {
-        const pixelDx = Math.round(rawDx);
-        const pixelDy = Math.round(rawDy);
-        this.dragOffset = { dx: pixelDx, dy: pixelDy };
-        this.activeSnapLines = [];
-        this.activeDistanceIndicators = [];
-        return { cursor: 'move' };
-      }
-
       const result = snapPosition(
         boundsX,
         boundsY,
@@ -454,9 +443,9 @@ export class MoveTool extends BaseTool {
         this.parentFrameCache,
       );
 
-      const dx = rawDx + (result.x - boundsX);
-      const dy = rawDy + (result.y - boundsY);
-      this.dragOffset = { dx, dy };
+      const snappedX = Math.round(result.x);
+      const snappedY = Math.round(result.y);
+      this.dragOffset = { dx: snappedX - minX, dy: snappedY - minY };
       this.activeSnapLines = result.snapLines;
       this.activeDistanceIndicators = result.distanceIndicators;
       return { cursor: 'move' };
@@ -476,30 +465,22 @@ export class MoveTool extends BaseTool {
         ctx.altKey,
       );
 
-      const store = getToolStore();
-
-      if (store.snapToPixelGrid) {
-        newSelectionBounds = {
-          x: Math.round(newSelectionBounds.x),
-          y: Math.round(newSelectionBounds.y),
-          width: Math.round(newSelectionBounds.width),
-          height: Math.round(newSelectionBounds.height),
-        };
-        this.activeSnapLines = [];
-        this.activeDistanceIndicators = [];
-      } else {
-        const moving = handleToMovingEdges(this.state.handle);
-        const resizeSnap = snapResize(
-          newSelectionBounds,
-          moving,
-          this.dragShapesCache,
-          ctx.camera.zoom,
-          this.parentFrameCache,
-        );
-        newSelectionBounds = resizeSnap.bounds;
-        this.activeSnapLines = resizeSnap.snapLines;
-        this.activeDistanceIndicators = [];
-      }
+      const moving = handleToMovingEdges(this.state.handle);
+      const resizeSnap = snapResize(
+        newSelectionBounds,
+        moving,
+        this.dragShapesCache,
+        ctx.camera.zoom,
+        this.parentFrameCache,
+      );
+      newSelectionBounds = {
+        x: Math.round(resizeSnap.bounds.x),
+        y: Math.round(resizeSnap.bounds.y),
+        width: Math.round(resizeSnap.bounds.width),
+        height: Math.round(resizeSnap.bounds.height),
+      };
+      this.activeSnapLines = resizeSnap.snapLines;
+      this.activeDistanceIndicators = [];
 
       const preview = new Map<string, ResizePreviewEntry>();
       for (const [id, initial] of this.state.initialData) {

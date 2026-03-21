@@ -152,8 +152,6 @@ export function snapDrawnRect(
   rect: { x: number; y: number; width: number; height: number };
   snap: DrawSnapState;
 } {
-  const shapes = getAllShapes(ydoc).filter((s) => s.visible && !s.locked);
-
   let cursorX = endX;
   let cursorY = endY;
 
@@ -164,6 +162,8 @@ export function snapDrawnRect(
     cursorX = startX + (rawW >= 0 ? size : -size);
     cursorY = startY + (rawH >= 0 ? size : -size);
   }
+
+  const shapes = getAllShapes(ydoc).filter((s) => s.visible && !s.locked);
 
   const snapped = snapCursorPoint(cursorX, cursorY, startX, startY, shapes, zoom);
 
@@ -198,7 +198,12 @@ export function snapDrawnRect(
   }
 
   return {
-    rect: { x, y, width, height },
+    rect: {
+      x: Math.round(x),
+      y: Math.round(y),
+      width: Math.round(width),
+      height: Math.round(height),
+    },
     snap: { snapLines: snapped.snapLines, distanceIndicators: [] },
   };
 }
@@ -217,7 +222,7 @@ export function snapDrawnLine(
   const shapes = getAllShapes(ydoc).filter((s) => s.visible && !s.locked);
   const snapped = snapCursorPoint(x2, y2, x1, y1, shapes, zoom);
   return {
-    line: { x1, y1, x2: snapped.x, y2: snapped.y },
+    line: { x1, y1, x2: Math.round(snapped.x), y2: Math.round(snapped.y) },
     snap: { snapLines: snapped.snapLines, distanceIndicators: [] },
   };
 }
@@ -236,10 +241,10 @@ export function snapDrawnTextRect(
   const shapes = getAllShapes(ydoc).filter((s) => s.visible && !s.locked);
   const snapped = snapCursorPoint(endX, endY, startX, startY, shapes, zoom);
 
-  const x = Math.min(startX, snapped.x);
-  const y = Math.min(startY, snapped.y);
-  const width = Math.abs(snapped.x - startX);
-  const height = Math.abs(snapped.y - startY);
+  const x = Math.round(Math.min(startX, snapped.x));
+  const y = Math.round(Math.min(startY, snapped.y));
+  const width = Math.round(Math.abs(snapped.x - startX));
+  const height = Math.round(Math.abs(snapped.y - startY));
 
   return {
     rect: { x, y, width, height },

@@ -261,12 +261,17 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
       clipStack.pop();
     }
 
+    if (camera.zoom >= 8) {
+      const viewport = renderer.getViewport(camera);
+      renderer.drawPixelGrid(viewport, camera.zoom);
+    }
+
     const selectedSet = new Set(selectedIds);
 
     if (hoveredId && !selectedSet.has(hoveredId)) {
       const hoveredShape = shapeMap.get(hoveredId);
       if (hoveredShape && isShapeVisible(hoveredShape)) {
-        renderHoverForShape(renderer, hoveredShape);
+        renderHoverForShape(renderer, hoveredShape, camera.zoom);
       }
     }
 
@@ -285,7 +290,7 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
         } else if (rotationPreview?.has(shape.id)) {
           displayShape = applyRotationToShape(shape);
         }
-        renderSelectionForShape(renderer, displayShape);
+        renderSelectionForShape(renderer, displayShape, camera.zoom);
         selectedShapes.push(displayShape);
       }
     }
@@ -395,11 +400,11 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
 
     if (moveTool.marqueeRect) {
       const { x, y, width, height } = moveTool.marqueeRect;
-      renderer.drawMarquee(x, y, width, height);
+      renderer.drawMarquee(x, y, width, height, camera.zoom);
     }
 
     for (const line of moveTool.getSnapLines()) {
-      renderer.drawSnapLine(line.axis, line.position, line.start, line.end);
+      renderer.drawSnapLine(line.axis, line.position, line.start, line.end, camera.zoom);
     }
 
     for (const indicator of moveTool.getDistanceIndicators()) {
@@ -425,7 +430,7 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
 
     for (const tool of drawingTools) {
       for (const line of tool.getSnapLines()) {
-        renderer.drawSnapLine(line.axis, line.position, line.start, line.end);
+        renderer.drawSnapLine(line.axis, line.position, line.start, line.end, camera.zoom);
       }
       for (const indicator of tool.getDistanceIndicators()) {
         renderer.drawDistanceIndicator(

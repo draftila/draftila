@@ -1,7 +1,7 @@
 import type { Camera, Point, Viewport } from '@draftila/shared';
 
 export const MIN_ZOOM = 0.02;
-export const MAX_ZOOM = 64;
+export const MAX_ZOOM = 256;
 export const DEFAULT_CAMERA: Camera = { x: 0, y: 0, zoom: 1 };
 
 export function screenToCanvas(screenX: number, screenY: number, camera: Camera): Point {

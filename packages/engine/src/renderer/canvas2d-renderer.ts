@@ -172,6 +172,42 @@ export class Canvas2DRenderer implements Renderer {
     };
   }
 
+  drawPixelGrid(viewport: Viewport, zoom: number) {
+    const { ctx } = this;
+    const opacity = Math.min((zoom - 8) / 8, 1);
+    if (opacity <= 0) return;
+
+    const startX = Math.floor(viewport.minX);
+    const endX = Math.ceil(viewport.maxX);
+    const startY = Math.floor(viewport.minY);
+    const endY = Math.ceil(viewport.maxY);
+
+    const buildGridPath = () => {
+      ctx.beginPath();
+      for (let x = startX; x <= endX; x++) {
+        ctx.moveTo(x, startY);
+        ctx.lineTo(x, endY);
+      }
+      for (let y = startY; y <= endY; y++) {
+        ctx.moveTo(startX, y);
+        ctx.lineTo(endX, y);
+      }
+    };
+
+    ctx.save();
+    ctx.lineWidth = 1 / zoom;
+
+    ctx.strokeStyle = `rgba(0, 0, 0, ${0.15 * opacity})`;
+    buildGridPath();
+    ctx.stroke();
+
+    ctx.strokeStyle = `rgba(255, 255, 255, ${0.15 * opacity})`;
+    buildGridPath();
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
   drawRect(
     transform: RenderTransform,
     style: RenderStyle,
@@ -741,11 +777,18 @@ export class Canvas2DRenderer implements Renderer {
     this.ctx.restore();
   }
 
-  drawSelectionBox(x: number, y: number, width: number, height: number, rotation = 0) {
+  drawSelectionBox(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    zoom: number,
+    rotation = 0,
+  ) {
     const { ctx } = this;
     ctx.save();
     ctx.strokeStyle = SELECTION_COLOR;
-    ctx.lineWidth = SELECTION_WIDTH / this.dpr;
+    ctx.lineWidth = SELECTION_WIDTH / zoom;
     if (rotation !== 0) {
       const cx = x + width / 2;
       const cy = y + height / 2;
@@ -758,11 +801,18 @@ export class Canvas2DRenderer implements Renderer {
     ctx.restore();
   }
 
-  drawHoverOutline(x: number, y: number, width: number, height: number, rotation = 0) {
+  drawHoverOutline(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    zoom: number,
+    rotation = 0,
+  ) {
     const { ctx } = this;
     ctx.save();
     ctx.strokeStyle = SELECTION_COLOR;
-    ctx.lineWidth = SELECTION_WIDTH / this.dpr;
+    ctx.lineWidth = SELECTION_WIDTH / zoom;
     if (rotation !== 0) {
       const cx = x + width / 2;
       const cy = y + height / 2;
@@ -775,13 +825,13 @@ export class Canvas2DRenderer implements Renderer {
     ctx.restore();
   }
 
-  drawMarquee(x: number, y: number, width: number, height: number) {
+  drawMarquee(x: number, y: number, width: number, height: number, zoom: number) {
     const { ctx } = this;
     ctx.save();
     ctx.fillStyle = MARQUEE_FILL;
     ctx.fillRect(x, y, width, height);
     ctx.strokeStyle = MARQUEE_STROKE;
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1 / zoom;
     ctx.strokeRect(x, y, width, height);
     ctx.restore();
   }
@@ -855,14 +905,14 @@ export class Canvas2DRenderer implements Renderer {
     ctx.restore();
   }
 
-  drawSnapLine(axis: 'x' | 'y', position: number, start: number, end: number) {
+  drawSnapLine(axis: 'x' | 'y', position: number, start: number, end: number, zoom: number) {
     const { ctx } = this;
     const GUIDE_COLOR = '#FF00FF';
-    const EXTENSION = 8;
+    const EXTENSION = 8 / zoom;
 
     ctx.save();
     ctx.strokeStyle = GUIDE_COLOR;
-    ctx.lineWidth = 0.5;
+    ctx.lineWidth = 0.5 / zoom;
     ctx.setLineDash([]);
     ctx.beginPath();
     if (axis === 'x') {
