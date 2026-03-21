@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { Toaster } from '@/components/ui/sonner';
 import { AuthGuard, GuestGuard } from '@/components/auth-guard';
 import { AdminGuard } from '@/components/admin-guard';
 import { queryClient } from './lib/query-client';
@@ -12,6 +13,7 @@ import { ProjectsPage } from './pages/projects/index';
 import { EditorPage } from './pages/editor/index';
 import { AdminUsersPage } from './pages/admin/index';
 import { LoginPage } from './pages/auth/login';
+import { NotFoundPage } from './pages/not-found';
 
 export function App() {
   return (
@@ -37,8 +39,11 @@ export function App() {
                 </Route>
               </Route>
             </Route>
+
+            <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </BrowserRouter>
+        <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
   );

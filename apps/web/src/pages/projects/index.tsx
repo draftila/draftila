@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
 import { UserMenu } from '@/components/user-menu';
+import { ErrorState } from '@/components/error-state';
 import { ProjectCard } from './components/project-card';
 import { ProjectListItem } from './components/project-list-item';
 import { ProjectsToolbar } from './components/projects-toolbar';
@@ -19,7 +20,7 @@ export function ProjectsPage() {
   const viewMode = useDashboardStore((s) => s.projectsViewMode);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
-  const { data: projectsResponse, isLoading } = useProjects({ sort: sortOrder });
+  const { data: projectsResponse, isLoading, isError, error } = useProjects({ sort: sortOrder });
   const projects = projectsResponse?.data ?? [];
 
   function handleSelectProject(projectId: string) {
@@ -51,7 +52,9 @@ export function ProjectsPage() {
         <div className="mb-6">
           <ProjectsToolbar />
         </div>
-        {isLoading ? null : projects.length === 0 ? (
+        {isError ? (
+          <ErrorState error={error} />
+        ) : isLoading ? null : projects.length === 0 ? (
           <EmptyState onCreateProject={() => setCreateDialogOpen(true)} />
         ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">

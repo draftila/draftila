@@ -38,6 +38,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ErrorState } from '@/components/error-state';
 
 interface AdminUserRow {
   id: string;
@@ -50,7 +51,7 @@ interface AdminUserRow {
 export function AdminUsersPage() {
   const { data: session } = useSession();
   const currentUserId = session?.user?.id;
-  const { data, isLoading } = useAdminUsers();
+  const { data, isLoading, isError, error } = useAdminUsers();
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [editUser, setEditUser] = useState<AdminUserRow | null>(null);
@@ -93,7 +94,9 @@ export function AdminUsersPage() {
         <UserMenu />
       </header>
       <div className="flex flex-1 flex-col overflow-auto p-6">
-        {isLoading ? null : filtered.length === 0 ? (
+        {isError ? (
+          <ErrorState error={error} />
+        ) : isLoading ? null : filtered.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-4">
             <div className="text-muted-foreground text-center">
               <p className="text-lg font-medium">No users found</p>

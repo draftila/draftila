@@ -58,7 +58,7 @@ function ViewMenuItems() {
 export function EditorPage() {
   const { draftId } = useParams<{ draftId: string }>();
   const navigate = useNavigate();
-  const { data: draft, isLoading, isError } = useDraftById(draftId ?? '');
+  const { data: draft, isLoading, isError, error } = useDraftById(draftId ?? '');
   const { ydoc, provider, connected, synced, applyingRemoteChanges } = useYjs({
     draftId: draftId ?? '',
     enabled: !!draft,
@@ -196,24 +196,26 @@ export function EditorPage() {
     [updateCursor],
   );
 
-  if (isLoading || !synced) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <p className="text-muted-foreground text-sm">Loading...</p>
-      </div>
-    );
-  }
-
-  if (isError || !draft) {
+  if (isError || (!isLoading && !draft)) {
+    const errorMessage =
+      isError && error instanceof Error ? error.message : 'Draft not found or access denied.';
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground text-sm">Draft not found or access denied.</p>
+        <p className="text-muted-foreground text-sm">{errorMessage}</p>
         <button
           className="text-primary text-sm underline underline-offset-4"
           onClick={() => navigate('/')}
         >
           Back to Drafts
         </button>
+      </div>
+    );
+  }
+
+  if (isLoading || !synced || !draft) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <p className="text-muted-foreground text-sm">Loading...</p>
       </div>
     );
   }
