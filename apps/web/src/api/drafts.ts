@@ -105,6 +105,9 @@ export function useDeleteDraft(projectId: string) {
   return useMutation({
     mutationFn: (draftId: string) =>
       api.delete<{ ok: true }>(`/api/projects/${projectId}/drafts/${draftId}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [...DRAFTS_KEY, projectId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...DRAFTS_KEY, projectId] });
+      queryClient.invalidateQueries({ queryKey: [...DRAFTS_KEY, 'all'] });
+    },
   });
 }
