@@ -1,16 +1,13 @@
 name: Checks
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
 
 jobs:
   checks:
-    name: Lint, typecheck & test
+    name: Checks
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,5 +20,22 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Run checks
-        run: bun run checks
+      - name: Formatting
+        run: bun run format:check
+
+      - name: Typecheck API
+        run: bun run --filter @draftila/api typecheck
+
+      - name: Typecheck Web
+        run: bun run --filter @draftila/web typecheck
+
+      - name: Linting
+        run: bun run lint
+
+      - name: Engine tests
+        run: bun run --filter @draftila/engine test
+
+      - name: API tests
+        run: bun run --filter @draftila/api test -- --coverage
+        env:
+          DB_DRIVER: sqlite

@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 const sections = [
   {
     title: 'Getting Started',
@@ -9,6 +11,7 @@ const sections = [
       {
         title: 'Installation',
         description: 'Self-host Draftila on your own server in minutes.',
+        href: '/docs/installation',
       },
       {
         title: 'Configuration',
@@ -82,15 +85,24 @@ export default function DocsPage() {
           <div key={section.title}>
             <h2 className="text-xl font-semibold">{section.title}</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              {section.items.map((item) => (
-                <div
-                  key={item.title}
-                  className="bg-card hover:border-primary/30 rounded-xl border p-5 transition-colors"
-                >
-                  <h3 className="font-medium">{item.title}</h3>
-                  <p className="text-muted-foreground mt-1 text-sm">{item.description}</p>
-                </div>
-              ))}
+              {section.items.map((item) => {
+                const card = (
+                  <div
+                    key={item.title}
+                    className="bg-card hover:border-primary/30 rounded-xl border p-5 transition-colors"
+                  >
+                    <h3 className="font-medium">{item.title}</h3>
+                    <p className="text-muted-foreground mt-1 text-sm">{item.description}</p>
+                  </div>
+                );
+                return 'href' in item && item.href ? (
+                  <Link key={item.title} href={item.href}>
+                    {card}
+                  </Link>
+                ) : (
+                  card
+                );
+              })}
             </div>
           </div>
         ))}
