@@ -1,5 +1,4 @@
 import type * as Y from 'yjs';
-import type { Shape } from '@draftila/shared';
 import {
   getShapeSnapshotMap,
   getZOrder,

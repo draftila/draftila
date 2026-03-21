@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ChevronDown, Eye, EyeOff, Minus, Plus, X } from 'lucide-react';
 import type { Blur, Shadow, Shape } from '@draftila/shared';
 import type { PropertySectionProps } from '../types';
@@ -97,9 +97,14 @@ function BlurIcon({ className }: { className?: string }) {
 }
 
 export function EffectsSection({ shape, onUpdate }: PropertySectionProps) {
-  const shadows: Shadow[] =
-    'shadows' in shape ? (shape as Shape & { shadows: Shadow[] }).shadows : [];
-  const blurs: Blur[] = 'blurs' in shape ? (shape as Shape & { blurs: Blur[] }).blurs : [];
+  const shadows: Shadow[] = useMemo(
+    () => ('shadows' in shape ? (shape as Shape & { shadows: Shadow[] }).shadows : []),
+    [shape],
+  );
+  const blurs: Blur[] = useMemo(
+    () => ('blurs' in shape ? (shape as Shape & { blurs: Blur[] }).blurs : []),
+    [shape],
+  );
   const [addMenuOpen, setAddMenuOpen] = useState(false);
 
   const updateShadow = useCallback(

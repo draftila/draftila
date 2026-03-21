@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PlusIcon } from 'lucide-react';
 import { useAllDrafts, useDrafts, useCreateDraft } from '@/api/drafts';
@@ -25,7 +25,7 @@ export function DraftsPage() {
   const sortOrder = useDashboardStore((s) => s.sortOrder);
   const viewMode = useDashboardStore((s) => s.viewMode);
 
-  const projects = projectsResponse?.data ?? [];
+  const projects = useMemo(() => projectsResponse?.data ?? [], [projectsResponse?.data]);
 
   useEffect(() => {
     if (selectedProjectId && !projects.find((p) => p.id === selectedProjectId)) {

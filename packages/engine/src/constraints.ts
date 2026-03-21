@@ -1,5 +1,3 @@
-import type { Shape } from '@draftila/shared';
-
 export type HorizontalConstraint = 'left' | 'right' | 'left-right' | 'center' | 'scale';
 export type VerticalConstraint = 'top' | 'bottom' | 'top-bottom' | 'center' | 'scale';
 

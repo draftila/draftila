@@ -1,7 +1,7 @@
 import type * as Y from 'yjs';
 import type { Shape } from '@draftila/shared';
 import { BaseTool, getToolStore, type ToolContext, type ToolResult } from './base-tool';
-import { hitTestPoint, hitTestFrameLabel } from '../hit-test';
+import { hitTestPoint } from '../hit-test';
 import { hitTestGuide, updateGuidePosition } from '../guides';
 import { getAllShapes, getExpandedShapeIds, resolveGroupTarget, updateShape } from '../scene-graph';
 import { SpatialIndex } from '../spatial-index';

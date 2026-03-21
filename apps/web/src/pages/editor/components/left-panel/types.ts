@@ -10,7 +10,6 @@ import {
   Minus,
   Hexagon,
   Star,
-  MoveRight,
   Image,
   FileImage,
   Diamond,
