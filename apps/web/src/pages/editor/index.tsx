@@ -1,7 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { LayoutGrid, File, PanelLeft, Upload, Eye } from 'lucide-react';
 import { useDraftById, useUpdateDraft } from '@/api/drafts';
 import { useSession } from '@/lib/auth-client';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { InlineEditableText } from '@/components/inline-editable-text';
@@ -10,6 +23,12 @@ import { getActivePageId, setActivePage } from '@draftila/engine';
 import { DEFAULT_CAMERA } from '@draftila/engine/camera';
 import { initUndoManager, destroyUndoManager } from '@draftila/engine/history';
 import { getMoveTool } from '@draftila/engine/tools/tool-manager';
+import { addShape } from '@draftila/engine/scene-graph';
+import {
+  initializeDefaultAdapters,
+  importSvgFile,
+  interchangeToShapeData,
+} from '@draftila/engine/interchange';
 import { useEditorStore } from '@/stores/editor-store';
 import { LeftPanel } from './components/left-panel';
 import { RightPanel } from './components/right-panel';
@@ -18,6 +37,23 @@ import { useYjs } from './hooks/use-yjs';
 import { useKeyboard } from './hooks/use-keyboard';
 import { useAwareness } from './hooks/use-awareness';
 import { KeyboardShortcutsDialog } from './components/keyboard-shortcuts-dialog';
+
+function ViewMenuItems() {
+  const rulersVisible = useEditorStore((s) => s.rulersVisible);
+
+  return (
+    <DropdownMenuCheckboxItem
+      checked={rulersVisible}
+      onCheckedChange={(checked) => {
+        useEditorStore.getState().setRulersVisible(checked);
+        useEditorStore.getState().setGuidesVisible(checked);
+      }}
+    >
+      Rulers & Guides
+      <span className="text-muted-foreground ml-auto pl-4 text-[11px]">{'\u21E7R'}</span>
+    </DropdownMenuCheckboxItem>
+  );
+}
 
 export function EditorPage() {
   const { draftId } = useParams<{ draftId: string }>();
@@ -37,6 +73,52 @@ export function EditorPage() {
   const setActivePageId = useEditorStore((s) => s.setActivePageId);
   const lastPageIdRef = useRef<string | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportFile = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (!files || files.length === 0) return;
+
+      initializeDefaultAdapters();
+      const newIds: string[] = [];
+
+      for (const file of files) {
+        if (file.type === 'image/svg+xml' || file.name.endsWith('.svg')) {
+          const doc = await importSvgFile(file);
+          const shapeData = interchangeToShapeData(doc);
+          const indexToId = new Map<number, string>();
+
+          for (let i = 0; i < shapeData.length; i++) {
+            const item = shapeData[i]!;
+            const parentId =
+              item.parentIndex !== null ? (indexToId.get(item.parentIndex) ?? null) : null;
+
+            const id = addShape(ydoc, item.type, {
+              ...item.props,
+              x: ((item.props['x'] as number) ?? 0) + 100,
+              y: ((item.props['y'] as number) ?? 0) + 100,
+              parentId,
+            });
+            indexToId.set(i, id);
+
+            if (item.parentIndex === null) {
+              newIds.push(id);
+            }
+          }
+        }
+      }
+
+      if (newIds.length > 0) {
+        useEditorStore.getState().setSelectedIds(newIds);
+      }
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    },
+    [ydoc],
+  );
 
   useEffect(() => {
     const handleShortcutKey = (e: KeyboardEvent) => {
@@ -138,50 +220,111 @@ export function EditorPage() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-2">
-        <InlineEditableText
-          value={draft.name}
-          onSave={handleRenameDraft}
-          className="text-sm font-medium"
+      <header className="flex h-12 shrink-0 items-center border-b">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".svg,image/svg+xml"
+          multiple
+          className="hidden"
+          onChange={handleImportFile}
         />
-        <Tooltip>
-          <TooltipTrigger>
-            <div className={`h-2 w-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
-          </TooltipTrigger>
-          <TooltipContent>{connected ? 'Connected' : 'Disconnected'}</TooltipContent>
-        </Tooltip>
-        {applyingRemoteChanges && (
-          <div className="bg-muted/60 border-border text-muted-foreground inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs">
-            <span className="relative flex size-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-              <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
-            </span>
-            Applying changes...
+        <div className="flex h-full w-60 shrink-0 items-center gap-1.5 border-r px-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={() => navigate('/')}>
+                <File className="mr-2 h-4 w-4" />
+                Drafts
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                <Upload className="mr-2 h-4 w-4" />
+                Import SVG
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Eye className="mr-2 h-4 w-4" />
+                  View
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <ViewMenuItems />
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <div className="flex min-w-0 flex-1 items-center gap-1.5">
+            <InlineEditableText
+              value={draft.name}
+              onSave={handleRenameDraft}
+              className="min-w-0 max-w-full truncate text-sm font-medium"
+              inputClassName="w-full"
+            />
+            <Tooltip>
+              <TooltipTrigger>
+                <div
+                  className={`h-2 w-2 shrink-0 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`}
+                />
+              </TooltipTrigger>
+              <TooltipContent>{connected ? 'Connected' : 'Disconnected'}</TooltipContent>
+            </Tooltip>
           </div>
-        )}
-        <div className="flex-1" />
-        {remoteUsers.length > 0 && (
-          <div className="flex gap-1">
-            {remoteUsers.map((user) => (
-              <Tooltip key={user.clientId}>
-                <TooltipTrigger>
-                  <div
-                    className="border-border flex size-7 items-center justify-center rounded-sm border text-[10px] font-bold text-white"
-                    style={{ backgroundColor: user.user.color }}
-                  >
-                    {user.user.name.charAt(0).toUpperCase()}
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>{user.user.name}</TooltipContent>
-              </Tooltip>
-            ))}
-          </div>
-        )}
-        <Separator orientation="vertical" className="data-[orientation=vertical]:h-full" />
-        <UserMenu />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0"
+                onClick={() => {
+                  const store = useEditorStore.getState();
+                  store.setLeftPanelOpen(!store.leftPanelOpen);
+                }}
+              >
+                <PanelLeft className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Toggle left panel</TooltipContent>
+          </Tooltip>
+        </div>
+        <div className="flex flex-1 items-center gap-2 px-2">
+          {applyingRemoteChanges && (
+            <div className="bg-muted/60 border-border text-muted-foreground inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs">
+              <span className="relative flex size-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+                <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+              </span>
+              Applying changes...
+            </div>
+          )}
+          <div className="flex-1" />
+          {remoteUsers.length > 0 && (
+            <div className="flex gap-1">
+              {remoteUsers.map((user) => (
+                <Tooltip key={user.clientId}>
+                  <TooltipTrigger>
+                    <div
+                      className="border-border flex size-7 items-center justify-center rounded-sm border text-[10px] font-bold text-white"
+                      style={{ backgroundColor: user.user.color }}
+                    >
+                      {user.user.name.charAt(0).toUpperCase()}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>{user.user.name}</TooltipContent>
+                </Tooltip>
+              ))}
+            </div>
+          )}
+          <Separator orientation="vertical" className="data-[orientation=vertical]:h-full" />
+          <UserMenu />
+        </div>
       </header>
       <div className="relative flex flex-1 overflow-hidden">
-        <LeftPanel ydoc={ydoc} draftName={draft.name} projectId={draft.projectId} />
+        <LeftPanel ydoc={ydoc} />
         <Canvas
           ydoc={ydoc}
           remoteUsers={remoteUsers}

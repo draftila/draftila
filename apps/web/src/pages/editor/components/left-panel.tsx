@@ -1,10 +1,7 @@
 import { useState } from 'react';
 import type * as Y from 'yjs';
 import { Search, X } from 'lucide-react';
-import { useProject } from '@/api/projects';
 import { useEditorStore } from '@/stores/editor-store';
-import { PanelHeader } from './left-panel/panel-header';
-import { CollapsedHeader } from './left-panel/collapsed-header';
 import { LayerList } from './left-panel/layer-list';
 import { PageList } from './left-panel/page-list';
 import { ComponentsList } from './left-panel/components-list';
@@ -14,16 +11,12 @@ import { useLayerDragDrop } from './left-panel/hooks/use-layer-drag-drop';
 
 interface LeftPanelProps {
   ydoc: Y.Doc;
-  draftName: string;
-  projectId: string;
 }
 
-export function LeftPanel({ ydoc, draftName, projectId }: LeftPanelProps) {
+export function LeftPanel({ ydoc }: LeftPanelProps) {
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const setSelectedIds = useEditorStore((s) => s.setSelectedIds);
   const leftPanelOpen = useEditorStore((s) => s.leftPanelOpen);
-  const setLeftPanelOpen = useEditorStore((s) => s.setLeftPanelOpen);
-  const { data: project } = useProject(projectId);
 
   const [layerSearch, setLayerSearch] = useState('');
   const { rows, shapeById, toggleExpanded, expandNode } = useLayerTree(ydoc);
@@ -39,24 +32,11 @@ export function LeftPanel({ ydoc, draftName, projectId }: LeftPanelProps) {
     useLayerDragDrop(ydoc, selectedIds, setSelectedIds, expandNode, closeContextMenu);
 
   if (!leftPanelOpen) {
-    return (
-      <CollapsedHeader
-        draftName={draftName}
-        projectName={project?.name}
-        onExpand={() => setLeftPanelOpen(true)}
-      />
-    );
+    return null;
   }
 
   return (
     <div className="relative flex h-full w-60 shrink-0 flex-col border-r">
-      <PanelHeader
-        draftName={draftName}
-        projectName={project?.name}
-        leftPanelOpen={leftPanelOpen}
-        onTogglePanel={() => setLeftPanelOpen(!leftPanelOpen)}
-        ydoc={ydoc}
-      />
       <PageList ydoc={ydoc} />
       <ComponentsList ydoc={ydoc} />
       <div className="flex h-8 items-center gap-2 border-b px-3">
