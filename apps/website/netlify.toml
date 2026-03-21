@@ -1,6 +1,0 @@
-[build]
-  command = "cd ../.. && bun install && bun run website:build"
-  publish = "out"
-
-[build.environment]
-  NODE_VERSION = "20"
