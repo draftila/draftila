@@ -1,6 +1,6 @@
 services:
   app:
-    image: draftlia/draftlia:local
+    image: draftila/draftila:local
     build:
       context: .
       dockerfile: Dockerfile

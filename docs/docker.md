@@ -15,13 +15,13 @@
 export BETTER_AUTH_SECRET='replace-with-a-long-random-secret'
 ```
 
-2. Build and run:
+1. Build and run:
 
 ```bash
 docker compose up -d --build
 ```
 
-3. Open:
+1. Open:
 
 ```text
 http://localhost:3001
@@ -74,9 +74,9 @@ It runs manually from the Actions tab with three inputs:
 
 Tag behavior:
 
-- Branch example: `target=main`, `target_type=branch` pushes `draftlia/draftlia:main`.
-- Branch with latest: same as above plus `draftlia/draftlia:latest` when `mark_latest=true`.
-- Version example: `target=v1.2.0`, `target_type=version` checks out `refs/tags/v1.2.0` and pushes `draftlia/draftlia:v1.2.0`.
+- Branch example: `target=main`, `target_type=branch` pushes `draftila/draftila:main`.
+- Branch with latest: same as above plus `draftila/draftila:latest` when `mark_latest=true`.
+- Version example: `target=v1.2.0`, `target_type=version` checks out `refs/tags/v1.2.0` and pushes `draftila/draftila:v1.2.0`.
 
 ## GitHub secrets required
 
@@ -87,7 +87,7 @@ In GitHub repository settings, add these Actions secrets:
 
 Recommended Docker Hub setup:
 
-1. Create repository: `draftlia/draftlia`.
+1. Create repository: `draftila/draftila`.
 2. Create a Docker Hub access token from Account Settings -> Personal access tokens.
 3. Store the token in `DOCKERHUB_TOKEN`.
 
