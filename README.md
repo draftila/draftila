@@ -20,12 +20,18 @@ services:
       BETTER_AUTH_SECRET: 'change-me-to-a-random-secret'
       BETTER_AUTH_URL: 'http://localhost:3001'
       FRONTEND_URL: 'http://localhost:3001'
+      ADMIN_EMAIL: 'admin@example.com'
+      ADMIN_PASSWORD: 'change-me'
+      STORAGE_DRIVER: 'local'
+      STORAGE_PATH: './storage'
     volumes:
       - draftila_data:/app/data
+      - draftila_storage:/app/data/storage
     restart: unless-stopped
 
 volumes:
   draftila_data:
+  draftila_storage:
 ```
 
 Run it:

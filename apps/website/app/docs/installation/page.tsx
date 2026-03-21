@@ -15,12 +15,18 @@ const dockerCompose = `services:
       BETTER_AUTH_SECRET: '\${BETTER_AUTH_SECRET}'
       BETTER_AUTH_URL: 'https://draftila.example.com'
       FRONTEND_URL: 'https://draftila.example.com'
+      ADMIN_EMAIL: 'admin@example.com'
+      ADMIN_PASSWORD: '\${ADMIN_PASSWORD}'
+      STORAGE_DRIVER: 'local'
+      STORAGE_PATH: './storage'
     volumes:
       - draftila_data:/app/data
+      - draftila_storage:/app/data/storage
     restart: unless-stopped
 
 volumes:
-  draftila_data:`;
+  draftila_data:
+  draftila_storage:`;
 
 const envVariables: { name: string; required: boolean; default: string; description: string }[] = [
   {
@@ -29,6 +35,18 @@ const envVariables: { name: string; required: boolean; default: string; descript
     default: '',
     description:
       'A random secret used for signing auth tokens. Generate with: openssl rand -base64 32',
+  },
+  {
+    name: 'ADMIN_EMAIL',
+    required: true,
+    default: '',
+    description: 'Email address for the initial admin account created on first startup.',
+  },
+  {
+    name: 'ADMIN_PASSWORD',
+    required: true,
+    default: '',
+    description: 'Password for the initial admin account. Change this to a strong password.',
   },
   {
     name: 'BETTER_AUTH_URL',
@@ -125,7 +143,12 @@ export default function InstallationPage() {
   --name draftila \\
   -p 3001:3001 \\
   -e BETTER_AUTH_SECRET="your-generated-secret" \\
+  -e ADMIN_EMAIL="admin@example.com" \\
+  -e ADMIN_PASSWORD="your-admin-password" \\
+  -e STORAGE_DRIVER="local" \\
+  -e STORAGE_PATH="./storage" \\
   -v draftila_data:/app/data \\
+  -v draftila_storage:/app/data/storage \\
   --restart unless-stopped \\
   draftila/draftila:latest`}</CodeBlock>
 
@@ -171,8 +194,12 @@ export default function InstallationPage() {
       BETTER_AUTH_SECRET: '\${BETTER_AUTH_SECRET}'
       BETTER_AUTH_URL: 'https://draftila.example.com'
       FRONTEND_URL: 'https://draftila.example.com'
+      ADMIN_EMAIL: 'admin@example.com'
+      ADMIN_PASSWORD: '\${ADMIN_PASSWORD}'
       DB_DRIVER: 'postgres'
       DATABASE_URL: 'postgres://draftila:password@db:5432/draftila'
+      STORAGE_DRIVER: 'local'
+      STORAGE_PATH: './storage'
     volumes:
       - draftila_storage:/app/data/storage
     depends_on:
