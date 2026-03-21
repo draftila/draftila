@@ -30,9 +30,8 @@ export async function exportToPng(
     maxY = Math.max(maxY, s.y + s.height);
   }
 
-  const padding = 16;
-  const width = maxX - minX + padding * 2;
-  const height = maxY - minY + padding * 2;
+  const width = maxX - minX;
+  const height = maxY - minY;
 
   const canvas = document.createElement('canvas');
   const renderer = new Canvas2DRenderer(canvas);
@@ -44,7 +43,7 @@ export async function exportToPng(
   }
 
   renderer.save();
-  renderer.applyCamera({ x: -minX + padding, y: -minY + padding, zoom: 1 });
+  renderer.applyCamera({ x: -minX, y: -minY, zoom: 1 });
 
   for (const shape of shapes) {
     renderShape(renderer, shape);
@@ -111,9 +110,8 @@ export async function exportToJpg(
     maxY = Math.max(maxY, s.y + s.height);
   }
 
-  const padding = 16;
-  const width = maxX - minX + padding * 2;
-  const height = maxY - minY + padding * 2;
+  const width = maxX - minX;
+  const height = maxY - minY;
 
   const canvas = document.createElement('canvas');
   const renderer = new Canvas2DRenderer(canvas);
@@ -122,7 +120,7 @@ export async function exportToJpg(
   renderer.fillBackground(backgroundColor ?? '#ffffff');
 
   renderer.save();
-  renderer.applyCamera({ x: -minX + padding, y: -minY + padding, zoom: 1 });
+  renderer.applyCamera({ x: -minX, y: -minY, zoom: 1 });
 
   for (const shape of shapes) {
     renderShape(renderer, shape);
