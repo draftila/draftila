@@ -1,0 +1,6 @@
+[build]
+  command = "npm install -g bun && bun install && bun run website:build"
+  publish = "apps/website/out"
+
+[build.environment]
+  NODE_VERSION = "20"
