@@ -1,0 +1,132 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.7 0.2 330);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.967 0.001 286.375);
+  --secondary-foreground: oklch(0.21 0.006 285.885);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.8 0.15 330);
+  --chart-2: oklch(0.7 0.2 330);
+  --chart-3: oklch(0.6 0.18 335);
+  --chart-4: oklch(0.55 0.18 335);
+  --chart-5: oklch(0.42 0.15 340);
+  --radius: 0.625rem;
+}
+
+.dark {
+  --background: oklch(0.13 0.005 285);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.16 0.008 285);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.16 0.008 285);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.7 0.2 330);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.22 0.01 285);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.22 0.01 285);
+  --muted-foreground: oklch(0.65 0 0);
+  --accent: oklch(0.22 0.01 285);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.8 0.15 330);
+  --chart-2: oklch(0.7 0.2 330);
+  --chart-3: oklch(0.6 0.18 335);
+  --chart-4: oklch(0.55 0.18 335);
+  --chart-5: oklch(0.42 0.15 340);
+}
+
+@theme inline {
+  --font-sans: var(--font-sans);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+.grid-pattern {
+  background-image:
+    linear-gradient(to right, oklch(0.145 0 0 / 4%) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(0.145 0 0 / 4%) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+.dark .grid-pattern {
+  background-image:
+    linear-gradient(to right, oklch(1 0 0 / 4%) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(1 0 0 / 4%) 1px, transparent 1px);
+}
+
+.noise-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.dark .noise-overlay::before {
+  opacity: 0.6;
+}
