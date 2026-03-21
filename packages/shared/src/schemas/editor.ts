@@ -328,7 +328,12 @@ export const starShapeSchema = baseShapeSchema.extend({
 
 export const imageShapeSchema = baseShapeSchema.extend({
   type: z.literal('image'),
-  src: z.string().default(''),
+  src: z
+    .string()
+    .default('')
+    .refine((val) => val === '' || /^https?:\/\//.test(val) || val.startsWith('/'), {
+      message: 'Image source must be an HTTP(S) URL or relative path',
+    }),
   fit: z.enum(['fill', 'fit', 'crop']).default('fill'),
   cropX: z.number().min(0).max(1).default(0.5),
   cropY: z.number().min(0).max(1).default(0.5),
@@ -338,7 +343,19 @@ export const imageShapeSchema = baseShapeSchema.extend({
 
 export const svgShapeSchema = baseShapeSchema.extend({
   type: z.literal('svg'),
-  svgContent: z.string().default(''),
+  svgContent: z
+    .string()
+    .max(500_000)
+    .default('')
+    .refine(
+      (val) =>
+        val === '' ||
+        (!/<script[\s>]/i.test(val) &&
+          !/on\w+\s*=/i.test(val) &&
+          !/javascript:/i.test(val) &&
+          !/data:\s*text\/html/i.test(val)),
+      { message: 'SVG content contains disallowed elements or attributes' },
+    ),
   preserveAspectRatio: z.string().default('xMidYMid meet'),
   shadows: z.array(shadowSchema).default([]),
   blurs: z.array(blurSchema).default([]),

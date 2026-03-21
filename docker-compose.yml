@@ -9,11 +9,11 @@ services:
     environment:
       DB_DRIVER: '${DB_DRIVER:-sqlite}'
       DATABASE_URL: '${DATABASE_URL:-file:/app/data/draftila.sqlite}'
-      BETTER_AUTH_SECRET: '${BETTER_AUTH_SECRET:-change-me}'
+      BETTER_AUTH_SECRET: '${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET is required - generate with: openssl rand -base64 32}'
       BETTER_AUTH_URL: '${BETTER_AUTH_URL:-http://localhost:3001}'
       FRONTEND_URL: '${FRONTEND_URL:-http://localhost:3001}'
       PORT: 3001
-      TRUSTED_PROXY_IPS: '${TRUSTED_PROXY_IPS:-*}'
+      TRUSTED_PROXY_IPS: '${TRUSTED_PROXY_IPS:-}'
     volumes:
       - draftila_data:/app/data
     restart: unless-stopped

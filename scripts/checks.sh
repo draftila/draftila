@@ -8,6 +8,13 @@ GREEN="\033[32m"
 YELLOW="\033[33m"
 RESET="\033[0m"
 
+FIX=0
+for arg in "$@"; do
+  case "$arg" in
+    --fix) FIX=1 ;;
+  esac
+done
+
 SPINNER_FRAMES=("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
 PASS="✓"
 FAIL="✗"
@@ -148,7 +155,11 @@ printf "\n"
 
 failed=0
 
-run_step "Formatting" bun run format:check || failed=1
+if [ "$FIX" -eq 1 ]; then
+  run_step "Formatting (fix)" bun run format || failed=1
+else
+  run_step "Formatting" bun run format:check || failed=1
+fi
 
 if [ "$failed" -eq 0 ]; then
   run_step "Typecheck API" bun run --filter @draftila/api typecheck || failed=1
@@ -159,7 +170,11 @@ if [ "$failed" -eq 0 ]; then
 fi
 
 if [ "$failed" -eq 0 ]; then
-  run_step "Linting" bun run lint || failed=1
+  if [ "$FIX" -eq 1 ]; then
+    run_step "Linting (fix)" bun run lint -- --fix || failed=1
+  else
+    run_step "Linting" bun run lint || failed=1
+  fi
 fi
 
 if [ "$failed" -eq 0 ]; then
