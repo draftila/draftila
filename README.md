@@ -13,7 +13,7 @@ Create a `docker-compose.yml`:
 ```yaml
 services:
   draftila:
-    image: draftlia/draftlia:latest
+    image: draftila/draftila:latest
     ports:
       - '3001:3001'
     environment:

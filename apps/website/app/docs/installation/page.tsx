@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 const dockerCompose = `services:
   draftila:
-    image: draftlia/draftlia:latest
+    image: draftila/draftila:latest
     ports:
       - '3001:3001'
     environment:
@@ -127,7 +127,7 @@ export default function InstallationPage() {
   -e BETTER_AUTH_SECRET="your-generated-secret" \\
   -v draftila_data:/app/data \\
   --restart unless-stopped \\
-  draftlia/draftlia:latest`}</CodeBlock>
+  draftila/draftila:latest`}</CodeBlock>
 
           <p className="text-muted-foreground mt-2 text-sm">
             Open{' '}
@@ -164,7 +164,7 @@ export default function InstallationPage() {
         <div className="mt-4">
           <CodeBlock id="postgres-compose">{`services:
   draftila:
-    image: draftlia/draftlia:latest
+    image: draftila/draftila:latest
     ports:
       - '3001:3001'
     environment:
