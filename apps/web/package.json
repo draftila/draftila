@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
