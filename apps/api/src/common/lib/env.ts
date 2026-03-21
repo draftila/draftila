@@ -1,9 +1,12 @@
 /// <reference types="@types/bun" />
 
-function requireEnv(name: string): string {
+function requireEnv(name: string, minLength?: number): string {
   const value = process.env[name];
   if (!value) {
     throw new Error(`Missing required environment variable: ${name}`);
+  }
+  if (minLength && value.length < minLength) {
+    throw new Error(`${name} must be at least ${minLength} characters`);
   }
   return value;
 }
@@ -32,7 +35,7 @@ function parseTrustedProxies(value: string | undefined): Set<string> | '*' | nul
 export const env = {
   DB_DRIVER: parseDbDriver(process.env.DB_DRIVER),
   DATABASE_URL: requireEnv('DATABASE_URL'),
-  BETTER_AUTH_SECRET: requireEnv('BETTER_AUTH_SECRET'),
+  BETTER_AUTH_SECRET: requireEnv('BETTER_AUTH_SECRET', 32),
   BETTER_AUTH_URL: requireEnv('BETTER_AUTH_URL'),
   PORT: parseInt(process.env.PORT ?? '3001', 10),
   FRONTEND_URL: process.env.FRONTEND_URL ?? 'http://localhost:5173',

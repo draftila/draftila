@@ -17,8 +17,6 @@ ENV NODE_ENV=production
 ENV PORT=3001
 ENV DB_DRIVER=sqlite
 ENV DATABASE_URL=file:/app/data/draftila.sqlite
-ENV BETTER_AUTH_URL=http://localhost:3001
-ENV FRONTEND_URL=http://localhost:3001
 ENV WEB_DIST_DIR=../web/dist
 
 COPY --from=builder /app /app

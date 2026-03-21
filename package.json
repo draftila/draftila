@@ -27,7 +27,8 @@
     "api:db:refresh": "bun run --filter @draftila/api db:refresh",
     "api:routes:list": "bun run --filter @draftila/api routes:list",
     "clean": "turbo clean && rm -rf node_modules",
-    "checks": "bash scripts/checks.sh"
+    "checks": "bash scripts/checks.sh",
+    "checks:fix": "bash scripts/checks.sh --fix"
   },
   "devDependencies": {
     "prettier": "^3.4.2",
