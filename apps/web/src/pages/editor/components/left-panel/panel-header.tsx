@@ -1,13 +1,17 @@
 import { useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type * as Y from 'yjs';
-import { LayoutGrid, File, PanelLeft, Upload } from 'lucide-react';
+import { LayoutGrid, File, PanelLeft, Upload, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuCheckboxItem,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -18,6 +22,23 @@ import {
   interchangeToShapeData,
 } from '@draftila/engine/interchange';
 import { useEditorStore } from '@/stores/editor-store';
+
+function ViewMenuItems() {
+  const rulersVisible = useEditorStore((s) => s.rulersVisible);
+
+  return (
+    <DropdownMenuCheckboxItem
+      checked={rulersVisible}
+      onCheckedChange={(checked) => {
+        useEditorStore.getState().setRulersVisible(checked);
+        useEditorStore.getState().setGuidesVisible(checked);
+      }}
+    >
+      Rulers & Guides
+      <span className="text-muted-foreground ml-auto pl-4 text-[11px]">{'\u21E7R'}</span>
+    </DropdownMenuCheckboxItem>
+  );
+}
 
 interface PanelHeaderProps {
   draftName: string;
@@ -108,6 +129,16 @@ export function PanelHeader({
             <Upload className="mr-2 h-4 w-4" />
             Import SVG
           </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Eye className="mr-2 h-4 w-4" />
+              View
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <ViewMenuItems />
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
         </DropdownMenuContent>
       </DropdownMenu>
       <div className="min-w-0 flex-1">

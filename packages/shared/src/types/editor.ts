@@ -34,6 +34,7 @@ import type {
   textSegmentSchema,
   textAutoResizeSchema,
   layoutGuideSchema,
+  canvasGuideSchema,
   layoutDirectionSchema,
   layoutAlignSchema,
   layoutJustifySchema,
@@ -73,6 +74,7 @@ export type Shadow = z.infer<typeof shadowSchema>;
 export type Blur = z.infer<typeof blurSchema>;
 export type TextSegment = z.infer<typeof textSegmentSchema>;
 export type LayoutGuide = z.infer<typeof layoutGuideSchema>;
+export type CanvasGuide = z.infer<typeof canvasGuideSchema>;
 export type LayoutDirection = z.infer<typeof layoutDirectionSchema>;
 export type LayoutAlign = z.infer<typeof layoutAlignSchema>;
 export type LayoutJustify = z.infer<typeof layoutJustifySchema>;

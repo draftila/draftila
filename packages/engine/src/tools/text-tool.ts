@@ -51,6 +51,7 @@ export class TextTool extends BaseTool {
       ctx.canvasPoint.x,
       ctx.canvasPoint.y,
       ctx.camera.zoom,
+      getToolStore().getGuides(),
     );
 
     this.previewRect = rect;

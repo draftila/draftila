@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type * as Y from 'yjs';
 import { useEditorStore } from '@/stores/editor-store';
 import { zoomAtPoint, panCamera, screenToCanvas } from '@draftila/engine/camera';
+import { hitTestGuide } from '@draftila/engine';
 import { getShape, resolveGroupTarget } from '@draftila/engine/scene-graph';
 import { hitTestPoint } from '@draftila/engine/hit-test';
 import { getAllShapes } from '@draftila/engine/scene-graph';
@@ -15,6 +16,7 @@ import { EditorToolbar } from './editor-toolbar';
 import { CursorOverlay } from './cursor-overlay';
 import { TextEditOverlay } from './text-edit-overlay';
 import { CanvasContextMenu } from './canvas-context-menu';
+import { Ruler, RulerCorner } from './rulers';
 import type { RemoteUser } from '../hooks/use-awareness';
 
 interface CanvasProps {
@@ -42,6 +44,7 @@ export function Canvas({ ydoc, remoteUsers, onActiveInteraction }: CanvasProps) 
   const isPanning = useEditorStore((s) => s.isPanning);
   const camera = useEditorStore((s) => s.camera);
   const editingTextId = useEditorStore((s) => s.editingTextId);
+  const rulersVisible = useEditorStore((s) => s.rulersVisible);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -195,6 +198,11 @@ export function Canvas({ ydoc, remoteUsers, onActiveInteraction }: CanvasProps) 
         if (!state.selectedIds.includes(targetId)) {
           useEditorStore.getState().setSelectedIds([targetId]);
         }
+      } else {
+        const guideHit = hitTestGuide(canvasPoint, state.guides, state.camera.zoom);
+        if (guideHit) {
+          useEditorStore.getState().setSelectedGuideId(guideHit);
+        }
       }
 
       setContextMenu({
@@ -240,6 +248,13 @@ export function Canvas({ ydoc, remoteUsers, onActiveInteraction }: CanvasProps) 
       )}
       <TextEditOverlay ydoc={ydoc} camera={camera} />
       <CursorOverlay remoteUsers={remoteUsers} camera={camera} />
+      {rulersVisible && (
+        <>
+          <RulerCorner />
+          <Ruler orientation="horizontal" ydoc={ydoc} />
+          <Ruler orientation="vertical" ydoc={ydoc} />
+        </>
+      )}
       <div className="absolute inset-x-0 bottom-3 flex justify-center">
         <EditorToolbar />
       </div>

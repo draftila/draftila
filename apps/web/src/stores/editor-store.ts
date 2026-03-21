@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { Camera, Point, ToolType } from '@draftila/shared';
+import type { Camera, CanvasGuide, Point, ToolType } from '@draftila/shared';
+import type { GuideSnapTarget } from '@draftila/engine';
 import { DEFAULT_CAMERA, clampZoom, configureToolStore } from '@draftila/engine';
 
 interface EditorState {
@@ -15,6 +16,11 @@ interface EditorState {
   leftPanelOpen: boolean;
   rightPanelOpen: boolean;
   cursorCanvasPoint: Point | null;
+  guides: CanvasGuide[];
+  selectedGuideId: string | null;
+  draggingGuide: { axis: 'x' | 'y'; position: number } | null;
+  rulersVisible: boolean;
+  guidesVisible: boolean;
 
   setActiveTool: (tool: ToolType) => void;
   setActivePageId: (pageId: string | null) => void;
@@ -34,6 +40,11 @@ interface EditorState {
   setRightPanelOpen: (open: boolean) => void;
   setCursorCanvasPoint: (point: Point | null) => void;
   setEnteredGroupId: (id: string | null) => void;
+  setGuides: (guides: CanvasGuide[]) => void;
+  setSelectedGuideId: (id: string | null) => void;
+  setDraggingGuide: (guide: { axis: 'x' | 'y'; position: number } | null) => void;
+  setRulersVisible: (visible: boolean) => void;
+  setGuidesVisible: (visible: boolean) => void;
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
@@ -49,6 +60,11 @@ export const useEditorStore = create<EditorState>((set) => ({
   leftPanelOpen: true,
   rightPanelOpen: true,
   cursorCanvasPoint: null,
+  guides: [],
+  selectedGuideId: null,
+  draggingGuide: null,
+  rulersVisible: localStorage.getItem('draftila:rulersVisible') !== 'false',
+  guidesVisible: localStorage.getItem('draftila:rulersVisible') !== 'false',
 
   setActiveTool: (tool) => set({ activeTool: tool }),
 
@@ -66,11 +82,16 @@ export const useEditorStore = create<EditorState>((set) => ({
       camera: { ...state.camera, zoom: clampZoom(zoom) },
     })),
 
-  setSelectedIds: (ids) => set({ selectedIds: ids }),
+  setSelectedIds: (ids) =>
+    set((state) => ({
+      selectedIds: ids,
+      selectedGuideId: ids.length > 0 ? null : state.selectedGuideId,
+    })),
 
   addToSelection: (id) =>
     set((state) => ({
       selectedIds: state.selectedIds.includes(id) ? state.selectedIds : [...state.selectedIds, id],
+      selectedGuideId: null,
     })),
 
   removeFromSelection: (id) =>
@@ -83,6 +104,7 @@ export const useEditorStore = create<EditorState>((set) => ({
       selectedIds: state.selectedIds.includes(id)
         ? state.selectedIds.filter((sid) => sid !== id)
         : [...state.selectedIds, id],
+      selectedGuideId: null,
     })),
 
   clearSelection: () => set({ selectedIds: [] }),
@@ -102,6 +124,23 @@ export const useEditorStore = create<EditorState>((set) => ({
   setCursorCanvasPoint: (point) => set({ cursorCanvasPoint: point }),
 
   setEnteredGroupId: (id) => set({ enteredGroupId: id }),
+
+  setGuides: (guides) => set({ guides }),
+
+  setSelectedGuideId: (id) =>
+    set((state) => ({
+      selectedGuideId: id,
+      selectedIds: id !== null ? [] : state.selectedIds,
+    })),
+
+  setDraggingGuide: (guide) => set({ draggingGuide: guide }),
+
+  setRulersVisible: (visible) => {
+    localStorage.setItem('draftila:rulersVisible', String(visible));
+    set({ rulersVisible: visible });
+  },
+
+  setGuidesVisible: (visible) => set({ guidesVisible: visible }),
 }));
 
 configureToolStore({
@@ -123,4 +162,12 @@ configureToolStore({
   setHoveredId: (id) => useEditorStore.getState().setHoveredId(id),
   setCamera: (camera) => useEditorStore.getState().setCamera(camera),
   setEnteredGroupId: (id) => useEditorStore.getState().setEnteredGroupId(id),
+  getGuides: (): GuideSnapTarget[] => {
+    const { guides, guidesVisible } = useEditorStore.getState();
+    if (!guidesVisible) return [];
+    return guides.map((g) => ({ axis: g.axis, position: g.position }));
+  },
+  getCanvasGuides: () => useEditorStore.getState().guides,
+  setSelectedGuideId: (id) => useEditorStore.getState().setSelectedGuideId(id),
+  getActivePageId: () => useEditorStore.getState().activePageId,
 });

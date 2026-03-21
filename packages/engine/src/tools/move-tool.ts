@@ -2,6 +2,7 @@ import type * as Y from 'yjs';
 import type { Shape } from '@draftila/shared';
 import { BaseTool, getToolStore, type ToolContext, type ToolResult } from './base-tool';
 import { hitTestPoint, hitTestFrameLabel } from '../hit-test';
+import { hitTestGuide, updateGuidePosition } from '../guides';
 import { getAllShapes, getExpandedShapeIds, resolveGroupTarget, updateShape } from '../scene-graph';
 import { SpatialIndex } from '../spatial-index';
 import {
@@ -73,6 +74,12 @@ type MoveState =
       shapeId: string;
       initialData: InitialShapeData;
       startCanvas: { x: number; y: number };
+    }
+  | {
+      type: 'dragging-guide';
+      guideId: string;
+      axis: 'x' | 'y';
+      startPosition: number;
     };
 
 function captureShapeData(shape: Shape): InitialShapeData {
@@ -391,6 +398,24 @@ export class MoveTool extends BaseTool {
       return { cursor: 'move' };
     }
 
+    const canvasGuides = store.getCanvasGuides();
+    const hitGuideId = hitTestGuide(ctx.canvasPoint, canvasGuides, ctx.camera.zoom);
+    if (hitGuideId) {
+      store.clearSelection();
+      store.setSelectedGuideId(hitGuideId);
+      const hitGuide = canvasGuides.find((g) => g.id === hitGuideId);
+      if (hitGuide) {
+        this.state = {
+          type: 'dragging-guide',
+          guideId: hitGuideId,
+          axis: hitGuide.axis,
+          startPosition: hitGuide.position,
+        };
+      }
+      return;
+    }
+
+    store.setSelectedGuideId(null);
     const preMarqueeIds = ctx.shiftKey ? [...store.selectedIds] : [];
     if (!ctx.shiftKey) {
       store.clearSelection();
@@ -441,6 +466,7 @@ export class MoveTool extends BaseTool {
         this.dragShapesCache,
         ctx.camera.zoom,
         this.parentFrameCache,
+        getToolStore().getGuides(),
       );
 
       const snappedX = Math.round(result.x);
@@ -472,6 +498,7 @@ export class MoveTool extends BaseTool {
         this.dragShapesCache,
         ctx.camera.zoom,
         this.parentFrameCache,
+        getToolStore().getGuides(),
       );
       newSelectionBounds = {
         x: Math.round(resizeSnap.bounds.x),
@@ -587,6 +614,33 @@ export class MoveTool extends BaseTool {
       return { cursor: 'grab' };
     }
 
+    if (this.state.type === 'dragging-guide') {
+      const store = getToolStore();
+      const pageId = store.getActivePageId();
+      if (pageId) {
+        const rawPos = this.state.axis === 'x' ? ctx.canvasPoint.x : ctx.canvasPoint.y;
+        const shapes = getAllShapes(ctx.ydoc).filter((s) => s.visible && !s.locked);
+        const threshold = 5 / ctx.camera.zoom;
+        let snappedPos = rawPos;
+        let bestDist = threshold;
+        for (const shape of shapes) {
+          const edges =
+            this.state.axis === 'x'
+              ? [shape.x, shape.x + shape.width / 2, shape.x + shape.width]
+              : [shape.y, shape.y + shape.height / 2, shape.y + shape.height];
+          for (const edge of edges) {
+            const d = Math.abs(rawPos - edge);
+            if (d < bestDist) {
+              bestDist = d;
+              snappedPos = edge;
+            }
+          }
+        }
+        updateGuidePosition(ctx.ydoc, pageId, this.state.guideId, Math.round(snappedPos));
+      }
+      return { cursor: this.state.axis === 'x' ? 'col-resize' : 'row-resize' };
+    }
+
     if (this.state.type === 'marquee') {
       const sx = this.state.startCanvas.x;
       const sy = this.state.startCanvas.y;
@@ -686,6 +740,11 @@ export class MoveTool extends BaseTool {
           updateShape(ctx.ydoc, id, { rotation: angle } as Partial<Shape>);
         }
       }
+      this.resetState();
+      return { cursor: 'default' };
+    }
+
+    if (this.state.type === 'dragging-guide') {
       this.resetState();
       return { cursor: 'default' };
     }

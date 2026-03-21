@@ -94,6 +94,7 @@ export {
   type ParentFrameRect,
   type ResizeSnapEdges,
   type ResizeSnapResult,
+  type GuideSnapTarget,
   snapPosition,
   snapResize,
 } from './snap';
@@ -186,6 +187,18 @@ export {
   getPageBackgroundColor,
   DEFAULT_PAGE_BACKGROUND,
 } from './pages';
+
+export {
+  getPageGuides,
+  addGuide,
+  updateGuidePosition,
+  removeGuide,
+  removeAllGuides,
+  observeGuides,
+  hitTestGuide,
+  setActivePageForGuides,
+  getActivePageGuidesArray,
+} from './guides';
 
 export {
   exportToPng,

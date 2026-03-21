@@ -42,6 +42,7 @@ export class LineTool extends BaseTool {
       x2,
       y2,
       ctx.camera.zoom,
+      getToolStore().getGuides(),
     );
 
     this.previewLine = line;

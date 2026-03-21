@@ -905,6 +905,70 @@ export class Canvas2DRenderer implements Renderer {
     ctx.restore();
   }
 
+  drawGuide(
+    axis: 'x' | 'y',
+    position: number,
+    viewport: Viewport,
+    zoom: number,
+    selected: boolean,
+  ) {
+    const { ctx } = this;
+    const GUIDE_COLOR = '#00BCD4';
+
+    ctx.save();
+    ctx.strokeStyle = GUIDE_COLOR;
+    ctx.lineWidth = (selected ? 2 : 1) / zoom;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    if (axis === 'x') {
+      ctx.moveTo(position, viewport.minY);
+      ctx.lineTo(position, viewport.maxY);
+    } else {
+      ctx.moveTo(viewport.minX, position);
+      ctx.lineTo(viewport.maxX, position);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  drawGuidePositionLabel(axis: 'x' | 'y', position: number, zoom: number) {
+    const { ctx } = this;
+    const label = Math.round(position).toString();
+    const fontSize = 10 / zoom;
+    const paddingX = 4 / zoom;
+    const paddingY = 2 / zoom;
+
+    ctx.save();
+    ctx.font = `${fontSize}px Inter, system-ui, sans-serif`;
+    const textMetrics = ctx.measureText(label);
+    const bgW = textMetrics.width + paddingX * 2;
+    const bgH = fontSize + paddingY * 2;
+
+    const offset = 8 / zoom;
+
+    if (axis === 'x') {
+      const labelX = position + offset;
+      const labelY = -ctx.getTransform().f / zoom + offset;
+      ctx.fillStyle = '#00BCD4';
+      ctx.fillRect(labelX, labelY, bgW, bgH);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(label, labelX + paddingX, labelY + paddingY);
+    } else {
+      const labelX = -ctx.getTransform().e / zoom + offset;
+      const labelY = position + offset;
+      ctx.fillStyle = '#00BCD4';
+      ctx.fillRect(labelX, labelY, bgW, bgH);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(label, labelX + paddingX, labelY + paddingY);
+    }
+
+    ctx.restore();
+  }
+
   drawSnapLine(axis: 'x' | 'y', position: number, start: number, end: number, zoom: number) {
     const { ctx } = this;
     const GUIDE_COLOR = '#FF00FF';

@@ -154,6 +154,12 @@ export const layoutGuideSchema = z.object({
   visible: z.boolean().default(true),
 });
 
+export const canvasGuideSchema = z.object({
+  id: z.string(),
+  axis: z.enum(['x', 'y']),
+  position: z.number(),
+});
+
 export const textSegmentSchema = z.object({
   text: z.string(),
   color: colorSchema.optional(),

@@ -1,5 +1,6 @@
-import type { Point, Camera, ToolType } from '@draftila/shared';
+import type { Point, Camera, CanvasGuide, ToolType } from '@draftila/shared';
 import type * as Y from 'yjs';
+import type { GuideSnapTarget } from '../snap';
 
 export interface ToolStore {
   readonly selectedIds: string[];
@@ -14,6 +15,10 @@ export interface ToolStore {
   setHoveredId(id: string | null): void;
   setCamera(camera: Camera): void;
   setEnteredGroupId(id: string | null): void;
+  getGuides(): GuideSnapTarget[];
+  getCanvasGuides(): CanvasGuide[];
+  setSelectedGuideId(id: string | null): void;
+  getActivePageId(): string | null;
 }
 
 let toolStore: ToolStore | null = null;

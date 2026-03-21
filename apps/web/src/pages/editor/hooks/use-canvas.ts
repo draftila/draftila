@@ -3,7 +3,13 @@ import type * as Y from 'yjs';
 import type { Shape } from '@draftila/shared';
 import { Canvas2DRenderer } from '@draftila/engine/renderer/canvas2d';
 import { getAllShapes, observeShapes } from '@draftila/engine/scene-graph';
-import { getPageBackgroundColor, observePages, DEFAULT_PAGE_BACKGROUND } from '@draftila/engine';
+import {
+  getPageBackgroundColor,
+  observePages,
+  DEFAULT_PAGE_BACKGROUND,
+  observeGuides,
+  setActivePageForGuides,
+} from '@draftila/engine';
 import {
   renderShape,
   renderSelectionForShape,
@@ -102,6 +108,16 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
       unobserve();
       unsubscribeFonts();
     };
+  }, [ydoc, activePageId]);
+
+  useEffect(() => {
+    if (activePageId) {
+      setActivePageForGuides(ydoc, activePageId);
+    }
+    const unobserveGuides = observeGuides(ydoc, (guides) => {
+      useEditorStore.getState().setGuides(guides);
+    });
+    return unobserveGuides;
   }, [ydoc, activePageId]);
 
   const draw = useCallback(() => {
@@ -264,6 +280,38 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
     if (camera.zoom >= 8) {
       const viewport = renderer.getViewport(camera);
       renderer.drawPixelGrid(viewport, camera.zoom);
+    }
+
+    const { guides, selectedGuideId, draggingGuide, guidesVisible } = useEditorStore.getState();
+    const guideViewport = renderer.getViewport(camera);
+
+    if (guidesVisible) {
+      for (const guide of guides) {
+        renderer.drawGuide(
+          guide.axis,
+          guide.position,
+          guideViewport,
+          camera.zoom,
+          guide.id === selectedGuideId,
+        );
+      }
+
+      if (selectedGuideId) {
+        const selectedGuide = guides.find((g) => g.id === selectedGuideId);
+        if (selectedGuide) {
+          renderer.drawGuidePositionLabel(selectedGuide.axis, selectedGuide.position, camera.zoom);
+        }
+      }
+    }
+
+    if (draggingGuide) {
+      renderer.drawGuide(
+        draggingGuide.axis,
+        draggingGuide.position,
+        guideViewport,
+        camera.zoom,
+        false,
+      );
     }
 
     const selectedSet = new Set(selectedIds);
