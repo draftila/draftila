@@ -1,13 +1,15 @@
-# Draftila
+<p align="center">
+  <img src="apps/web/src/assets/logo.svg" width="120" alt="Draftila" />
+</p>
 
-Draftila is a real-time collaborative design tool.
+<h1 align="center">Draftila</h1>
+
+<p align="center">Real-time collaborative design tool.</p>
 
 ## License
 
-Draftila is licensed under the GNU Affero General Public License v3.0. See `LICENSE`.
-
-At this time, Draftila is distributed only under AGPL-3.0.
+[AGPL-3.0](LICENSE)
 
 ## Contributing
 
-By opening a pull request, you agree to the contribution terms in `CONTRIBUTING.md` and `CONTRIBUTOR-AGREEMENT.md`, including permission for the maintainer to relicense contributions in the future.
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [CONTRIBUTOR-AGREEMENT.md](CONTRIBUTOR-AGREEMENT.md).
