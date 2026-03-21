@@ -50,6 +50,7 @@ export const updateAdminUserSchema = z.object({
 export const projectSchema = z.object({
   id: z.string(),
   name: z.string().trim().min(1).max(255),
+  logo: z.string().nullable(),
   isPersonal: z.boolean(),
   ownerId: z.string(),
   createdAt: z.date(),
@@ -58,6 +59,37 @@ export const projectSchema = z.object({
 
 export const createProjectSchema = projectSchema.pick({
   name: true,
+});
+
+export const updateProjectSchema = z.object({
+  name: z.string().trim().min(1, 'Name is required').max(255).optional(),
+});
+
+export const projectMemberRoleSchema = z.enum(['owner', 'admin', 'editor', 'viewer']);
+
+export const projectMemberSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  userId: z.string(),
+  role: projectMemberRoleSchema,
+  createdAt: z.date(),
+  updatedAt: z.date(),
+  user: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      email: z.string(),
+    })
+    .optional(),
+});
+
+export const inviteMemberSchema = z.object({
+  email: z.string().trim().email('Please enter a valid email address').max(255),
+  role: z.enum(['admin', 'editor', 'viewer']).default('viewer'),
+});
+
+export const updateMemberRoleSchema = z.object({
+  role: z.enum(['admin', 'editor', 'viewer']),
 });
 
 export const draftSchema = z.object({

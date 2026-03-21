@@ -23,6 +23,7 @@ model User {
   sessions      Session[]
   accounts      Account[]
   projects      Project[]
+  memberships   ProjectMember[]
 
   @@map("user")
 }
@@ -75,17 +76,34 @@ model Verification {
 }
 
 model Project {
-  id         String   @id
+  id         String          @id
   name       String
-  isPersonal Boolean  @default(false) @map("is_personal")
-  ownerId    String   @map("owner_id")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-  owner      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  logo       String?
+  isPersonal Boolean         @default(false) @map("is_personal")
+  ownerId    String          @map("owner_id")
+  createdAt  DateTime        @default(now()) @map("created_at")
+  updatedAt  DateTime        @updatedAt @map("updated_at")
+  owner      User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   drafts     Draft[]
+  members    ProjectMember[]
 
   @@index([ownerId], map: "project_owner_id_idx")
   @@map("project")
+}
+
+model ProjectMember {
+  id        String   @id
+  projectId String   @map("project_id")
+  userId    String   @map("user_id")
+  role      String   @default("viewer")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId], map: "project_member_project_user_idx")
+  @@index([userId], map: "project_member_user_id_idx")
+  @@map("project_member")
 }
 
 model Draft {

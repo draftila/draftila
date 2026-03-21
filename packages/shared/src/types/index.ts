@@ -10,6 +10,11 @@ import type {
   updateAdminUserSchema,
   projectSchema,
   createProjectSchema,
+  updateProjectSchema,
+  projectMemberRoleSchema,
+  projectMemberSchema,
+  inviteMemberSchema,
+  updateMemberRoleSchema,
   draftSchema,
   createDraftSchema,
   updateDraftSchema,
@@ -25,6 +30,11 @@ export type CreateAdminUser = z.infer<typeof createAdminUserSchema>;
 export type UpdateAdminUser = z.infer<typeof updateAdminUserSchema>;
 export type Project = z.infer<typeof projectSchema>;
 export type CreateProject = z.infer<typeof createProjectSchema>;
+export type UpdateProject = z.infer<typeof updateProjectSchema>;
+export type ProjectMemberRole = z.infer<typeof projectMemberRoleSchema>;
+export type ProjectMember = z.infer<typeof projectMemberSchema>;
+export type InviteMember = z.infer<typeof inviteMemberSchema>;
+export type UpdateMemberRole = z.infer<typeof updateMemberRoleSchema>;
 export type Draft = z.infer<typeof draftSchema>;
 export type CreateDraft = z.infer<typeof createDraftSchema>;
 export type UpdateDraft = z.infer<typeof updateDraftSchema>;

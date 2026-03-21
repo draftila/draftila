@@ -161,7 +161,7 @@ describe('drafts', () => {
       await draftsService.create({ name: 'D1', projectId });
       await draftsService.create({ name: 'D2', projectId: project2.id });
 
-      const result = await draftsService.listByOwner(userId);
+      const result = await draftsService.listByUser(userId);
       expect(result.data).toHaveLength(2);
       expect(result.data.map((d) => d.name).sort()).toEqual(['D1', 'D2']);
     });
@@ -169,7 +169,7 @@ describe('drafts', () => {
     test('listByOwner does not return drafts from other users', async () => {
       await draftsService.create({ name: 'My Draft', projectId });
 
-      const result = await draftsService.listByOwner('other-user-id');
+      const result = await draftsService.listByUser('other-user-id');
       expect(result.data).toHaveLength(0);
     });
 
@@ -178,7 +178,7 @@ describe('drafts', () => {
       await draftsService.create({ name: 'Apple', projectId });
       await draftsService.create({ name: 'Banana', projectId });
 
-      const result = await draftsService.listByOwner(userId, undefined, 20, 'alphabetical');
+      const result = await draftsService.listByUser(userId, undefined, 20, 'alphabetical');
       expect(result.data[0]!.name).toBe('Apple');
       expect(result.data[1]!.name).toBe('Banana');
       expect(result.data[2]!.name).toBe('Cherry');
@@ -189,18 +189,18 @@ describe('drafts', () => {
         await draftsService.create({ name: `D${i}`, projectId });
       }
 
-      const page1 = await draftsService.listByOwner(userId, undefined, 3);
+      const page1 = await draftsService.listByUser(userId, undefined, 3);
       expect(page1.data).toHaveLength(3);
       expect(page1.nextCursor).not.toBeNull();
 
-      const page2 = await draftsService.listByOwner(userId, page1.nextCursor!, 3);
+      const page2 = await draftsService.listByUser(userId, page1.nextCursor!, 3);
       expect(page2.data).toHaveLength(2);
       expect(page2.nextCursor).toBeNull();
     });
 
     test('getByIdForOwner returns draft for correct owner', async () => {
       const created = await draftsService.create({ name: 'Owned Draft', projectId });
-      const result = await draftsService.getByIdForOwner(created.id, userId);
+      const result = await draftsService.getByIdForUser(created.id, userId);
 
       expect(result).not.toBeNull();
       expect(result!.id).toBe(created.id);
@@ -209,29 +209,13 @@ describe('drafts', () => {
 
     test('getByIdForOwner returns null for wrong owner', async () => {
       const created = await draftsService.create({ name: 'Not Yours', projectId });
-      const result = await draftsService.getByIdForOwner(created.id, 'other-user-id');
+      const result = await draftsService.getByIdForUser(created.id, 'other-user-id');
 
       expect(result).toBeNull();
     });
 
     test('getByIdForOwner returns null for non-existent draft', async () => {
-      const result = await draftsService.getByIdForOwner('non-existent-id', userId);
-      expect(result).toBeNull();
-    });
-
-    test('verifyProjectOwnership returns project for correct owner', async () => {
-      const result = await draftsService.verifyProjectOwnership(projectId, userId);
-      expect(result).not.toBeNull();
-      expect(result!.id).toBe(projectId);
-    });
-
-    test('verifyProjectOwnership returns null for wrong owner', async () => {
-      const result = await draftsService.verifyProjectOwnership(projectId, 'other-user-id');
-      expect(result).toBeNull();
-    });
-
-    test('verifyProjectOwnership returns null for non-existent project', async () => {
-      const result = await draftsService.verifyProjectOwnership('non-existent-id', userId);
+      const result = await draftsService.getByIdForUser('non-existent-id', userId);
       expect(result).toBeNull();
     });
   });
@@ -527,7 +511,7 @@ describe('drafts', () => {
         body: JSON.stringify({ name: 'Orphan Draft' }),
       });
 
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(403);
     });
 
     test('GET /drafts/:draftId returns the draft', async () => {

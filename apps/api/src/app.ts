@@ -13,6 +13,7 @@ import { checkRateLimit } from './common/middleware/rate-limit';
 import { authRoutes } from './modules/auth/auth.routes';
 import { allDraftsRoutes, draftRoutes } from './modules/drafts/drafts.routes';
 import { healthRoutes } from './modules/health/health.routes';
+import { memberRoutes } from './modules/projects/members.routes';
 import { projectRoutes } from './modules/projects/projects.routes';
 import { userRoutes } from './modules/user/user.routes';
 
@@ -61,6 +62,7 @@ app.use('/api/*', async (c, next) => {
 app.route('/api/auth', authRoutes);
 app.route('/api/health', healthRoutes);
 app.route('/api/projects', projectRoutes);
+app.route('/api/projects/:projectId/members', memberRoutes);
 app.route('/api/drafts', allDraftsRoutes);
 app.route('/api/projects/:projectId/drafts', draftRoutes);
 app.route('/api', userRoutes);

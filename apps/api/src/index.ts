@@ -31,7 +31,7 @@ Bun.serve<WsData>({
         return new Response('Unauthorized', { status: 401 });
       }
 
-      const draftRecord = await draftsService.getByIdForOwner(draftId, authResult.userId);
+      const draftRecord = await draftsService.getByIdForUser(draftId, authResult.userId);
       if (!draftRecord) {
         return new Response('Not Found', { status: 404 });
       }

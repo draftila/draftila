@@ -101,22 +101,22 @@ describe('projects', () => {
       expect(result.data[2]!.name).toBe('Cherry');
     });
 
-    test('getByIdAndOwner returns the project for the correct owner', async () => {
+    test('getByIdForUser returns the project for the correct owner', async () => {
       const created = await projectsService.create({ name: 'Find Me', ownerId: userId });
-      const found = await projectsService.getByIdAndOwner(created.id, userId);
+      const found = await projectsService.getByIdForUser(created.id, userId);
 
       expect(found).not.toBeNull();
       expect(found!.name).toBe('Find Me');
     });
 
-    test('getByIdAndOwner returns null for non-existent id', async () => {
-      const found = await projectsService.getByIdAndOwner('non-existent-id', userId);
+    test('getByIdForUser returns null for non-existent id', async () => {
+      const found = await projectsService.getByIdForUser('non-existent-id', userId);
       expect(found).toBeNull();
     });
 
-    test('getByIdAndOwner returns null for wrong owner', async () => {
+    test('getByIdForUser returns null for wrong owner', async () => {
       const created = await projectsService.create({ name: 'Private', ownerId: userId });
-      const found = await projectsService.getByIdAndOwner(created.id, 'other-user-id');
+      const found = await projectsService.getByIdForUser(created.id, 'other-user-id');
       expect(found).toBeNull();
     });
 
@@ -127,7 +127,7 @@ describe('projects', () => {
       expect(deleted).not.toBeNull();
       expect(deleted!.name).toBe('Delete Me');
 
-      const found = await projectsService.getByIdAndOwner(created.id, userId);
+      const found = await projectsService.getByIdForUser(created.id, userId);
       expect(found).toBeNull();
     });
 
@@ -137,7 +137,7 @@ describe('projects', () => {
 
       expect(deleted).toBeNull();
 
-      const found = await projectsService.getByIdAndOwner(created.id, userId);
+      const found = await projectsService.getByIdForUser(created.id, userId);
       expect(found).not.toBeNull();
     });
 
@@ -147,7 +147,7 @@ describe('projects', () => {
 
       await expect(projectsService.remove(created.id, userId)).rejects.toThrow('Forbidden');
 
-      const found = await projectsService.getByIdAndOwner(created.id, userId);
+      const found = await projectsService.getByIdForUser(created.id, userId);
       expect(found).not.toBeNull();
     });
   });
@@ -359,7 +359,7 @@ describe('projects', () => {
       const body = (await res.json()) as { ok: boolean };
       expect(body.ok).toBe(true);
 
-      const found = await projectsService.getByIdAndOwner(project.id, userId);
+      const found = await projectsService.getByIdForUser(project.id, userId);
       expect(found).toBeNull();
     });
 
@@ -381,7 +381,7 @@ describe('projects', () => {
 
       expect(res.status).toBe(404);
 
-      const found = await projectsService.getByIdAndOwner(project.id, otherUser.user.id);
+      const found = await projectsService.getByIdForUser(project.id, otherUser.user.id);
       expect(found).not.toBeNull();
     });
 
@@ -412,7 +412,7 @@ describe('projects', () => {
       const body = (await res.json()) as { error: string };
       expect(body.error).toBe('Forbidden');
 
-      const found = await projectsService.getByIdAndOwner(created.id, userId);
+      const found = await projectsService.getByIdForUser(created.id, userId);
       expect(found).not.toBeNull();
     });
   });

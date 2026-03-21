@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 import { createDraftSchema, sortablePaginationSchema, updateDraftSchema } from '@draftila/shared';
-import { NotFoundError, ValidationError } from '../../common/errors';
+import { ForbiddenError, NotFoundError, ValidationError } from '../../common/errors';
 import { requireAuth, type AuthEnv } from '../../common/middleware/auth';
+import { canDelete, canEdit, getEffectiveMembership } from '../projects/members.service';
 import * as draftsService from './drafts.service';
 
 type DraftEnv = AuthEnv & { Variables: AuthEnv['Variables'] };
@@ -14,8 +15,8 @@ draftRoutes.get('/', async (c) => {
   const user = c.get('user');
   const projectId = c.req.param('projectId') as string;
 
-  const projectRecord = await draftsService.verifyProjectOwnership(projectId, user.id);
-  if (!projectRecord) {
+  const membership = await getEffectiveMembership(projectId, user.id);
+  if (!membership) {
     throw new NotFoundError('Project');
   }
 
@@ -43,9 +44,9 @@ draftRoutes.post('/', async (c) => {
   const user = c.get('user');
   const projectId = c.req.param('projectId') as string;
 
-  const projectRecord = await draftsService.verifyProjectOwnership(projectId, user.id);
-  if (!projectRecord) {
-    throw new NotFoundError('Project');
+  const membership = await getEffectiveMembership(projectId, user.id);
+  if (!membership || !canEdit(membership.role)) {
+    throw new ForbiddenError();
   }
 
   const body = await c.req.json();
@@ -69,8 +70,8 @@ draftRoutes.get('/:draftId', async (c) => {
   const projectId = c.req.param('projectId') as string;
   const draftId = c.req.param('draftId');
 
-  const projectRecord = await draftsService.verifyProjectOwnership(projectId, user.id);
-  if (!projectRecord) {
+  const membership = await getEffectiveMembership(projectId, user.id);
+  if (!membership) {
     throw new NotFoundError('Project');
   }
 
@@ -87,9 +88,9 @@ draftRoutes.patch('/:draftId', async (c) => {
   const projectId = c.req.param('projectId') as string;
   const draftId = c.req.param('draftId');
 
-  const projectRecord = await draftsService.verifyProjectOwnership(projectId, user.id);
-  if (!projectRecord) {
-    throw new NotFoundError('Project');
+  const membership = await getEffectiveMembership(projectId, user.id);
+  if (!membership || !canEdit(membership.role)) {
+    throw new ForbiddenError();
   }
 
   const existing = await draftsService.getById(draftId);
@@ -114,9 +115,9 @@ draftRoutes.delete('/:draftId', async (c) => {
   const projectId = c.req.param('projectId') as string;
   const draftId = c.req.param('draftId');
 
-  const projectRecord = await draftsService.verifyProjectOwnership(projectId, user.id);
-  if (!projectRecord) {
-    throw new NotFoundError('Project');
+  const membership = await getEffectiveMembership(projectId, user.id);
+  if (!membership || !canDelete(membership.role)) {
+    throw new ForbiddenError();
   }
 
   const existing = await draftsService.getById(draftId);
@@ -136,7 +137,7 @@ allDraftsRoutes.get('/:draftId', async (c) => {
   const user = c.get('user');
   const draftId = c.req.param('draftId');
 
-  const draftRecord = await draftsService.getByIdForOwner(draftId, user.id);
+  const draftRecord = await draftsService.getByIdForUser(draftId, user.id);
   if (!draftRecord) {
     throw new NotFoundError('Draft');
   }
@@ -148,7 +149,7 @@ allDraftsRoutes.put('/:draftId/thumbnail', async (c) => {
   const user = c.get('user');
   const draftId = c.req.param('draftId');
 
-  const draftRecord = await draftsService.getByIdForOwner(draftId, user.id);
+  const draftRecord = await draftsService.getByIdForUser(draftId, user.id);
   if (!draftRecord) {
     throw new NotFoundError('Draft');
   }
@@ -184,7 +185,7 @@ allDraftsRoutes.get('/', async (c) => {
     throw new ValidationError(flattened.fieldErrors as Record<string, string[]>);
   }
 
-  const result = await draftsService.listByOwner(
+  const result = await draftsService.listByUser(
     user.id,
     parsed.data.cursor,
     parsed.data.limit,

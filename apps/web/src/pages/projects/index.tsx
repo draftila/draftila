@@ -23,11 +23,6 @@ export function ProjectsPage() {
   const { data: projectsResponse, isLoading, isError, error } = useProjects({ sort: sortOrder });
   const projects = projectsResponse?.data ?? [];
 
-  function handleSelectProject(projectId: string) {
-    setSelectedProjectId(projectId);
-    navigate('/');
-  }
-
   function handleProjectCreated(project: { id: string; name: string }) {
     setSelectedProjectId(project.id);
     navigate('/');
@@ -59,13 +54,13 @@ export function ProjectsPage() {
         ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {projects.map((project) => (
-              <ProjectCard key={project.id} project={project} onSelect={handleSelectProject} />
+              <ProjectCard key={project.id} project={project} />
             ))}
           </div>
         ) : (
           <div className="flex flex-col">
             {projects.map((project) => (
-              <ProjectListItem key={project.id} project={project} onSelect={handleSelectProject} />
+              <ProjectListItem key={project.id} project={project} />
             ))}
           </div>
         )}
