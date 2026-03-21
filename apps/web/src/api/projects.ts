@@ -1,8 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CreateProject, PaginatedResponse, Project, SortOrder } from '@draftila/shared';
+import type {
+  CreateProject,
+  InviteMember,
+  PaginatedResponse,
+  Project,
+  ProjectMember,
+  SortOrder,
+  UpdateMemberRole,
+  UpdateProject,
+} from '@draftila/shared';
 import { api } from '@/lib/api-client';
 
 const PROJECTS_KEY = ['projects'] as const;
+const MEMBERS_KEY = ['project-members'] as const;
 
 interface UseProjectsOptions {
   cursor?: string;
@@ -40,10 +50,80 @@ export function useCreateProject() {
   });
 }
 
+export function useUpdateProject() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateProject }) =>
+      api.patch<Project>(`/api/projects/${id}`, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: PROJECTS_KEY }),
+  });
+}
+
+export function useUploadProjectLogo() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, file }: { id: string; file: File }) => {
+      const res = await fetch(`/api/projects/${id}/logo`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': file.type },
+        body: file,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: 'Upload failed' }));
+        throw new Error(body.error);
+      }
+      return res.json() as Promise<{ url: string }>;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: PROJECTS_KEY }),
+  });
+}
+
 export function useDeleteProject() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete<{ ok: true }>(`/api/projects/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: PROJECTS_KEY }),
+  });
+}
+
+export function useProjectMembers(projectId: string) {
+  return useQuery({
+    queryKey: [...MEMBERS_KEY, projectId],
+    queryFn: () => api.get<{ data: ProjectMember[] }>(`/api/projects/${projectId}/members`),
+  });
+}
+
+export function useInviteMember() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ projectId, data }: { projectId: string; data: InviteMember }) =>
+      api.post<ProjectMember>(`/api/projects/${projectId}/members`, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: MEMBERS_KEY }),
+  });
+}
+
+export function useUpdateMemberRole() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      projectId,
+      memberId,
+      data,
+    }: {
+      projectId: string;
+      memberId: string;
+      data: UpdateMemberRole;
+    }) => api.patch<ProjectMember>(`/api/projects/${projectId}/members/${memberId}`, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: MEMBERS_KEY }),
+  });
+}
+
+export function useRemoveMember() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ projectId, memberId }: { projectId: string; memberId: string }) =>
+      api.delete<{ ok: true }>(`/api/projects/${projectId}/members/${memberId}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: MEMBERS_KEY }),
   });
 }

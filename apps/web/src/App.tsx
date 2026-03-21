@@ -10,6 +10,7 @@ import { AdminLayout } from './layouts/admin-layout';
 import { EditorLayout } from './layouts/editor-layout';
 import { DraftsPage } from './pages/drafts/index';
 import { ProjectsPage } from './pages/projects/index';
+import { ProjectSettingsPage } from './pages/projects/settings';
 import { EditorPage } from './pages/editor/index';
 import { AdminUsersPage } from './pages/admin/index';
 import { LoginPage } from './pages/auth/login';
@@ -29,6 +30,7 @@ export function App() {
               <Route element={<DashboardLayout />}>
                 <Route path="/" element={<DraftsPage />} />
                 <Route path="/projects" element={<ProjectsPage />} />
+                <Route path="/projects/:projectId/settings" element={<ProjectSettingsPage />} />
               </Route>
               <Route element={<EditorLayout />}>
                 <Route path="/drafts/:draftId" element={<EditorPage />} />

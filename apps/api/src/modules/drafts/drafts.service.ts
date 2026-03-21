@@ -3,6 +3,7 @@ import type { SortOrder } from '@draftila/shared';
 import { generateStorageKey, getStorage } from '../../common/lib/storage';
 import { nanoid } from '../../common/lib/utils';
 import { db } from '../../db';
+import { userAccessFilter } from '../projects/projects.service';
 
 let lastTimestamp = 0;
 
@@ -120,18 +121,22 @@ export async function listByProject(
   return { data, nextCursor };
 }
 
-export async function listByOwner(
-  ownerId: string,
+export async function listByUser(
+  userId: string,
   cursor?: string,
   limit = 20,
   sort: SortOrder = 'last_edited',
 ) {
   const sortConfig = getSortConfig(sort);
 
+  const accessFilter: Prisma.DraftWhereInput = {
+    project: userAccessFilter(userId),
+  };
+
   let cursorFilter: Prisma.DraftWhereInput | undefined;
   if (cursor) {
     const cursorDraft = await db.draft.findFirst({
-      where: { id: cursor, project: { ownerId } },
+      where: { id: cursor, ...accessFilter },
       select: { id: true, name: true, createdAt: true, updatedAt: true },
     });
     if (cursorDraft) {
@@ -141,10 +146,10 @@ export async function listByOwner(
 
   const where: Prisma.DraftWhereInput = cursorFilter
     ? {
-        project: { ownerId },
+        ...accessFilter,
         AND: [cursorFilter],
       }
-    : { project: { ownerId } };
+    : accessFilter;
 
   const results = await db.draft.findMany({
     where,
@@ -165,9 +170,9 @@ export function getById(id: string) {
   return db.draft.findUnique({ where: { id }, select: draftListSelect });
 }
 
-export function getByIdForOwner(draftId: string, ownerId: string) {
+export function getByIdForUser(draftId: string, userId: string) {
   return db.draft.findFirst({
-    where: { id: draftId, project: { ownerId } },
+    where: { id: draftId, project: userAccessFilter(userId) },
     select: draftListSelect,
   });
 }
@@ -249,8 +254,4 @@ export async function loadYjsState(id: string) {
 
 export async function saveYjsState(id: string, state: Buffer) {
   await db.draft.update({ where: { id }, data: { yjsState: new Uint8Array(state) } });
-}
-
-export function verifyProjectOwnership(projectId: string, ownerId: string) {
-  return db.project.findFirst({ where: { id: projectId, ownerId } });
 }

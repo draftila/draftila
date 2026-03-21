@@ -3,6 +3,7 @@ import { db } from '../src/db';
 
 export async function cleanDatabase() {
   await db.draft.deleteMany();
+  await db.projectMember.deleteMany();
   await db.project.deleteMany();
   await db.session.deleteMany();
   await db.account.deleteMany();

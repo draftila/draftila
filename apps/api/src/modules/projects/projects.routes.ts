@@ -1,7 +1,13 @@
 import { Hono } from 'hono';
-import { createProjectSchema, sortablePaginationSchema } from '@draftila/shared';
-import { NotFoundError, ValidationError } from '../../common/errors';
+import {
+  createProjectSchema,
+  sortablePaginationSchema,
+  updateProjectSchema,
+} from '@draftila/shared';
+import { ForbiddenError, NotFoundError, ValidationError } from '../../common/errors';
 import { requireAuth, type AuthEnv } from '../../common/middleware/auth';
+import { canEdit } from './members.service';
+import * as membersService from './members.service';
 import * as projectsService from './projects.service';
 
 const projectRoutes = new Hono<AuthEnv>();
@@ -50,13 +56,64 @@ projectRoutes.post('/', async (c) => {
 
 projectRoutes.get('/:id', async (c) => {
   const user = c.get('user');
-  const project = await projectsService.getByIdAndOwner(c.req.param('id'), user.id);
+  const project = await projectsService.getByIdForUser(c.req.param('id'), user.id);
 
   if (!project) {
     throw new NotFoundError('Project');
   }
 
   return c.json(project);
+});
+
+projectRoutes.patch('/:id', async (c) => {
+  const user = c.get('user');
+  const projectId = c.req.param('id');
+
+  const membership = await membersService.getEffectiveMembership(projectId, user.id);
+  if (!membership || !canEdit(membership.role)) {
+    throw new ForbiddenError();
+  }
+
+  const body = await c.req.json();
+  const parsed = updateProjectSchema.safeParse(body);
+
+  if (!parsed.success) {
+    const flattened = parsed.error.flatten();
+    throw new ValidationError(flattened.fieldErrors as Record<string, string[]>);
+  }
+
+  const updated = await projectsService.update(projectId, parsed.data);
+  if (!updated) {
+    throw new NotFoundError('Project');
+  }
+
+  return c.json(updated);
+});
+
+projectRoutes.put('/:id/logo', async (c) => {
+  const user = c.get('user');
+  const projectId = c.req.param('id');
+
+  const membership = await membersService.getEffectiveMembership(projectId, user.id);
+  if (!membership || !canEdit(membership.role)) {
+    throw new ForbiddenError();
+  }
+
+  const contentType = c.req.header('content-type') ?? '';
+  if (!contentType.startsWith('image/')) {
+    throw new ValidationError({ logo: ['Body must be an image'] });
+  }
+
+  const arrayBuffer = await c.req.arrayBuffer();
+  if (arrayBuffer.byteLength === 0) {
+    throw new ValidationError({ logo: ['Body must not be empty'] });
+  }
+  if (arrayBuffer.byteLength > 512 * 1024) {
+    throw new ValidationError({ logo: ['Logo must be under 512KB'] });
+  }
+
+  const url = await projectsService.saveLogo(projectId, Buffer.from(arrayBuffer));
+  return c.json({ url });
 });
 
 projectRoutes.delete('/:id', async (c) => {
