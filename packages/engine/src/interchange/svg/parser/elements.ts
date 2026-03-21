@@ -87,14 +87,20 @@ function parseVectorElement(el: Element, ctx: ParseCtx): InterchangeNode | null 
     const color = normalizeColor(ctx.inheritedStroke) ?? '#000000';
     const { hex, opacity: co } = colorToOpacity(color);
     const sw = ctx.inheritedStrokeWidth ?? 1;
+    const capStr = el.getAttribute('stroke-linecap') ?? ctx.inheritedStrokeCap;
+    const joinStr = el.getAttribute('stroke-linejoin') ?? ctx.inheritedStrokeJoin;
     resolvedStrokes = [
       {
         color: hex,
         width: sw,
         opacity: co,
         visible: true,
-        cap: 'butt' as InterchangeStrokeCap,
-        join: 'miter' as InterchangeStrokeJoin,
+        cap: (['butt', 'round', 'square'].includes(capStr ?? '')
+          ? capStr
+          : 'butt') as InterchangeStrokeCap,
+        join: (['miter', 'round', 'bevel'].includes(joinStr ?? '')
+          ? joinStr
+          : 'miter') as InterchangeStrokeJoin,
         align: 'center',
         dashPattern: 'solid' as InterchangeDashPattern,
         dashOffset: 0,
@@ -438,6 +444,8 @@ export function parseElement(el: Element, ctx: ParseCtx): InterchangeNode | null
     const groupFill = el.getAttribute('fill');
     const groupStroke = el.getAttribute('stroke');
     const groupStrokeWidth = el.getAttribute('stroke-width');
+    const groupStrokeCap = el.getAttribute('stroke-linecap');
+    const groupStrokeJoin = el.getAttribute('stroke-linejoin');
 
     const groupCtx: ParseCtx = {
       ...childCtx,
@@ -447,6 +455,8 @@ export function parseElement(el: Element, ctx: ParseCtx): InterchangeNode | null
       inheritedStrokeWidth: groupStrokeWidth
         ? parseFloat(groupStrokeWidth)
         : ctx.inheritedStrokeWidth,
+      inheritedStrokeCap: groupStrokeCap ?? ctx.inheritedStrokeCap,
+      inheritedStrokeJoin: groupStrokeJoin ?? ctx.inheritedStrokeJoin,
     };
 
     const children: InterchangeNode[] = [];

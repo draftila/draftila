@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { LayoutGrid, File, PanelLeft, Upload, Eye } from 'lucide-react';
+import { PanelLeft, Upload, Eye } from 'lucide-react';
+import logoSvg from '@/assets/logo.svg';
 import { useDraftById, useUpdateDraft } from '@/api/drafts';
 import { useSession } from '@/lib/auth-client';
 import { Button } from '@/components/ui/button';
@@ -231,18 +232,15 @@ export function EditorPage() {
           className="hidden"
           onChange={handleImportFile}
         />
-        <div className="flex h-full w-60 shrink-0 items-center gap-1.5 border-r px-2">
+        <div className="flex h-full w-60 shrink-0 items-center gap-1 border-r px-4">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
+              <button className="shrink-0 cursor-pointer">
+                <img src={logoSvg} alt="Draftila" className="size-5" />
+              </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
-              <DropdownMenuItem onClick={() => navigate('/')}>
-                <File className="mr-2 h-4 w-4" />
-                Drafts
-              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/')}>Drafts</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
                 <Upload className="mr-2 h-4 w-4" />

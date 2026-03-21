@@ -36,7 +36,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { ColorPicker } from './color-picker';
 import { ExportSection } from './right-panel/sections/export-section';
 import { PreviewSection } from './right-panel/sections/preview-section';
-import { getSectionsForShape } from './right-panel/section-registry';
+import { getSectionsForMultiSelection, getSectionsForShape } from './right-panel/section-registry';
 import { ZoomControls } from './right-panel/zoom-controls';
 
 interface RightPanelProps {
@@ -170,29 +170,6 @@ export function RightPanel({ ydoc }: RightPanelProps) {
 
   const multiSelected = selectedShapes.length > 1;
 
-  const sharedOpacity = (() => {
-    if (!multiSelected) return null;
-    const first = selectedShapes[0]?.opacity;
-    if (first === undefined) return null;
-    return selectedShapes.every((shape) => shape.opacity === first) ? first : null;
-  })();
-
-  const sharedFillColor = (() => {
-    if (!multiSelected) return null;
-    const firstShape = selectedShapes[0] as
-      | (Shape & { fills?: Array<{ color?: string }> })
-      | undefined;
-    const firstColor = firstShape?.fills?.[0]?.color;
-    if (!firstColor) return null;
-
-    const allHaveSame = selectedShapes.every((shape) => {
-      const withFills = shape as Shape & { fills?: Array<{ color?: string }> };
-      return withFills.fills?.[0]?.color === firstColor;
-    });
-
-    return allHaveSame ? firstColor : null;
-  })();
-
   useEffect(() => {
     const allVisibleShapes = filterEffectivelyVisibleShapes(getAllShapes(ydoc));
 
@@ -259,12 +236,16 @@ export function RightPanel({ ydoc }: RightPanelProps) {
     [ydoc, selectedIds],
   );
 
-  const handleBatchOpacityUpdate = useCallback(
-    (nextOpacity: number) => {
-      const clamped = Math.max(0, Math.min(1, nextOpacity));
+  const handleBatchUpdate = useCallback(
+    (props: Partial<Shape>) => {
       for (const shape of selectedShapes) {
-        updateShape(ydoc, shape.id, { opacity: clamped });
-        applyAutoLayoutForAncestors(ydoc, shape.id);
+        updateShape(ydoc, shape.id, props);
+        requestAnimationFrame(() => {
+          if (isAutoLayoutFrame(shape)) {
+            applyAutoLayout(ydoc, shape.id);
+          }
+          applyAutoLayoutForAncestors(ydoc, shape.id);
+        });
       }
       setRevision((r) => r + 1);
     },
@@ -289,30 +270,6 @@ export function RightPanel({ ydoc }: RightPanelProps) {
       const updates = distributeShapes(selectedShapes, direction);
       for (const [id, pos] of updates) {
         updateShape(ydoc, id, pos as Partial<Shape>);
-      }
-      setRevision((r) => r + 1);
-    },
-    [ydoc, selectedShapes],
-  );
-
-  const handleBatchFillColorUpdate = useCallback(
-    (nextColor: string) => {
-      for (const shape of selectedShapes) {
-        const withFills = shape as Shape & {
-          fills?: Array<Record<string, unknown>>;
-        };
-        const fills = withFills.fills;
-        if (!fills || fills.length === 0) continue;
-        const [first, ...rest] = fills;
-        const nextFirst = {
-          ...first,
-          color: nextColor,
-          gradient: undefined,
-        };
-        updateShape(ydoc, shape.id, {
-          fills: [nextFirst, ...rest],
-        } as Partial<Shape>);
-        applyAutoLayoutForAncestors(ydoc, shape.id);
       }
       setRevision((r) => r + 1);
     },
@@ -514,60 +471,18 @@ export function RightPanel({ ydoc }: RightPanelProps) {
                 </>
               )}
             </div>
-            <div className="border-b px-3 py-3">
-              <div className="space-y-2">
-                <div>
-                  <p className="text-muted-foreground mb-1 text-[11px] font-medium">Opacity</p>
-                  <div className="border-input flex h-7 items-center rounded border px-2">
-                    <input
-                      type="text"
-                      value={
-                        sharedOpacity === null
-                          ? 'Mixed'
-                          : Math.round(sharedOpacity * 100).toString()
-                      }
-                      onChange={(event) => {
-                        const next = Number.parseFloat(event.target.value);
-                        if (!Number.isFinite(next)) return;
-                        handleBatchOpacityUpdate(next / 100);
-                      }}
-                      className="h-full w-full bg-transparent text-[11px] outline-none"
-                    />
-                    <span className="text-muted-foreground text-[11px]">%</span>
-                  </div>
+            {getSectionsForMultiSelection(selectedShapes.map((s) => s.type)).map(
+              (Section, index) => (
+                <div key={Section.name || index} className="border-b px-3 py-3">
+                  <Section
+                    ydoc={ydoc}
+                    shape={selectedShapes[0]!}
+                    shapeScope={shapeScope}
+                    onUpdate={handleBatchUpdate}
+                  />
                 </div>
-                <div>
-                  <p className="text-muted-foreground mb-1 text-[11px] font-medium">Fill</p>
-                  <div className="border-input flex h-7 items-center gap-2 rounded border px-2">
-                    <input
-                      type="color"
-                      value={sharedFillColor ?? '#d9d9d9'}
-                      onChange={(event) => handleBatchFillColorUpdate(event.target.value)}
-                      className="h-4 w-4 rounded border-0 p-0"
-                    />
-                    <span className="text-[11px]">
-                      {sharedFillColor ? sharedFillColor : 'Mixed'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="border-b px-3 py-3">
-              <ExportSection
-                ydoc={ydoc}
-                shape={canvasShape}
-                shapeScope={shapeScope}
-                onUpdate={() => {}}
-              />
-            </div>
-            <div className="border-b px-3 py-3">
-              <PreviewSection
-                ydoc={ydoc}
-                shape={canvasShape}
-                shapeScope={shapeScope}
-                onUpdate={() => {}}
-              />
-            </div>
+              ),
+            )}
           </div>
         )}
         {selectedShape && (

@@ -353,11 +353,18 @@ export function hitTestPoint(
     }
   }
 
+  const isTopLevelFrame = (shape: Shape) =>
+    shape.type === 'frame' && (!shape.parentId || shapeMap.get(shape.parentId)?.type !== 'frame');
+
   for (let i = shapes.length - 1; i >= 0; i--) {
     const shape = shapes[i];
     if (!shape || !candidateIds.has(shape.id)) continue;
     if (isEffectivelyLocked(shape, shapeMap) || !isEffectivelyVisible(shape, shapeMap)) continue;
-    if (shape.type === 'frame') continue;
+    if (isTopLevelFrame(shape)) continue;
+    if (shape.type === 'frame') {
+      if (pointInRect(px, py, shape)) return shape;
+      continue;
+    }
     if (narrowPhaseHitTest(px, py, shape, zoom)) {
       return shape;
     }
@@ -367,6 +374,7 @@ export function hitTestPoint(
     const shape = shapes[i];
     if (!shape || shape.type !== 'frame') continue;
     if (isEffectivelyLocked(shape, shapeMap) || !isEffectivelyVisible(shape, shapeMap)) continue;
+    if (!isTopLevelFrame(shape)) continue;
     if (hitTestFrameLabel(px, py, shape, zoom)) {
       return shape;
     }

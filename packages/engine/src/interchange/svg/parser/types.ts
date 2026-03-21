@@ -20,5 +20,7 @@ export interface ParseCtx {
   inheritedFill: string | null;
   inheritedStroke: string | null;
   inheritedStrokeWidth: number | null;
+  inheritedStrokeCap: string | null;
+  inheritedStrokeJoin: string | null;
   parentMatrix: DOMMatrix;
 }
