@@ -46,7 +46,7 @@ AI generated and Human verified
 
 ## License
 
-[AGPL-3.0](LICENSE)
+[Apache-2.0](LICENSE)
 
 ## Contributing
 
