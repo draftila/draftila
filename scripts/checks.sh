@@ -171,7 +171,7 @@ fi
 
 if [ "$failed" -eq 0 ]; then
   if [ "$FIX" -eq 1 ]; then
-    run_step "Linting (fix)" bun run lint -- --fix || failed=1
+    run_step "Linting (fix)" bun run lint:fix || failed=1
   else
     run_step "Linting" bun run lint || failed=1
   fi

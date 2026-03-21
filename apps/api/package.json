@@ -10,6 +10,7 @@
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "clean": "rm -rf dist .turbo",
     "postinstall": "bun run db:generate",
     "db:generate": "bunx --bun prisma generate --schema prisma/postgresql/schema.prisma && bunx --bun prisma generate --schema prisma/sqlite/schema.prisma",
