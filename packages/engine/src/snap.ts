@@ -34,6 +34,11 @@ export interface ParentFrameRect {
 
 const SNAP_THRESHOLD = 5;
 
+export interface GuideSnapTarget {
+  axis: 'x' | 'y';
+  position: number;
+}
+
 interface ShapeEdges {
   left: number;
   centerX: number;
@@ -303,6 +308,7 @@ export function snapPosition(
   otherShapes: Shape[],
   zoom: number,
   parentFrame?: ParentFrameRect,
+  guides?: GuideSnapTarget[],
 ): SnapResult {
   const threshold = SNAP_THRESHOLD / zoom;
 
@@ -397,6 +403,37 @@ export function snapPosition(
     for (const myEdge of [movingEdges.top, movingEdges.centerY, movingEdges.bottom]) {
       for (const otherEdge of [edges.top, edges.centerY, edges.bottom]) {
         matchEdge('y', myEdge, otherEdge, edges);
+      }
+    }
+  }
+
+  if (guides) {
+    const LARGE = 100000;
+    for (const guide of guides) {
+      if (guide.axis === 'x') {
+        const guideEdges: ShapeEdges = {
+          left: guide.position,
+          centerX: guide.position,
+          right: guide.position,
+          top: -LARGE,
+          centerY: 0,
+          bottom: LARGE,
+        };
+        for (const myEdge of [movingEdges.left, movingEdges.centerX, movingEdges.right]) {
+          matchEdge('x', myEdge, guide.position, guideEdges);
+        }
+      } else {
+        const guideEdges: ShapeEdges = {
+          left: -LARGE,
+          centerX: 0,
+          right: LARGE,
+          top: guide.position,
+          centerY: guide.position,
+          bottom: guide.position,
+        };
+        for (const myEdge of [movingEdges.top, movingEdges.centerY, movingEdges.bottom]) {
+          matchEdge('y', myEdge, guide.position, guideEdges);
+        }
       }
     }
   }
@@ -503,6 +540,7 @@ export function snapResize(
   otherShapes: Shape[],
   zoom: number,
   parentFrame?: ParentFrameRect,
+  guides?: GuideSnapTarget[],
 ): ResizeSnapResult {
   const threshold = SNAP_THRESHOLD / zoom;
 
@@ -572,6 +610,35 @@ export function snapResize(
           centerY: pCenterY,
         },
       });
+    }
+  }
+
+  if (guides) {
+    const LARGE = 100000;
+    for (const guide of guides) {
+      if (guide.axis === 'x') {
+        allTargets.push({
+          edges: {
+            left: guide.position,
+            centerX: guide.position,
+            right: guide.position,
+            top: -LARGE,
+            centerY: 0,
+            bottom: LARGE,
+          },
+        });
+      } else {
+        allTargets.push({
+          edges: {
+            left: -LARGE,
+            centerX: 0,
+            right: LARGE,
+            top: guide.position,
+            centerY: guide.position,
+            bottom: guide.position,
+          },
+        });
+      }
     }
   }
 

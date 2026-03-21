@@ -32,6 +32,7 @@ export class StarTool extends BaseTool {
       ctx.shiftKey,
       ctx.altKey,
       ctx.camera.zoom,
+      getToolStore().getGuides(),
     );
 
     this.previewRect = rect;

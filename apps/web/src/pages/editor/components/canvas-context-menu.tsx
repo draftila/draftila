@@ -1,7 +1,7 @@
 import { forwardRef, useCallback, useMemo, useState } from 'react';
 import type * as Y from 'yjs';
 import { ChevronRight } from 'lucide-react';
-import { createComponent, listComponents } from '@draftila/engine';
+import { createComponent, listComponents, removeGuide, removeAllGuides } from '@draftila/engine';
 import {
   copyShapes,
   pasteShapes,
@@ -101,7 +101,11 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
     const [subMenu, setSubMenu] = useState<SubMenuState | null>(null);
 
     const selectedIds = useEditorStore((s) => s.selectedIds);
+    const selectedGuideId = useEditorStore((s) => s.selectedGuideId);
+    const guides = useEditorStore((s) => s.guides);
+    const activePageId = useEditorStore((s) => s.activePageId);
     const hasSelection = selectedIds.length > 0;
+    const hasGuides = guides.length > 0;
 
     const getExportableShapes = useCallback(() => {
       const ids = useEditorStore.getState().selectedIds;
@@ -406,6 +410,32 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
           <MenuItem onClick={handleCreateComponent} disabled={!hasSelection}>
             Create component
           </MenuItem>
+
+          {(selectedGuideId || hasGuides) && <MenuSeparator />}
+
+          {selectedGuideId && activePageId && (
+            <MenuItem
+              onClick={() => {
+                removeGuide(ydoc, activePageId, selectedGuideId);
+                useEditorStore.getState().setSelectedGuideId(null);
+                onClose();
+              }}
+            >
+              Delete guide
+            </MenuItem>
+          )}
+
+          {hasGuides && activePageId && (
+            <MenuItem
+              onClick={() => {
+                removeAllGuides(ydoc, activePageId);
+                useEditorStore.getState().setSelectedGuideId(null);
+                onClose();
+              }}
+            >
+              Remove all guides
+            </MenuItem>
+          )}
         </div>
 
         {subMenu?.id === 'copy-paste-as' && (

@@ -1,6 +1,6 @@
 import type * as Y from 'yjs';
 import { getAllShapes } from '../scene-graph';
-import { type SnapLine, type DistanceIndicator } from '../snap';
+import { type SnapLine, type DistanceIndicator, type GuideSnapTarget } from '../snap';
 
 export interface DrawSnapState {
   snapLines: SnapLine[];
@@ -55,6 +55,7 @@ function snapCursorPoint(
   anchorY: number,
   otherShapes: Array<{ x: number; y: number; width: number; height: number }>,
   zoom: number,
+  guides?: GuideSnapTarget[],
 ): CursorSnapResult {
   const threshold = SNAP_THRESHOLD / zoom;
 
@@ -93,6 +94,47 @@ function snapCursorPoint(
         bestYCandidates = [{ position: otherEdge, otherEdges: edges }];
       } else if (d === bestDy && bestDy < threshold) {
         bestYCandidates.push({ position: otherEdge, otherEdges: edges });
+      }
+    }
+  }
+
+  if (guides) {
+    const LARGE = 100000;
+    for (const guide of guides) {
+      if (guide.axis === 'x') {
+        const d = Math.abs(cursorX - guide.position);
+        const guideEdges: ShapeEdges = {
+          left: guide.position,
+          centerX: guide.position,
+          right: guide.position,
+          top: -LARGE,
+          centerY: 0,
+          bottom: LARGE,
+        };
+        if (d < bestDx) {
+          bestDx = d;
+          snappedX = guide.position;
+          bestXCandidates = [{ position: guide.position, otherEdges: guideEdges }];
+        } else if (d === bestDx && bestDx < threshold) {
+          bestXCandidates.push({ position: guide.position, otherEdges: guideEdges });
+        }
+      } else {
+        const d = Math.abs(cursorY - guide.position);
+        const guideEdges: ShapeEdges = {
+          left: -LARGE,
+          centerX: 0,
+          right: LARGE,
+          top: guide.position,
+          centerY: guide.position,
+          bottom: guide.position,
+        };
+        if (d < bestDy) {
+          bestDy = d;
+          snappedY = guide.position;
+          bestYCandidates = [{ position: guide.position, otherEdges: guideEdges }];
+        } else if (d === bestDy && bestDy < threshold) {
+          bestYCandidates.push({ position: guide.position, otherEdges: guideEdges });
+        }
       }
     }
   }
@@ -148,6 +190,7 @@ export function snapDrawnRect(
   shiftKey: boolean,
   altKey: boolean,
   zoom: number,
+  guides?: GuideSnapTarget[],
 ): {
   rect: { x: number; y: number; width: number; height: number };
   snap: DrawSnapState;
@@ -165,7 +208,7 @@ export function snapDrawnRect(
 
   const shapes = getAllShapes(ydoc).filter((s) => s.visible && !s.locked);
 
-  const snapped = snapCursorPoint(cursorX, cursorY, startX, startY, shapes, zoom);
+  const snapped = snapCursorPoint(cursorX, cursorY, startX, startY, shapes, zoom, guides);
 
   let finalCursorX = snapped.x;
   let finalCursorY = snapped.y;
@@ -215,12 +258,13 @@ export function snapDrawnLine(
   x2: number,
   y2: number,
   zoom: number,
+  guides?: GuideSnapTarget[],
 ): {
   line: { x1: number; y1: number; x2: number; y2: number };
   snap: DrawSnapState;
 } {
   const shapes = getAllShapes(ydoc).filter((s) => s.visible && !s.locked);
-  const snapped = snapCursorPoint(x2, y2, x1, y1, shapes, zoom);
+  const snapped = snapCursorPoint(x2, y2, x1, y1, shapes, zoom, guides);
   return {
     line: { x1, y1, x2: Math.round(snapped.x), y2: Math.round(snapped.y) },
     snap: { snapLines: snapped.snapLines, distanceIndicators: [] },
@@ -234,12 +278,13 @@ export function snapDrawnTextRect(
   endX: number,
   endY: number,
   zoom: number,
+  guides?: GuideSnapTarget[],
 ): {
   rect: { x: number; y: number; width: number; height: number };
   snap: DrawSnapState;
 } {
   const shapes = getAllShapes(ydoc).filter((s) => s.visible && !s.locked);
-  const snapped = snapCursorPoint(endX, endY, startX, startY, shapes, zoom);
+  const snapped = snapCursorPoint(endX, endY, startX, startY, shapes, zoom, guides);
 
   const x = Math.round(Math.min(startX, snapped.x));
   const y = Math.round(Math.min(startY, snapped.y));

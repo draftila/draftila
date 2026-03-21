@@ -14,6 +14,7 @@ import {
 import { handlePaste as handleExternalPaste } from '@draftila/engine/figma-clipboard';
 import { addImageFromFile } from '@draftila/engine/image-manager';
 import { getNodeTool, getPenTool } from '@draftila/engine/tools/tool-manager';
+import { updateGuidePosition, removeGuide } from '@draftila/engine';
 import {
   deleteShapes,
   flipShapes,
@@ -131,7 +132,60 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
       const isMod = e.metaKey || e.ctrlKey;
       const key = e.key.toLowerCase();
       const code = e.code;
-      const { activeTool } = useEditorStore.getState();
+      const { activeTool, selectedGuideId, activePageId: guidePageId } = useEditorStore.getState();
+
+      if (!isMod && e.shiftKey && code === 'KeyR') {
+        e.preventDefault();
+        const { rulersVisible, setRulersVisible, setGuidesVisible } = useEditorStore.getState();
+        const next = !rulersVisible;
+        setRulersVisible(next);
+        setGuidesVisible(next);
+        return;
+      }
+
+      if (selectedGuideId && guidePageId) {
+        if (
+          key === 'arrowup' ||
+          key === 'arrowdown' ||
+          key === 'arrowleft' ||
+          key === 'arrowright'
+        ) {
+          e.preventDefault();
+          const step = e.shiftKey ? 10 : 1;
+          const guide = useEditorStore.getState().guides.find((g) => g.id === selectedGuideId);
+          if (guide) {
+            const delta =
+              guide.axis === 'x'
+                ? key === 'arrowleft'
+                  ? -step
+                  : key === 'arrowright'
+                    ? step
+                    : 0
+                : key === 'arrowup'
+                  ? -step
+                  : key === 'arrowdown'
+                    ? step
+                    : 0;
+            if (delta !== 0) {
+              updateGuidePosition(ydoc, guidePageId, selectedGuideId, guide.position + delta);
+            }
+          }
+          return;
+        }
+
+        if (key === 'delete' || key === 'backspace') {
+          e.preventDefault();
+          removeGuide(ydoc, guidePageId, selectedGuideId);
+          useEditorStore.getState().setSelectedGuideId(null);
+          return;
+        }
+
+        if (key === 'escape') {
+          e.preventDefault();
+          useEditorStore.getState().setSelectedGuideId(null);
+          return;
+        }
+      }
 
       if (isMod && e.altKey && code === 'KeyC') {
         e.preventDefault();
