@@ -22,7 +22,6 @@ import {
   type ResizeSnapEdges,
 } from '../snap';
 import { transformPath } from '../path-gen';
-import { DEFAULT_CONSTRAINTS, applyConstraints } from '../constraints';
 import { duplicateShapesInPlace } from '../clipboard';
 
 type ConstraintHorizontal = 'left' | 'right' | 'left-right' | 'center' | 'scale';
@@ -211,17 +210,6 @@ function handleToMovingEdges(handle: HandlePosition): ResizeSnapEdges {
     default:
       return { left: false, right: false, top: false, bottom: false };
   }
-}
-
-function resolveShapeConstraints(shape: Shape): {
-  horizontal: ConstraintHorizontal;
-  vertical: ConstraintVertical;
-} {
-  const withConstraints = shape as Shape & ConstraintShapeData;
-  return {
-    horizontal: withConstraints.constraintHorizontal ?? DEFAULT_CONSTRAINTS.horizontal,
-    vertical: withConstraints.constraintVertical ?? DEFAULT_CONSTRAINTS.vertical,
-  };
 }
 
 export class MoveTool extends BaseTool {
@@ -517,40 +505,38 @@ export class MoveTool extends BaseTool {
       const allShapes = getAllShapes(ctx.ydoc);
       const shapeById = new Map(allShapes.map((shape) => [shape.id, shape]));
 
-      for (const [id, frameInitial] of this.state.initialData) {
-        const frameShape = shapeById.get(id) as (Shape & ConstraintShapeData) | undefined;
-        if (!frameShape || frameShape.type !== 'frame') continue;
-        if ((frameShape.layoutMode ?? 'none') !== 'none') continue;
+      if (!ctx.metaKey) {
+        for (const [id, frameInitial] of this.state.initialData) {
+          const frameShape = shapeById.get(id) as (Shape & ConstraintShapeData) | undefined;
+          if (!frameShape || frameShape.type !== 'frame') continue;
+          if ((frameShape.layoutMode ?? 'none') !== 'none') continue;
 
-        const framePreview = preview.get(id);
-        if (!framePreview) continue;
+          const framePreview = preview.get(id);
+          if (!framePreview) continue;
 
-        for (const child of allShapes) {
-          if (child.parentId !== id) continue;
-          if (preview.has(child.id)) continue;
+          const scaleX = frameInitial.width > 0 ? framePreview.width / frameInitial.width : 1;
+          const scaleY = frameInitial.height > 0 ? framePreview.height / frameInitial.height : 1;
 
-          const constraints = resolveShapeConstraints(child);
-          const childRelative = {
-            x: child.x - frameInitial.x,
-            y: child.y - frameInitial.y,
-            width: child.width,
-            height: child.height,
-          };
+          for (const child of allShapes) {
+            if (child.parentId !== id) continue;
+            if (preview.has(child.id)) continue;
 
-          const constrained = applyConstraints(
-            childRelative,
-            constraints,
-            { width: frameInitial.width, height: frameInitial.height },
-            { width: framePreview.width, height: framePreview.height },
-            childRelative,
-          );
+            const childInitial = captureShapeData(child);
+            const childOldBounds = {
+              x: childInitial.x,
+              y: childInitial.y,
+              width: childInitial.width,
+              height: childInitial.height,
+            };
+            const childNewBounds = {
+              x: framePreview.x + (childInitial.x - frameInitial.x) * scaleX,
+              y: framePreview.y + (childInitial.y - frameInitial.y) * scaleY,
+              width: Math.max(1, childInitial.width * scaleX),
+              height: Math.max(1, childInitial.height * scaleY),
+            };
 
-          preview.set(child.id, {
-            x: framePreview.x + constrained.x,
-            y: framePreview.y + constrained.y,
-            width: constrained.width,
-            height: constrained.height,
-          });
+            preview.set(child.id, buildResizeEntry(childInitial, childOldBounds, childNewBounds));
+          }
         }
       }
 
@@ -704,9 +690,7 @@ export class MoveTool extends BaseTool {
     }
 
     if (this.state.type === 'resizing' && this.resizePreview) {
-      for (const id of this.state.initialData.keys()) {
-        const bounds = this.resizePreview.get(id);
-        if (!bounds) continue;
+      for (const [id, bounds] of this.resizePreview) {
         updateShape(ctx.ydoc, id, bounds as Partial<Shape>);
       }
 

@@ -4,6 +4,7 @@ import { useProjects } from '@/api/projects';
 import { useSession } from '@/lib/auth-client';
 import { CreateProjectDialog } from '@/pages/projects/components/create-project-dialog';
 import { useDashboardStore } from '@/stores/dashboard-store';
+import logoSvg from '@/assets/logo.svg';
 import {
   Sidebar,
   SidebarContent,
@@ -122,11 +123,24 @@ export function AppSidebar() {
       <SidebarHeader className="h-12 justify-center border-b">
         <SidebarMenu>
           <SidebarMenuItem>
-            <ProjectSwitcher />
+            <SidebarMenuButton onClick={() => navigate('/')} tooltip="Draftila">
+              <img src={logoSvg} alt="Draftila" className="size-5 shrink-0" />
+              <span className="truncate text-sm font-semibold">Draftila</span>
+            </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Project</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <ProjectSwitcher />
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="gap-1">

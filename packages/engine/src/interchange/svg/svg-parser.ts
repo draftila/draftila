@@ -118,6 +118,10 @@ export function parseSvg(svgString: string, options: ParseSvgOptions = {}): Inte
   const symbols = resolveSymbols(doc);
 
   const svgFill = svgEl.getAttribute('fill');
+  const svgStroke = svgEl.getAttribute('stroke');
+  const svgStrokeWidth = svgEl.getAttribute('stroke-width');
+  const svgStrokeCap = svgEl.getAttribute('stroke-linecap');
+  const svgStrokeJoin = svgEl.getAttribute('stroke-linejoin');
 
   const widthAttr = parseAttr(svgEl, 'width', 0);
   const heightAttr = parseAttr(svgEl, 'height', 0);
@@ -160,8 +164,10 @@ export function parseSvg(svgString: string, options: ParseSvgOptions = {}): Inte
     symbols,
     inheritedFillNone: svgFill === 'none',
     inheritedFill: svgFill && svgFill !== 'none' ? svgFill : null,
-    inheritedStroke: null,
-    inheritedStrokeWidth: null,
+    inheritedStroke: svgStroke && svgStroke !== 'none' ? svgStroke : null,
+    inheritedStrokeWidth: svgStrokeWidth ? parseFloat(svgStrokeWidth) : null,
+    inheritedStrokeCap: svgStrokeCap,
+    inheritedStrokeJoin: svgStrokeJoin,
     parentMatrix: rootMatrix,
   };
 

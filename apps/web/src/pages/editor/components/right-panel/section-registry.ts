@@ -133,3 +133,29 @@ const sectionRegistry: Record<ShapeType, PropertySection[]> = {
 export function getSectionsForShape(shapeType: ShapeType): PropertySection[] {
   return sectionRegistry[shapeType] ?? [TransformSection];
 }
+
+const MULTI_SELECT_EXCLUDED: PropertySection[] = [
+  TransformSection,
+  ConstraintsSection,
+  AutoLayoutSection,
+  LayoutGuideSection,
+  SidesSection,
+  StarSection,
+  TypographySection,
+  ImageSection,
+  PathDataSection,
+  ExportSection,
+  PreviewSection,
+];
+
+export function getSectionsForMultiSelection(shapeTypes: ShapeType[]): PropertySection[] {
+  if (shapeTypes.length === 0) return [];
+  const sectionSets = shapeTypes.map(
+    (type) => new Set(sectionRegistry[type] ?? [TransformSection]),
+  );
+  const first = sectionRegistry[shapeTypes[0]!] ?? [TransformSection];
+  return first.filter(
+    (section) =>
+      !MULTI_SELECT_EXCLUDED.includes(section) && sectionSets.every((set) => set.has(section)),
+  );
+}
