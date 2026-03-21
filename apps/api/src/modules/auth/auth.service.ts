@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
+import { admin } from 'better-auth/plugins/admin';
 import { env } from '../../common/lib/env';
 import { nanoid } from '../../common/lib/utils';
 import { db } from '../../db';
@@ -19,6 +20,7 @@ export const auth = betterAuth({
     ...(isTest && { password: testPasswordConfig }),
   },
   trustedOrigins: [env.FRONTEND_URL],
+  plugins: [admin()],
   databaseHooks: {
     user: {
       create: {

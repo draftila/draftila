@@ -1,6 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FileIcon, FolderIcon, ChevronsUpDownIcon, PlusIcon } from 'lucide-react';
+import { FileIcon, FolderIcon, ShieldIcon, ChevronsUpDownIcon, PlusIcon } from 'lucide-react';
 import { useProjects } from '@/api/projects';
+import { useSession } from '@/lib/auth-client';
 import { CreateProjectDialog } from '@/pages/projects/components/create-project-dialog';
 import { useDashboardStore } from '@/stores/dashboard-store';
 import {
@@ -8,6 +9,7 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -30,6 +32,8 @@ const NAV_ITEMS = [
   { label: 'Drafts', icon: FileIcon, path: '/' },
   { label: 'All Projects', icon: FolderIcon, path: '/projects' },
 ] as const;
+
+const ADMIN_NAV_ITEMS = [{ label: 'Users', icon: ShieldIcon, path: '/admin/users' }] as const;
 
 function ProjectSwitcher() {
   const navigate = useNavigate();
@@ -110,6 +114,8 @@ function ProjectSwitcher() {
 export function AppSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === 'admin';
 
   return (
     <Sidebar collapsible="icon">
@@ -139,6 +145,27 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        {isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Admin</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-1">
+                {ADMIN_NAV_ITEMS.map((item) => (
+                  <SidebarMenuItem key={item.path}>
+                    <SidebarMenuButton
+                      isActive={location.pathname === item.path}
+                      onClick={() => navigate(item.path)}
+                      tooltip={item.label}
+                    >
+                      <item.icon />
+                      <span>{item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarRail />
     </Sidebar>

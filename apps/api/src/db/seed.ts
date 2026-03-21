@@ -21,6 +21,8 @@ async function seed() {
     process.exit(1);
   }
 
+  await db.user.update({ where: { id: result.user.id }, data: { role: 'admin' } });
+
   console.log('Seed completed successfully!');
 
   await db.$disconnect();
