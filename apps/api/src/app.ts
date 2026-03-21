@@ -7,6 +7,7 @@ import { statSync } from 'node:fs';
 import { extname, join, resolve } from 'node:path';
 import { AppError, ValidationError } from './common/errors';
 import { env } from './common/lib/env';
+import { getStoragePath, initStorage } from './common/lib/storage';
 import type { AuthEnv } from './common/middleware/auth';
 import { checkRateLimit } from './common/middleware/rate-limit';
 import { authRoutes } from './modules/auth/auth.routes';
@@ -14,6 +15,8 @@ import { allDraftsRoutes, draftRoutes } from './modules/drafts/drafts.routes';
 import { healthRoutes } from './modules/health/health.routes';
 import { projectRoutes } from './modules/projects/projects.routes';
 import { userRoutes } from './modules/user/user.routes';
+
+initStorage({ driver: env.STORAGE_DRIVER, path: resolve(process.cwd(), env.STORAGE_PATH) });
 
 const app = new Hono<AuthEnv>();
 const webDistDir = resolve(process.cwd(), process.env.WEB_DIST_DIR ?? '../web/dist');
@@ -61,6 +64,18 @@ app.route('/api/projects', projectRoutes);
 app.route('/api/drafts', allDraftsRoutes);
 app.route('/api/projects/:projectId/drafts', draftRoutes);
 app.route('/api', userRoutes);
+
+app.get('/storage/*', (c) => {
+  const key = c.req.path.slice('/storage/'.length);
+  if (!key || key.includes('..') || key.includes('\0')) return c.notFound();
+  const filePath = resolve(getStoragePath(), key);
+  const storagePrefix = `${getStoragePath()}/`;
+  if (!filePath.startsWith(storagePrefix)) return c.notFound();
+  if (!isFile(filePath)) return c.notFound();
+  return new Response(Bun.file(filePath), {
+    headers: { 'Cache-Control': 'public, max-age=31536000, immutable' },
+  });
+});
 
 if (isFile(webIndexPath)) {
   app.get('*', (c) => {

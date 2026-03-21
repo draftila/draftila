@@ -18,12 +18,14 @@ ENV PORT=3001
 ENV DB_DRIVER=sqlite
 ENV DATABASE_URL=file:/app/data/draftila.sqlite
 ENV WEB_DIST_DIR=../web/dist
+ENV STORAGE_DRIVER=local
+ENV STORAGE_PATH=/app/data/storage
 
 COPY --from=builder /app /app
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 
 RUN chmod +x /usr/local/bin/entrypoint.sh
-RUN mkdir -p /app/data
+RUN mkdir -p /app/data /app/data/storage
 
 EXPOSE 3001
 

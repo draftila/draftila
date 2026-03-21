@@ -1,5 +1,6 @@
 import type { Prisma } from '../../generated/prisma/postgresql-client';
 import type { SortOrder } from '@draftila/shared';
+import { generateStorageKey, getStorage } from '../../common/lib/storage';
 import { nanoid } from '../../common/lib/utils';
 import { db } from '../../db';
 
@@ -147,13 +148,7 @@ export async function listByOwner(
 
   const results = await db.draft.findMany({
     where,
-    select: {
-      id: true,
-      name: true,
-      projectId: true,
-      createdAt: true,
-      updatedAt: true,
-    },
+    select: draftListSelect,
     orderBy: sortConfig.orderBy,
     take: limit + 1,
   });
@@ -173,13 +168,7 @@ export function getById(id: string) {
 export function getByIdForOwner(draftId: string, ownerId: string) {
   return db.draft.findFirst({
     where: { id: draftId, project: { ownerId } },
-    select: {
-      id: true,
-      name: true,
-      projectId: true,
-      createdAt: true,
-      updatedAt: true,
-    },
+    select: draftListSelect,
   });
 }
 
@@ -216,8 +205,38 @@ export async function remove(id: string) {
   const existing = await getById(id);
   if (!existing) return null;
 
+  if (existing.thumbnail) {
+    const key = existing.thumbnail.replace(/^\/storage\//, '');
+    await getStorage()
+      .delete(key)
+      .catch(() => {});
+  }
+
   await db.draft.delete({ where: { id } });
   return existing;
+}
+
+export async function saveThumbnail(id: string, data: Buffer) {
+  const storage = getStorage();
+
+  const existing = await db.draft.findUnique({
+    where: { id },
+    select: { thumbnail: true },
+  });
+  if (existing?.thumbnail) {
+    const oldKey = existing.thumbnail.replace(/^\/storage\//, '');
+    await storage.delete(oldKey).catch(() => {});
+  }
+
+  const key = generateStorageKey('thumbnails', 'jpg');
+  const url = await storage.put(key, data);
+
+  await db.draft.updateMany({
+    where: { id },
+    data: { thumbnail: url },
+  });
+
+  return url;
 }
 
 export async function loadYjsState(id: string) {
