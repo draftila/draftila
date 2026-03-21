@@ -8,16 +8,12 @@ Thanks for your interest in contributing to Draftila.
 - Keep pull requests focused and small.
 - Follow the existing project architecture and coding standards.
 
-## Contributor License Agreement (CLA)
+## Contribution terms
 
-To keep Draftila sustainably open source and allow future dual licensing, all contributions require a signed Contributor License Agreement (CLA).
+To keep Draftila sustainably open source and preserve future licensing flexibility, opening a pull request is treated as acceptance of these contribution terms and `CONTRIBUTOR-AGREEMENT.md`.
 
-The repository uses CLA Assistant. When you open a pull request, the bot checks your CLA status and posts instructions if you still need to sign.
-
-You only need to sign once per CLA version.
-
-## What signing confirms
+## What submitting a pull request confirms
 
 - You have the right to submit your contribution.
-- You grant the project maintainer the rights needed to use, redistribute, and relicense your contribution, including under commercial terms.
+- You grant the project maintainer the rights needed to use, redistribute, and relicense your contribution under AGPL-3.0 and other future license terms.
 - You understand your contribution remains available under this repository's open source license for the community.

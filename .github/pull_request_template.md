@@ -6,4 +6,4 @@
 
 - [ ] I confirm I have the right to submit this contribution.
 - [ ] I have read `CONTRIBUTING.md`.
-- [ ] If prompted by CLA Assistant, I will complete the one-time CLA signature for this repository.
+- [ ] I agree to the contribution terms in `CONTRIBUTING.md` and `CONTRIBUTOR-AGREEMENT.md`, including permission for the maintainer to relicense this contribution in the future.

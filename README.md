@@ -6,8 +6,8 @@ Draftila is a real-time collaborative design tool.
 
 Draftila is licensed under the GNU Affero General Public License v3.0. See `LICENSE`.
 
-Commercial licensing is available for teams that need to use Draftila under different terms. See `COMMERCIAL-LICENSE.md`.
+At this time, Draftila is distributed only under AGPL-3.0.
 
 ## Contributing
 
-Draftila uses CLA Assistant for pull requests. Contributors may be asked to complete a one-time CLA signature before a pull request can be merged. See `CONTRIBUTING.md` and `CLA.md`.
+By opening a pull request, you agree to the contribution terms in `CONTRIBUTING.md` and `CONTRIBUTOR-AGREEMENT.md`, including permission for the maintainer to relicense contributions in the future.
