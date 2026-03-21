@@ -64,6 +64,7 @@ export const draftSchema = z.object({
   id: z.string(),
   name: z.string().trim().min(1).max(255),
   projectId: z.string(),
+  thumbnail: z.string().nullable(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });

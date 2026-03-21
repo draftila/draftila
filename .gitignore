@@ -25,6 +25,9 @@ apps/api/src/generated/
 # Coverage
 coverage/
 
+# Storage
+storage/
+
 # SQLite databases
 *.sqlite
 *.sqlite-journal

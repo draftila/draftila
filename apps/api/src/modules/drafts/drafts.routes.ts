@@ -144,6 +144,32 @@ allDraftsRoutes.get('/:draftId', async (c) => {
   return c.json(draftRecord);
 });
 
+allDraftsRoutes.put('/:draftId/thumbnail', async (c) => {
+  const user = c.get('user');
+  const draftId = c.req.param('draftId');
+
+  const draftRecord = await draftsService.getByIdForOwner(draftId, user.id);
+  if (!draftRecord) {
+    throw new NotFoundError('Draft');
+  }
+
+  const contentType = c.req.header('content-type') ?? '';
+  if (!contentType.startsWith('image/')) {
+    throw new ValidationError({ thumbnail: ['Body must be an image'] });
+  }
+
+  const arrayBuffer = await c.req.arrayBuffer();
+  if (arrayBuffer.byteLength === 0) {
+    throw new ValidationError({ thumbnail: ['Body must not be empty'] });
+  }
+  if (arrayBuffer.byteLength > 512 * 1024) {
+    throw new ValidationError({ thumbnail: ['Thumbnail must be under 512KB'] });
+  }
+
+  const url = await draftsService.saveThumbnail(draftId, Buffer.from(arrayBuffer));
+  return c.json({ url });
+});
+
 allDraftsRoutes.get('/', async (c) => {
   const user = c.get('user');
 

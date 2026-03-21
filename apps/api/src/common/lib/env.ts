@@ -21,6 +21,11 @@ function parseDbDriver(value: string | undefined): 'postgresql' | 'sqlite' {
   throw new Error('DB_DRIVER must be either "postgresql" or "sqlite"');
 }
 
+function parseStorageDriver(value: string | undefined): 'local' {
+  if (!value || value === 'local') return 'local';
+  throw new Error('STORAGE_DRIVER must be "local"');
+}
+
 function parseTrustedProxies(value: string | undefined): Set<string> | '*' | null {
   if (!value) return null;
   const trimmed = value.trim();
@@ -39,5 +44,7 @@ export const env = {
   BETTER_AUTH_URL: requireEnv('BETTER_AUTH_URL'),
   PORT: parseInt(process.env.PORT ?? '3001', 10),
   FRONTEND_URL: process.env.FRONTEND_URL ?? 'http://localhost:5173',
+  STORAGE_DRIVER: parseStorageDriver(process.env.STORAGE_DRIVER),
+  STORAGE_PATH: process.env.STORAGE_PATH ?? './storage',
   TRUSTED_PROXY_IPS: parseTrustedProxies(process.env.TRUSTED_PROXY_IPS),
 } as const;

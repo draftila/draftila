@@ -7,6 +7,7 @@ import type {
   UpdateDraft,
 } from '@draftila/shared';
 import { api } from '@/lib/api-client';
+import { queryClient } from '@/lib/query-client';
 
 const DRAFTS_KEY = ['drafts'] as const;
 
@@ -84,6 +85,19 @@ export function useUpdateDraft(projectId: string) {
       });
     },
   });
+}
+
+export async function saveThumbnail(draftId: string, blob: Blob) {
+  const res = await fetch(`/api/drafts/${draftId}/thumbnail`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': blob.type },
+    body: blob,
+  });
+  if (!res.ok) throw new Error('Failed to save thumbnail');
+  const json = (await res.json()) as { url: string };
+  queryClient.invalidateQueries({ queryKey: DRAFTS_KEY });
+  return json;
 }
 
 export function useDeleteDraft(projectId: string) {

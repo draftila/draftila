@@ -37,6 +37,7 @@ import { Canvas } from './components/canvas';
 import { useYjs } from './hooks/use-yjs';
 import { useKeyboard } from './hooks/use-keyboard';
 import { useAwareness } from './hooks/use-awareness';
+import { useThumbnail } from './hooks/use-thumbnail';
 import { KeyboardShortcutsDialog } from './components/keyboard-shortcuts-dialog';
 
 function ViewMenuItems() {
@@ -150,6 +151,7 @@ export function EditorPage() {
   );
 
   useKeyboard({ ydoc });
+  useThumbnail(draftId ?? '', ydoc, synced);
 
   useEffect(() => {
     const pageId = activePageId ?? getActivePageId(ydoc);

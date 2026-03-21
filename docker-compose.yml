@@ -13,6 +13,8 @@ services:
       BETTER_AUTH_URL: '${BETTER_AUTH_URL:-http://localhost:3001}'
       FRONTEND_URL: '${FRONTEND_URL:-http://localhost:3001}'
       PORT: 3001
+      STORAGE_DRIVER: '${STORAGE_DRIVER:-local}'
+      STORAGE_PATH: '${STORAGE_PATH:-/app/data/storage}'
       TRUSTED_PROXY_IPS: '${TRUSTED_PROXY_IPS:-}'
     volumes:
       - draftila_data:/app/data
