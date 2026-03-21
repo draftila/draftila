@@ -3,6 +3,8 @@ node_modules/
 
 # Build outputs
 dist/
+out/
+.next/
 .turbo/
 *.tsbuildinfo
 apps/api/src/generated/

@@ -27,6 +27,9 @@
     "api:db:reset": "bun run --filter @draftila/api db:reset",
     "api:db:refresh": "bun run --filter @draftila/api db:refresh",
     "api:routes:list": "bun run --filter @draftila/api routes:list",
+    "website:dev": "bun run --filter @draftila/website dev",
+    "website:build": "bun run --filter @draftila/website build",
+    "website:start": "bun run --filter @draftila/website start",
     "clean": "turbo clean && rm -rf node_modules",
     "checks": "bash scripts/checks.sh",
     "checks:fix": "bash scripts/checks.sh --fix"
