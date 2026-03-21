@@ -1,6 +1,7 @@
 import type { ReactFormExtendedApi } from '@tanstack/react-form';
 import { Button } from '@/components/ui/button';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyReactFormApi = ReactFormExtendedApi<
   any,
   any,

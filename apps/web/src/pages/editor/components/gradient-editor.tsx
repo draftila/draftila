@@ -30,7 +30,7 @@ function GradientStopBar({
   stops,
   onStopChange,
   onStopAdd,
-  onStopRemove,
+  onStopRemove: _onStopRemove,
   selectedIndex,
   onSelectStop,
 }: {

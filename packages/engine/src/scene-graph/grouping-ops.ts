@@ -15,7 +15,6 @@ import { addShape } from './shape-crud';
 
 export function groupShapes(ydoc: Y.Doc, ids: string[]): string | null {
   const shapeMap = getShapeSnapshotMap(ydoc);
-  const orderedIds = getOrderedIds(shapeMap, getZOrder(ydoc).toArray());
   const topLevelIds = getTopLevelIds(ids, shapeMap);
 
   if (topLevelIds.length < 2) return null;

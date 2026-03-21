@@ -164,8 +164,6 @@ function FillRow({
     onReplace({ ...fill, gradient });
   };
 
-  const swatchPreview = fill.gradient ? gradientPreviewCss(fill.gradient) : fill.color;
-
   const displayLabel = fill.gradient
     ? (fill.gradient.stops[0]?.color ?? fill.color).replace('#', '').toUpperCase()
     : fill.color.replace('#', '').toUpperCase();

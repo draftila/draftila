@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ChevronDown, Eye, EyeOff, Minus, Plus, X } from 'lucide-react';
 import type { LayoutGuide, Shape } from '@draftila/shared';
 import type { PropertySectionProps } from '../types';
@@ -56,8 +56,10 @@ function GridIcon({ className }: { className?: string }) {
 }
 
 export function LayoutGuideSection({ shape, onUpdate }: PropertySectionProps) {
-  const guides: LayoutGuide[] =
-    'guides' in shape ? (shape as Shape & { guides: LayoutGuide[] }).guides : [];
+  const guides: LayoutGuide[] = useMemo(
+    () => ('guides' in shape ? (shape as Shape & { guides: LayoutGuide[] }).guides : []),
+    [shape],
+  );
   const [addMenuOpen, setAddMenuOpen] = useState(false);
 
   const updateGuide = useCallback(

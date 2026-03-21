@@ -48,7 +48,7 @@ export class SvgFileImportAdapter implements ImportAdapter {
     return data.files.some((f) => f.type === 'image/svg+xml' || f.name.endsWith('.svg'));
   }
 
-  import(data: ImportData): InterchangeDocument {
+  import(_data: ImportData): InterchangeDocument {
     return createInterchangeDocument([], { source: 'svg' });
   }
 }

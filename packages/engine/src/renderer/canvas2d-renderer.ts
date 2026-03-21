@@ -703,9 +703,6 @@ export class Canvas2DRenderer implements Renderer {
         return;
       }
 
-      const frameRatio = frameWidth / frameHeight;
-      const imageRatio = imageWidth / imageHeight;
-
       if (options.fit === 'fit') {
         const scale = Math.min(frameWidth / imageWidth, frameHeight / imageHeight);
         const destWidth = imageWidth * scale;

@@ -1,7 +1,6 @@
 import type {
   InterchangeDocument,
   InterchangeNode,
-  InterchangeFill,
   InterchangeStroke,
   InterchangeShadow,
   InterchangeBlur,

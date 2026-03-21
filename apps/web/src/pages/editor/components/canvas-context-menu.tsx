@@ -129,7 +129,6 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
     }, [ydoc, selectedIds, hasSelection, onClose]);
 
     const handlePaste = useCallback(() => {
-      const { cursorCanvasPoint } = useEditorStore.getState();
       const targetParentId = getSelectedContainer(ydoc, selectedIds);
 
       navigator.clipboard
@@ -324,10 +323,6 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
       },
       [canBoolean],
     );
-
-    const closeSubMenu = useCallback(() => {
-      setSubMenu(null);
-    }, []);
 
     const isMac = navigator.platform.includes('Mac');
     const mod = isMac ? '\u2318' : 'Ctrl+';
