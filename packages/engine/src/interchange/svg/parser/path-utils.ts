@@ -123,7 +123,7 @@ export function elementToPathData(el: Element): string | null {
 
 export function transformPathWithMatrix(pathData: string, matrix: DOMMatrix): string {
   try {
-    const segments = SVGPathCommander.parsePathString(pathData);
+    const segments = SVGPathCommander.normalizePath(pathData);
     const transformed: string[] = [];
 
     let cx = 0;

@@ -36,6 +36,7 @@ import { RightPanel } from './components/right-panel';
 import { Canvas } from './components/canvas';
 import { useYjs } from './hooks/use-yjs';
 import { useKeyboard } from './hooks/use-keyboard';
+import { fitCameraToAllShapes } from './lib/fit-camera';
 import { useAwareness } from './hooks/use-awareness';
 import { useThumbnail } from './hooks/use-thumbnail';
 import { KeyboardShortcutsDialog } from './components/keyboard-shortcuts-dialog';
@@ -152,6 +153,11 @@ export function EditorPage() {
 
   useKeyboard({ ydoc });
   useThumbnail(draftId ?? '', ydoc, synced);
+
+  useEffect(() => {
+    if (!synced) return;
+    requestAnimationFrame(() => fitCameraToAllShapes(ydoc));
+  }, [synced, ydoc]);
 
   useEffect(() => {
     const pageId = activePageId ?? getActivePageId(ydoc);
