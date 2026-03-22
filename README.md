@@ -53,7 +53,7 @@ docker exec <container> bun run --filter @draftila/api db:create-admin -- \
   --name "Admin Name"
 ```
 
-See the [full installation guide](https://draftila.com/docs/installation) for configuration options.
+See the [full installation guide](https://draftila.com/docs/getting-started/installation) for configuration options.
 
 ## AI Disclaimer
 
