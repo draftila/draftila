@@ -53,20 +53,6 @@ Run `bun run checks --fix` before submitting. All checks must pass.
 
 All data shapes shared between API and frontend must be Zod schemas in `packages/shared`. Export both the Zod schema and the inferred TypeScript type.
 
-## Contribution Terms
+## License
 
-To keep Draftila sustainably open source and preserve future licensing flexibility, opening a pull request is treated as acceptance of the contributor agreement.
-
-### What Submitting a Pull Request Confirms
-
-- You have the right to submit your contribution.
-- You grant the project maintainer the rights needed to use, redistribute, and relicense your contribution under Apache-2.0 and other future license terms.
-- You understand your contribution remains available under this repository's open source license for the community.
-
-### Rights Granted
-
-You retain ownership of your contribution. You grant the maintainer a perpetual, worldwide, non-exclusive, irrevocable, royalty-free license to use, reproduce, modify, distribute, sublicense, and relicense your contribution.
-
-### Patent License
-
-To the extent your contribution includes patentable subject matter, you grant a perpetual, worldwide, non-exclusive, royalty-free patent license for claims you can license and that are necessarily infringed by using, modifying, or distributing your contribution.
+Draftila is MIT licensed. By submitting a pull request, you agree that your contribution will be licensed under the same terms.
