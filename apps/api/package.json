@@ -18,6 +18,7 @@
     "db:studio": "bun run src/db/studio.ts",
     "db:seed": "NODE_ENV=development bun run src/db/seed.ts",
     "db:reset": "NODE_ENV=development bun run src/db/reset.ts",
+    "db:create-admin": "bun run src/commands/create-admin.ts",
     "db:refresh": "bun run db:reset && bun run db:migrate && bun run db:seed",
     "routes:list": "bun run src/routes-list.ts"
   },
