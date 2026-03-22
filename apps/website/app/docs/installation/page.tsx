@@ -46,7 +46,14 @@ const envVariables: { name: string; required: boolean; default: string; descript
     name: 'ADMIN_PASSWORD',
     required: true,
     default: '',
-    description: 'Password for the initial admin account. Change this to a strong password.',
+    description:
+      'Password for the initial admin account (min 8 characters). Change this to a strong password.',
+  },
+  {
+    name: 'ADMIN_NAME',
+    required: false,
+    default: 'Admin',
+    description: 'Display name for the initial admin account.',
   },
   {
     name: 'BETTER_AUTH_URL',
@@ -300,6 +307,25 @@ docker compose up -d`}</CodeBlock>
           Database migrations run automatically on startup. Set{' '}
           <code className="bg-muted rounded px-1.5 py-0.5 text-xs">SKIP_DB_MIGRATE=1</code> to
           disable.
+        </p>
+      </section>
+
+      <section className="mt-12">
+        <h2 className="text-xl font-semibold">Managing Admins</h2>
+        <p className="text-muted-foreground mt-2">
+          An admin account is automatically created on first startup when{' '}
+          <code className="bg-muted rounded px-1.5 py-0.5 text-xs">ADMIN_EMAIL</code> and{' '}
+          <code className="bg-muted rounded px-1.5 py-0.5 text-xs">ADMIN_PASSWORD</code> are set. To
+          create additional admins on a running container:
+        </p>
+        <div className="mt-4">
+          <CodeBlock id="create-admin">{`docker exec <container> bun run --filter @draftila/api db:create-admin -- \\
+  --email admin@example.com \\
+  --password your-password \\
+  --name "Admin Name"`}</CodeBlock>
+        </div>
+        <p className="text-muted-foreground mt-2 text-sm">
+          If the email already exists, the user will be promoted to admin.
         </p>
       </section>
     </div>
