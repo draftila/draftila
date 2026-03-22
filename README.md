@@ -4,7 +4,7 @@
 
 <h1 align="center">Draftila</h1>
 
-<p align="center">Self-hosted, open-source design tool.</p>
+<p align="center">Self-hosted, open-source collaborative design tool.</p>
 
 ## Installation
 
