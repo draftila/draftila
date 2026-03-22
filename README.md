@@ -61,8 +61,8 @@ AI generated and Human verified
 
 ## License
 
-[Apache-2.0](LICENSE)
+[MIT](LICENSE)
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and [CONTRIBUTOR-AGREEMENT.md](CONTRIBUTOR-AGREEMENT.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md).

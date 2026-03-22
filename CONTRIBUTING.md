@@ -10,7 +10,7 @@ Thanks for your interest in contributing to Draftila.
 
 ## Contribution terms
 
-To keep Draftila sustainably open source and preserve future licensing flexibility, opening a pull request is treated as acceptance of these contribution terms and `CONTRIBUTOR-AGREEMENT.md`.
+To keep Draftila sustainably open source, opening a pull request is treated as acceptance of these contribution terms.
 
 ## What submitting a pull request confirms
 
