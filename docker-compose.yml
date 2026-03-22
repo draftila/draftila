@@ -16,6 +16,9 @@ services:
       STORAGE_DRIVER: '${STORAGE_DRIVER:-local}'
       STORAGE_PATH: '${STORAGE_PATH:-/app/data/storage}'
       TRUSTED_PROXY_IPS: '${TRUSTED_PROXY_IPS:-}'
+      ADMIN_EMAIL: '${ADMIN_EMAIL:-}'
+      ADMIN_PASSWORD: '${ADMIN_PASSWORD:-}'
+      ADMIN_NAME: '${ADMIN_NAME:-Admin}'
     volumes:
       - draftila_data:/app/data
     restart: unless-stopped
