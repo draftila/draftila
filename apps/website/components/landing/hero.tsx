@@ -34,7 +34,7 @@ export function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            The open-source
+            Collaborative
             <br />
             <span className="bg-gradient-to-r from-pink-500 to-violet-500 bg-clip-text text-transparent dark:from-pink-400 dark:to-violet-400">
               Design Tool
