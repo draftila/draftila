@@ -44,6 +44,15 @@ Open [http://localhost:3001](http://localhost:3001) to get started.
 
 > Generate a secret with: `openssl rand -base64 32`
 
+To create additional admin accounts on a running container:
+
+```bash
+docker exec <container> bun run --filter @draftila/api db:create-admin -- \
+  --email admin@example.com \
+  --password your-password \
+  --name "Admin Name"
+```
+
 See the [full installation guide](https://draftila.com/docs/installation) for configuration options.
 
 ## AI Disclaimer
