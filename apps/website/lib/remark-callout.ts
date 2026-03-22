@@ -1,18 +1,21 @@
 import { visit } from 'unist-util-visit';
-import type { Root } from 'mdast';
-import type { Node } from 'unist';
 
 const CALLOUT_TYPES = new Set(['info', 'tip', 'warning', 'danger']);
 
-interface DirectiveNode extends Node {
+interface UnistNode {
+  type: string;
+  data?: Record<string, unknown>;
+  children?: UnistNode[];
+}
+
+interface DirectiveNode extends UnistNode {
   type: 'containerDirective';
   name: string;
-  data?: Record<string, unknown>;
 }
 
 export function remarkCallout() {
-  return (tree: Root) => {
-    visit(tree, 'containerDirective', (_node: Node) => {
+  return (tree: UnistNode) => {
+    visit(tree, 'containerDirective', (_node: UnistNode) => {
       const node = _node as DirectiveNode;
       if (!CALLOUT_TYPES.has(node.name)) return;
 
