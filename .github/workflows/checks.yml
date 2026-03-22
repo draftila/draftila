@@ -31,6 +31,12 @@ jobs:
       - name: Typecheck Web
         run: bun run --filter @draftila/web typecheck
 
+      - name: Typecheck Website
+        run: bun run --filter @draftila/website typecheck
+
+      - name: Build Website
+        run: bun run --filter @draftila/website build
+
       - name: Linting
         run: bun run lint
 
