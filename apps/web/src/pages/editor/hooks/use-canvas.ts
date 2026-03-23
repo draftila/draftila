@@ -292,6 +292,46 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
       clipStack.pop();
     }
 
+    const { aiActiveFrameIds } = useEditorStore.getState();
+    if (aiActiveFrameIds.size > 0) {
+      const now = performance.now();
+      const shimmerPeriod = 1800;
+      const phase = (now % shimmerPeriod) / shimmerPeriod;
+
+      for (const frameId of aiActiveFrameIds) {
+        const shape = shapeMap.get(frameId);
+        if (!shape || !isShapeVisible(shape)) continue;
+
+        let cornerRadius: number | [number, number, number, number] = 0;
+        if (shape.type === 'frame') {
+          const frame = shape as FrameShape;
+          const hasIndependentCorners =
+            frame.cornerRadiusTL !== undefined ||
+            frame.cornerRadiusTR !== undefined ||
+            frame.cornerRadiusBL !== undefined ||
+            frame.cornerRadiusBR !== undefined;
+          cornerRadius = hasIndependentCorners
+            ? [
+                frame.cornerRadiusTL ?? frame.cornerRadius,
+                frame.cornerRadiusTR ?? frame.cornerRadius,
+                frame.cornerRadiusBR ?? frame.cornerRadius,
+                frame.cornerRadiusBL ?? frame.cornerRadius,
+              ]
+            : frame.cornerRadius;
+        }
+
+        renderer.drawShimmerOverlay(
+          shape.x,
+          shape.y,
+          shape.width,
+          shape.height,
+          shape.rotation,
+          cornerRadius,
+          phase,
+        );
+      }
+    }
+
     if (camera.zoom >= 8) {
       const viewport = renderer.getViewport(camera);
       renderer.drawPixelGrid(viewport, camera.zoom);

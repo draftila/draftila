@@ -1,10 +1,46 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type * as Y from 'yjs';
 import type { WebsocketProvider } from 'y-websocket';
 import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
+import { getAllShapes } from '@draftila/engine/scene-graph';
+import { useEditorStore } from '@/stores/editor-store';
 
 const MESSAGE_RPC = 2;
+const SHIMMER_IDLE_MS = 10_000;
+
+const READ_ONLY_TOOLS = new Set([
+  'get_shape',
+  'list_shapes',
+  'list_pages',
+  'list_components',
+  'list_guides',
+  'export_svg',
+  'export_png',
+]);
+
+function getTopLevelFrameIds(ydoc: Y.Doc): Set<string> {
+  const shapes = getAllShapes(ydoc);
+  const shapeMap = new Map(shapes.map((s) => [s.id, s]));
+  const topFrames = new Set<string>();
+
+  for (const shape of shapes) {
+    if (shape.type !== 'frame') continue;
+    let isNested = false;
+    let parentId = shape.parentId ?? null;
+    while (parentId) {
+      const parent = shapeMap.get(parentId);
+      if (parent?.type === 'frame') {
+        isNested = true;
+        break;
+      }
+      parentId = parent?.parentId ?? null;
+    }
+    if (!isNested) topFrames.add(shape.id);
+  }
+
+  return topFrames;
+}
 
 interface UseRpcOptions {
   provider: WebsocketProvider | null;
@@ -13,8 +49,28 @@ interface UseRpcOptions {
 }
 
 export function useRpc({ provider, ydoc, enabled }: UseRpcOptions) {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     if (!enabled || !provider) return;
+
+    const clearShimmer = () => {
+      useEditorStore.getState().setAiActiveFrameIds(new Set());
+    };
+
+    const resetShimmerTimer = () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+
+      const topFrames = getTopLevelFrameIds(ydoc);
+      if (topFrames.size > 0) {
+        useEditorStore.getState().setAiActiveFrameIds(topFrames);
+      }
+
+      timerRef.current = setTimeout(() => {
+        clearShimmer();
+        timerRef.current = null;
+      }, SHIMMER_IDLE_MS);
+    };
 
     const handleMessage = async (event: MessageEvent) => {
       const data = new Uint8Array(event.data as ArrayBuffer);
@@ -34,6 +90,9 @@ export function useRpc({ provider, ydoc, enabled }: UseRpcOptions) {
       if (!parsed.id || !parsed.tool) return;
 
       const rpcId = parsed.id;
+      const tool = parsed.tool;
+      const args = parsed.args ?? {};
+      const isMutating = !READ_ONLY_TOOLS.has(tool);
 
       const sendResponse = (result: unknown, error?: string) => {
         const currentWs = (provider as unknown as { ws: WebSocket | null }).ws;
@@ -51,19 +110,26 @@ export function useRpc({ provider, ydoc, enabled }: UseRpcOptions) {
 
       try {
         const { getRpcHandler } = await import('../rpc-handlers');
-        const handler = getRpcHandler(parsed.tool);
+        const handler = getRpcHandler(tool);
 
         if (!handler) {
-          sendResponse(null, `Unknown RPC tool: ${parsed.tool}`);
+          sendResponse(null, `Unknown RPC tool: ${tool}`);
           return;
         }
 
-        const result = handler(ydoc, parsed.args ?? {});
+        const result = handler(ydoc, args);
         if (result instanceof Promise) {
           result
-            .then((r) => sendResponse(r))
-            .catch((err: Error) => sendResponse(null, err.message));
+            .then((r) => {
+              if (isMutating) resetShimmerTimer();
+              sendResponse(r);
+            })
+            .catch((err: Error) => {
+              if (isMutating) resetShimmerTimer();
+              sendResponse(null, err.message);
+            });
         } else {
+          if (isMutating) resetShimmerTimer();
           sendResponse(result);
         }
       } catch (err) {
@@ -93,6 +159,11 @@ export function useRpc({ provider, ydoc, enabled }: UseRpcOptions) {
       if (currentWs) {
         currentWs.removeEventListener('message', handleMessage);
       }
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      clearShimmer();
     };
   }, [provider, ydoc, enabled]);
 }

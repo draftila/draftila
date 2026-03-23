@@ -1225,6 +1225,82 @@ export class Canvas2DRenderer implements Renderer {
     return { width: metrics.width, height: fontSize };
   }
 
+  drawShimmerOverlay(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    rotation: number,
+    cornerRadius: number | [number, number, number, number],
+    shimmerPhase: number,
+  ) {
+    const { ctx } = this;
+    ctx.save();
+
+    if (rotation !== 0) {
+      const cx = x + width / 2;
+      const cy = y + height / 2;
+      ctx.translate(cx, cy);
+      ctx.rotate((rotation * Math.PI) / 180);
+      ctx.translate(-width / 2, -height / 2);
+    } else {
+      ctx.translate(x, y);
+    }
+
+    ctx.beginPath();
+    const hasRadius = Array.isArray(cornerRadius)
+      ? cornerRadius.some((r) => r > 0)
+      : cornerRadius > 0;
+    if (hasRadius) {
+      ctx.roundRect(0, 0, width, height, cornerRadius);
+    } else {
+      ctx.rect(0, 0, width, height);
+    }
+    ctx.clip();
+
+    ctx.fillStyle = 'rgba(180, 190, 210, 0.06)';
+    ctx.fillRect(0, 0, width, height);
+
+    const diagonal = Math.sqrt(width * width + height * height);
+    const bandWidth = diagonal * 0.4;
+    const totalTravel = diagonal + bandWidth;
+    const offset = shimmerPhase * totalTravel - bandWidth;
+
+    const angle = Math.atan2(height, width);
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+
+    const gx0 = offset * cos;
+    const gy0 = offset * sin;
+    const gx1 = (offset + bandWidth) * cos;
+    const gy1 = (offset + bandWidth) * sin;
+
+    const gradient = ctx.createLinearGradient(gx0, gy0, gx1, gy1);
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
+    gradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.08)');
+    gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.14)');
+    gradient.addColorStop(0.7, 'rgba(255, 255, 255, 0.08)');
+    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.strokeStyle = 'rgba(99, 102, 241, 0.25)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 4]);
+    ctx.lineDashOffset = -shimmerPhase * 40;
+    ctx.beginPath();
+    if (hasRadius) {
+      ctx.roundRect(0, 0, width, height, cornerRadius);
+    } else {
+      ctx.rect(0, 0, width, height);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.restore();
+  }
+
   private applyTransform(transform: RenderTransform) {
     const { ctx } = this;
     if (transform.rotation !== 0) {
