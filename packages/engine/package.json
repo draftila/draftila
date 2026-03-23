@@ -51,6 +51,7 @@
   },
   "dependencies": {
     "@draftila/shared": "workspace:*",
+    "fzstd": "^0.1.1",
     "pako": "^2.1.0",
     "paper": "^0.12.18",
     "perfect-freehand": "^1.2.3",

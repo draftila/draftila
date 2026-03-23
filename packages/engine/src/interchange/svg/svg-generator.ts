@@ -325,8 +325,14 @@ function renderFillsAndStrokes(
   }
 
   for (const stroke of visibleStrokes) {
-    const color = svgColor(stroke.color, stroke.opacity);
-    let strokeAttrs = `stroke="${color}" stroke-width="${stroke.width}"`;
+    const strokeRef = stroke.gradient
+      ? (() => {
+          const gradId = `grad-${rctx.defCounter++}`;
+          rctx.defs.push(buildGradientDef(stroke.gradient, gradId));
+          return `url(#${gradId})`;
+        })()
+      : svgColor(stroke.color, stroke.opacity);
+    let strokeAttrs = `stroke="${strokeRef}" stroke-width="${stroke.width}"`;
     if (stroke.cap !== 'butt') strokeAttrs += ` stroke-linecap="${stroke.cap}"`;
     if (stroke.join !== 'miter') strokeAttrs += ` stroke-linejoin="${stroke.join}"`;
     const dash = resolveDashArraySvg(stroke);
@@ -430,9 +436,31 @@ function nodeToSvg(
 
       const clipId = node.clip ? `clip-${rctx.defCounter++}` : null;
       if (clipId) {
-        const geom = buildShapeGeometry(node, ox, oy);
-        if (geom) {
-          rctx.defs.push(`<clipPath id="${clipId}"><${geom.tag} ${geom.attrs}/></clipPath>`);
+        if (node.clipPath?.type === 'path' && node.clipPath.d) {
+          rctx.defs.push(`<clipPath id="${clipId}"><path d="${node.clipPath.d}"/></clipPath>`);
+        } else if (node.clipPath?.type === 'ellipse') {
+          const cx = (node.clipPath.x ?? ox) + (node.clipPath.width ?? node.width) / 2;
+          const cy = (node.clipPath.y ?? oy) + (node.clipPath.height ?? node.height) / 2;
+          const rx = (node.clipPath.width ?? node.width) / 2;
+          const ry = (node.clipPath.height ?? node.height) / 2;
+          rctx.defs.push(
+            `<clipPath id="${clipId}"><ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}"/></clipPath>`,
+          );
+        } else if (node.clipPath) {
+          const clipX = node.clipPath.x ?? ox;
+          const clipY = node.clipPath.y ?? oy;
+          const clipWidth = node.clipPath.width ?? node.width;
+          const clipHeight = node.clipPath.height ?? node.height;
+          const rx = node.clipPath.rx ?? 0;
+          const ry = node.clipPath.ry ?? rx;
+          rctx.defs.push(
+            `<clipPath id="${clipId}"><rect x="${clipX}" y="${clipY}" width="${clipWidth}" height="${clipHeight}"${rx ? ` rx="${rx}"` : ''}${ry ? ` ry="${ry}"` : ''}/></clipPath>`,
+          );
+        } else {
+          const geom = buildShapeGeometry(node, ox, oy);
+          if (geom) {
+            rctx.defs.push(`<clipPath id="${clipId}"><${geom.tag} ${geom.attrs}/></clipPath>`);
+          }
         }
       }
 

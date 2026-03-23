@@ -145,10 +145,15 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
             }
           }
           if (html || text) {
-            const newIds = handleExternalPaste(ydoc, html, text, {
-              targetParentId,
-              cursorPosition: canvasPosition,
-            });
+            let newIds: string[] = [];
+            try {
+              newIds = handleExternalPaste(ydoc, html, text, {
+                targetParentId,
+                cursorPosition: canvasPosition,
+              });
+            } catch {
+              newIds = [];
+            }
             if (newIds.length > 0) {
               useEditorStore.getState().setSelectedIds(newIds);
               return;
@@ -161,11 +166,38 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
           if (fallbackIds.length > 0) useEditorStore.getState().setSelectedIds(fallbackIds);
         })
         .catch(() => {
-          const fallbackIds = pasteShapes(ydoc, {
-            selectedIds,
-            cursorPosition: canvasPosition,
-          });
-          if (fallbackIds.length > 0) useEditorStore.getState().setSelectedIds(fallbackIds);
+          navigator.clipboard
+            .readText()
+            .then((text) => {
+              if (text) {
+                let newIds: string[] = [];
+                try {
+                  newIds = handleExternalPaste(ydoc, null, text, {
+                    targetParentId,
+                    cursorPosition: canvasPosition,
+                  });
+                } catch {
+                  newIds = [];
+                }
+                if (newIds.length > 0) {
+                  useEditorStore.getState().setSelectedIds(newIds);
+                  return;
+                }
+              }
+
+              const fallbackIds = pasteShapes(ydoc, {
+                selectedIds,
+                cursorPosition: canvasPosition,
+              });
+              if (fallbackIds.length > 0) useEditorStore.getState().setSelectedIds(fallbackIds);
+            })
+            .catch(() => {
+              const fallbackIds = pasteShapes(ydoc, {
+                selectedIds,
+                cursorPosition: canvasPosition,
+              });
+              if (fallbackIds.length > 0) useEditorStore.getState().setSelectedIds(fallbackIds);
+            });
         });
 
       onClose();

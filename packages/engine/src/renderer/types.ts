@@ -1,6 +1,7 @@
 import type {
   Blur,
   Camera,
+  ClipPath,
   Fill,
   LayoutGuide,
   Shadow,
@@ -125,6 +126,8 @@ export interface Renderer {
   drawImage(transform: RenderTransform, options: ImageRenderOptions): void;
 
   beginClip(x: number, y: number, width: number, height: number, rotation?: number): void;
+
+  beginClipPath(clipPath: ClipPath, rotation?: number): void;
 
   endClip(): void;
 

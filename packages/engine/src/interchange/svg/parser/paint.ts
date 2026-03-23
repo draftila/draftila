@@ -7,7 +7,7 @@ import type {
   InterchangeDashPattern,
 } from '../../interchange-format';
 import { normalizeColor, colorToOpacity } from '../color';
-import { parseAttr, resolveUrlRef } from './shared';
+import { getPresentationAttr, parseAttr, resolveUrlRef } from './shared';
 
 function parseDashArray(
   el: Element,
@@ -16,7 +16,7 @@ function parseDashArray(
   dashPattern: InterchangeDashPattern;
   dashArray?: number[];
 } {
-  const dasharray = el.getAttribute('stroke-dasharray');
+  const dasharray = getPresentationAttr(el, 'stroke-dasharray');
   if (!dasharray || dasharray === 'none') {
     return { dashPattern: 'solid' };
   }
@@ -51,7 +51,7 @@ export function buildFills(
   fillGradients: InterchangeGradient[];
   patternImage: string | null;
 } {
-  const fillAttr = el.getAttribute('fill');
+  const fillAttr = getPresentationAttr(el, 'fill');
 
   if (fillAttr === 'none' || fillAttr === 'transparent') {
     return { fills: [], fillGradients: [], patternImage: null };
@@ -76,7 +76,7 @@ export function buildFills(
   }
 
   const { hex, opacity } = colorToOpacity(color);
-  const fillOpacity = el.getAttribute('fill-opacity');
+  const fillOpacity = getPresentationAttr(el, 'fill-opacity');
   const finalOpacity = fillOpacity ? opacity * parseFloat(fillOpacity) : opacity;
 
   return {
@@ -93,7 +93,7 @@ export function buildStrokes(
   strokes: InterchangeStroke[];
   strokeGradients: InterchangeGradient[];
 } {
-  const strokeAttr = el.getAttribute('stroke');
+  const strokeAttr = getPresentationAttr(el, 'stroke');
   if (!strokeAttr || strokeAttr === 'none' || strokeAttr === 'transparent') {
     return { strokes: [], strokeGradients: [] };
   }
@@ -110,15 +110,15 @@ export function buildStrokes(
 
   const color = normalizeColor(strokeAttr) ?? '#000000';
   const { hex, opacity: colorOpacity } = colorToOpacity(color);
-  const strokeOpacity = el.getAttribute('stroke-opacity');
+  const strokeOpacity = getPresentationAttr(el, 'stroke-opacity');
   const finalOpacity = strokeOpacity ? colorOpacity * parseFloat(strokeOpacity) : colorOpacity;
 
-  const capStr = el.getAttribute('stroke-linecap');
+  const capStr = getPresentationAttr(el, 'stroke-linecap');
   const cap = (
     ['butt', 'round', 'square'].includes(capStr ?? '') ? capStr : 'butt'
   ) as InterchangeStrokeCap;
 
-  const joinStr = el.getAttribute('stroke-linejoin');
+  const joinStr = getPresentationAttr(el, 'stroke-linejoin');
   const join = (
     ['miter', 'round', 'bevel'].includes(joinStr ?? '') ? joinStr : 'miter'
   ) as InterchangeStrokeJoin;
@@ -132,6 +132,7 @@ export function buildStrokes(
         width,
         opacity: finalOpacity,
         visible: true,
+        gradient: strokeGradients[0],
         cap,
         join,
         align: 'center',

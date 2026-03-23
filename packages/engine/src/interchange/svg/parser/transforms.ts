@@ -76,3 +76,8 @@ export function decomposeTransform(m: DOMMatrix): {
   const rotation = (Math.atan2(m.b, m.a) * 180) / Math.PI;
   return { tx, ty, rotation, sx, sy };
 }
+
+export function isRectilinearTransform(m: DOMMatrix): boolean {
+  const dot = m.a * m.c + m.b * m.d;
+  return Math.abs(dot) < 0.0001;
+}

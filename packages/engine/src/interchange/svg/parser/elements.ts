@@ -4,17 +4,107 @@ import type {
   InterchangeStrokeJoin,
   InterchangeDashPattern,
 } from '../../interchange-format';
+import type { TextAutoResize, TextSegment } from '@draftila/shared';
 import { createInterchangeNode } from '../../interchange-format';
 import { normalizeColor, colorToOpacity } from '../color';
 import { ParseCtx } from './types';
-import { parseAttr, parseBlendMode, resolveHref, resolveUrlRef } from './shared';
+import {
+  getPresentationAttr,
+  parseAttr,
+  parseBlendMode,
+  resolveHref,
+  resolveUrlRef,
+} from './shared';
 import { buildFills, buildStrokes } from './paint';
 import { elementToPathData, normalizePathData, transformPathWithMatrix } from './path-utils';
-import { isIdentityMatrix, parseTransformMatrix } from './transforms';
+import {
+  decomposeTransform,
+  isIdentityMatrix,
+  isRectilinearTransform,
+  parseTransformMatrix,
+} from './transforms';
 import { applyEffectsToNode, wrapChildrenInClipFrame } from './defs';
 
+function createTransformedShapeBounds(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  matrix: DOMMatrix,
+): { x: number; y: number; width: number; height: number; rotation: number } {
+  const center = matrix.transformPoint({ x: x + width / 2, y: y + height / 2 });
+  const { rotation, sx, sy } = decomposeTransform(matrix);
+  const transformedWidth = Math.max(Math.abs(width * sx), 1);
+  const transformedHeight = Math.max(Math.abs(height * sy), 1);
+  return {
+    x: center.x - transformedWidth / 2,
+    y: center.y - transformedHeight / 2,
+    width: transformedWidth,
+    height: transformedHeight,
+    rotation,
+  };
+}
+
+function extractTextSegments(el: Element): { content: string; segments?: TextSegment[] } {
+  const tspans = Array.from(el.querySelectorAll('tspan'));
+  if (tspans.length === 0) {
+    return { content: el.textContent ?? '' };
+  }
+
+  const segments: TextSegment[] = [];
+  let content = '';
+
+  for (let index = 0; index < tspans.length; index++) {
+    const tspan = tspans[index]!;
+    const text = tspan.textContent ?? '';
+    const startsNewLine =
+      index > 0 &&
+      (getPresentationAttr(tspan, 'x') !== null || getPresentationAttr(tspan, 'dy') !== null);
+
+    if (startsNewLine && !content.endsWith('\n')) {
+      content += '\n';
+    }
+
+    content += text;
+
+    const segment: TextSegment = { text };
+    const color = normalizeColor(getPresentationAttr(tspan, 'fill'));
+    if (color) {
+      const { hex } = colorToOpacity(color);
+      segment.color = hex;
+    }
+
+    const fontSize = getPresentationAttr(tspan, 'font-size');
+    if (fontSize) segment.fontSize = parseFloat(fontSize);
+
+    const fontFamily = getPresentationAttr(tspan, 'font-family');
+    if (fontFamily) segment.fontFamily = fontFamily.replace(/["']/g, '');
+
+    const fontWeightValue = getPresentationAttr(tspan, 'font-weight');
+    if (fontWeightValue === 'bold') segment.fontWeight = 700;
+    else if (fontWeightValue && fontWeightValue !== 'normal') {
+      const parsedWeight = parseInt(fontWeightValue, 10);
+      if (!isNaN(parsedWeight)) segment.fontWeight = parsedWeight;
+    }
+
+    const fontStyleValue = getPresentationAttr(tspan, 'font-style');
+    if (fontStyleValue === 'italic') segment.fontStyle = 'italic';
+
+    const textDecorationValue = getPresentationAttr(tspan, 'text-decoration');
+    if (textDecorationValue === 'underline') segment.textDecoration = 'underline';
+    else if (textDecorationValue === 'line-through') segment.textDecoration = 'strikethrough';
+
+    const letterSpacing = getPresentationAttr(tspan, 'letter-spacing');
+    if (letterSpacing) segment.letterSpacing = parseFloat(letterSpacing);
+
+    segments.push(segment);
+  }
+
+  return { content, segments };
+}
+
 function maybeWrapWithClip(node: InterchangeNode, el: Element, ctx: ParseCtx): InterchangeNode {
-  const clipRef = resolveUrlRef(el.getAttribute('clip-path'));
+  const clipRef = resolveUrlRef(getPresentationAttr(el, 'clip-path'));
   if (!clipRef) return node;
   const clip = ctx.clipPaths.get(clipRef);
   if (!clip) return node;
@@ -59,14 +149,16 @@ function parseVectorElement(el: Element, ctx: ParseCtx): InterchangeNode | null 
   const allGradients = [...fillGradients, ...strokeGradients];
 
   const fillRule =
-    el.getAttribute('fill-rule') === 'evenodd' ? ('evenodd' as const) : ('nonzero' as const);
+    getPresentationAttr(el, 'fill-rule') === 'evenodd'
+      ? ('evenodd' as const)
+      : ('nonzero' as const);
 
-  const opacity = el.getAttribute('opacity');
+  const opacity = getPresentationAttr(el, 'opacity');
   const blendMode = parseBlendMode(el);
 
   let resolvedFills = fills;
   if (fills.length === 0 && fillGradients.length === 0) {
-    const fillAttr = el.getAttribute('fill');
+    const fillAttr = getPresentationAttr(el, 'fill');
     if (fillAttr === 'none' || fillAttr === 'transparent') {
     } else if (fillAttr === null && ctx.inheritedFillNone) {
     } else if (fillAttr === null && ctx.inheritedFill) {
@@ -83,12 +175,12 @@ function parseVectorElement(el: Element, ctx: ParseCtx): InterchangeNode | null 
   }
 
   let resolvedStrokes = strokes;
-  if (strokes.length === 0 && el.getAttribute('stroke') === null && ctx.inheritedStroke) {
+  if (strokes.length === 0 && getPresentationAttr(el, 'stroke') === null && ctx.inheritedStroke) {
     const color = normalizeColor(ctx.inheritedStroke) ?? '#000000';
     const { hex, opacity: co } = colorToOpacity(color);
     const sw = ctx.inheritedStrokeWidth ?? 1;
-    const capStr = el.getAttribute('stroke-linecap') ?? ctx.inheritedStrokeCap;
-    const joinStr = el.getAttribute('stroke-linejoin') ?? ctx.inheritedStrokeJoin;
+    const capStr = getPresentationAttr(el, 'stroke-linecap') ?? ctx.inheritedStrokeCap;
+    const joinStr = getPresentationAttr(el, 'stroke-linejoin') ?? ctx.inheritedStrokeJoin;
     resolvedStrokes = [
       {
         color: hex,
@@ -109,20 +201,30 @@ function parseVectorElement(el: Element, ctx: ParseCtx): InterchangeNode | null 
     ];
   }
 
-  const isRectLike = tagName === 'rect' && isIdentityMatrix(worldMatrix);
+  const isRectLike =
+    tagName === 'rect' && (isIdentityMatrix(worldMatrix) || isRectilinearTransform(worldMatrix));
   const isEllipseLike =
-    (tagName === 'circle' || tagName === 'ellipse') && isIdentityMatrix(worldMatrix);
+    (tagName === 'circle' || tagName === 'ellipse') &&
+    (isIdentityMatrix(worldMatrix) || isRectilinearTransform(worldMatrix));
 
   let node: InterchangeNode;
 
   if (isRectLike) {
     const rx = parseAttr(el, 'rx');
+    const rectX = parseAttr(el, 'x');
+    const rectY = parseAttr(el, 'y');
+    const rectWidth = parseAttr(el, 'width', bounds.width || 1);
+    const rectHeight = parseAttr(el, 'height', bounds.height || 1);
+    const transform = isIdentityMatrix(worldMatrix)
+      ? { x: rectX, y: rectY, width: rectWidth, height: rectHeight, rotation: 0 }
+      : createTransformedShapeBounds(rectX, rectY, rectWidth, rectHeight, worldMatrix);
     node = createInterchangeNode('rectangle', {
       name: el.getAttribute('data-name') ?? el.getAttribute('id') ?? '',
-      x: bounds.x,
-      y: bounds.y,
-      width: bounds.width || 1,
-      height: bounds.height || 1,
+      x: transform.x,
+      y: transform.y,
+      width: transform.width,
+      height: transform.height,
+      rotation: transform.rotation,
       cornerRadius: rx,
       fills: resolvedFills,
       gradients: allGradients,
@@ -132,12 +234,20 @@ function parseVectorElement(el: Element, ctx: ParseCtx): InterchangeNode | null 
       blendMode,
     });
   } else if (isEllipseLike) {
+    const ellipseX = bounds.x;
+    const ellipseY = bounds.y;
+    const ellipseWidth = bounds.width || 1;
+    const ellipseHeight = bounds.height || 1;
+    const transform = isIdentityMatrix(worldMatrix)
+      ? { x: ellipseX, y: ellipseY, width: ellipseWidth, height: ellipseHeight, rotation: 0 }
+      : createTransformedShapeBounds(ellipseX, ellipseY, ellipseWidth, ellipseHeight, worldMatrix);
     node = createInterchangeNode('ellipse', {
       name: el.getAttribute('data-name') ?? el.getAttribute('id') ?? '',
-      x: bounds.x,
-      y: bounds.y,
-      width: bounds.width || 1,
-      height: bounds.height || 1,
+      x: transform.x,
+      y: transform.y,
+      width: transform.width,
+      height: transform.height,
+      rotation: transform.rotation,
       fills: resolvedFills,
       gradients: allGradients,
       strokes: resolvedStrokes,
@@ -171,23 +281,17 @@ function parseTextElement(el: Element, ctx: ParseCtx): InterchangeNode {
     ? new DOMMatrix().multiplySelf(ctx.parentMatrix).multiplySelf(elMatrix)
     : ctx.parentMatrix;
 
-  let x = parseAttr(el, 'x');
-  let y = parseAttr(el, 'y');
+  const x = parseAttr(el, 'x');
+  const y = parseAttr(el, 'y');
 
-  if (!isIdentityMatrix(worldMatrix)) {
-    const pt = worldMatrix.transformPoint({ x, y });
-    x = pt.x;
-    y = pt.y;
-  }
-
-  const fillAttr = el.getAttribute('fill');
+  const fillAttr = getPresentationAttr(el, 'fill');
   const color = normalizeColor(fillAttr) ?? '#000000';
   const { hex, opacity } = colorToOpacity(color);
 
   const fontSize = parseAttr(el, 'font-size', 16);
-  const fontFamily = (el.getAttribute('font-family') ?? 'Inter').replace(/["']/g, '');
+  const fontFamily = (getPresentationAttr(el, 'font-family') ?? 'Inter').replace(/["']/g, '');
 
-  const fontWeightStr = el.getAttribute('font-weight');
+  const fontWeightStr = getPresentationAttr(el, 'font-weight');
   let fontWeight = 400;
   if (fontWeightStr === 'bold') fontWeight = 700;
   else if (fontWeightStr && fontWeightStr !== 'normal') {
@@ -196,41 +300,43 @@ function parseTextElement(el: Element, ctx: ParseCtx): InterchangeNode {
   }
 
   const fontStyle: 'normal' | 'italic' =
-    el.getAttribute('font-style') === 'italic' ? 'italic' : 'normal';
+    getPresentationAttr(el, 'font-style') === 'italic' ? 'italic' : 'normal';
 
-  const textAnchor = el.getAttribute('text-anchor');
+  const textAnchor = getPresentationAttr(el, 'text-anchor');
   let textAlign: 'left' | 'center' | 'right' = 'left';
   if (textAnchor === 'middle') textAlign = 'center';
   else if (textAnchor === 'end') textAlign = 'right';
 
-  const tspans = el.querySelectorAll('tspan');
-  let content: string;
-  if (tspans.length > 0) {
-    const parts: string[] = [];
-    for (const tspan of tspans) {
-      parts.push(tspan.textContent ?? '');
-    }
-    content = parts.join('');
-  } else {
-    content = el.textContent ?? '';
-  }
-
-  const estimatedWidth = Math.max(200, content.length * fontSize * 0.6);
+  const { content, segments } = extractTextSegments(el);
+  const textLines = content.split('\n');
+  const estimatedWidth = Math.max(
+    1,
+    ...textLines.map((line) => Math.max(fontSize * 0.5, line.length * fontSize * 0.6)),
+  );
+  const estimatedHeight = Math.max(fontSize * 1.5, textLines.length * fontSize * 1.5);
   const blendMode = parseBlendMode(el);
   const letterSpacing = parseAttr(el, 'letter-spacing', 0);
 
-  const textDecorationStr = el.getAttribute('text-decoration');
+  const textDecorationStr = getPresentationAttr(el, 'text-decoration');
   let textDecoration: 'none' | 'underline' | 'strikethrough' = 'none';
   if (textDecorationStr === 'underline') textDecoration = 'underline';
   else if (textDecorationStr === 'line-through') textDecoration = 'strikethrough';
 
+  const transform = isIdentityMatrix(worldMatrix)
+    ? { x, y: y - fontSize, width: estimatedWidth, height: estimatedHeight, rotation: 0 }
+    : createTransformedShapeBounds(x, y - fontSize, estimatedWidth, estimatedHeight, worldMatrix);
+  const textAutoResize: TextAutoResize = textLines.length > 1 ? 'height' : 'width';
+
   return createInterchangeNode('text', {
     name: el.getAttribute('data-name') ?? el.getAttribute('id') ?? '',
-    x,
-    y: y - fontSize,
-    width: estimatedWidth,
-    height: fontSize * 1.5,
+    x: transform.x,
+    y: transform.y,
+    width: transform.width,
+    height: transform.height,
+    rotation: transform.rotation,
     content,
+    segments,
+    textAutoResize,
     fontSize,
     fontFamily,
     fontWeight,
@@ -239,7 +345,9 @@ function parseTextElement(el: Element, ctx: ParseCtx): InterchangeNode {
     letterSpacing,
     textDecoration,
     fills: [{ color: hex, opacity, visible: true }],
-    opacity: el.getAttribute('opacity') ? parseFloat(el.getAttribute('opacity')!) : 1,
+    opacity: getPresentationAttr(el, 'opacity')
+      ? parseFloat(getPresentationAttr(el, 'opacity')!)
+      : 1,
     blendMode,
   });
 }
@@ -250,30 +358,28 @@ function parseImageElement(el: Element, ctx: ParseCtx): InterchangeNode {
     ? new DOMMatrix().multiplySelf(ctx.parentMatrix).multiplySelf(elMatrix)
     : ctx.parentMatrix;
 
-  let x = parseAttr(el, 'x');
-  let y = parseAttr(el, 'y');
+  const rawX = parseAttr(el, 'x');
+  const rawY = parseAttr(el, 'y');
   const width = parseAttr(el, 'width', 100);
   const height = parseAttr(el, 'height', 100);
-
-  if (!isIdentityMatrix(worldMatrix)) {
-    const pt = worldMatrix.transformPoint({ x, y });
-    x = pt.x;
-    y = pt.y;
-  }
+  const transform = isIdentityMatrix(worldMatrix)
+    ? { x: rawX, y: rawY, width, height, rotation: 0 }
+    : createTransformedShapeBounds(rawX, rawY, width, height, worldMatrix);
 
   const href = resolveHref(el);
 
-  const par = el.getAttribute('preserveAspectRatio') ?? 'xMidYMid meet';
+  const par = getPresentationAttr(el, 'preserveAspectRatio') ?? 'xMidYMid meet';
   let fit: 'fill' | 'fit' | 'crop' = 'fill';
   if (par === 'none') fit = 'fill';
   else if (par.includes('meet')) fit = 'fit';
   else if (par.includes('slice')) fit = 'crop';
 
   return createInterchangeNode('image', {
-    x,
-    y,
-    width,
-    height,
+    x: transform.x,
+    y: transform.y,
+    width: transform.width,
+    height: transform.height,
+    rotation: transform.rotation,
     src: href,
     fit,
   });
@@ -377,16 +483,16 @@ export function parseElement(el: Element, ctx: ParseCtx): InterchangeNode | null
 
   if (SKIP_TAGS.has(tagName)) return null;
 
-  const display = el.getAttribute('display');
+  const display = getPresentationAttr(el, 'display');
   if (display === 'none') return null;
-  const visibility = el.getAttribute('visibility');
+  const visibility = getPresentationAttr(el, 'visibility');
   if (visibility === 'hidden' || visibility === 'collapse') return null;
 
   if (tagName === 'use') {
     return parseUseElement(el, ctx);
   }
 
-  const ownFill = el.getAttribute('fill');
+  const ownFill = getPresentationAttr(el, 'fill');
   const childCtx: ParseCtx = {
     ...ctx,
     inheritedFillNone: ownFill === 'none' || (ownFill === null && ctx.inheritedFillNone),
@@ -441,11 +547,11 @@ export function parseElement(el: Element, ctx: ParseCtx): InterchangeNode | null
       }
     }
 
-    const groupFill = el.getAttribute('fill');
-    const groupStroke = el.getAttribute('stroke');
-    const groupStrokeWidth = el.getAttribute('stroke-width');
-    const groupStrokeCap = el.getAttribute('stroke-linecap');
-    const groupStrokeJoin = el.getAttribute('stroke-linejoin');
+    const groupFill = getPresentationAttr(el, 'fill');
+    const groupStroke = getPresentationAttr(el, 'stroke');
+    const groupStrokeWidth = getPresentationAttr(el, 'stroke-width');
+    const groupStrokeCap = getPresentationAttr(el, 'stroke-linecap');
+    const groupStrokeJoin = getPresentationAttr(el, 'stroke-linejoin');
 
     const groupCtx: ParseCtx = {
       ...childCtx,
@@ -467,13 +573,13 @@ export function parseElement(el: Element, ctx: ParseCtx): InterchangeNode | null
 
     if (children.length === 0) return null;
 
-    const opacity = parseFloat(el.getAttribute('opacity') ?? '1');
+    const opacity = parseFloat(getPresentationAttr(el, 'opacity') ?? '1');
     const groupOpacity = Number.isFinite(opacity) ? opacity : 1;
     const blendMode = parseBlendMode(el);
-    const filterRef = resolveUrlRef(el.getAttribute('filter'));
+    const filterRef = resolveUrlRef(getPresentationAttr(el, 'filter'));
     const groupEffects = filterRef ? ctx.filters.get(filterRef) : undefined;
-    const clipRef = resolveUrlRef(el.getAttribute('clip-path'));
-    const maskRef = resolveUrlRef(el.getAttribute('mask'));
+    const clipRef = resolveUrlRef(getPresentationAttr(el, 'clip-path'));
+    const maskRef = resolveUrlRef(getPresentationAttr(el, 'mask'));
     const clip =
       (clipRef ? ctx.clipPaths.get(clipRef) : undefined) ??
       (maskRef ? ctx.masks.get(maskRef) : undefined);

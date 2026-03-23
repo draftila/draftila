@@ -1,5 +1,6 @@
 import type {
   Camera,
+  ClipPath,
   Fill,
   Gradient,
   LayoutGuide,
@@ -762,11 +763,52 @@ export class Canvas2DRenderer implements Renderer {
       const cx = x + width / 2;
       const cy = y + height / 2;
       ctx.translate(cx, cy);
-      ctx.rotate(rotation);
+      ctx.rotate((rotation * Math.PI) / 180);
       ctx.translate(-cx, -cy);
     }
     ctx.beginPath();
     ctx.rect(x, y, width, height);
+    ctx.clip();
+  }
+
+  beginClipPath(clipPath: ClipPath, rotation = 0) {
+    const { ctx } = this;
+    ctx.save();
+
+    const x = clipPath.x ?? 0;
+    const y = clipPath.y ?? 0;
+    const width = clipPath.width ?? 0;
+    const height = clipPath.height ?? 0;
+
+    if (rotation !== 0 && width > 0 && height > 0) {
+      const cx = x + width / 2;
+      const cy = y + height / 2;
+      ctx.translate(cx, cy);
+      ctx.rotate((rotation * Math.PI) / 180);
+      ctx.translate(-cx, -cy);
+    }
+
+    ctx.beginPath();
+    if (clipPath.type === 'ellipse') {
+      ctx.ellipse(x + width / 2, y + height / 2, width / 2, height / 2, 0, 0, Math.PI * 2);
+      ctx.clip();
+      return;
+    }
+
+    if (clipPath.type === 'path' && clipPath.d) {
+      const path = new Path2D(clipPath.d);
+      ctx.clip(path);
+      return;
+    }
+
+    const radiusX = clipPath.rx ?? 0;
+    const radiusY = clipPath.ry ?? radiusX;
+    if (radiusX > 0 || radiusY > 0) {
+      const r = Math.min(radiusX, radiusY || radiusX, width / 2, height / 2);
+      ctx.roundRect(x, y, width, height, r);
+    } else {
+      ctx.rect(x, y, width, height);
+    }
     ctx.clip();
   }
 
@@ -1389,7 +1431,9 @@ export class Canvas2DRenderer implements Renderer {
 
     for (const stroke of style.strokes) {
       if (!stroke.visible || stroke.width <= 0) continue;
-      ctx.strokeStyle = colorWithOpacity(stroke.color, stroke.opacity);
+      ctx.strokeStyle = stroke.gradient
+        ? this.createGradient(stroke.gradient, width, height)
+        : colorWithOpacity(stroke.color, stroke.opacity);
       ctx.lineWidth = stroke.width;
       ctx.lineCap = stroke.cap ?? 'butt';
       ctx.lineJoin = stroke.join ?? 'miter';
@@ -1397,10 +1441,18 @@ export class Canvas2DRenderer implements Renderer {
       ctx.setLineDash(resolveDashArray(stroke));
       ctx.lineDashOffset = stroke.dashOffset ?? 0;
 
+      if (!stroke.gradient) {
+        ctx.globalAlpha = style.opacity;
+      }
+
       if (stroke.sides && width > 0 && height > 0) {
         this.drawSidedStroke(stroke.sides, width, height);
       } else {
         ctx.stroke();
+      }
+
+      if (stroke.gradient) {
+        ctx.globalAlpha = style.opacity;
       }
       ctx.setLineDash([]);
     }

@@ -1,4 +1,4 @@
-import type { Shape, Fill, Stroke, Shadow, Blur, Gradient } from '@draftila/shared';
+import type { Shape, Fill, Stroke, Shadow, Blur, Gradient, TextSegment } from '@draftila/shared';
 import type {
   InterchangeNode,
   InterchangeDocument,
@@ -41,6 +41,7 @@ function strokeToInterchange(stroke: Stroke): InterchangeStroke {
     width: stroke.width,
     opacity: stroke.opacity,
     visible: stroke.visible,
+    gradient: stroke.gradient ? gradientToInterchange(stroke.gradient) : undefined,
     cap: stroke.cap,
     join: stroke.join,
     align: stroke.align,
@@ -57,6 +58,7 @@ function interchangeToStroke(stroke: InterchangeStroke): Stroke {
     width: stroke.width,
     opacity: stroke.opacity,
     visible: stroke.visible,
+    gradient: stroke.gradient ? interchangeGradientToGradient(stroke.gradient) : undefined,
     cap: stroke.cap,
     join: stroke.join,
     align: stroke.align,
@@ -147,6 +149,8 @@ function shapeToNode(shape: Shape, childrenByParent: Map<string, Shape[]>): Inte
       break;
     case 'text':
       node.content = shape.content;
+      node.segments = shape.segments;
+      node.textAutoResize = shape.textAutoResize;
       node.fontSize = shape.fontSize;
       node.fontFamily = shape.fontFamily;
       node.fontWeight = shape.fontWeight;
@@ -185,6 +189,7 @@ function shapeToNode(shape: Shape, childrenByParent: Map<string, Shape[]>): Inte
       break;
     case 'frame':
       node.clip = shape.clip;
+      node.clipPath = shape.clipPath;
       break;
     case 'image':
       node.src = shape.src;
@@ -284,6 +289,7 @@ function nodeToFlatShapes(
         shadows,
         blurs,
         clip: node.clip ?? true,
+        clipPath: node.clipPath,
       });
       break;
     case 'text':
@@ -292,6 +298,8 @@ function nodeToFlatShapes(
         shadows,
         blurs,
         content: node.content ?? '',
+        segments: node.segments as TextSegment[] | undefined,
+        textAutoResize: node.textAutoResize ?? 'none',
         fontSize: node.fontSize ?? 16,
         fontFamily: node.fontFamily ?? 'Inter',
         fontWeight: node.fontWeight ?? 400,

@@ -121,6 +121,7 @@ export const strokeSchema = z.object({
   width: z.number().min(0).default(1),
   opacity: z.number().min(0).max(1).default(1),
   visible: z.boolean().default(true),
+  gradient: gradientSchema.optional(),
   cap: strokeCapSchema.default('butt'),
   join: strokeJoinSchema.default('miter'),
   align: strokeAlignSchema.default('center'),
@@ -158,6 +159,17 @@ export const canvasGuideSchema = z.object({
   id: z.string(),
   axis: z.enum(['x', 'y']),
   position: z.number(),
+});
+
+export const clipPathSchema = z.object({
+  type: z.enum(['rect', 'ellipse', 'path']),
+  x: z.number().optional(),
+  y: z.number().optional(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+  rx: z.number().optional(),
+  ry: z.number().optional(),
+  d: z.string().optional(),
 });
 
 export const textSegmentSchema = z.object({
@@ -240,6 +252,7 @@ export const frameShapeSchema = baseShapeSchema.extend({
   fills: z.array(fillSchema).default([{ color: '#FFFFFF', opacity: 1, visible: true }]),
   strokes: z.array(strokeSchema).default([]),
   clip: z.boolean().default(true),
+  clipPath: clipPathSchema.optional(),
   shadows: z.array(shadowSchema).default([]),
   blurs: z.array(blurSchema).default([]),
   guides: z.array(layoutGuideSchema).default([]),

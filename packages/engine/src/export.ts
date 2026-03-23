@@ -1,9 +1,51 @@
-import type { Shape } from '@draftila/shared';
+import type { ClipPath, Shape } from '@draftila/shared';
 import { Canvas2DRenderer } from './renderer/canvas2d-renderer';
 import { renderShape } from './shape-renderer';
 import { shapesToInterchange } from './interchange/converter';
 import { generateSvg } from './interchange/svg/svg-generator';
 import { collectFontFamilies, ensureFontsLoadedAsync } from './font-manager';
+
+function renderShapesWithClipping(renderer: Canvas2DRenderer, shapes: Shape[]) {
+  const clipStack: string[] = [];
+  const shapeMap = new Map(shapes.map((shape) => [shape.id, shape]));
+
+  for (const shape of shapes) {
+    while (clipStack.length > 0) {
+      const clipParentId = clipStack[clipStack.length - 1]!;
+      let isDescendant = false;
+      let checkId = shape.parentId ?? null;
+
+      while (checkId) {
+        if (checkId === clipParentId) {
+          isDescendant = true;
+          break;
+        }
+        checkId = shapeMap.get(checkId)?.parentId ?? null;
+      }
+
+      if (isDescendant) break;
+      renderer.endClip();
+      clipStack.pop();
+    }
+
+    renderShape(renderer, shape);
+
+    if (shape.type === 'frame' && shape.clip !== false) {
+      const clipPath = (shape as Shape & { clipPath?: ClipPath }).clipPath;
+      if (clipPath) {
+        renderer.beginClipPath(clipPath, shape.rotation);
+      } else {
+        renderer.beginClip(shape.x, shape.y, shape.width, shape.height, shape.rotation);
+      }
+      clipStack.push(shape.id);
+    }
+  }
+
+  while (clipStack.length > 0) {
+    renderer.endClip();
+    clipStack.pop();
+  }
+}
 
 export async function exportToPng(
   shapes: Shape[],
@@ -45,9 +87,7 @@ export async function exportToPng(
   renderer.save();
   renderer.applyCamera({ x: -minX, y: -minY, zoom: 1 });
 
-  for (const shape of shapes) {
-    renderShape(renderer, shape);
-  }
+  renderShapesWithClipping(renderer, shapes);
 
   renderer.restore();
 
@@ -122,9 +162,7 @@ export async function exportToJpg(
   renderer.save();
   renderer.applyCamera({ x: -minX, y: -minY, zoom: 1 });
 
-  for (const shape of shapes) {
-    renderShape(renderer, shape);
-  }
+  renderShapesWithClipping(renderer, shapes);
 
   renderer.restore();
 

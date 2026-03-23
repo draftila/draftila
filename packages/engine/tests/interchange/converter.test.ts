@@ -342,6 +342,11 @@ describe('Converter', () => {
         [
           createInterchangeNode('text', {
             content: 'Hello',
+            segments: [
+              { text: 'Hel', color: '#FF0000' },
+              { text: 'lo', fontWeight: 700 },
+            ],
+            textAutoResize: 'width',
             fontSize: 24,
             fontFamily: 'Arial',
             fontWeight: 700,
@@ -354,6 +359,11 @@ describe('Converter', () => {
 
       const data = interchangeToShapeData(doc);
       expect(data[0]!.props['content']).toBe('Hello');
+      expect(data[0]!.props['segments']).toEqual([
+        { text: 'Hel', color: '#FF0000' },
+        { text: 'lo', fontWeight: 700 },
+      ]);
+      expect(data[0]!.props['textAutoResize']).toBe('width');
       expect(data[0]!.props['fontSize']).toBe(24);
       expect(data[0]!.props['fontFamily']).toBe('Arial');
       expect(data[0]!.props['fontWeight']).toBe(700);
@@ -400,6 +410,64 @@ describe('Converter', () => {
       const data = interchangeToShapeData(doc);
       expect(data[0]!.props['src']).toBe('http://example.com/img.png');
       expect(data[0]!.props['fit']).toBe('fit');
+    });
+
+    test('converts frame node with clipPath metadata', () => {
+      const doc = createInterchangeDocument(
+        [
+          createInterchangeNode('frame', {
+            clip: true,
+            clipPath: { type: 'path', x: 4, y: 6, width: 120, height: 80, d: 'M4 6H124V86H4Z' },
+          }),
+        ],
+        { source: 'test' },
+      );
+
+      const data = interchangeToShapeData(doc);
+      expect(data[0]!.props['clipPath']).toEqual({
+        type: 'path',
+        x: 4,
+        y: 6,
+        width: 120,
+        height: 80,
+        d: 'M4 6H124V86H4Z',
+      });
+    });
+
+    test('converts stroke gradient from interchange to shape data', () => {
+      const doc = createInterchangeDocument(
+        [
+          createInterchangeNode('rectangle', {
+            strokes: [
+              {
+                color: '#000000',
+                width: 2,
+                opacity: 1,
+                visible: true,
+                gradient: {
+                  type: 'linear',
+                  angle: 90,
+                  stops: [
+                    { color: '#FF0000', position: 0 },
+                    { color: '#0000FF', position: 1 },
+                  ],
+                },
+                cap: 'butt',
+                join: 'miter',
+                align: 'center',
+                dashPattern: 'solid',
+                dashOffset: 0,
+                miterLimit: 4,
+              },
+            ],
+          }),
+        ],
+        { source: 'test' },
+      );
+
+      const data = interchangeToShapeData(doc);
+      const strokes = data[0]!.props['strokes'] as Array<{ gradient?: { angle?: number } }>;
+      expect(strokes[0]?.gradient?.angle).toBe(90);
     });
 
     test('converts line node with arrowheads', () => {

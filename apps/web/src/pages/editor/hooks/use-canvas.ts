@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type * as Y from 'yjs';
-import type { Shape } from '@draftila/shared';
+import type { ClipPath, Shape } from '@draftila/shared';
 import { Canvas2DRenderer } from '@draftila/engine/renderer/canvas2d';
 import { getAllShapes, observeShapes } from '@draftila/engine/scene-graph';
 import {
@@ -261,13 +261,18 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
         displayShape.type === 'frame' &&
         (displayShape as Shape & { clip?: boolean }).clip !== false
       ) {
-        renderer.beginClip(
-          displayShape.x,
-          displayShape.y,
-          displayShape.width,
-          displayShape.height,
-          displayShape.rotation,
-        );
+        const clipPath = (displayShape as Shape & { clipPath?: ClipPath }).clipPath;
+        if (clipPath) {
+          renderer.beginClipPath(clipPath, displayShape.rotation);
+        } else {
+          renderer.beginClip(
+            displayShape.x,
+            displayShape.y,
+            displayShape.width,
+            displayShape.height,
+            displayShape.rotation,
+          );
+        }
         clipStack.push(displayShape.id);
       }
     }

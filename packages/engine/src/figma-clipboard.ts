@@ -9,6 +9,7 @@ import {
   generateSvg,
 } from './interchange';
 import type { ImportData, InterchangeDocument } from './interchange';
+import { importFigmaClipboardHtml } from './figma-kiwi-import';
 
 export interface ExternalPasteOptions {
   targetParentId?: string | null;
@@ -183,6 +184,16 @@ export function handlePaste(
 ): string[] {
   const draftilaIds = tryPasteDraftilaShapes(ydoc, html, text, options);
   if (draftilaIds && draftilaIds.length > 0) return draftilaIds;
+
+  try {
+    const figmaDoc = importFigmaClipboardHtml(html);
+    if (figmaDoc) {
+      const ids = addInterchangeDocToYdoc(ydoc, figmaDoc, options);
+      if (ids.length > 0) return ids;
+    }
+  } catch {
+    // figma kiwi decoding failed, fall through to other adapters
+  }
 
   initializeDefaultAdapters();
   const data: ImportData = { html, text };

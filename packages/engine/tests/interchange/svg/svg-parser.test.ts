@@ -147,6 +147,28 @@ describe('SVG Parser', () => {
       expect(doc.nodes[0]!.src).toBe('http://example.com/img.png');
     });
 
+    test('preserves rotation for transformed rectangle', () => {
+      const svg =
+        '<svg xmlns="http://www.w3.org/2000/svg"><rect x="10" y="20" width="100" height="50" fill="#FF0000" transform="rotate(30 60 45)"/></svg>';
+      const doc = parseSvg(svg);
+      expect(doc.nodes).toHaveLength(1);
+      expect(doc.nodes[0]!.type).toBe('rectangle');
+      expect(doc.nodes[0]!.rotation).toBeCloseTo(30, 3);
+      expect(doc.nodes[0]!.width).toBeCloseTo(100, 3);
+      expect(doc.nodes[0]!.height).toBeCloseTo(50, 3);
+    });
+
+    test('preserves rotation for transformed image', () => {
+      const svg =
+        '<svg xmlns="http://www.w3.org/2000/svg"><image x="10" y="20" width="100" height="80" href="http://example.com/img.png" transform="rotate(45 60 60)"/></svg>';
+      const doc = parseSvg(svg);
+      expect(doc.nodes).toHaveLength(1);
+      expect(doc.nodes[0]!.type).toBe('image');
+      expect(doc.nodes[0]!.rotation).toBeCloseTo(45, 3);
+      expect(doc.nodes[0]!.width).toBeCloseTo(100, 3);
+      expect(doc.nodes[0]!.height).toBeCloseTo(80, 3);
+    });
+
     test('skips defs elements', () => {
       const svg = `<svg xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="g1"><stop offset="0" stop-color="#000"/></linearGradient></defs>
@@ -187,6 +209,34 @@ describe('SVG Parser', () => {
         '<svg xmlns="http://www.w3.org/2000/svg"><text x="50" y="20" text-anchor="middle" fill="#000">Center</text></svg>';
       const doc = parseSvg(svg);
       expect(doc.nodes[0]!.textAlign).toBe('center');
+    });
+
+    test('parses rich text tspans into segments and multiline content', () => {
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg">
+        <text x="10" y="30" font-size="16" font-family="Arial" fill="#111111">
+          <tspan fill="#FF0000">Hello</tspan>
+          <tspan x="10" dy="20" font-weight="700">World</tspan>
+        </text>
+      </svg>`;
+      const doc = parseSvg(svg);
+      expect(doc.nodes).toHaveLength(1);
+      expect(doc.nodes[0]!.type).toBe('text');
+      expect(doc.nodes[0]!.content).toBe('Hello\nWorld');
+      expect(doc.nodes[0]!.segments).toHaveLength(2);
+      expect(doc.nodes[0]!.segments?.[0]?.color).toBe('#FF0000');
+      expect(doc.nodes[0]!.segments?.[1]?.fontWeight).toBe(700);
+      expect(doc.nodes[0]!.textAutoResize).toBe('height');
+    });
+
+    test('reads presentation attributes from inline style', () => {
+      const svg =
+        '<svg xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="100" height="100" style="display:block;fill:#00FF00;stroke:#0000FF;stroke-width:4;mix-blend-mode:multiply"/></svg>';
+      const doc = parseSvg(svg);
+      expect(doc.nodes).toHaveLength(1);
+      expect(doc.nodes[0]!.fills[0]!.color).toBe('#00FF00');
+      expect(doc.nodes[0]!.strokes[0]!.color).toBe('#0000FF');
+      expect(doc.nodes[0]!.strokes[0]!.width).toBe(4);
+      expect(doc.nodes[0]!.blendMode).toBe('multiply');
     });
 
     test('parses polyline as path', () => {
@@ -278,7 +328,7 @@ describe('SVG Parser', () => {
       </svg>`;
       const doc = parseSvg(svg);
       expect(doc.nodes[0]!.strokes).toHaveLength(1);
-      expect(doc.nodes[0]!.gradients.length).toBeGreaterThan(0);
+      expect(doc.nodes[0]!.strokes[0]!.gradient?.type).toBe('linear');
     });
   });
 
@@ -683,6 +733,8 @@ describe('SVG Parser', () => {
       expect(doc.nodes[0]!.width).toBe(120);
       expect(doc.nodes[0]!.height).toBe(80);
       expect(doc.nodes[0]!.children).toHaveLength(1);
+      expect(doc.nodes[0]!.clipPath?.type).toBe('path');
+      expect(doc.nodes[0]!.clipPath?.d).toContain('M4 6');
     });
   });
 });

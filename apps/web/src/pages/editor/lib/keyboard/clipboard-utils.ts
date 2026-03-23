@@ -27,3 +27,20 @@ export async function pasteImageFiles(
 
   return ids;
 }
+
+export function getImageFilesFromClipboardItems(
+  items: DataTransferItemList | null | undefined,
+): File[] {
+  if (!items) return [];
+
+  const imageFiles: File[] = [];
+  for (let index = 0; index < items.length; index++) {
+    const item = items[index];
+    if (!item) continue;
+    if (item.kind !== 'file' || !item.type.startsWith('image/')) continue;
+    const file = item.getAsFile();
+    if (file) imageFiles.push(file);
+  }
+
+  return imageFiles;
+}

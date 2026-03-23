@@ -1,3 +1,5 @@
+import type { TextAutoResize, TextSegment } from '@draftila/shared';
+
 export type InterchangeNodeType =
   | 'rectangle'
   | 'ellipse'
@@ -41,6 +43,7 @@ export interface InterchangeStroke {
   width: number;
   opacity: number;
   visible: boolean;
+  gradient?: InterchangeGradient;
   cap: InterchangeStrokeCap;
   join: InterchangeStrokeJoin;
   align: InterchangeStrokeAlign;
@@ -110,6 +113,8 @@ export interface InterchangeNode {
   cornerSmoothing?: number;
 
   content?: string;
+  segments?: TextSegment[];
+  textAutoResize?: TextAutoResize;
   fontSize?: number;
   fontFamily?: string;
   fontWeight?: number;

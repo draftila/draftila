@@ -35,6 +35,7 @@ import type {
   textAutoResizeSchema,
   layoutGuideSchema,
   canvasGuideSchema,
+  clipPathSchema,
   layoutDirectionSchema,
   layoutAlignSchema,
   layoutJustifySchema,
@@ -75,6 +76,7 @@ export type Blur = z.infer<typeof blurSchema>;
 export type TextSegment = z.infer<typeof textSegmentSchema>;
 export type LayoutGuide = z.infer<typeof layoutGuideSchema>;
 export type CanvasGuide = z.infer<typeof canvasGuideSchema>;
+export type ClipPath = z.infer<typeof clipPathSchema>;
 export type LayoutDirection = z.infer<typeof layoutDirectionSchema>;
 export type LayoutAlign = z.infer<typeof layoutAlignSchema>;
 export type LayoutJustify = z.infer<typeof layoutJustifySchema>;
