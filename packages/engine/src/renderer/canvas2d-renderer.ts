@@ -224,6 +224,13 @@ export class Canvas2DRenderer implements Renderer {
       ? cornerRadius.some((r) => r > 0)
       : cornerRadius > 0;
 
+    const shapePath = new Path2D();
+    if (hasRadius) {
+      shapePath.roundRect(0, 0, transform.width, transform.height, cornerRadius);
+    } else {
+      shapePath.rect(0, 0, transform.width, transform.height);
+    }
+
     const buildClip = (c: CanvasRenderingContext2D) => {
       c.beginPath();
       if (hasRadius) {
@@ -237,7 +244,7 @@ export class Canvas2DRenderer implements Renderer {
     this.applyLayerBlur(style);
 
     buildClip(ctx);
-    this.applyFillStroke(style, transform.width, transform.height);
+    this.applyFillStroke(style, transform.width, transform.height, shapePath);
     ctx.closePath();
 
     this.clearFilter();
@@ -256,6 +263,9 @@ export class Canvas2DRenderer implements Renderer {
     const rx = transform.width / 2;
     const ry = transform.height / 2;
 
+    const shapePath = new Path2D();
+    shapePath.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+
     const buildClip = (c: CanvasRenderingContext2D) => {
       c.beginPath();
       c.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
@@ -265,7 +275,7 @@ export class Canvas2DRenderer implements Renderer {
     this.applyLayerBlur(style);
 
     buildClip(ctx);
-    this.applyFillStroke(style, transform.width, transform.height);
+    this.applyFillStroke(style, transform.width, transform.height, shapePath);
     ctx.closePath();
 
     this.clearFilter();
@@ -343,18 +353,7 @@ export class Canvas2DRenderer implements Renderer {
       this.clearShadow();
     }
 
-    for (const stroke of style.strokes) {
-      if (!stroke.visible || stroke.width <= 0) continue;
-      ctx.strokeStyle = colorWithOpacity(stroke.color, stroke.opacity);
-      ctx.lineWidth = stroke.width;
-      ctx.lineCap = stroke.cap ?? 'butt';
-      ctx.lineJoin = stroke.join ?? 'miter';
-      ctx.miterLimit = stroke.miterLimit ?? 4;
-      ctx.setLineDash(resolveDashArray(stroke));
-      ctx.lineDashOffset = stroke.dashOffset ?? 0;
-      ctx.stroke(path);
-      ctx.setLineDash([]);
-    }
+    this.applyAlignedStrokes(style.strokes, path, closed);
 
     const innerShadows = style.shadows.filter((s) => s.type === 'inner' && s.visible !== false);
     if (innerShadows.length > 0 && closed) {
@@ -412,18 +411,7 @@ export class Canvas2DRenderer implements Renderer {
       this.clearShadow();
     }
 
-    for (const stroke of style.strokes) {
-      if (!stroke.visible || stroke.width <= 0) continue;
-      ctx.strokeStyle = colorWithOpacity(stroke.color, stroke.opacity);
-      ctx.lineWidth = stroke.width;
-      ctx.lineCap = stroke.cap ?? 'butt';
-      ctx.lineJoin = stroke.join ?? 'miter';
-      ctx.miterLimit = stroke.miterLimit ?? 4;
-      ctx.setLineDash(resolveDashArray(stroke));
-      ctx.lineDashOffset = stroke.dashOffset ?? 0;
-      ctx.stroke(path);
-      ctx.setLineDash([]);
-    }
+    this.applyAlignedStrokes(style.strokes, path);
 
     const innerShadows = style.shadows.filter((s) => s.type === 'inner' && s.visible !== false);
     if (innerShadows.length > 0) {
@@ -1374,7 +1362,43 @@ export class Canvas2DRenderer implements Renderer {
     this.ctx.filter = 'none';
   }
 
-  private applyFillStroke(style: RenderStyle, width = 0, height = 0) {
+  private applyAlignedStrokes(strokes: Stroke[], path: Path2D, closed = true) {
+    const { ctx } = this;
+    for (const stroke of strokes) {
+      if (!stroke.visible || stroke.width <= 0) continue;
+      ctx.strokeStyle = colorWithOpacity(stroke.color, stroke.opacity);
+      ctx.lineCap = stroke.cap ?? 'butt';
+      ctx.lineJoin = stroke.join ?? 'miter';
+      ctx.miterLimit = stroke.miterLimit ?? 4;
+      ctx.setLineDash(resolveDashArray(stroke));
+      ctx.lineDashOffset = stroke.dashOffset ?? 0;
+
+      const align = stroke.align ?? 'inside';
+
+      if ((align === 'inside' || (align === 'center' && closed)) && closed) {
+        ctx.save();
+        ctx.clip(path);
+        ctx.lineWidth = stroke.width * 2;
+        ctx.stroke(path);
+        ctx.restore();
+      } else if (align === 'outside' && closed) {
+        ctx.save();
+        ctx.lineWidth = stroke.width * 2;
+        const inversePath = new Path2D();
+        inversePath.rect(-1e5, -1e5, 2e5, 2e5);
+        inversePath.addPath(path);
+        ctx.clip(inversePath, 'evenodd');
+        ctx.stroke(path);
+        ctx.restore();
+      } else {
+        ctx.lineWidth = stroke.width;
+        ctx.stroke(path);
+      }
+      ctx.setLineDash([]);
+    }
+  }
+
+  private applyFillStroke(style: RenderStyle, width = 0, height = 0, shapePath?: Path2D) {
     const { ctx } = this;
     const dropShadows = style.shadows.filter((s) => s.type === 'drop' && s.visible !== false);
 
@@ -1405,16 +1429,34 @@ export class Canvas2DRenderer implements Renderer {
     for (const stroke of style.strokes) {
       if (!stroke.visible || stroke.width <= 0) continue;
       ctx.strokeStyle = colorWithOpacity(stroke.color, stroke.opacity);
-      ctx.lineWidth = stroke.width;
       ctx.lineCap = stroke.cap ?? 'butt';
       ctx.lineJoin = stroke.join ?? 'miter';
       ctx.miterLimit = stroke.miterLimit ?? 4;
       ctx.setLineDash(resolveDashArray(stroke));
       ctx.lineDashOffset = stroke.dashOffset ?? 0;
 
+      const align = stroke.align ?? 'inside';
+
       if (stroke.sides && width > 0 && height > 0) {
+        ctx.lineWidth = stroke.width;
         this.drawSidedStroke(stroke.sides, width, height);
+      } else if ((align === 'inside' || align === 'center') && shapePath) {
+        ctx.save();
+        ctx.clip(shapePath);
+        ctx.lineWidth = stroke.width * 2;
+        ctx.stroke();
+        ctx.restore();
+      } else if (align === 'outside' && shapePath) {
+        ctx.save();
+        ctx.lineWidth = stroke.width * 2;
+        const inversePath = new Path2D();
+        inversePath.rect(-1e5, -1e5, 2e5, 2e5);
+        inversePath.addPath(shapePath);
+        ctx.clip(inversePath, 'evenodd');
+        ctx.stroke();
+        ctx.restore();
       } else {
+        ctx.lineWidth = stroke.width;
         ctx.stroke();
       }
       ctx.setLineDash([]);

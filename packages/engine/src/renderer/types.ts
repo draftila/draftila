@@ -66,7 +66,7 @@ export function solidStroke(color: string, width = 1, opacity = 1): Stroke {
     visible: true,
     cap: 'butt',
     join: 'miter',
-    align: 'center',
+    align: 'inside',
     dashPattern: 'solid',
     dashOffset: 0,
     miterLimit: 4,

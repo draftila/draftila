@@ -123,7 +123,7 @@ export const strokeSchema = z.object({
   visible: z.boolean().default(true),
   cap: strokeCapSchema.default('butt'),
   join: strokeJoinSchema.default('miter'),
-  align: strokeAlignSchema.default('center'),
+  align: strokeAlignSchema.default('inside'),
   dashPattern: strokeDashPatternSchema.default('solid'),
   dashArray: z.array(z.number()).optional(),
   dashOffset: z.number().default(0),
