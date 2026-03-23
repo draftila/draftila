@@ -39,6 +39,7 @@ import { useKeyboard } from './hooks/use-keyboard';
 import { fitCameraToAllShapes } from './lib/fit-camera';
 import { useAwareness } from './hooks/use-awareness';
 import { useThumbnail } from './hooks/use-thumbnail';
+import { useRpc } from './hooks/use-rpc';
 import { KeyboardShortcutsDialog } from './components/keyboard-shortcuts-dialog';
 
 function ViewMenuItems() {
@@ -153,6 +154,7 @@ export function EditorPage() {
 
   useKeyboard({ ydoc });
   useThumbnail(draftId ?? '', ydoc, synced);
+  useRpc({ provider, ydoc, enabled: synced });
 
   useEffect(() => {
     if (!synced) return;

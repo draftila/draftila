@@ -37,3 +37,4 @@ storage/
 *.sqlite-wal
 
 .plans/
+.mcp.json

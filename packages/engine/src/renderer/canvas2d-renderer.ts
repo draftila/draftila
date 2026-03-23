@@ -15,6 +15,7 @@ import type {
   RenderTransform,
   TextRenderOptions,
 } from './types';
+import { resolveCanvasFontFamily } from '../font-manager';
 
 const SELECTION_COLOR = '#0D99FF';
 const SELECTION_WIDTH = 1.5;
@@ -469,8 +470,8 @@ export class Canvas2DRenderer implements Renderer {
     const { ctx } = this;
 
     const fontStyle = options.fontStyle === 'italic' ? 'italic' : '';
-    ctx.font =
-      `${fontStyle} ${options.fontWeight} ${options.fontSize}px ${options.fontFamily}`.trim();
+    const resolvedFamily = resolveCanvasFontFamily(options.fontFamily);
+    ctx.font = `${fontStyle} ${options.fontWeight} ${options.fontSize}px ${resolvedFamily}`.trim();
     ctx.textAlign = options.textAlign;
     ctx.textBaseline = 'middle';
 
@@ -540,7 +541,7 @@ export class Canvas2DRenderer implements Renderer {
     const baseFontStyle = options.fontStyle === 'italic' ? 'italic' : '';
     const baseFontWeight = options.fontWeight;
     const baseFontSize = options.fontSize;
-    const baseFontFamily = options.fontFamily;
+    const baseFontFamily = resolveCanvasFontFamily(options.fontFamily);
     const baseLetterSpacing = options.letterSpacing;
 
     const visibleFill = options.fills.find((f) => f.visible);
@@ -591,7 +592,7 @@ export class Canvas2DRenderer implements Renderer {
           char,
           color: seg.color ?? baseColor,
           fontSize: seg.fontSize ?? baseFontSize,
-          fontFamily: seg.fontFamily ?? baseFontFamily,
+          fontFamily: seg.fontFamily ? resolveCanvasFontFamily(seg.fontFamily) : baseFontFamily,
           fontWeight: seg.fontWeight ?? baseFontWeight,
           fontStyle: seg.fontStyle === 'italic' ? 'italic' : baseFontStyle,
           letterSpacing: seg.letterSpacing ?? baseLetterSpacing,
@@ -1196,7 +1197,7 @@ export class Canvas2DRenderer implements Renderer {
   ): { width: number; height: number } {
     const { ctx } = this;
     ctx.save();
-    ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+    ctx.font = `${fontWeight} ${fontSize}px ${resolveCanvasFontFamily(fontFamily)}`;
 
     const lines = content.split('\n');
     let maxWidth = 0;

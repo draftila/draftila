@@ -1,9 +1,49 @@
 import type { Shape } from '@draftila/shared';
 import { Canvas2DRenderer } from './renderer/canvas2d-renderer';
+import type { Renderer } from './renderer/types';
 import { renderShape } from './shape-renderer';
 import { shapesToInterchange } from './interchange/converter';
 import { generateSvg } from './interchange/svg/svg-generator';
 import { collectFontFamilies, ensureFontsLoadedAsync } from './font-manager';
+
+function renderWithClipping(renderer: Renderer, shapes: Shape[]) {
+  const clipStack: string[] = [];
+  const shapeMap = new Map(shapes.map((s) => [s.id, s]));
+
+  for (const shape of shapes) {
+    while (clipStack.length > 0) {
+      const clipParentId = clipStack[clipStack.length - 1]!;
+      let isDescendant = false;
+      let checkId: string | null = shape.parentId ?? null;
+      while (checkId) {
+        if (checkId === clipParentId) {
+          isDescendant = true;
+          break;
+        }
+        const parent = shapeMap.get(checkId);
+        checkId = parent?.parentId ?? null;
+      }
+      if (!isDescendant) {
+        renderer.endClip();
+        clipStack.pop();
+      } else {
+        break;
+      }
+    }
+
+    renderShape(renderer, shape);
+
+    if (shape.type === 'frame' && (shape as Shape & { clip?: boolean }).clip !== false) {
+      renderer.beginClip(shape.x, shape.y, shape.width, shape.height, shape.rotation);
+      clipStack.push(shape.id);
+    }
+  }
+
+  while (clipStack.length > 0) {
+    renderer.endClip();
+    clipStack.pop();
+  }
+}
 
 export async function exportToPng(
   shapes: Shape[],
@@ -45,9 +85,7 @@ export async function exportToPng(
   renderer.save();
   renderer.applyCamera({ x: -minX, y: -minY, zoom: 1 });
 
-  for (const shape of shapes) {
-    renderShape(renderer, shape);
-  }
+  renderWithClipping(renderer, shapes);
 
   renderer.restore();
 
@@ -122,9 +160,7 @@ export async function exportToJpg(
   renderer.save();
   renderer.applyCamera({ x: -minX, y: -minY, zoom: 1 });
 
-  for (const shape of shapes) {
-    renderShape(renderer, shape);
-  }
+  renderWithClipping(renderer, shapes);
 
   renderer.restore();
 

@@ -1,7 +1,6 @@
 const GOOGLE_FONTS_CSS_URL = 'https://fonts.googleapis.com/css2';
 
 const BUILTIN_FONTS = new Set([
-  'Inter',
   'Arial',
   'Helvetica',
   'Times New Roman',
@@ -116,6 +115,30 @@ export function onFontsLoaded(callback: () => void): () => void {
 
 export function isFontLoaded(family: string): boolean {
   return BUILTIN_FONTS.has(family) || loadedFonts.has(family);
+}
+
+const fontFamilyCache = new Map<string, string>();
+
+export function resolveCanvasFontFamily(family: string): string {
+  const cached = fontFamilyCache.get(family);
+  if (cached) return cached;
+
+  if (typeof document === 'undefined' || !document.fonts) return family;
+
+  const candidates = [family, `${family} Variable`];
+  for (const candidate of candidates) {
+    try {
+      if (document.fonts.check(`16px "${candidate}"`)) {
+        fontFamilyCache.set(family, `"${candidate}"`);
+        return `"${candidate}"`;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  fontFamilyCache.set(family, family);
+  return family;
 }
 
 export function collectFontFamilies(

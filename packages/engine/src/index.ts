@@ -45,6 +45,7 @@ export {
   getChildShapes,
   applyAutoLayout,
   applyAutoLayoutForAncestors,
+  applyBooleanOperation,
 } from './scene-graph';
 
 export {
@@ -106,6 +107,7 @@ export {
   pasteShapes,
   cutShapes,
   duplicateShapes,
+  duplicateShapesInPlace,
   copyStyle,
   pasteStyle,
   hasClipboardContent,
@@ -252,6 +254,7 @@ export {
   onFontsLoaded,
   isFontLoaded,
   collectFontFamilies,
+  resolveCanvasFontFamily,
 } from './font-manager';
 
 export {
