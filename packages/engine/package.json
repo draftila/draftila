@@ -51,7 +51,6 @@
   },
   "dependencies": {
     "@draftila/shared": "workspace:*",
-    "pako": "^2.1.0",
     "paper": "^0.12.18",
     "perfect-freehand": "^1.2.3",
     "rbush": "^4.0.1",
@@ -62,7 +61,6 @@
   "devDependencies": {
     "@draftila/eslint-config": "workspace:*",
     "@draftila/typescript-config": "workspace:*",
-    "@types/pako": "^2.0.4",
     "@types/rbush": "^4.0.0",
     "eslint": "^9.16.0",
     "linkedom": "^0.18.12",

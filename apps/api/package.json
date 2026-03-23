@@ -26,7 +26,6 @@
     "@draftila/engine": "workspace:*",
     "@draftila/shared": "workspace:*",
     "@prisma/client": "^6.7.0",
-    "@resvg/resvg-js": "^2.6.2",
     "better-auth": "^1.1.14",
     "hono": "^4.6.14",
     "lib0": "^0.2.117",
