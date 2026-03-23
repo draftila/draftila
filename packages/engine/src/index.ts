@@ -252,10 +252,17 @@ export { StarTool } from './tools/star-tool';
 export {
   ensureFontsLoaded,
   onFontsLoaded,
-  isFontLoaded,
   collectFontFamilies,
   resolveCanvasFontFamily,
 } from './font-manager';
+
+export {
+  type GoogleFont,
+  ALL_FONTS,
+  loadFontPreviews,
+  isFontPreviewReady,
+  subscribePreviewLoads,
+} from './google-fonts';
 
 export {
   rectToPath,

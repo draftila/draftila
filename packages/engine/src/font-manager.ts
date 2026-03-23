@@ -1,20 +1,39 @@
 const GOOGLE_FONTS_CSS_URL = 'https://fonts.googleapis.com/css2';
 
-const BUILTIN_FONTS = new Set([
-  'Arial',
-  'Helvetica',
-  'Times New Roman',
-  'Georgia',
-  'Courier New',
-  'system-ui',
-  'sans-serif',
+const CSS_GENERIC_FAMILIES = new Set([
   'serif',
+  'sans-serif',
   'monospace',
+  'cursive',
+  'fantasy',
+  'system-ui',
+  'ui-serif',
+  'ui-sans-serif',
+  'ui-monospace',
+  'ui-rounded',
 ]);
 
 const loadedFonts = new Set<string>();
 const pendingFonts = new Set<string>();
 const fontLoadCallbacks = new Set<() => void>();
+const fontFamilyCache = new Map<string, string>();
+let fontLoadingDoneListenerAdded = false;
+
+function notifyFontCallbacks(): void {
+  fontFamilyCache.clear();
+  for (const callback of fontLoadCallbacks) {
+    callback();
+  }
+}
+
+function ensureFontLoadingDoneListener(): void {
+  if (fontLoadingDoneListenerAdded) return;
+  if (typeof document === 'undefined' || !document.fonts) return;
+  fontLoadingDoneListenerAdded = true;
+  document.fonts.addEventListener('loadingdone', () => {
+    notifyFontCallbacks();
+  });
+}
 
 function buildGoogleFontsUrl(families: string[]): string {
   const params = families.map(
@@ -40,16 +59,13 @@ async function loadGoogleFonts(families: string[]): Promise<void> {
 
   try {
     await loadPromise;
-    await document.fonts.ready;
 
     for (const family of families) {
       loadedFonts.add(family);
       pendingFonts.delete(family);
     }
 
-    for (const callback of fontLoadCallbacks) {
-      callback();
-    }
+    notifyFontCallbacks();
   } catch {
     for (const family of families) {
       pendingFonts.delete(family);
@@ -58,10 +74,12 @@ async function loadGoogleFonts(families: string[]): Promise<void> {
 }
 
 export function ensureFontsLoaded(families: string[]): void {
+  ensureFontLoadingDoneListener();
+
   const toLoad: string[] = [];
 
   for (const family of families) {
-    if (BUILTIN_FONTS.has(family)) continue;
+    if (CSS_GENERIC_FAMILIES.has(family)) continue;
     if (loadedFonts.has(family)) continue;
     if (pendingFonts.has(family)) continue;
     toLoad.push(family);
@@ -77,7 +95,7 @@ export async function ensureFontsLoadedAsync(families: string[]): Promise<void> 
   const toLoad: string[] = [];
 
   for (const family of families) {
-    if (BUILTIN_FONTS.has(family)) continue;
+    if (CSS_GENERIC_FAMILIES.has(family)) continue;
     if (loadedFonts.has(family)) continue;
     if (!pendingFonts.has(family)) {
       toLoad.push(family);
@@ -113,32 +131,29 @@ export function onFontsLoaded(callback: () => void): () => void {
   };
 }
 
-export function isFontLoaded(family: string): boolean {
-  return BUILTIN_FONTS.has(family) || loadedFonts.has(family);
-}
-
-const fontFamilyCache = new Map<string, string>();
-
 export function resolveCanvasFontFamily(family: string): string {
+  if (CSS_GENERIC_FAMILIES.has(family)) return family;
+
   const cached = fontFamilyCache.get(family);
   if (cached) return cached;
 
-  if (typeof document === 'undefined' || !document.fonts) return family;
-
-  const candidates = [family, `${family} Variable`];
-  for (const candidate of candidates) {
+  if (family === 'Inter' && typeof document !== 'undefined' && document.fonts) {
     try {
-      if (document.fonts.check(`16px "${candidate}"`)) {
-        fontFamilyCache.set(family, `"${candidate}"`);
-        return `"${candidate}"`;
+      if (document.fonts.check('16px "Inter Variable"')) {
+        const resolved = '"Inter Variable"';
+        fontFamilyCache.set(family, resolved);
+        return resolved;
       }
     } catch {
-      continue;
+      // ignore
     }
   }
 
-  fontFamilyCache.set(family, family);
-  return family;
+  const resolved = `"${family}"`;
+  if (loadedFonts.has(family)) {
+    fontFamilyCache.set(family, resolved);
+  }
+  return resolved;
 }
 
 export function collectFontFamilies(
