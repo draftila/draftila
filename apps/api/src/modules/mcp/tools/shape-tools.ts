@@ -28,7 +28,7 @@ export function registerShapeTools(server: McpServer, getUserId: () => string) {
         .record(z.unknown())
         .optional()
         .describe(
-          'Shape properties: x, y, width, height, rotation, name, opacity, fills (array of {color, opacity?, visible?}), strokes (array of {color, width}), cornerRadius, parentId (to nest inside a frame). Text shapes: content (the text string), fontSize (default 16), fontFamily (default Inter), fontWeight (default 400), fontStyle (normal|italic), textAlign (left|center|right), verticalAlign (top|middle|bottom), lineHeight (default 1.2), letterSpacing, textDecoration (none|underline|strikethrough), textTransform (none|uppercase|lowercase|capitalize)',
+          'Shape properties: x, y, width, height, rotation, name, opacity, fills (array of {color, opacity?, visible?}), strokes (array of {color, width}), cornerRadius (uniform), cornerRadiusTL, cornerRadiusTR, cornerRadiusBL, cornerRadiusBR (per-corner overrides), cornerSmoothing (0-1, iOS-style smoothing), parentId (to nest inside a frame). Text shapes: content (the text string), fontSize (default 16), fontFamily (default Inter), fontWeight (default 400), fontStyle (normal|italic), textAlign (left|center|right), verticalAlign (top|middle|bottom), lineHeight (default 1.2), letterSpacing, textDecoration (none|underline|strikethrough), textTransform (none|uppercase|lowercase|capitalize)',
         ),
     },
     async ({ draftId, type, props }) => {
@@ -60,7 +60,7 @@ export function registerShapeTools(server: McpServer, getUserId: () => string) {
       props: z
         .record(z.unknown())
         .describe(
-          'Properties to update: x, y, width, height, rotation, name, opacity, fills, strokes, cornerRadius, visible, locked. Text shapes: content, fontSize, fontFamily, fontWeight, fontStyle, textAlign, verticalAlign, lineHeight, letterSpacing, textDecoration, textTransform',
+          'Properties to update: x, y, width, height, rotation, name, opacity, fills, strokes, cornerRadius, cornerRadiusTL, cornerRadiusTR, cornerRadiusBL, cornerRadiusBR, cornerSmoothing, visible, locked. Text shapes: content, fontSize, fontFamily, fontWeight, fontStyle, textAlign, verticalAlign, lineHeight, letterSpacing, textDecoration, textTransform',
         ),
     },
     async ({ draftId, shapeId, props }) => {

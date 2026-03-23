@@ -215,7 +215,20 @@ export function renderShape(renderer: Renderer, shape: Shape) {
       break;
     }
     case 'frame': {
-      renderer.drawRect(getTransform(shape), getStyle(shape), 0);
+      const hasFrameIndependentCorners =
+        shape.cornerRadiusTL !== undefined ||
+        shape.cornerRadiusTR !== undefined ||
+        shape.cornerRadiusBL !== undefined ||
+        shape.cornerRadiusBR !== undefined;
+      const frameRadii: number | [number, number, number, number] = hasFrameIndependentCorners
+        ? [
+            shape.cornerRadiusTL ?? shape.cornerRadius,
+            shape.cornerRadiusTR ?? shape.cornerRadius,
+            shape.cornerRadiusBR ?? shape.cornerRadius,
+            shape.cornerRadiusBL ?? shape.cornerRadius,
+          ]
+        : shape.cornerRadius;
+      renderer.drawRect(getTransform(shape), getStyle(shape), frameRadii);
       const guides = shape.guides ?? [];
       if (guides.length > 0) {
         renderer.drawLayoutGuides(getTransform(shape), guides);

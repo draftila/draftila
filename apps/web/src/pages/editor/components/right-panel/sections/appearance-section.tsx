@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Eye, EyeOff, X } from 'lucide-react';
-import type { RectangleShape, Shape } from '@draftila/shared';
+import type { FrameShape, RectangleShape, Shape } from '@draftila/shared';
 import type { PropertySectionProps } from '../types';
 import { NumberInput } from '../number-input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -228,8 +228,8 @@ function CornerSmoothingIcon({ className }: { className?: string }) {
   );
 }
 
-function hasCornerRadius(shape: Shape): shape is RectangleShape {
-  return shape.type === 'rectangle';
+function hasCornerRadius(shape: Shape): shape is RectangleShape | FrameShape {
+  return shape.type === 'rectangle' || shape.type === 'frame';
 }
 
 export function AppearanceSection({ shape, onUpdate }: PropertySectionProps) {
@@ -312,13 +312,6 @@ export function AppearanceSection({ shape, onUpdate }: PropertySectionProps) {
     [onUpdate],
   );
 
-  const handleCornerSlider = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      handleUniformCornerChange(parseInt(e.target.value, 10));
-    },
-    [handleUniformCornerChange],
-  );
-
   const smoothingPercent = rect ? Math.round((rect.cornerSmoothing ?? 0) * 100) : 0;
 
   const handleSmoothingSlider = useCallback(
@@ -365,7 +358,7 @@ export function AppearanceSection({ shape, onUpdate }: PropertySectionProps) {
         {rect && (
           <>
             <div className="flex items-center gap-1.5">
-              <div className="w-20 shrink-0">
+              <div className="min-w-0 flex-1">
                 {hasMixedCorners && !allCornersEqual ? (
                   <div className="border-input flex h-6 items-center gap-1.5 rounded-md border pl-1.5 pr-2">
                     <CornerRadiusIcon className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
@@ -378,17 +371,10 @@ export function AppearanceSection({ shape, onUpdate }: PropertySectionProps) {
                     value={uniformRadius}
                     onChange={handleUniformCornerChange}
                     min={0}
+                    dragSensitivity={0.5}
                   />
                 )}
               </div>
-              <input
-                type="range"
-                min={0}
-                max={Math.round(Math.min(rect.width, rect.height) / 2)}
-                value={allCornersEqual ? uniformRadius : 0}
-                onChange={handleCornerSlider}
-                className="appearance-slider h-1.5 min-w-0 flex-1 cursor-pointer"
-              />
               <button
                 onClick={() => setCornersExpanded(!cornersExpanded)}
                 className={`shrink-0 rounded p-0.5 transition-colors ${
@@ -410,6 +396,7 @@ export function AppearanceSection({ shape, onUpdate }: PropertySectionProps) {
                     value={cornerTL}
                     onChange={(v) => handleCornerChange('cornerRadiusTL', v)}
                     min={0}
+                    dragSensitivity={0.5}
                   />
                   <NumberInput
                     label=""
@@ -417,6 +404,7 @@ export function AppearanceSection({ shape, onUpdate }: PropertySectionProps) {
                     value={cornerTR}
                     onChange={(v) => handleCornerChange('cornerRadiusTR', v)}
                     min={0}
+                    dragSensitivity={0.5}
                   />
                   <NumberInput
                     label=""
@@ -424,6 +412,7 @@ export function AppearanceSection({ shape, onUpdate }: PropertySectionProps) {
                     value={cornerBL}
                     onChange={(v) => handleCornerChange('cornerRadiusBL', v)}
                     min={0}
+                    dragSensitivity={0.5}
                   />
                   <NumberInput
                     label=""
@@ -431,6 +420,7 @@ export function AppearanceSection({ shape, onUpdate }: PropertySectionProps) {
                     value={cornerBR}
                     onChange={(v) => handleCornerChange('cornerRadiusBR', v)}
                     min={0}
+                    dragSensitivity={0.5}
                   />
                 </div>
                 <Popover open={smoothingOpen} onOpenChange={setSmoothingOpen}>

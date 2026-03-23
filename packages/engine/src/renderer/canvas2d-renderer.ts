@@ -756,7 +756,14 @@ export class Canvas2DRenderer implements Renderer {
     ctx.restore();
   }
 
-  beginClip(x: number, y: number, width: number, height: number, rotation = 0) {
+  beginClip(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    rotation = 0,
+    cornerRadius: number | [number, number, number, number] = 0,
+  ) {
     const { ctx } = this;
     ctx.save();
     if (rotation !== 0) {
@@ -767,7 +774,14 @@ export class Canvas2DRenderer implements Renderer {
       ctx.translate(-cx, -cy);
     }
     ctx.beginPath();
-    ctx.rect(x, y, width, height);
+    const hasRadius = Array.isArray(cornerRadius)
+      ? cornerRadius.some((r) => r > 0)
+      : cornerRadius > 0;
+    if (hasRadius) {
+      ctx.roundRect(x, y, width, height, cornerRadius);
+    } else {
+      ctx.rect(x, y, width, height);
+    }
     ctx.clip();
   }
 

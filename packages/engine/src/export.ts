@@ -1,4 +1,4 @@
-import type { Shape } from '@draftila/shared';
+import type { FrameShape, Shape } from '@draftila/shared';
 import { Canvas2DRenderer } from './renderer/canvas2d-renderer';
 import type { Renderer } from './renderer/types';
 import { renderShape } from './shape-renderer';
@@ -34,7 +34,21 @@ function renderWithClipping(renderer: Renderer, shapes: Shape[]) {
     renderShape(renderer, shape);
 
     if (shape.type === 'frame' && (shape as Shape & { clip?: boolean }).clip !== false) {
-      renderer.beginClip(shape.x, shape.y, shape.width, shape.height, shape.rotation);
+      const frame = shape as FrameShape;
+      const hasIndependentCorners =
+        frame.cornerRadiusTL !== undefined ||
+        frame.cornerRadiusTR !== undefined ||
+        frame.cornerRadiusBL !== undefined ||
+        frame.cornerRadiusBR !== undefined;
+      const clipRadii: number | [number, number, number, number] = hasIndependentCorners
+        ? [
+            frame.cornerRadiusTL ?? frame.cornerRadius,
+            frame.cornerRadiusTR ?? frame.cornerRadius,
+            frame.cornerRadiusBR ?? frame.cornerRadius,
+            frame.cornerRadiusBL ?? frame.cornerRadius,
+          ]
+        : frame.cornerRadius;
+      renderer.beginClip(shape.x, shape.y, shape.width, shape.height, shape.rotation, clipRadii);
       clipStack.push(shape.id);
     }
   }

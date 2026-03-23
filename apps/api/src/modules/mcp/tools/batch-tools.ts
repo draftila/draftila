@@ -31,7 +31,7 @@ export function registerBatchTools(server: McpServer, getUserId: () => string) {
               .record(z.unknown())
               .optional()
               .describe(
-                'Shape properties: x, y, width, height, rotation, name, opacity, parentId (use "$0", "$1" etc. to reference shapes created earlier in this batch), fills (array of {color, opacity?, visible?}), strokes (array of {color, width}), cornerRadius. Text shapes: content (the text string), fontSize, fontFamily, fontWeight, fontStyle, textAlign, verticalAlign, lineHeight, letterSpacing, textDecoration, textTransform. Frame auto-layout: layoutMode ("horizontal"|"vertical"), layoutGap, paddingTop, paddingRight, paddingBottom, paddingLeft, layoutAlign ("start"|"center"|"end"|"stretch"), layoutJustify ("start"|"center"|"end"|"space_between")',
+                'Shape properties: x, y, width, height, rotation, name, opacity, parentId (use "$0", "$1" etc. to reference shapes created earlier in this batch), fills (array of {color, opacity?, visible?}), strokes (array of {color, width}), cornerRadius (uniform), cornerRadiusTL, cornerRadiusTR, cornerRadiusBL, cornerRadiusBR (per-corner overrides), cornerSmoothing (0-1). Text shapes: content (the text string), fontSize, fontFamily, fontWeight, fontStyle, textAlign, verticalAlign, lineHeight, letterSpacing, textDecoration, textTransform. Frame auto-layout: layoutMode ("horizontal"|"vertical"), layoutGap, paddingTop, paddingRight, paddingBottom, paddingLeft, layoutAlign ("start"|"center"|"end"|"stretch"), layoutJustify ("start"|"center"|"end"|"space_between")',
               ),
           }),
         )
@@ -58,7 +58,7 @@ export function registerBatchTools(server: McpServer, getUserId: () => string) {
             props: z
               .record(z.unknown())
               .describe(
-                'Properties to update: x, y, width, height, rotation, name, opacity, fills, strokes, cornerRadius, visible, locked, parentId. Text: content, fontSize, fontFamily, fontWeight, fontStyle, textAlign, verticalAlign, lineHeight, letterSpacing, textDecoration, textTransform. Frame auto-layout: layoutMode, layoutGap, paddingTop, paddingRight, paddingBottom, paddingLeft, layoutAlign, layoutJustify, layoutSizingHorizontal, layoutSizingVertical',
+                'Properties to update: x, y, width, height, rotation, name, opacity, fills, strokes, cornerRadius, cornerRadiusTL, cornerRadiusTR, cornerRadiusBL, cornerRadiusBR, cornerSmoothing, visible, locked, parentId. Text: content, fontSize, fontFamily, fontWeight, fontStyle, textAlign, verticalAlign, lineHeight, letterSpacing, textDecoration, textTransform. Frame auto-layout: layoutMode, layoutGap, paddingTop, paddingRight, paddingBottom, paddingLeft, layoutAlign, layoutJustify, layoutSizingHorizontal, layoutSizingVertical',
               ),
           }),
         )

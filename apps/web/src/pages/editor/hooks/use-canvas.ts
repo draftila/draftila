@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type * as Y from 'yjs';
-import type { Shape } from '@draftila/shared';
+import type { FrameShape, Shape } from '@draftila/shared';
 import { Canvas2DRenderer } from '@draftila/engine/renderer/canvas2d';
 import { getAllShapes, observeShapes } from '@draftila/engine/scene-graph';
 import {
@@ -261,12 +261,27 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
         displayShape.type === 'frame' &&
         (displayShape as Shape & { clip?: boolean }).clip !== false
       ) {
+        const frame = displayShape as FrameShape;
+        const hasIndependentCorners =
+          frame.cornerRadiusTL !== undefined ||
+          frame.cornerRadiusTR !== undefined ||
+          frame.cornerRadiusBL !== undefined ||
+          frame.cornerRadiusBR !== undefined;
+        const clipRadii: number | [number, number, number, number] = hasIndependentCorners
+          ? [
+              frame.cornerRadiusTL ?? frame.cornerRadius,
+              frame.cornerRadiusTR ?? frame.cornerRadius,
+              frame.cornerRadiusBR ?? frame.cornerRadius,
+              frame.cornerRadiusBL ?? frame.cornerRadius,
+            ]
+          : frame.cornerRadius;
         renderer.beginClip(
           displayShape.x,
           displayShape.y,
           displayShape.width,
           displayShape.height,
           displayShape.rotation,
+          clipRadii,
         );
         clipStack.push(displayShape.id);
       }

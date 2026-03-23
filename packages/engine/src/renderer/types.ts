@@ -124,7 +124,14 @@ export interface Renderer {
 
   drawImage(transform: RenderTransform, options: ImageRenderOptions): void;
 
-  beginClip(x: number, y: number, width: number, height: number, rotation?: number): void;
+  beginClip(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    rotation?: number,
+    cornerRadius?: number | [number, number, number, number],
+  ): void;
 
   endClip(): void;
 
