@@ -23,6 +23,7 @@ packages/    shared (Zod schemas + types), eslint-config, typescript-config
 - Use the existing Prettier config (single quotes, semicolons, trailing commas, 100 print width).
 - Run `bun run checks --fix` after every task. It must pass before considering work complete.
 - Follow the existing code style and patterns.
+- No direct changes to the Canvas! Changes to canvas must go through Yjs because it is being triggered from both Web and MCP.
 
 ### API (`apps/api`)
 
