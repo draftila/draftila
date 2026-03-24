@@ -8,6 +8,8 @@ import { registerExportTools } from './tools/export-tools';
 import { registerGuideTools } from './tools/guide-tools';
 import { registerDraftTools } from './tools/draft-tools';
 import { registerBatchTools } from './tools/batch-tools';
+import { registerVariableTools } from './tools/variable-tools';
+import { registerIconTools } from './tools/icon-tools';
 
 export function createMcpServer(getUserId: () => string): McpServer {
   const server = new McpServer({
@@ -24,6 +26,8 @@ export function createMcpServer(getUserId: () => string): McpServer {
   registerComponentTools(server, getUserId);
   registerExportTools(server, getUserId);
   registerGuideTools(server, getUserId);
+  registerVariableTools(server, getUserId);
+  registerIconTools(server, getUserId);
 
   return server;
 }

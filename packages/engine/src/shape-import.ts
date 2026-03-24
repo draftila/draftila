@@ -52,17 +52,29 @@ function addInterchangeDocToYdoc(
     width: (s.props['width'] as number) ?? 100,
     height: (s.props['height'] as number) ?? 100,
   }));
-  const { offsetX, offsetY } = computeShapesOffset(boundsItems, options?.cursorPosition);
 
   let parentOffsetX = 0;
   let parentOffsetY = 0;
+  let cursorPosition = options?.cursorPosition ?? null;
   if (targetParentId) {
     const parentShape = getShape(ydoc, targetParentId);
     if (parentShape) {
       parentOffsetX = parentShape.x;
       parentOffsetY = parentShape.y;
+      if (!cursorPosition) {
+        cursorPosition = {
+          x: parentShape.x + parentShape.width / 2,
+          y: parentShape.y + parentShape.height / 2,
+        };
+      } else {
+        cursorPosition = {
+          x: cursorPosition.x + parentShape.x,
+          y: cursorPosition.y + parentShape.y,
+        };
+      }
     }
   }
+  const { offsetX, offsetY } = computeShapesOffset(boundsItems, cursorPosition);
 
   const indexToId = new Map<number, string>();
   const ids: string[] = [];

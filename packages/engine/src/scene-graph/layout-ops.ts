@@ -38,26 +38,41 @@ export function applyAutoLayout(ydoc: Y.Doc, frameId: string) {
   if (!frameShape || !isAutoLayoutFrame(frameShape)) return;
 
   const children = getChildShapes(ydoc, frameId);
-  const layoutChildren: LayoutChild[] = children.map((c) => ({
-    id: c.id,
-    x: c.x,
-    y: c.y,
-    width: c.width,
-    height: c.height,
-    layoutSizingHorizontal:
-      (c as Shape & { layoutSizingHorizontal?: string }).layoutSizingHorizontal === 'fill'
-        ? 'fill'
-        : (c as Shape & { layoutSizingHorizontal?: string }).layoutSizingHorizontal === 'hug'
-          ? 'hug'
-          : 'fixed',
-    layoutSizingVertical:
-      (c as Shape & { layoutSizingVertical?: string }).layoutSizingVertical === 'fill'
-        ? 'fill'
-        : (c as Shape & { layoutSizingVertical?: string }).layoutSizingVertical === 'hug'
-          ? 'hug'
-          : 'fixed',
-    visible: c.visible,
-  }));
+  type ShapeWithLayout = Shape & {
+    layoutSizingHorizontal?: string;
+    layoutSizingVertical?: string;
+    minWidth?: number;
+    maxWidth?: number;
+    minHeight?: number;
+    maxHeight?: number;
+  };
+  const layoutChildren: LayoutChild[] = children.map((c) => {
+    const s = c as ShapeWithLayout;
+    return {
+      id: c.id,
+      x: c.x,
+      y: c.y,
+      width: c.width,
+      height: c.height,
+      layoutSizingHorizontal:
+        s.layoutSizingHorizontal === 'fill'
+          ? 'fill'
+          : s.layoutSizingHorizontal === 'hug'
+            ? 'hug'
+            : 'fixed',
+      layoutSizingVertical:
+        s.layoutSizingVertical === 'fill'
+          ? 'fill'
+          : s.layoutSizingVertical === 'hug'
+            ? 'hug'
+            : 'fixed',
+      visible: c.visible,
+      minWidth: s.minWidth,
+      maxWidth: s.maxWidth,
+      minHeight: s.minHeight,
+      maxHeight: s.maxHeight,
+    };
+  });
 
   const { childLayouts, parentSize } = computeAutoLayout(frameShape as FrameShape, layoutChildren);
 

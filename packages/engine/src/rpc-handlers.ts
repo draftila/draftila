@@ -35,6 +35,8 @@ import {
 import { getPageGuides, addGuide, removeGuide } from './guides';
 import { exportToSvg } from './export';
 import { importSvgShapes } from './shape-import';
+import { getVariables, setVariable, deleteVariable } from './variables';
+import { getIconNames, searchIcons, getIconSvg } from './icons';
 
 export type RpcArgs = Record<string, unknown>;
 export type RpcHandler = (ydoc: Y.Doc, args: RpcArgs) => unknown | Promise<unknown>;
@@ -278,10 +280,33 @@ export function createRpcHandlers(
           (typeof rawProps['x'] === 'number' || typeof rawProps['y'] === 'number')
             ? toAbsoluteProps(ydoc, { parentId: shape.parentId, ...rawProps })
             : rawProps;
+        const before = getShape(ydoc, update.shapeId);
         updateShape(ydoc, update.shapeId, props as Partial<Shape>);
+        if (before && (typeof props['x'] === 'number' || typeof props['y'] === 'number')) {
+          const after = getShape(ydoc, update.shapeId);
+          if (after) {
+            const dx = after.x - before.x;
+            const dy = after.y - before.y;
+            if (dx !== 0 || dy !== 0) {
+              const children = getChildShapes(ydoc, update.shapeId);
+              if (children.length > 0) {
+                nudgeShapes(
+                  ydoc,
+                  children.map((c) => c.id),
+                  dx,
+                  dy,
+                );
+              }
+            }
+          }
+        }
         affectedIds.add(update.shapeId);
       }
       for (const id of affectedIds) {
+        const updated = getShape(ydoc, id);
+        if (updated && isAutoLayoutFrame(updated)) {
+          applyAutoLayout(ydoc, id);
+        }
         applyAutoLayoutForAncestors(ydoc, id);
       }
       return { ok: true };
@@ -460,14 +485,67 @@ export function createRpcHandlers(
     },
 
     import_svg(ydoc, args) {
+      const targetParentId = (args['targetParentId'] as string | undefined) ?? undefined;
       const shapeIds = importSvgShapes(ydoc, args['svg'] as string, {
-        targetParentId: (args['targetParentId'] as string | undefined) ?? undefined,
+        targetParentId,
         cursorPosition:
           args['x'] !== undefined && args['y'] !== undefined
             ? { x: args['x'] as number, y: args['y'] as number }
             : undefined,
       });
+      if (targetParentId) {
+        const parent = getShape(ydoc, targetParentId);
+        if (parent && isAutoLayoutFrame(parent)) {
+          applyAutoLayout(ydoc, targetParentId);
+        }
+      }
+      for (const id of shapeIds) {
+        applyAutoLayoutForAncestors(ydoc, id);
+      }
       return { shapeIds };
+    },
+
+    list_variables(ydoc) {
+      return { variables: getVariables(ydoc) };
+    },
+
+    set_variable(ydoc, args) {
+      const id = args['id'] as string;
+      const name = args['name'] as string;
+      const value = args['value'] as string;
+      return { variable: setVariable(ydoc, id, name, value) };
+    },
+
+    delete_variable(ydoc, args) {
+      return { ok: deleteVariable(ydoc, args['id'] as string) };
+    },
+
+    list_icons(_ydoc, args) {
+      const query = args['query'] as string | undefined;
+      return { icons: query ? searchIcons(query) : getIconNames() };
+    },
+
+    insert_icon(ydoc, args) {
+      const name = args['name'] as string;
+      const size = (args['size'] as number) ?? 24;
+      const strokeWidth = (args['strokeWidth'] as number) ?? 2;
+      const color = (args['color'] as string) ?? '#000000';
+      const svg = getIconSvg(name, size, strokeWidth, color);
+      if (!svg) return { error: `Icon "${name}" not found` };
+      const parentId = (args['parentId'] as string | undefined) ?? undefined;
+      let rawProps: Record<string, unknown> = {
+        x: (args['x'] as number) ?? 0,
+        y: (args['y'] as number) ?? 0,
+        width: size,
+        height: size,
+        svgContent: svg,
+        name: `icon-${name}`,
+      };
+      if (parentId) rawProps['parentId'] = parentId;
+      rawProps = toAbsoluteProps(ydoc, rawProps);
+      const id = addShape(ydoc, 'svg', rawProps as Partial<Shape>);
+      applyAutoLayoutForAncestors(ydoc, id);
+      return { shapeId: id };
     },
   };
 

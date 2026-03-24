@@ -60,13 +60,19 @@ export function registerExportTools(server: McpServer, getUserId: () => string) 
   defineTool(
     server,
     'import_svg',
-    'Import SVG markup as shapes onto the canvas',
+    'Import SVG markup as shapes onto the canvas. When targetParentId is set, x and y are relative to the parent frame. If x/y are omitted with a targetParentId, shapes are centered inside the parent frame. Triggers auto-layout recomputation when importing into auto-layout frames.',
     {
       ...draftId,
       svg: z.string().describe('SVG markup string'),
       targetParentId: z.string().optional().describe('Optional parent frame to import into'),
-      x: z.number().optional().describe('X position for imported shapes'),
-      y: z.number().optional().describe('Y position for imported shapes'),
+      x: z
+        .number()
+        .optional()
+        .describe('X position (relative to parent when targetParentId is set)'),
+      y: z
+        .number()
+        .optional()
+        .describe('Y position (relative to parent when targetParentId is set)'),
     },
     async ({ draftId, svg, targetParentId, x, y }) => {
       const result = await sendToolRpc(draftId as string, getUserId(), 'import_svg', {

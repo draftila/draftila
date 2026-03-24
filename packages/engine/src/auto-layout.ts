@@ -9,6 +9,10 @@ export interface LayoutChild {
   layoutSizingHorizontal: 'fixed' | 'hug' | 'fill';
   layoutSizingVertical: 'fixed' | 'hug' | 'fill';
   visible: boolean;
+  minWidth?: number;
+  maxWidth?: number;
+  minHeight?: number;
+  maxHeight?: number;
 }
 
 export interface LayoutResult {
@@ -20,6 +24,13 @@ export interface LayoutResult {
 
 type AutoLayoutConfig = ReturnType<typeof getAutoLayoutConfig>;
 type ResolvedChild = LayoutChild & { width: number; height: number };
+
+function clampSize(value: number, min?: number, max?: number): number {
+  let result = value;
+  if (min !== undefined && result < min) result = min;
+  if (max !== undefined && result > max) result = max;
+  return result;
+}
 
 export function isAutoLayoutFrame(shape: Shape): shape is FrameShape {
   return shape.type === 'frame' && (shape as FrameShape).layoutMode !== 'none';
@@ -123,7 +134,11 @@ function computeLinearLayout(
         w = contentWidth;
     }
 
-    return { ...child, width: Math.max(0, w), height: Math.max(0, h) };
+    return {
+      ...child,
+      width: Math.max(0, clampSize(w, child.minWidth, child.maxWidth)),
+      height: Math.max(0, clampSize(h, child.minHeight, child.maxHeight)),
+    };
   });
 
   positionLine(config, resolvedSizes, result, isHorizontal, mainAxisSpace, {
@@ -210,7 +225,11 @@ function computeWrapLayout(
           w = lineCrossSize;
       }
 
-      return { ...child, width: Math.max(0, w), height: Math.max(0, h) };
+      return {
+        ...child,
+        width: Math.max(0, clampSize(w, child.minWidth, child.maxWidth)),
+        height: Math.max(0, clampSize(h, child.minHeight, child.maxHeight)),
+      };
     });
 
     positionLine(config, resolvedLine, result, isHorizontal, mainContentSize, {
