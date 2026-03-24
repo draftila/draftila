@@ -19,7 +19,7 @@ import * as collaborationService from '../collaboration/collaboration.service';
 setTextMeasureEnabled(false);
 
 const FONT_CACHE_DIR = join(process.cwd(), '.cache', 'fonts');
-const registeredFontFamilies = new Set<string>();
+const registeredFontVariants = new Set<string>();
 const CSS_GENERIC_FAMILIES = new Set([
   'serif',
   'sans-serif',
@@ -33,8 +33,12 @@ function loadCachedFonts() {
   if (!existsSync(FONT_CACHE_DIR)) return;
   for (const file of readdirSync(FONT_CACHE_DIR).filter((f) => f.endsWith('.ttf'))) {
     const family = file.replace(/-\d+\.ttf$/, '').replace(/_/g, ' ');
+    const weightMatch = file.match(/-(\d+)\.ttf$/);
+    const weight = Number(weightMatch?.[1]);
     GlobalFonts.registerFromPath(join(FONT_CACHE_DIR, file), family);
-    registeredFontFamilies.add(family);
+    if (!Number.isNaN(weight)) {
+      registeredFontVariants.add(`${family}:${weight}`);
+    }
   }
 }
 
@@ -61,8 +65,11 @@ async function ensureServerFontsLoaded(shapes: Shape[]) {
 
   for (const [family, weights] of familyWeights) {
     if (CSS_GENERIC_FAMILIES.has(family)) continue;
-    if (registeredFontFamilies.has(family)) continue;
-    toLoad.push({ family, weights: [...weights] });
+    const missingWeights = [...weights].filter(
+      (weight) => !registeredFontVariants.has(`${family}:${weight}`),
+    );
+    if (missingWeights.length === 0) continue;
+    toLoad.push({ family, weights: missingWeights });
   }
 
   if (toLoad.length === 0) return;
@@ -74,8 +81,10 @@ async function ensureServerFontsLoaded(shapes: Shape[]) {
         weights.map(async (weight) => {
           const fileName = `${family.replace(/\s+/g, '_')}-${weight}.ttf`;
           const filePath = join(FONT_CACHE_DIR, fileName);
+          const variantKey = `${family}:${weight}`;
           if (existsSync(filePath)) {
             GlobalFonts.registerFromPath(filePath, family);
+            registeredFontVariants.add(variantKey);
             return;
           }
           try {
@@ -93,12 +102,12 @@ async function ensureServerFontsLoaded(shapes: Shape[]) {
             if (!fontResp.ok) return;
             writeFileSync(filePath, Buffer.from(await fontResp.arrayBuffer()));
             GlobalFonts.registerFromPath(filePath, family);
+            registeredFontVariants.add(variantKey);
           } catch {
             // ignore font download failures
           }
         }),
       );
-      registeredFontFamilies.add(family);
     }),
   );
 }

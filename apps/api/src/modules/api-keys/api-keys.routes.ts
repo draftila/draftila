@@ -5,7 +5,7 @@ import { requireAuth, type AuthEnv } from '../../common/middleware/auth';
 import * as apiKeysService from './api-keys.service';
 
 const createApiKeySchema = z.object({
-  name: z.string().min(1).max(100),
+  name: z.string().trim().min(1).max(100),
 });
 
 const apiKeyRoutes = new Hono<AuthEnv>();
