@@ -173,6 +173,7 @@ export const textSegmentSchema = z.object({
 });
 
 export const layoutDirectionSchema = z.enum(['none', 'horizontal', 'vertical']);
+export const layoutWrapSchema = z.enum(['nowrap', 'wrap']);
 export const layoutAlignSchema = z.enum(['start', 'center', 'end', 'stretch']);
 export const layoutJustifySchema = z.enum([
   'start',
@@ -250,7 +251,9 @@ export const frameShapeSchema = baseShapeSchema.extend({
   blurs: z.array(blurSchema).default([]),
   guides: z.array(layoutGuideSchema).default([]),
   layoutMode: layoutDirectionSchema.default('none'),
+  layoutWrap: layoutWrapSchema.default('nowrap'),
   layoutGap: z.number().min(0).default(0),
+  layoutGapColumn: z.number().min(0).default(0),
   paddingTop: z.number().min(0).default(0),
   paddingRight: z.number().min(0).default(0),
   paddingBottom: z.number().min(0).default(0),

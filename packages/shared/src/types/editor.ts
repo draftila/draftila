@@ -36,6 +36,7 @@ import type {
   layoutGuideSchema,
   canvasGuideSchema,
   layoutDirectionSchema,
+  layoutWrapSchema,
   layoutAlignSchema,
   layoutJustifySchema,
   sizingModeSchema,
@@ -76,6 +77,7 @@ export type TextSegment = z.infer<typeof textSegmentSchema>;
 export type LayoutGuide = z.infer<typeof layoutGuideSchema>;
 export type CanvasGuide = z.infer<typeof canvasGuideSchema>;
 export type LayoutDirection = z.infer<typeof layoutDirectionSchema>;
+export type LayoutWrap = z.infer<typeof layoutWrapSchema>;
 export type LayoutAlign = z.infer<typeof layoutAlignSchema>;
 export type LayoutJustify = z.infer<typeof layoutJustifySchema>;
 export type SizingMode = z.infer<typeof sizingModeSchema>;
