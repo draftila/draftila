@@ -1233,6 +1233,7 @@ export class Canvas2DRenderer implements Renderer {
     rotation: number,
     cornerRadius: number | [number, number, number, number],
     shimmerPhase: number,
+    isLightBackground: boolean = false,
   ) {
     const { ctx } = this;
     ctx.save();
@@ -1258,7 +1259,7 @@ export class Canvas2DRenderer implements Renderer {
     }
     ctx.clip();
 
-    ctx.fillStyle = 'rgba(180, 190, 210, 0.06)';
+    ctx.fillStyle = isLightBackground ? 'rgba(60, 60, 80, 0.04)' : 'rgba(180, 190, 210, 0.06)';
     ctx.fillRect(0, 0, width, height);
 
     const diagonal = Math.sqrt(width * width + height * height);
@@ -1275,12 +1276,13 @@ export class Canvas2DRenderer implements Renderer {
     const gx1 = (offset + bandWidth) * cos;
     const gy1 = (offset + bandWidth) * sin;
 
+    const shimmerColor = isLightBackground ? '0, 0, 0' : '255, 255, 255';
     const gradient = ctx.createLinearGradient(gx0, gy0, gx1, gy1);
-    gradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
-    gradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.08)');
-    gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.14)');
-    gradient.addColorStop(0.7, 'rgba(255, 255, 255, 0.08)');
-    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    gradient.addColorStop(0, `rgba(${shimmerColor}, 0)`);
+    gradient.addColorStop(0.3, `rgba(${shimmerColor}, 0.06)`);
+    gradient.addColorStop(0.5, `rgba(${shimmerColor}, 0.1)`);
+    gradient.addColorStop(0.7, `rgba(${shimmerColor}, 0.06)`);
+    gradient.addColorStop(1, `rgba(${shimmerColor}, 0)`);
 
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, width, height);

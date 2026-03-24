@@ -24,7 +24,7 @@ export function registerExportTools(server: McpServer, getUserId: () => string) 
   defineTool(
     server,
     'export_png',
-    'Export shapes as a PNG screenshot. Returns an image that can be viewed. Requires the editor to be open in the browser.',
+    'Export shapes as a PNG screenshot to visually verify your design. Use this after every batch_create_shapes call and after major updates to catch layout, clipping, and z-order issues early. Pass a specific shapeId to screenshot just that component, or omit to capture everything. Use scale=2 for sharp previews. Requires the editor to be open in the browser.',
     {
       ...draftId,
       shapeIds: z

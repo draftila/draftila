@@ -1,8 +1,37 @@
 import type * as Y from 'yjs';
 import type { FrameShape, Shape } from '@draftila/shared';
 import { isAutoLayoutFrame, computeAutoLayout, type LayoutChild } from '../auto-layout';
-import { getShapesMap } from './hierarchy';
+import {
+  getShapesMap,
+  getShapeSnapshotMap,
+  getZOrder,
+  getOrderedIds,
+  buildChildrenByParent,
+} from './hierarchy';
 import { getShape, getChildShapes } from './shape-crud';
+
+function offsetDescendants(
+  shapes: Y.Map<Y.Map<unknown>>,
+  childrenByParent: Map<string | null, string[]>,
+  parentId: string,
+  dx: number,
+  dy: number,
+) {
+  const stack = [...(childrenByParent.get(parentId) ?? [])];
+  while (stack.length > 0) {
+    const id = stack.pop()!;
+    const data = shapes.get(id);
+    if (!data) continue;
+    data.set('x', (data.get('x') as number) + dx);
+    data.set('y', (data.get('y') as number) + dy);
+    const children = childrenByParent.get(id);
+    if (children) {
+      for (const childId of children) {
+        stack.push(childId);
+      }
+    }
+  }
+}
 
 export function applyAutoLayout(ydoc: Y.Doc, frameId: string) {
   const frameShape = getShape(ydoc, frameId);
@@ -33,6 +62,10 @@ export function applyAutoLayout(ydoc: Y.Doc, frameId: string) {
   const { childLayouts, parentSize } = computeAutoLayout(frameShape as FrameShape, layoutChildren);
 
   const shapes = getShapesMap(ydoc);
+  const shapeMap = getShapeSnapshotMap(ydoc);
+  const zOrderIds = getZOrder(ydoc).toArray();
+  const orderedIds = getOrderedIds(shapeMap, zOrderIds);
+  const childrenByParent = buildChildrenByParent(shapeMap, orderedIds);
 
   ydoc.transact(() => {
     const frameData = shapes.get(frameId);
@@ -60,10 +93,17 @@ export function applyAutoLayout(ydoc: Y.Doc, frameId: string) {
       const absoluteX = frameX + layout.x;
       const absoluteY = frameY + layout.y;
 
-      if (currentX !== absoluteX) childData.set('x', absoluteX);
-      if (currentY !== absoluteY) childData.set('y', absoluteY);
+      const dx = absoluteX - currentX;
+      const dy = absoluteY - currentY;
+
+      if (dx !== 0) childData.set('x', absoluteX);
+      if (dy !== 0) childData.set('y', absoluteY);
       if (currentW !== layout.width) childData.set('width', layout.width);
       if (currentH !== layout.height) childData.set('height', layout.height);
+
+      if (dx !== 0 || dy !== 0) {
+        offsetDescendants(shapes, childrenByParent, childId, dx, dy);
+      }
     }
   });
 }

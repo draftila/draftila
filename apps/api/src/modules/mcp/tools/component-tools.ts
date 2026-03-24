@@ -7,7 +7,7 @@ export function registerComponentTools(server: McpServer, getUserId: () => strin
   defineTool(
     server,
     'create_component',
-    'Create a reusable component from shapes',
+    'Create a reusable component from existing shapes. Use this to define patterns you want to reuse (e.g. icon+text row, input field, card template). After creating a component, use create_instance to stamp out copies at different positions. Instances are linked to the component definition.',
     {
       ...draftAndShapes,
       name: z.string().describe('Component name'),
@@ -24,7 +24,7 @@ export function registerComponentTools(server: McpServer, getUserId: () => strin
   defineTool(
     server,
     'create_instance',
-    'Create an instance of an existing component at a position',
+    'Stamp out a copy of a component at a given position. Use this after create_component to reuse patterns (e.g. placing multiple list items, repeated cards). The instance is linked to the component — future component updates will propagate.',
     {
       ...draftId,
       componentId: z.string().describe('The component ID to instantiate'),
@@ -46,7 +46,7 @@ export function registerComponentTools(server: McpServer, getUserId: () => strin
   defineTool(
     server,
     'list_components',
-    'List all reusable components in a draft',
+    'List all reusable components in a draft. Use this to discover existing components before creating new ones — you can reuse them with create_instance.',
     draftId,
     async ({ draftId }) => {
       const result = await sendToolRpc(draftId as string, getUserId(), 'list_components', {});

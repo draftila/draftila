@@ -89,9 +89,41 @@ function collectShapesWithDescendants(allShapes: Shape[], rootIds: string[]): Sh
   return allShapes.filter((s) => collectedSet.has(s.id) || rootSet.has(s.id));
 }
 
+function toAbsoluteProps(ydoc: Y.Doc, props: Record<string, unknown>): Record<string, unknown> {
+  const parentId = props['parentId'] as string | undefined;
+  if (!parentId) return props;
+  const parent = getShape(ydoc, parentId);
+  if (!parent) return props;
+  const out = { ...props };
+  if (typeof out['x'] === 'number') out['x'] = (out['x'] as number) + parent.x;
+  if (typeof out['y'] === 'number') out['y'] = (out['y'] as number) + parent.y;
+  return out;
+}
+
+function applyTextDefaults(props: Record<string, unknown>): Record<string, unknown> {
+  const out = { ...props };
+  if (out['textAutoResize'] === undefined) out['textAutoResize'] = 'height';
+  const fontSize = (out['fontSize'] as number) ?? 16;
+  const lineHeight = (out['lineHeight'] as number) ?? 1.2;
+  if (out['height'] === undefined) out['height'] = Math.ceil(fontSize * lineHeight);
+  if (out['width'] === undefined) out['width'] = 200;
+  return out;
+}
+
+function toRelativeShape(ydoc: Y.Doc, shape: Shape): Shape {
+  if (!shape.parentId) return shape;
+  const parent = getShape(ydoc, shape.parentId);
+  if (!parent) return shape;
+  return { ...shape, x: shape.x - parent.x, y: shape.y - parent.y };
+}
+
 const handlers: Record<string, Handler> = {
   create_shape(ydoc, args) {
-    const id = addShape(ydoc, args['type'] as ShapeType, (args['props'] ?? {}) as Partial<Shape>);
+    const type = args['type'] as ShapeType;
+    let rawProps = (args['props'] ?? {}) as Record<string, unknown>;
+    if (type === 'text') rawProps = applyTextDefaults(rawProps);
+    const props = toAbsoluteProps(ydoc, rawProps);
+    const id = addShape(ydoc, type, props as Partial<Shape>);
     applyAutoLayoutForAncestors(ydoc, id);
     return { shapeId: id };
   },
@@ -99,12 +131,40 @@ const handlers: Record<string, Handler> = {
   get_shape(ydoc, args) {
     const shape = getShape(ydoc, args['shapeId'] as string);
     if (!shape) return { error: 'Shape not found' };
-    return shape;
+    return toRelativeShape(ydoc, shape);
   },
 
   update_shape(ydoc, args) {
-    updateShape(ydoc, args['shapeId'] as string, args['props'] as Partial<Shape>);
-    applyAutoLayoutForAncestors(ydoc, args['shapeId'] as string);
+    const shapeId = args['shapeId'] as string;
+    const rawProps = args['props'] as Record<string, unknown>;
+    const shape = getShape(ydoc, shapeId);
+    if (!shape) return { error: 'Shape not found' };
+    const props = (
+      shape.parentId && (typeof rawProps['x'] === 'number' || typeof rawProps['y'] === 'number')
+        ? toAbsoluteProps(ydoc, { parentId: shape.parentId, ...rawProps })
+        : rawProps
+    ) as Partial<Shape>;
+    const before = getShape(ydoc, shapeId);
+    updateShape(ydoc, shapeId, props);
+    if (before && (typeof props.x === 'number' || typeof props.y === 'number')) {
+      const after = getShape(ydoc, shapeId);
+      if (after) {
+        const dx = after.x - before.x;
+        const dy = after.y - before.y;
+        if (dx !== 0 || dy !== 0) {
+          const children = getChildShapes(ydoc, shapeId);
+          if (children.length > 0) {
+            nudgeShapes(
+              ydoc,
+              children.map((c) => c.id),
+              dx,
+              dy,
+            );
+          }
+        }
+      }
+    }
+    applyAutoLayoutForAncestors(ydoc, shapeId);
     return { ok: true };
   },
 
@@ -124,7 +184,8 @@ const handlers: Record<string, Handler> = {
   list_shapes(ydoc, args) {
     const parentId = args['parentId'] as string | undefined;
     const shapes = parentId ? getChildShapes(ydoc, parentId) : getAllShapes(ydoc);
-    return { shapes, count: shapes.length };
+    const relativeShapes = shapes.map((s) => toRelativeShape(ydoc, s));
+    return { shapes: relativeShapes, count: relativeShapes.length };
   },
 
   duplicate_shapes(ydoc, args) {
@@ -138,19 +199,21 @@ const handlers: Record<string, Handler> = {
     const autoLayoutParents = new Set<string>();
 
     for (const shape of shapes) {
-      const props = { ...(shape.props ?? {}) } as Record<string, unknown>;
+      let props = { ...(shape.props ?? {}) } as Record<string, unknown>;
       if (typeof props['parentId'] === 'string' && props['parentId'].startsWith('$')) {
         const idx = parseInt(props['parentId'].slice(1), 10);
         if (idx >= 0 && idx < ids.length) {
           props['parentId'] = ids[idx];
         }
       }
-      const id = addShape(ydoc, shape.type as ShapeType, props as Partial<Shape>);
+      if (shape.type === 'text') props = applyTextDefaults(props);
+      const absProps = toAbsoluteProps(ydoc, props);
+      const id = addShape(ydoc, shape.type as ShapeType, absProps as Partial<Shape>);
       ids.push(id);
-      if (typeof props['parentId'] === 'string') {
-        const parentShape = getShape(ydoc, props['parentId']);
+      if (typeof absProps['parentId'] === 'string') {
+        const parentShape = getShape(ydoc, absProps['parentId']);
         if (parentShape && isAutoLayoutFrame(parentShape)) {
-          autoLayoutParents.add(props['parentId']);
+          autoLayoutParents.add(absProps['parentId']);
         }
       }
     }
@@ -173,7 +236,13 @@ const handlers: Record<string, Handler> = {
     }>;
     const affectedIds = new Set<string>();
     for (const update of updates) {
-      updateShape(ydoc, update.shapeId, update.props as Partial<Shape>);
+      const shape = getShape(ydoc, update.shapeId);
+      const rawProps = update.props;
+      const props =
+        shape?.parentId && (typeof rawProps['x'] === 'number' || typeof rawProps['y'] === 'number')
+          ? toAbsoluteProps(ydoc, { parentId: shape.parentId, ...rawProps })
+          : rawProps;
+      updateShape(ydoc, update.shapeId, props as Partial<Shape>);
       affectedIds.add(update.shapeId);
     }
     for (const id of affectedIds) {
@@ -250,11 +319,14 @@ const handlers: Record<string, Handler> = {
   },
 
   move_by_drop(ydoc, args) {
+    const rawPlacement = args['placement'] as LayerDropPlacement;
+    const enginePlacement: LayerDropPlacement =
+      rawPlacement === 'before' ? 'after' : rawPlacement === 'after' ? 'before' : rawPlacement;
     const movedIds = moveShapesByDrop(
       ydoc,
       args['shapeIds'] as string[],
       args['targetId'] as string,
-      args['placement'] as LayerDropPlacement,
+      enginePlacement,
     );
     for (const id of movedIds) {
       applyAutoLayoutForAncestors(ydoc, id);

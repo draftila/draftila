@@ -7,6 +7,7 @@ out/
 .next/
 .turbo/
 *.tsbuildinfo
+next-env.d.ts
 apps/api/src/generated/
 
 # Environment

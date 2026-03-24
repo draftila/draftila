@@ -43,7 +43,7 @@ export function registerTransformTools(server: McpServer, getUserId: () => strin
   defineTool(
     server,
     'move_in_stack',
-    'Move shapes in the layer stack (z-order)',
+    'Move shapes in the layer stack (z-order). Use "to-front" to bring a shape to the top (renders above all siblings) or "to-back" to send it behind everything. Use "forward"/"backward" for one-step adjustments. This controls rendering order — NOT layout order within auto-layout frames. To reorder children in an auto-layout frame, use move_by_drop with "before"/"after" placement instead.',
     {
       ...draftAndShapes,
       direction: z
@@ -62,7 +62,7 @@ export function registerTransformTools(server: McpServer, getUserId: () => strin
   defineTool(
     server,
     'move_by_drop',
-    'Move shapes into or next to a target shape (reparent/reorder)',
+    'Move shapes into or next to a target shape. Use this to reparent shapes (placement: "inside") or reorder siblings within a parent (placement: "before"/"after"). Works for reordering children inside auto-layout frames — e.g. move a child before/after another child to change the layout order.',
     {
       ...draftAndShapes,
       targetId: z.string().describe('Target shape ID'),

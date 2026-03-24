@@ -18,7 +18,10 @@ export function resolveGradients(doc: Document): Map<string, InterchangeGradient
   function parseStops(el: Element): InterchangeGradientStop[] {
     const stops: InterchangeGradientStop[] = [];
     for (const stop of el.querySelectorAll('stop')) {
-      const offset = parseFloat(stop.getAttribute('offset') ?? '0');
+      const rawOffset = stop.getAttribute('offset') ?? '0';
+      let offset = parseFloat(rawOffset);
+      if (rawOffset.trim().endsWith('%')) offset /= 100;
+      offset = Math.max(0, Math.min(1, offset));
       const rawColor = stop.getAttribute('stop-color');
       const color = normalizeColor(rawColor) ?? '#000000';
       const rawOpacity = stop.getAttribute('stop-opacity');

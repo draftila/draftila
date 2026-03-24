@@ -320,6 +320,19 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
             : frame.cornerRadius;
         }
 
+        let isLightBackground = true;
+        if ('fills' in shape && Array.isArray(shape.fills)) {
+          const visibleFill = shape.fills.find((f) => f.visible);
+          if (visibleFill) {
+            const hex = visibleFill.color.replace('#', '');
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
+            const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+            isLightBackground = luminance > 0.5;
+          }
+        }
+
         renderer.drawShimmerOverlay(
           shape.x,
           shape.y,
@@ -328,6 +341,7 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
           shape.rotation,
           cornerRadius,
           phase,
+          isLightBackground,
         );
       }
     }

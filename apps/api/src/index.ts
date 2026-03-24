@@ -54,6 +54,8 @@ Bun.serve<WsData>({
     return app.fetch(req, server);
   },
   websocket: {
+    idleTimeout: 120,
+    sendPings: true,
     open(ws) {
       collaborationService.handleConnection(ws, ws.data.draftId, ws.data);
     },

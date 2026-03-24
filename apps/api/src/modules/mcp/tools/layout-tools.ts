@@ -82,7 +82,7 @@ export function registerLayoutTools(server: McpServer, getUserId: () => string) 
   defineTool(
     server,
     'apply_auto_layout',
-    'Apply auto layout to a frame (arranges children automatically)',
+    'Apply auto layout to a frame (arranges children in a flex-like layout). The frame must have layoutMode set to "horizontal" or "vertical" via create_shape or update_shape. Auto-layout uses: layoutGap (spacing between children), paddingTop/Right/Bottom/Left, layoutAlign (cross-axis: "start"|"center"|"end"|"stretch"), layoutJustify (main-axis: "start"|"center"|"end"|"space_between"). Children can use layoutSizingHorizontal/layoutSizingVertical ("fixed"|"hug"|"fill") to control how they size within the layout. Example — a button: create a frame with layoutMode="horizontal", padding=12, layoutAlign="center", layoutJustify="center", then add a text child. Call apply_auto_layout on the frame to position the text.',
     {
       ...draftId,
       frameId: z.string().describe('The frame ID to apply auto layout to'),

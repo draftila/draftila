@@ -39,6 +39,7 @@ export function NumberInput({
   dragSensitivity = 1,
   borderless = false,
 }: NumberInputProps) {
+  value = isNaN(value) ? 0 : value;
   const [isDragging, setIsDragging] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
