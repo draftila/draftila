@@ -52,6 +52,7 @@
   },
   "dependencies": {
     "@draftila/shared": "workspace:*",
+    "lucide-static": "^1.6.0",
     "paper": "^0.12.18",
     "perfect-freehand": "^1.2.3",
     "rbush": "^4.0.1",

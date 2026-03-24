@@ -64,6 +64,23 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number)
   return result;
 }
 
+function truncateLine(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  const ellipsis = '\u2026';
+  const ellipsisWidth = ctx.measureText(ellipsis).width;
+  let lo = 0;
+  let hi = text.length;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >>> 1;
+    if (ctx.measureText(text.slice(0, mid)).width + ellipsisWidth <= maxWidth) {
+      lo = mid;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return lo === 0 ? ellipsis : text.slice(0, lo) + ellipsis;
+}
+
 function resolveDashArray(stroke: Stroke): number[] {
   if (stroke.dashArray && stroke.dashArray.length > 0) {
     return stroke.dashArray;
@@ -473,8 +490,21 @@ export class Canvas2DRenderer implements Renderer {
     }
 
     const content = applyTextTransform(options.content, options.textTransform);
-    const lines = wrapText(ctx, content, transform.width);
+    let lines = wrapText(ctx, content, transform.width);
     const lineHeight = options.fontSize * options.lineHeight;
+    const isTruncating = options.textTruncation === 'ending';
+
+    if (isTruncating) {
+      const maxLines = Math.max(1, Math.floor(transform.height / lineHeight));
+      if (lines.length > maxLines) {
+        lines = lines.slice(0, maxLines);
+        const lastLine = lines[maxLines - 1];
+        if (lastLine !== undefined) {
+          lines[maxLines - 1] = truncateLine(ctx, lastLine, transform.width);
+        }
+      }
+    }
+
     const totalTextHeight = lines.length * lineHeight;
 
     let offsetY = 0;
@@ -548,8 +578,21 @@ export class Canvas2DRenderer implements Renderer {
       (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing =
         `${baseLetterSpacing}px`;
     }
-    const lines = wrapText(ctx, content, transform.width);
+    let lines = wrapText(ctx, content, transform.width);
     const lineHeight = baseFontSize * options.lineHeight;
+    const isTruncating = options.textTruncation === 'ending';
+
+    if (isTruncating) {
+      const maxLines = Math.max(1, Math.floor(transform.height / lineHeight));
+      if (lines.length > maxLines) {
+        lines = lines.slice(0, maxLines);
+        const lastLine = lines[maxLines - 1];
+        if (lastLine !== undefined) {
+          lines[maxLines - 1] = truncateLine(ctx, lastLine, transform.width);
+        }
+      }
+    }
+
     const totalTextHeight = lines.length * lineHeight;
 
     let offsetY = 0;
@@ -1494,6 +1537,48 @@ export class Canvas2DRenderer implements Renderer {
 
     for (const fill of style.fills) {
       if (!fill.visible) continue;
+      if (fill.imageSrc) {
+        const img = this.getLoadedImage(fill.imageSrc);
+        if (img) {
+          ctx.save();
+          ctx.clip();
+          ctx.globalAlpha *= fill.opacity;
+          const fit = fill.imageFit ?? 'fill';
+          if (fit === 'fill') {
+            ctx.drawImage(img, 0, 0, width, height);
+          } else if (fit === 'fit') {
+            const scale = Math.min(width / img.naturalWidth, height / img.naturalHeight);
+            const dw = img.naturalWidth * scale;
+            const dh = img.naturalHeight * scale;
+            ctx.drawImage(img, (width - dw) / 2, (height - dh) / 2, dw, dh);
+          } else if (fit === 'crop') {
+            const scale = Math.max(width / img.naturalWidth, height / img.naturalHeight);
+            const dw = img.naturalWidth * scale;
+            const dh = img.naturalHeight * scale;
+            ctx.drawImage(img, (width - dw) / 2, (height - dh) / 2, dw, dh);
+          } else if (fit === 'tile') {
+            const pattern = ctx.createPattern(img, 'repeat');
+            if (pattern) {
+              const previousFillStyle = ctx.fillStyle;
+              ctx.fillStyle = pattern;
+              ctx.fillRect(0, 0, width, height);
+              ctx.fillStyle = previousFillStyle;
+            }
+          }
+          ctx.globalAlpha = style.opacity;
+          ctx.restore();
+        } else {
+          ctx.fillStyle = this.getFillStyle(fill, width, height);
+          if (!fill.gradient) {
+            ctx.globalAlpha *= fill.opacity;
+          }
+          ctx.fill();
+          if (!fill.gradient) {
+            ctx.globalAlpha = style.opacity;
+          }
+        }
+        continue;
+      }
       ctx.fillStyle = this.getFillStyle(fill, width, height);
       if (!fill.gradient) {
         ctx.globalAlpha *= fill.opacity;

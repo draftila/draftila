@@ -91,6 +91,8 @@ export const fillSchema = z.object({
   opacity: z.number().min(0).max(1).default(1),
   visible: z.boolean().default(true),
   gradient: gradientSchema.optional(),
+  imageSrc: z.string().optional(),
+  imageFit: z.enum(['fill', 'fit', 'crop', 'tile']).optional(),
 });
 
 export const strokeCapSchema = z.enum(['butt', 'round', 'square']);
@@ -210,6 +212,10 @@ export const baseShapeSchema = z.object({
   layoutSizingVertical: sizingModeSchema.default('fixed'),
   constraintHorizontal: horizontalConstraintSchema.default('left'),
   constraintVertical: verticalConstraintSchema.default('top'),
+  minWidth: z.number().min(0).optional(),
+  maxWidth: z.number().min(0).optional(),
+  minHeight: z.number().min(0).optional(),
+  maxHeight: z.number().min(0).optional(),
 });
 
 export const rectangleShapeSchema = baseShapeSchema.extend({
@@ -280,6 +286,7 @@ export const textShapeSchema = baseShapeSchema.extend({
   letterSpacing: z.number().default(0),
   textDecoration: z.enum(['none', 'underline', 'strikethrough']).default('none'),
   textTransform: z.enum(['none', 'uppercase', 'lowercase', 'capitalize']).default('none'),
+  textTruncation: z.enum(['none', 'ending']).default('none'),
   fills: z.array(fillSchema).default([{ color: '#000000', opacity: 1, visible: true }]),
   segments: z.array(textSegmentSchema).optional(),
   shadows: z.array(shadowSchema).default([]),

@@ -38,6 +38,7 @@ export interface TextRenderOptions {
   letterSpacing: number;
   textDecoration: 'none' | 'underline' | 'strikethrough';
   textTransform: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+  textTruncation?: 'none' | 'ending';
   fills: Fill[];
   segments?: TextSegment[];
   shadows: Shadow[];
