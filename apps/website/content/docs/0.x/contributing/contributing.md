@@ -55,4 +55,8 @@ All data shapes shared between API and frontend must be Zod schemas in `packages
 
 ## License
 
-Draftila is MIT licensed. By submitting a pull request, you agree that your contribution will be licensed under the same terms.
+Draftila is MIT licensed. By submitting a pull request, you confirm that:
+
+- You have the right to submit your contribution.
+- Your contribution is provided under this repository's MIT License.
+- Your contribution remains available to the community under the same MIT terms.
