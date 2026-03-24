@@ -121,7 +121,7 @@ export {
   detectPasteSource,
   handlePaste,
   shapesToSvg,
-} from './figma-clipboard';
+} from './shape-import';
 
 export {
   type BooleanOperation,

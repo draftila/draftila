@@ -17,7 +17,7 @@
     "./snap": "./src/snap.ts",
     "./history": "./src/history.ts",
     "./clipboard": "./src/clipboard.ts",
-    "./figma-clipboard": "./src/figma-clipboard.ts",
+    "./shape-import": "./src/shape-import.ts",
     "./boolean-ops": "./src/boolean-ops.ts",
     "./image-manager": "./src/image-manager.ts",
     "./auto-layout": "./src/auto-layout.ts",
