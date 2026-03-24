@@ -52,17 +52,45 @@ function addInterchangeDocToYdoc(
     width: (s.props['width'] as number) ?? 100,
     height: (s.props['height'] as number) ?? 100,
   }));
-  const { offsetX, offsetY } = computeShapesOffset(boundsItems, options?.cursorPosition);
 
-  let parentOffsetX = 0;
-  let parentOffsetY = 0;
+  let parentAbsoluteX = 0;
+  let parentAbsoluteY = 0;
+  let cursorPosition = options?.cursorPosition ?? null;
   if (targetParentId) {
     const parentShape = getShape(ydoc, targetParentId);
     if (parentShape) {
-      parentOffsetX = parentShape.x;
-      parentOffsetY = parentShape.y;
+      parentAbsoluteX = parentShape.x;
+      parentAbsoluteY = parentShape.y;
+      if (!cursorPosition) {
+        cursorPosition = {
+          x: parentShape.width / 2,
+          y: parentShape.height / 2,
+        };
+      } else {
+        let bboxW = 0;
+        let bboxH = 0;
+        if (boundsItems.length > 0) {
+          let minX = Infinity;
+          let minY = Infinity;
+          let maxX = -Infinity;
+          let maxY = -Infinity;
+          for (const s of boundsItems) {
+            minX = Math.min(minX, s.x);
+            minY = Math.min(minY, s.y);
+            maxX = Math.max(maxX, s.x + s.width);
+            maxY = Math.max(maxY, s.y + s.height);
+          }
+          bboxW = maxX - minX;
+          bboxH = maxY - minY;
+        }
+        cursorPosition = {
+          x: cursorPosition.x + bboxW / 2,
+          y: cursorPosition.y + bboxH / 2,
+        };
+      }
     }
   }
+  const { offsetX, offsetY } = computeShapesOffset(boundsItems, cursorPosition);
 
   const indexToId = new Map<number, string>();
   const ids: string[] = [];
@@ -76,8 +104,8 @@ function addInterchangeDocToYdoc(
 
     const id = addShape(ydoc, item.type, {
       ...item.props,
-      x: ((item.props['x'] as number) ?? 0) + offsetX + parentOffsetX,
-      y: ((item.props['y'] as number) ?? 0) + offsetY + parentOffsetY,
+      x: ((item.props['x'] as number) ?? 0) + offsetX + parentAbsoluteX,
+      y: ((item.props['y'] as number) ?? 0) + offsetY + parentAbsoluteY,
       parentId,
     });
     indexToId.set(i, id);

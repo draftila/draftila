@@ -291,3 +291,14 @@ export {
   applyTextAutoResize,
   setTextMeasureEnabled,
 } from './text-measure';
+
+export {
+  type Variable,
+  getVariables,
+  getVariable,
+  setVariable,
+  deleteVariable,
+  resolveVariableColor,
+} from './variables';
+
+export { getIconNames, searchIcons, getIconSvg } from './icons';

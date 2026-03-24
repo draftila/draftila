@@ -244,6 +244,7 @@ export function renderShape(renderer: Renderer, shape: Shape) {
         letterSpacing: shape.letterSpacing,
         textDecoration: shape.textDecoration,
         textTransform: shape.textTransform,
+        textTruncation: shape.textTruncation,
         fills: shape.fills,
         segments: shape.segments,
         shadows: shape.shadows ?? [],
