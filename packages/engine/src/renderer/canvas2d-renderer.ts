@@ -578,8 +578,21 @@ export class Canvas2DRenderer implements Renderer {
       (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing =
         `${baseLetterSpacing}px`;
     }
-    const lines = wrapText(ctx, content, transform.width);
+    let lines = wrapText(ctx, content, transform.width);
     const lineHeight = baseFontSize * options.lineHeight;
+    const isTruncating = options.textTruncation === 'ending';
+
+    if (isTruncating) {
+      const maxLines = Math.max(1, Math.floor(transform.height / lineHeight));
+      if (lines.length > maxLines) {
+        lines = lines.slice(0, maxLines);
+        const lastLine = lines[maxLines - 1];
+        if (lastLine !== undefined) {
+          lines[maxLines - 1] = truncateLine(ctx, lastLine, transform.width);
+        }
+      }
+    }
+
     const totalTextHeight = lines.length * lineHeight;
 
     let offsetY = 0;
@@ -1544,14 +1557,25 @@ export class Canvas2DRenderer implements Renderer {
             const dh = img.naturalHeight * scale;
             ctx.drawImage(img, (width - dw) / 2, (height - dh) / 2, dw, dh);
           } else if (fit === 'tile') {
-            for (let ty = 0; ty < height; ty += img.naturalHeight) {
-              for (let tx = 0; tx < width; tx += img.naturalWidth) {
-                ctx.drawImage(img, tx, ty);
-              }
+            const pattern = ctx.createPattern(img, 'repeat');
+            if (pattern) {
+              const previousFillStyle = ctx.fillStyle;
+              ctx.fillStyle = pattern;
+              ctx.fillRect(0, 0, width, height);
+              ctx.fillStyle = previousFillStyle;
             }
           }
           ctx.globalAlpha = style.opacity;
           ctx.restore();
+        } else {
+          ctx.fillStyle = this.getFillStyle(fill, width, height);
+          if (!fill.gradient) {
+            ctx.globalAlpha *= fill.opacity;
+          }
+          ctx.fill();
+          if (!fill.gradient) {
+            ctx.globalAlpha = style.opacity;
+          }
         }
         continue;
       }

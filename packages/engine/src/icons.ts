@@ -3,9 +3,17 @@ import iconNodes from 'lucide-static/icon-nodes.json';
 type IconNode = [string, Record<string, string>];
 const icons = iconNodes as unknown as Record<string, IconNode[]>;
 
+function escapeXmlAttr(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 function attrsToString(attrs: Record<string, string>): string {
   return Object.entries(attrs)
-    .map(([k, v]) => `${k}="${v}"`)
+    .map(([k, v]) => `${k}="${escapeXmlAttr(v)}"`)
     .join(' ');
 }
 
@@ -27,6 +35,13 @@ export function getIconSvg(
   const nodes = icons[name];
   if (!nodes) return null;
 
+  const safeSize = Math.max(1, Math.min(Number.isFinite(size) ? size : 24, 4096));
+  const safeStrokeWidth = Math.max(
+    0,
+    Math.min(Number.isFinite(strokeWidth) ? strokeWidth : 2, 100),
+  );
+  const safeColor = /^[#a-zA-Z0-9(),.\s%]+$/.test(color) ? color : '#000000';
+
   const children = nodes
     .map(([tag, attrs]) => {
       const a = { ...attrs };
@@ -37,9 +52,9 @@ export function getIconSvg(
 
   return [
     `<svg xmlns="http://www.w3.org/2000/svg"`,
-    ` width="${size}" height="${size}"`,
+    ` width="${safeSize}" height="${safeSize}"`,
     ` viewBox="0 0 24 24" fill="none"`,
-    ` stroke="${color}" stroke-width="${strokeWidth}"`,
+    ` stroke="${escapeXmlAttr(safeColor)}" stroke-width="${safeStrokeWidth}"`,
     ` stroke-linecap="round" stroke-linejoin="round">`,
     children,
     `</svg>`,

@@ -27,8 +27,9 @@ type ResolvedChild = LayoutChild & { width: number; height: number };
 
 function clampSize(value: number, min?: number, max?: number): number {
   let result = value;
+  const effectiveMax = min !== undefined && max !== undefined ? Math.max(min, max) : max;
   if (min !== undefined && result < min) result = min;
-  if (max !== undefined && result > max) result = max;
+  if (effectiveMax !== undefined && result > effectiveMax) result = effectiveMax;
   return result;
 }
 
@@ -173,7 +174,8 @@ function computeWrapLayout(
   let currentMainUsed = 0;
 
   for (const child of visibleChildren) {
-    const childMainSize = isHorizontal ? child.width : child.height;
+    const eff = effectiveSize(child);
+    const childMainSize = isHorizontal ? eff.width : eff.height;
     const gapBefore = currentLine.length > 0 ? config.gap : 0;
 
     if (currentLine.length > 0 && currentMainUsed + gapBefore + childMainSize > mainContentSize) {
@@ -188,7 +190,12 @@ function computeWrapLayout(
   if (currentLine.length > 0) lines.push(currentLine);
 
   const lineCrossSizes = lines.map((line) =>
-    Math.max(...line.map((c) => (isHorizontal ? c.height : c.width))),
+    Math.max(
+      ...line.map((c) => {
+        const eff = effectiveSize(c);
+        return isHorizontal ? eff.height : eff.width;
+      }),
+    ),
   );
 
   const totalCrossContent =
@@ -331,6 +338,13 @@ function positionLine(
   }
 }
 
+function effectiveSize(child: LayoutChild): { width: number; height: number } {
+  return {
+    width: clampSize(child.width, child.minWidth, child.maxWidth),
+    height: clampSize(child.height, child.minHeight, child.maxHeight),
+  };
+}
+
 function computeHugSize(
   config: AutoLayoutConfig,
   children: LayoutChild[],
@@ -346,16 +360,16 @@ function computeHugSize(
   const gaps = Math.max(0, children.length - 1) * config.gap;
 
   if (isHorizontal) {
-    const totalChildWidth = children.reduce((sum, c) => sum + c.width, 0);
-    const maxHeight = Math.max(...children.map((c) => c.height));
+    const totalChildWidth = children.reduce((sum, c) => sum + effectiveSize(c).width, 0);
+    const maxHeight = Math.max(...children.map((c) => effectiveSize(c).height));
     return {
       width: config.paddingLeft + totalChildWidth + gaps + config.paddingRight,
       height: config.paddingTop + maxHeight + config.paddingBottom,
     };
   }
 
-  const totalChildHeight = children.reduce((sum, c) => sum + c.height, 0);
-  const maxWidth = Math.max(...children.map((c) => c.width));
+  const totalChildHeight = children.reduce((sum, c) => sum + effectiveSize(c).height, 0);
+  const maxWidth = Math.max(...children.map((c) => effectiveSize(c).width));
   return {
     width: config.paddingLeft + maxWidth + config.paddingRight,
     height: config.paddingTop + totalChildHeight + gaps + config.paddingBottom,

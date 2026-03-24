@@ -58,7 +58,9 @@ export function setVariable(ydoc: Y.Doc, id: string, name: string, value: string
 export function deleteVariable(ydoc: Y.Doc, id: string): boolean {
   const map = getVariablesMap(ydoc);
   if (!map.has(id)) return false;
-  map.delete(id);
+  ydoc.transact(() => {
+    map.delete(id);
+  });
   return true;
 }
 

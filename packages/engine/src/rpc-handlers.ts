@@ -499,8 +499,9 @@ export function createRpcHandlers(
           applyAutoLayout(ydoc, targetParentId);
         }
       }
-      for (const id of shapeIds) {
-        applyAutoLayoutForAncestors(ydoc, id);
+      const firstShapeId = shapeIds[0];
+      if (firstShapeId) {
+        applyAutoLayoutForAncestors(ydoc, firstShapeId);
       }
       return { shapeIds };
     },
