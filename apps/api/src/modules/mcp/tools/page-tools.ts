@@ -53,23 +53,6 @@ export function registerPageTools(server: McpServer, getUserId: () => string) {
 
   defineTool(
     server,
-    'set_page_background',
-    'Set page background color',
-    {
-      ...draftAndPage,
-      color: z.string().nullable().describe('Hex color string (e.g. "#ffffff") or null to remove'),
-    },
-    async ({ draftId, pageId, color }) => {
-      const result = await sendToolRpc(draftId as string, getUserId(), 'set_page_background', {
-        pageId,
-        color,
-      });
-      return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] };
-    },
-  );
-
-  defineTool(
-    server,
     'set_active_page',
     'Set the active page in the draft',
     draftAndPage,
