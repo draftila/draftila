@@ -15,5 +15,5 @@ To keep Draftila sustainably open source, opening a pull request is treated as a
 ## What submitting a pull request confirms
 
 - You have the right to submit your contribution.
-- You grant the project maintainer the rights needed to use, redistribute, and relicense your contribution under Apache-2.0 and other future license terms.
-- You understand your contribution remains available under this repository's open source license for the community.
+- You agree your contribution is provided under this repository's MIT License.
+- You understand your contribution remains available to the community under the same MIT terms.
