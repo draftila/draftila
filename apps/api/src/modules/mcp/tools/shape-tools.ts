@@ -7,7 +7,7 @@ export function registerShapeTools(server: McpServer, getUserId: () => string) {
   defineTool(
     server,
     'create_shape',
-    'Create a new shape on the active page. For building complex designs (cards, sections, pages), prefer batch_create_shapes — it is faster and supports $0/$1 parent references. Use create_shape for one-off shapes or when you need to verify placement with export_png before continuing. Shapes are always created on the active page — use set_active_page first if needed. IMPORTANT: Shapes render in creation order (last created = on top). Create background shapes first, then foreground elements (e.g. background rectangle before text on top of it). Use move_in_stack to fix z-order after the fact. TIP: For containers that auto-position children (no manual x/y needed), set layoutMode on frames — see props description for details. Requires the editor to be open in the browser.',
+    'Create a new shape on the active page. For building complex designs (cards, sections, pages), prefer batch_create_shapes — it is faster and supports $0/$1 parent references. Use create_shape for one-off shapes or when you need to verify placement with export_png before continuing. Shapes are always created on the active page — use set_active_page first if needed. IMPORTANT: Shapes render in creation order (last created = on top). Create background shapes first, then foreground elements (e.g. background rectangle before text on top of it). Use move_in_stack to fix z-order after the fact. TIP: For containers that auto-position children (no manual x/y needed), set layoutMode on frames — see props description for details.',
     {
       ...draftId,
       type: z

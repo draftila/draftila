@@ -284,4 +284,8 @@ export {
   deleteNodeFromSubpath,
 } from './vector-nodes';
 
-export { computeTextAutoResizeDimensions, applyTextAutoResize } from './text-measure';
+export {
+  computeTextAutoResizeDimensions,
+  applyTextAutoResize,
+  setTextMeasureEnabled,
+} from './text-measure';

@@ -23,37 +23,6 @@ export function registerExportTools(server: McpServer, getUserId: () => string) 
 
   defineTool(
     server,
-    'export_png',
-    'Export shapes as a PNG screenshot to visually verify your design. Use this after every batch_create_shapes call and after major updates to catch layout, clipping, and z-order issues early. Pass a specific shapeId to screenshot just that component, or omit to capture everything. Use scale=2 for sharp previews. Requires the editor to be open in the browser.',
-    {
-      ...draftId,
-      shapeIds: z
-        .array(z.string())
-        .optional()
-        .describe('Shape IDs to export (exports all shapes if omitted)'),
-      scale: z.number().optional().describe('Pixel scale factor (default 1)'),
-      backgroundColor: z.string().optional().describe('Background color hex (e.g. "#ffffff")'),
-    },
-    async ({ draftId, shapeIds, scale, backgroundColor }) => {
-      const result = (await sendToolRpc(draftId as string, getUserId(), 'export_png', {
-        shapeIds,
-        scale,
-        backgroundColor,
-      })) as { base64: string; mimeType: string };
-      return {
-        content: [
-          {
-            type: 'image' as const,
-            data: result.base64,
-            mimeType: result.mimeType,
-          },
-        ],
-      };
-    },
-  );
-
-  defineTool(
-    server,
     'import_svg',
     'Import SVG markup as shapes onto the canvas',
     {

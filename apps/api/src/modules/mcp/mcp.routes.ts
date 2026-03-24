@@ -19,7 +19,7 @@ function ensureAcceptHeader(req: Request): Request {
     headers,
     body: req.body,
     duplex: 'half',
-  });
+  } as RequestInit);
 }
 
 mcpRoutes.all('/', async (c) => {

@@ -1,3 +1,7 @@
+import { initServerRpc } from './modules/mcp/server-rpc';
+
+initServerRpc();
+
 import { app } from './app';
 import { env } from './common/lib/env';
 import { auth } from './modules/auth/auth.service';

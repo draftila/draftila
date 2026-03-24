@@ -2,6 +2,7 @@
   "extends": "@draftila/typescript-config/node.json",
   "compilerOptions": {
     "outDir": "./dist",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["@types/bun"]
   },
   "include": ["src", "tests"]

@@ -39,3 +39,4 @@ storage/
 
 .plans/
 .mcp.json
+.cache/
