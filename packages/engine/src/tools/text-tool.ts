@@ -1,5 +1,6 @@
 import { BaseTool, getToolStore, type ToolContext, type ToolResult } from './base-tool';
-import { addShape, findContainerAtPoint } from '../scene-graph';
+import { addShape, getShape, updateShape, findContainerAtPoint } from '../scene-graph';
+import { applyTextAutoResize } from '../text-measure';
 import type { SnapLine, DistanceIndicator } from '../snap';
 import { snapDrawnTextRect, type DrawSnapState } from './draw-snap';
 
@@ -73,9 +74,12 @@ export class TextTool extends BaseTool {
         width: this.previewRect.width,
         height: this.previewRect.height,
         content: '',
+        textAutoResize: 'width',
+        textAlign: 'center',
         parentId: this.containerId,
       });
 
+      this.applyInitialAutoResize(ctx, id);
       store.setSelectedIds([id]);
       store.setActiveTool('move');
       onTextCreated?.(id);
@@ -86,9 +90,12 @@ export class TextTool extends BaseTool {
         width: 200,
         height: 24,
         content: '',
+        textAutoResize: 'width',
+        textAlign: 'center',
         parentId: this.containerId,
       });
 
+      this.applyInitialAutoResize(ctx, id);
       store.setSelectedIds([id]);
       store.setActiveTool('move');
       onTextCreated?.(id);
@@ -107,6 +114,14 @@ export class TextTool extends BaseTool {
 
   getDistanceIndicators(): DistanceIndicator[] {
     return this.drawSnap.distanceIndicators;
+  }
+
+  private applyInitialAutoResize(ctx: ToolContext, id: string) {
+    const shape = getShape(ctx.ydoc, id);
+    if (shape) {
+      const patch = applyTextAutoResize(shape);
+      if (patch) updateShape(ctx.ydoc, id, patch);
+    }
   }
 
   private reset() {

@@ -90,7 +90,8 @@ export function toAbsoluteProps(
 
 export function applyTextDefaults(props: Record<string, unknown>): Record<string, unknown> {
   const out = { ...props };
-  if (out['textAutoResize'] === undefined) out['textAutoResize'] = 'height';
+  if (out['textAutoResize'] === undefined) out['textAutoResize'] = 'width';
+  if (out['textAlign'] === undefined) out['textAlign'] = 'center';
   const fontSize = (out['fontSize'] as number) ?? 16;
   const lineHeight = (out['lineHeight'] as number) ?? 1.2;
   if (out['height'] === undefined) out['height'] = Math.ceil(fontSize * lineHeight);
