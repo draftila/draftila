@@ -18,6 +18,9 @@ export interface LayoutResult {
   height: number;
 }
 
+type AutoLayoutConfig = ReturnType<typeof getAutoLayoutConfig>;
+type ResolvedChild = LayoutChild & { width: number; height: number };
+
 export function isAutoLayoutFrame(shape: Shape): shape is FrameShape {
   return shape.type === 'frame' && (shape as FrameShape).layoutMode !== 'none';
 }
@@ -25,7 +28,9 @@ export function isAutoLayoutFrame(shape: Shape): shape is FrameShape {
 export function getAutoLayoutConfig(frame: FrameShape) {
   return {
     direction: frame.layoutMode as 'horizontal' | 'vertical',
+    wrap: ((frame as Record<string, unknown>).layoutWrap ?? 'nowrap') as 'nowrap' | 'wrap',
     gap: frame.layoutGap ?? 0,
+    gapColumn: ((frame as Record<string, unknown>).layoutGapColumn as number) ?? 0,
     paddingTop: frame.paddingTop ?? 0,
     paddingRight: frame.paddingRight ?? 0,
     paddingBottom: frame.paddingBottom ?? 0,
@@ -62,6 +67,19 @@ export function computeAutoLayout(
     };
   }
 
+  if (config.wrap === 'wrap') {
+    return computeWrapLayout(config, frame, visibleChildren);
+  }
+
+  return computeLinearLayout(config, frame, visibleChildren);
+}
+
+function computeLinearLayout(
+  config: AutoLayoutConfig,
+  frame: FrameShape,
+  visibleChildren: LayoutChild[],
+): { childLayouts: Map<string, LayoutResult>; parentSize: { width: number; height: number } } {
+  const result = new Map<string, LayoutResult>();
   const isHorizontal = config.direction === 'horizontal';
 
   let parentWidth = frame.width;
@@ -108,44 +126,151 @@ export function computeAutoLayout(
     return { ...child, width: Math.max(0, w), height: Math.max(0, h) };
   });
 
-  const totalMainSize = resolvedSizes.reduce(
-    (sum, c) => sum + (isHorizontal ? c.width : c.height),
-    0,
+  positionLine(config, resolvedSizes, result, isHorizontal, mainAxisSpace, {
+    mainStart: isHorizontal ? config.paddingLeft : config.paddingTop,
+    crossStart: isHorizontal ? config.paddingTop : config.paddingLeft,
+    crossSize: isHorizontal ? contentHeight : contentWidth,
+  });
+
+  return {
+    childLayouts: result,
+    parentSize: { width: parentWidth, height: parentHeight },
+  };
+}
+
+function computeWrapLayout(
+  config: AutoLayoutConfig,
+  frame: FrameShape,
+  visibleChildren: LayoutChild[],
+): { childLayouts: Map<string, LayoutResult>; parentSize: { width: number; height: number } } {
+  const result = new Map<string, LayoutResult>();
+  const isHorizontal = config.direction === 'horizontal';
+
+  const mainAxisFixed = isHorizontal ? frame.width : frame.height;
+  const mainPadStart = isHorizontal ? config.paddingLeft : config.paddingTop;
+  const mainPadEnd = isHorizontal ? config.paddingRight : config.paddingBottom;
+  const crossPadStart = isHorizontal ? config.paddingTop : config.paddingLeft;
+  const crossPadEnd = isHorizontal ? config.paddingBottom : config.paddingRight;
+  const mainContentSize = mainAxisFixed - mainPadStart - mainPadEnd;
+
+  const lines: LayoutChild[][] = [];
+  let currentLine: LayoutChild[] = [];
+  let currentMainUsed = 0;
+
+  for (const child of visibleChildren) {
+    const childMainSize = isHorizontal ? child.width : child.height;
+    const gapBefore = currentLine.length > 0 ? config.gap : 0;
+
+    if (currentLine.length > 0 && currentMainUsed + gapBefore + childMainSize > mainContentSize) {
+      lines.push(currentLine);
+      currentLine = [child];
+      currentMainUsed = childMainSize;
+    } else {
+      currentMainUsed += gapBefore + childMainSize;
+      currentLine.push(child);
+    }
+  }
+  if (currentLine.length > 0) lines.push(currentLine);
+
+  const lineCrossSizes = lines.map((line) =>
+    Math.max(...line.map((c) => (isHorizontal ? c.height : c.width))),
   );
-  const totalUsed = totalMainSize + totalGap;
-  const freeSpace = Math.max(0, mainAxisSpace - totalUsed);
+
+  const totalCrossContent =
+    lineCrossSizes.reduce((s, v) => s + v, 0) + Math.max(0, lines.length - 1) * config.gapColumn;
+
+  let parentWidth = frame.width;
+  let parentHeight = frame.height;
+
+  if (isHorizontal) {
+    if (config.sizingVertical === 'hug') {
+      parentHeight = crossPadStart + totalCrossContent + crossPadEnd;
+    }
+  } else {
+    if (config.sizingHorizontal === 'hug') {
+      parentWidth = crossPadStart + totalCrossContent + crossPadEnd;
+    }
+  }
+
+  let crossCursor = crossPadStart;
+
+  for (let li = 0; li < lines.length; li++) {
+    const line = lines[li]!;
+    const lineCrossSize = lineCrossSizes[li]!;
+
+    const resolvedLine: ResolvedChild[] = line.map((child) => {
+      let w = child.width;
+      let h = child.height;
+
+      if (isHorizontal) {
+        if (child.layoutSizingVertical === 'fill' || config.alignItems === 'stretch')
+          h = lineCrossSize;
+      } else {
+        if (child.layoutSizingHorizontal === 'fill' || config.alignItems === 'stretch')
+          w = lineCrossSize;
+      }
+
+      return { ...child, width: Math.max(0, w), height: Math.max(0, h) };
+    });
+
+    positionLine(config, resolvedLine, result, isHorizontal, mainContentSize, {
+      mainStart: mainPadStart,
+      crossStart: crossCursor,
+      crossSize: lineCrossSize,
+    });
+
+    crossCursor += lineCrossSize + config.gapColumn;
+  }
+
+  return {
+    childLayouts: result,
+    parentSize: { width: parentWidth, height: parentHeight },
+  };
+}
+
+function positionLine(
+  config: AutoLayoutConfig,
+  children: ResolvedChild[],
+  result: Map<string, LayoutResult>,
+  isHorizontal: boolean,
+  mainAxisSpace: number,
+  offsets: { mainStart: number; crossStart: number; crossSize: number },
+) {
+  const totalMainSize = children.reduce((sum, c) => sum + (isHorizontal ? c.width : c.height), 0);
+  const totalGap = Math.max(0, children.length - 1) * config.gap;
+  const freeSpace = Math.max(0, mainAxisSpace - totalMainSize - totalGap);
 
   let cursor: number;
   let gapOverride = config.gap;
 
   switch (config.justifyContent) {
     case 'start':
-      cursor = isHorizontal ? config.paddingLeft : config.paddingTop;
+      cursor = offsets.mainStart;
       break;
     case 'center':
-      cursor = (isHorizontal ? config.paddingLeft : config.paddingTop) + freeSpace / 2;
+      cursor = offsets.mainStart + freeSpace / 2;
       break;
     case 'end':
-      cursor = (isHorizontal ? config.paddingLeft : config.paddingTop) + freeSpace;
+      cursor = offsets.mainStart + freeSpace;
       break;
     case 'space_between':
-      cursor = isHorizontal ? config.paddingLeft : config.paddingTop;
-      if (resolvedSizes.length > 1) {
-        gapOverride = (mainAxisSpace - totalMainSize) / (resolvedSizes.length - 1);
+      cursor = offsets.mainStart;
+      if (children.length > 1) {
+        gapOverride = (mainAxisSpace - totalMainSize) / (children.length - 1);
       }
       break;
     case 'space_around':
-      if (resolvedSizes.length > 0) {
-        const spacing = (mainAxisSpace - totalMainSize) / resolvedSizes.length;
-        cursor = (isHorizontal ? config.paddingLeft : config.paddingTop) + spacing / 2;
+      if (children.length > 0) {
+        const spacing = (mainAxisSpace - totalMainSize) / children.length;
+        cursor = offsets.mainStart + spacing / 2;
         gapOverride = spacing;
       } else {
-        cursor = isHorizontal ? config.paddingLeft : config.paddingTop;
+        cursor = offsets.mainStart;
       }
       break;
   }
 
-  for (const child of resolvedSizes) {
+  for (const child of children) {
     let x: number;
     let y: number;
 
@@ -156,13 +281,13 @@ export function computeAutoLayout(
       switch (config.alignItems) {
         case 'start':
         case 'stretch':
-          y = config.paddingTop;
+          y = offsets.crossStart;
           break;
         case 'center':
-          y = config.paddingTop + (contentHeight - child.height) / 2;
+          y = offsets.crossStart + (offsets.crossSize - child.height) / 2;
           break;
         case 'end':
-          y = config.paddingTop + contentHeight - child.height;
+          y = offsets.crossStart + offsets.crossSize - child.height;
           break;
       }
     } else {
@@ -172,28 +297,23 @@ export function computeAutoLayout(
       switch (config.alignItems) {
         case 'start':
         case 'stretch':
-          x = config.paddingLeft;
+          x = offsets.crossStart;
           break;
         case 'center':
-          x = config.paddingLeft + (contentWidth - child.width) / 2;
+          x = offsets.crossStart + (offsets.crossSize - child.width) / 2;
           break;
         case 'end':
-          x = config.paddingLeft + contentWidth - child.width;
+          x = offsets.crossStart + offsets.crossSize - child.width;
           break;
       }
     }
 
     result.set(child.id, { x: x!, y: y!, width: child.width, height: child.height });
   }
-
-  return {
-    childLayouts: result,
-    parentSize: { width: parentWidth, height: parentHeight },
-  };
 }
 
 function computeHugSize(
-  config: ReturnType<typeof getAutoLayoutConfig>,
+  config: AutoLayoutConfig,
   children: LayoutChild[],
   isHorizontal: boolean,
 ): { width: number; height: number } {
