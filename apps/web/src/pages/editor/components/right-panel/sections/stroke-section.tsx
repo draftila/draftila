@@ -25,7 +25,7 @@ const DEFAULT_STROKE: Stroke = {
   visible: true,
   cap: 'butt',
   join: 'miter',
-  align: 'center',
+  align: 'inside',
   dashPattern: 'solid',
   dashOffset: 0,
   miterLimit: 4,

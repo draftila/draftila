@@ -110,7 +110,7 @@ tool.onPointerUp(toolContext);
 | **Canvas2D Renderer** | `@draftila/engine/renderer/canvas2d` | `Canvas2DRenderer` implementation                                                                             |
 | **History**           | `@draftila/engine/history`           | Undo/redo via `Y.UndoManager`                                                                                 |
 | **Clipboard**         | `@draftila/engine/clipboard`         | Copy, paste, cut, duplicate shapes                                                                            |
-| **Figma Clipboard**   | `@draftila/engine/figma-clipboard`   | Figma clipboard interop and SVG import/export                                                                 |
+| **Shape Import**      | `@draftila/engine/shape-import`      | SVG import/export and external paste handling                                                                 |
 | **Export**            | `@draftila/engine/export`            | PNG and SVG export                                                                                            |
 | **Auto Layout**       | `@draftila/engine/auto-layout`       | Flexbox-like auto layout computation                                                                          |
 | **Constraints**       | `@draftila/engine/constraints`       | Responsive constraints (pin edges, scale, center)                                                             |

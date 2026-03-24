@@ -184,6 +184,12 @@ function shapeToNode(shape: Shape, childrenByParent: Map<string, Shape[]>): Inte
       node.svgPathData = shape.svgPathData;
       break;
     case 'frame':
+      node.cornerRadius = shape.cornerRadius;
+      node.cornerRadiusTL = shape.cornerRadiusTL;
+      node.cornerRadiusTR = shape.cornerRadiusTR;
+      node.cornerRadiusBL = shape.cornerRadiusBL;
+      node.cornerRadiusBR = shape.cornerRadiusBR;
+      node.cornerSmoothing = shape.cornerSmoothing;
       node.clip = shape.clip;
       break;
     case 'image':
@@ -283,6 +289,12 @@ function nodeToFlatShapes(
         strokes,
         shadows,
         blurs,
+        cornerRadius: node.cornerRadius ?? 0,
+        cornerRadiusTL: node.cornerRadiusTL,
+        cornerRadiusTR: node.cornerRadiusTR,
+        cornerRadiusBL: node.cornerRadiusBL,
+        cornerRadiusBR: node.cornerRadiusBR,
+        cornerSmoothing: node.cornerSmoothing ?? 0,
         clip: node.clip ?? true,
       });
       break;

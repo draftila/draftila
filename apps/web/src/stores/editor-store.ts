@@ -21,6 +21,7 @@ interface EditorState {
   draggingGuide: { axis: 'x' | 'y'; position: number } | null;
   rulersVisible: boolean;
   guidesVisible: boolean;
+  aiActiveFrameIds: Set<string>;
 
   setActiveTool: (tool: ToolType) => void;
   setActivePageId: (pageId: string | null) => void;
@@ -45,6 +46,7 @@ interface EditorState {
   setDraggingGuide: (guide: { axis: 'x' | 'y'; position: number } | null) => void;
   setRulersVisible: (visible: boolean) => void;
   setGuidesVisible: (visible: boolean) => void;
+  setAiActiveFrameIds: (ids: Set<string>) => void;
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
@@ -65,6 +67,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   draggingGuide: null,
   rulersVisible: localStorage.getItem('draftila:rulersVisible') !== 'false',
   guidesVisible: localStorage.getItem('draftila:rulersVisible') !== 'false',
+  aiActiveFrameIds: new Set(),
 
   setActiveTool: (tool) => set({ activeTool: tool }),
 
@@ -141,6 +144,8 @@ export const useEditorStore = create<EditorState>((set) => ({
   },
 
   setGuidesVisible: (visible) => set({ guidesVisible: visible }),
+
+  setAiActiveFrameIds: (ids) => set({ aiActiveFrameIds: ids }),
 }));
 
 configureToolStore({

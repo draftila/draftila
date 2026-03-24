@@ -24,6 +24,7 @@ model User {
   accounts      Account[]
   projects      Project[]
   memberships   ProjectMember[]
+  apiKeys       ApiKey[]
 
   @@map("user")
 }
@@ -104,6 +105,20 @@ model ProjectMember {
   @@unique([projectId, userId], map: "project_member_project_user_idx")
   @@index([userId], map: "project_member_user_id_idx")
   @@map("project_member")
+}
+
+model ApiKey {
+  id         String    @id
+  name       String
+  keyHash    String    @unique @map("key_hash")
+  userId     String    @map("user_id")
+  lastUsedAt DateTime? @map("last_used_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "api_key_user_id_idx")
+  @@map("api_key")
 }
 
 model Draft {

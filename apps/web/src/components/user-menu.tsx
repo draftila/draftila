@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { LogOutIcon } from 'lucide-react';
+import { KeyIcon, LogOutIcon } from 'lucide-react';
 import { useSession, signOut } from '@/lib/auth-client';
 import {
   DropdownMenu,
@@ -36,6 +36,10 @@ export function UserMenu() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => navigate('/settings/api-keys')}>
+          <KeyIcon />
+          API Keys
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={handleSignOut}>
           <LogOutIcon />
           Sign out

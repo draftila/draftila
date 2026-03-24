@@ -11,7 +11,7 @@ import {
   pasteStyle,
   hasStyleClipboardContent,
 } from '@draftila/engine/clipboard';
-import { handlePaste as handleExternalPaste } from '@draftila/engine/figma-clipboard';
+import { handlePaste as handleExternalPaste } from '@draftila/engine/shape-import';
 import {
   applyBooleanOperation,
   canApplyBooleanOperation,

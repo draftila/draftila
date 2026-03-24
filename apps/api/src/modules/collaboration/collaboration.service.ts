@@ -304,6 +304,18 @@ export function setRpcInterceptor(
   rpcInterceptor = interceptor;
 }
 
+export async function closeRoom(draftId: string) {
+  const room = rooms.get(draftId);
+  if (!room) return;
+  if (room.connections.size > 0) return;
+  if (room.snapshotTimer) clearInterval(room.snapshotTimer);
+  if (room.dirty) await snapshotToDb(draftId, room.ydoc);
+  if (room.updateHandler) room.ydoc.off('update', room.updateHandler);
+  room.awareness.destroy();
+  room.ydoc.destroy();
+  rooms.delete(draftId);
+}
+
 export function closeAllRooms() {
   for (const [_draftId, room] of rooms) {
     if (room.snapshotTimer) clearInterval(room.snapshotTimer);

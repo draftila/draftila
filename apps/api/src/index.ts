@@ -1,3 +1,7 @@
+import { initServerRpc } from './modules/mcp/server-rpc';
+
+initServerRpc();
+
 import { app } from './app';
 import { env } from './common/lib/env';
 import { auth } from './modules/auth/auth.service';
@@ -54,6 +58,8 @@ Bun.serve<WsData>({
     return app.fetch(req, server);
   },
   websocket: {
+    idleTimeout: 120,
+    sendPings: true,
     open(ws) {
       collaborationService.handleConnection(ws, ws.data.draftId, ws.data);
     },

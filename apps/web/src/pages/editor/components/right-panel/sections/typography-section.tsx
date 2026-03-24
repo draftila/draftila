@@ -29,30 +29,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import type { PropertySectionProps } from '../types';
 import { NumberInput } from '../number-input';
 import { ColorPicker } from '../../color-picker';
-
-const FONT_FAMILIES = [
-  'Inter',
-  'Arial',
-  'Helvetica',
-  'Georgia',
-  'Times New Roman',
-  'Courier New',
-  'Verdana',
-  'Trebuchet MS',
-  'Palatino',
-  'Garamond',
-  'Comic Sans MS',
-  'Impact',
-  'Monaco',
-  'Menlo',
-  'SF Pro Display',
-  'SF Pro Text',
-  'Roboto',
-  'Open Sans',
-  'Lato',
-  'Montserrat',
-  'Poppins',
-];
+import { FontPicker } from '../font-picker';
 
 const FONT_WEIGHTS = [
   { value: 100, label: 'Thin' },
@@ -73,27 +50,10 @@ export function TypographySection({ shape, onUpdate }: PropertySectionProps) {
     <section className="space-y-2.5">
       <h4 className="text-muted-foreground text-[11px] font-medium">Typography</h4>
 
-      <Popover>
-        <PopoverTrigger asChild>
-          <button className="border-input hover:bg-accent flex h-7 w-full items-center rounded-md border px-2 text-left text-[11px]">
-            <span className="truncate">{text.fontFamily}</span>
-          </button>
-        </PopoverTrigger>
-        <PopoverContent className="w-48 p-1" side="left" align="start">
-          <div className="max-h-60 overflow-auto">
-            {FONT_FAMILIES.map((font) => (
-              <button
-                key={font}
-                className="hover:bg-accent w-full rounded-sm px-2 py-1 text-left text-[11px] transition-colors"
-                style={{ fontFamily: font }}
-                onClick={() => onUpdate({ fontFamily: font } as Partial<Shape>)}
-              >
-                {font}
-              </button>
-            ))}
-          </div>
-        </PopoverContent>
-      </Popover>
+      <FontPicker
+        value={text.fontFamily}
+        onChange={(family) => onUpdate({ fontFamily: family } as Partial<Shape>)}
+      />
 
       <Popover>
         <PopoverTrigger asChild>

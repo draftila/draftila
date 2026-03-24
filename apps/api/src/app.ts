@@ -16,6 +16,8 @@ import { healthRoutes } from './modules/health/health.routes';
 import { memberRoutes } from './modules/projects/members.routes';
 import { projectRoutes } from './modules/projects/projects.routes';
 import { userRoutes } from './modules/user/user.routes';
+import { apiKeyRoutes } from './modules/api-keys/api-keys.routes';
+import { mcpRoutes } from './modules/mcp/mcp.routes';
 
 initStorage({ driver: env.STORAGE_DRIVER, path: resolve(process.cwd(), env.STORAGE_PATH) });
 
@@ -54,6 +56,11 @@ app.use('/api/*', async (c, next) => {
   if (c.req.path.startsWith('/api/auth') || c.req.path.startsWith('/api/health')) {
     return next();
   }
+  if (c.req.path.startsWith('/api/mcp')) {
+    const blocked = checkRateLimit(c, 'mcp', { windowMs: 60_000, max: 60 });
+    if (blocked) return blocked;
+    return next();
+  }
   const blocked = checkRateLimit(c, 'api-general', { windowMs: 60_000, max: 120 });
   if (blocked) return blocked;
   return next();
@@ -65,6 +72,8 @@ app.route('/api/projects', projectRoutes);
 app.route('/api/projects/:projectId/members', memberRoutes);
 app.route('/api/drafts', allDraftsRoutes);
 app.route('/api/projects/:projectId/drafts', draftRoutes);
+app.route('/api/api-keys', apiKeyRoutes);
+app.route('/api/mcp', mcpRoutes);
 app.route('/api', userRoutes);
 
 app.get('/storage/*', (c) => {
