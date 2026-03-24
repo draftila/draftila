@@ -38,12 +38,176 @@ import {
   removeGuide,
   exportToSvg,
   importSvgShapes,
+  Canvas2DRenderer,
+  collectFontFamilies,
   setTextMeasureEnabled,
 } from '@draftila/engine';
 import type { BooleanOperation, StackMoveDirection, LayerDropPlacement } from '@draftila/engine';
+import { renderShape } from '@draftila/engine';
+import type { FrameShape } from '@draftila/shared';
+import { createCanvas, GlobalFonts } from '@napi-rs/canvas';
+import { existsSync, mkdirSync, writeFileSync, readdirSync } from 'fs';
+import { join } from 'path';
 import * as collaborationService from '../collaboration/collaboration.service';
 
 setTextMeasureEnabled(false);
+
+const FONT_CACHE_DIR = join(process.cwd(), '.cache', 'fonts');
+const registeredFontFamilies = new Set<string>();
+const CSS_GENERIC_FAMILIES = new Set([
+  'serif',
+  'sans-serif',
+  'monospace',
+  'cursive',
+  'fantasy',
+  'system-ui',
+]);
+
+function loadCachedFonts() {
+  if (!existsSync(FONT_CACHE_DIR)) return;
+  for (const file of readdirSync(FONT_CACHE_DIR).filter((f) => f.endsWith('.ttf'))) {
+    const family = file.replace(/-\d+\.ttf$/, '').replace(/_/g, ' ');
+    GlobalFonts.registerFromPath(join(FONT_CACHE_DIR, file), family);
+    registeredFontFamilies.add(family);
+  }
+}
+
+async function ensureServerFontsLoaded(families: string[]) {
+  const toLoad = families.filter(
+    (f) => !CSS_GENERIC_FAMILIES.has(f) && !registeredFontFamilies.has(f),
+  );
+  if (toLoad.length === 0) return;
+  if (!existsSync(FONT_CACHE_DIR)) mkdirSync(FONT_CACHE_DIR, { recursive: true });
+  await Promise.all(
+    toLoad.map(async (family) => {
+      const weights = [100, 200, 300, 400, 500, 600, 700, 800, 900];
+      await Promise.all(
+        weights.map(async (weight) => {
+          const fileName = `${family.replace(/\s+/g, '_')}-${weight}.ttf`;
+          const filePath = join(FONT_CACHE_DIR, fileName);
+          if (existsSync(filePath)) {
+            GlobalFonts.registerFromPath(filePath, family);
+            return;
+          }
+          try {
+            const cssUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:wght@${weight}&display=swap`;
+            const cssResp = await fetch(cssUrl, {
+              headers: { 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36' },
+            });
+            if (!cssResp.ok) return;
+            const css = await cssResp.text();
+            const urlMatch = css.match(
+              /src:\s*url\(([^)]+)\)\s*format\(['"](?:truetype|woff2?)['"]\)/,
+            );
+            if (!urlMatch?.[1]) return;
+            const fontResp = await fetch(urlMatch[1]);
+            if (!fontResp.ok) return;
+            writeFileSync(filePath, Buffer.from(await fontResp.arrayBuffer()));
+            GlobalFonts.registerFromPath(filePath, family);
+          } catch {
+            // ignore font download failures
+          }
+        }),
+      );
+      registeredFontFamilies.add(family);
+    }),
+  );
+}
+
+loadCachedFonts();
+
+function renderWithClipping(renderer: InstanceType<typeof Canvas2DRenderer>, shapes: Shape[]) {
+  const clipStack: string[] = [];
+  const shapeMap = new Map(shapes.map((s) => [s.id, s]));
+
+  for (const shape of shapes) {
+    while (clipStack.length > 0) {
+      const clipParentId = clipStack[clipStack.length - 1]!;
+      let isDescendant = false;
+      let checkId: string | null = shape.parentId ?? null;
+      while (checkId) {
+        if (checkId === clipParentId) {
+          isDescendant = true;
+          break;
+        }
+        const parent = shapeMap.get(checkId);
+        checkId = parent?.parentId ?? null;
+      }
+      if (!isDescendant) {
+        renderer.endClip();
+        clipStack.pop();
+      } else {
+        break;
+      }
+    }
+
+    renderShape(renderer, shape);
+
+    if (shape.type === 'frame' && (shape as Shape & { clip?: boolean }).clip !== false) {
+      const frame = shape as FrameShape;
+      const hasIndependentCorners =
+        frame.cornerRadiusTL !== undefined ||
+        frame.cornerRadiusTR !== undefined ||
+        frame.cornerRadiusBL !== undefined ||
+        frame.cornerRadiusBR !== undefined;
+      const clipRadii: number | [number, number, number, number] = hasIndependentCorners
+        ? [
+            frame.cornerRadiusTL ?? frame.cornerRadius,
+            frame.cornerRadiusTR ?? frame.cornerRadius,
+            frame.cornerRadiusBR ?? frame.cornerRadius,
+            frame.cornerRadiusBL ?? frame.cornerRadius,
+          ]
+        : frame.cornerRadius;
+      renderer.beginClip(shape.x, shape.y, shape.width, shape.height, shape.rotation, clipRadii);
+      clipStack.push(shape.id);
+    }
+  }
+
+  while (clipStack.length > 0) {
+    renderer.endClip();
+    clipStack.pop();
+  }
+}
+
+async function serverExportToPng(
+  shapes: Shape[],
+  scale = 2,
+  backgroundColor?: string | null,
+): Promise<{ base64: string; mimeType: string }> {
+  if (shapes.length === 0) throw new Error('No shapes to export');
+
+  const families = collectFontFamilies(shapes);
+  if (families.length > 0) await ensureServerFontsLoaded(families);
+
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
+  for (const s of shapes) {
+    minX = Math.min(minX, s.x);
+    minY = Math.min(minY, s.y);
+    maxX = Math.max(maxX, s.x + s.width);
+    maxY = Math.max(maxY, s.y + s.height);
+  }
+
+  const width = maxX - minX;
+  const height = maxY - minY;
+  const canvas = createCanvas(Math.ceil(width * scale), Math.ceil(height * scale));
+  (canvas as unknown as Record<string, unknown>)['style'] = { width: '', height: '' };
+  const renderer = new Canvas2DRenderer(canvas as unknown as HTMLCanvasElement);
+  renderer.resize(width, height, scale);
+  renderer.clear();
+
+  if (backgroundColor) renderer.fillBackground(backgroundColor);
+
+  renderer.save();
+  renderer.applyCamera({ x: -minX, y: -minY, zoom: 1 });
+  renderWithClipping(renderer, shapes);
+  renderer.restore();
+
+  const buffer = canvas.toBuffer('image/png');
+  return { base64: Buffer.from(buffer).toString('base64'), mimeType: 'image/png' };
+}
 
 type Args = Record<string, unknown>;
 type Handler = (ydoc: Y.Doc, args: Args) => unknown | Promise<unknown>;
@@ -463,6 +627,16 @@ const handlers: Record<string, Handler> = {
       return exportToSvg(collectShapesWithDescendants(allShapes, ids));
     }
     return exportToSvg(allShapes);
+  },
+
+  async export_png(ydoc, args) {
+    const allShapes = getAllShapes(ydoc);
+    const ids = args['shapeIds'] as string[] | undefined;
+    const shapes = ids && ids.length > 0 ? collectShapesWithDescendants(allShapes, ids) : allShapes;
+    if (shapes.length === 0) return { error: 'No shapes to export' };
+    const scale = (args['scale'] as number | undefined) ?? 1;
+    const backgroundColor = args['backgroundColor'] as string | undefined;
+    return serverExportToPng(shapes, scale, backgroundColor);
   },
 
   import_svg(ydoc, args) {

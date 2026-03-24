@@ -26,6 +26,7 @@
     "@draftila/engine": "workspace:*",
     "@draftila/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.27.1",
+    "@napi-rs/canvas": "^0.1.97",
     "@prisma/client": "^6.7.0",
     "better-auth": "^1.1.14",
     "hono": "^4.6.14",

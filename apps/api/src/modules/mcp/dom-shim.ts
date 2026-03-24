@@ -1,9 +1,31 @@
 import { parseHTML } from 'linkedom';
+import { createCanvas, Path2D as NapiPath2D, Image as NapiImage } from '@napi-rs/canvas';
 
 const { document, DOMParser } = parseHTML('<!DOCTYPE html><html><body></body></html>');
 
+const origCreateElement = document.createElement.bind(document);
+(document as unknown as Document).createElement = ((tag: string) => {
+  if (tag === 'canvas') {
+    const canvas = createCanvas(1, 1);
+    (canvas as unknown as Record<string, unknown>)['style'] = { width: '', height: '' };
+    return canvas as unknown as HTMLCanvasElement;
+  }
+  return origCreateElement(tag) as unknown as HTMLCanvasElement;
+}) as typeof document.createElement;
+
+const fontsReady = Promise.resolve();
+(document as unknown as Record<string, unknown>)['fonts'] = {
+  ready: fontsReady,
+  check: () => true,
+  load: () => fontsReady,
+  addEventListener: () => {},
+  removeEventListener: () => {},
+};
+
 globalThis.document = document as unknown as typeof globalThis.document;
 globalThis.DOMParser = DOMParser as unknown as typeof globalThis.DOMParser;
+globalThis.Path2D = NapiPath2D as unknown as typeof globalThis.Path2D;
+globalThis.Image = NapiImage as unknown as typeof globalThis.Image;
 
 globalThis.CSS = {
   escape: (s: string) => s.replace(/([^\w-])/g, '\\$1'),
