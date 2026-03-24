@@ -66,7 +66,12 @@ export function getShapeCount(ydoc: Y.Doc): number {
   return getShapesMap(ydoc).size;
 }
 
-export function addShape(ydoc: Y.Doc, type: ShapeType, props: Partial<Shape> = {}): string {
+export function addShape(
+  ydoc: Y.Doc,
+  type: ShapeType,
+  props: Partial<Shape> = {},
+  childIndex?: number,
+): string {
   const id = generateId();
   const shapes = getShapesMap(ydoc);
   const zOrder = getZOrder(ydoc);
@@ -100,13 +105,37 @@ export function addShape(ydoc: Y.Doc, type: ShapeType, props: Partial<Shape> = {
       const shapeMap = getShapeSnapshotMap(ydoc);
       const orderedIds = getOrderedIds(shapeMap, zOrder.toArray());
       const childrenByParent = buildChildrenByParent(shapeMap, orderedIds);
-      const insertAfterIndex = getLastDescendantIndex(parentId, orderedIds, childrenByParent);
-      const nextOrder = [
-        ...orderedIds.slice(0, insertAfterIndex + 1),
-        id,
-        ...orderedIds.slice(insertAfterIndex + 1),
-      ];
-      replaceZOrder(zOrder, nextOrder);
+
+      if (childIndex !== undefined && childIndex >= 0) {
+        const siblings = childrenByParent.get(parentId) ?? [];
+        if (childIndex <= siblings.length && siblings.length > 0) {
+          const targetSiblingId = childIndex < siblings.length ? siblings[childIndex] : undefined;
+          let insertAt: number;
+          if (targetSiblingId) {
+            insertAt = orderedIds.indexOf(targetSiblingId);
+          } else {
+            insertAt = getLastDescendantIndex(parentId, orderedIds, childrenByParent) + 1;
+          }
+          const nextOrder = [...orderedIds.slice(0, insertAt), id, ...orderedIds.slice(insertAt)];
+          replaceZOrder(zOrder, nextOrder);
+        } else {
+          const insertAfterIndex = getLastDescendantIndex(parentId, orderedIds, childrenByParent);
+          const nextOrder = [
+            ...orderedIds.slice(0, insertAfterIndex + 1),
+            id,
+            ...orderedIds.slice(insertAfterIndex + 1),
+          ];
+          replaceZOrder(zOrder, nextOrder);
+        }
+      } else {
+        const insertAfterIndex = getLastDescendantIndex(parentId, orderedIds, childrenByParent);
+        const nextOrder = [
+          ...orderedIds.slice(0, insertAfterIndex + 1),
+          id,
+          ...orderedIds.slice(insertAfterIndex + 1),
+        ];
+        replaceZOrder(zOrder, nextOrder);
+      }
     } else {
       zOrder.push([id]);
     }

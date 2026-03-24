@@ -8,7 +8,7 @@ import {
   pasteStyle,
   hasStyleClipboardContent,
 } from '@draftila/engine/clipboard';
-import { handlePaste as handleExternalPaste } from '@draftila/engine/figma-clipboard';
+import { handlePaste as handleExternalPaste } from '@draftila/engine/shape-import';
 import { getSelectedContainer } from '@draftila/engine/scene-graph';
 import { useEditorStore } from '@/stores/editor-store';
 import { getExtensionFromMimeType, pasteImageFiles } from './clipboard-utils';

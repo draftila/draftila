@@ -3,6 +3,28 @@ import type { Renderer, RenderStyle, RenderTransform } from './renderer/types';
 import { simpleStyle } from './renderer/types';
 import getStroke from 'perfect-freehand';
 
+export function getCornerRadii(shape: {
+  cornerRadius: number;
+  cornerRadiusTL?: number;
+  cornerRadiusTR?: number;
+  cornerRadiusBL?: number;
+  cornerRadiusBR?: number;
+}): number | [number, number, number, number] {
+  const hasIndependentCorners =
+    shape.cornerRadiusTL !== undefined ||
+    shape.cornerRadiusTR !== undefined ||
+    shape.cornerRadiusBL !== undefined ||
+    shape.cornerRadiusBR !== undefined;
+  return hasIndependentCorners
+    ? [
+        shape.cornerRadiusTL ?? shape.cornerRadius,
+        shape.cornerRadiusTR ?? shape.cornerRadius,
+        shape.cornerRadiusBR ?? shape.cornerRadius,
+        shape.cornerRadiusBL ?? shape.cornerRadius,
+      ]
+    : shape.cornerRadius;
+}
+
 function svgToDataUri(svgContent: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgContent)}`;
 }
@@ -190,20 +212,7 @@ export function renderShape(renderer: Renderer, shape: Shape) {
         renderer.drawSvgPath(getTransform(shape), shape.svgPathData, getStyle(shape));
         break;
       }
-      const hasIndependentCorners =
-        shape.cornerRadiusTL !== undefined ||
-        shape.cornerRadiusTR !== undefined ||
-        shape.cornerRadiusBL !== undefined ||
-        shape.cornerRadiusBR !== undefined;
-      const radii: number | [number, number, number, number] = hasIndependentCorners
-        ? [
-            shape.cornerRadiusTL ?? shape.cornerRadius,
-            shape.cornerRadiusTR ?? shape.cornerRadius,
-            shape.cornerRadiusBR ?? shape.cornerRadius,
-            shape.cornerRadiusBL ?? shape.cornerRadius,
-          ]
-        : shape.cornerRadius;
-      renderer.drawRect(getTransform(shape), getStyle(shape), radii);
+      renderer.drawRect(getTransform(shape), getStyle(shape), getCornerRadii(shape));
       break;
     }
     case 'ellipse': {
@@ -215,7 +224,7 @@ export function renderShape(renderer: Renderer, shape: Shape) {
       break;
     }
     case 'frame': {
-      renderer.drawRect(getTransform(shape), getStyle(shape), 0);
+      renderer.drawRect(getTransform(shape), getStyle(shape), getCornerRadii(shape));
       const guides = shape.guides ?? [];
       if (guides.length > 0) {
         renderer.drawLayoutGuides(getTransform(shape), guides);

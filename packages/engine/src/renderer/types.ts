@@ -66,7 +66,7 @@ export function solidStroke(color: string, width = 1, opacity = 1): Stroke {
     visible: true,
     cap: 'butt',
     join: 'miter',
-    align: 'center',
+    align: 'inside',
     dashPattern: 'solid',
     dashOffset: 0,
     miterLimit: 4,
@@ -124,7 +124,14 @@ export interface Renderer {
 
   drawImage(transform: RenderTransform, options: ImageRenderOptions): void;
 
-  beginClip(x: number, y: number, width: number, height: number, rotation?: number): void;
+  beginClip(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    rotation?: number,
+    cornerRadius?: number | [number, number, number, number],
+  ): void;
 
   endClip(): void;
 

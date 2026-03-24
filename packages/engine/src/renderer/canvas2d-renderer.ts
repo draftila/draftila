@@ -15,6 +15,7 @@ import type {
   RenderTransform,
   TextRenderOptions,
 } from './types';
+import { resolveCanvasFontFamily } from '../font-manager';
 
 const SELECTION_COLOR = '#0D99FF';
 const SELECTION_WIDTH = 1.5;
@@ -223,6 +224,13 @@ export class Canvas2DRenderer implements Renderer {
       ? cornerRadius.some((r) => r > 0)
       : cornerRadius > 0;
 
+    const shapePath = new Path2D();
+    if (hasRadius) {
+      shapePath.roundRect(0, 0, transform.width, transform.height, cornerRadius);
+    } else {
+      shapePath.rect(0, 0, transform.width, transform.height);
+    }
+
     const buildClip = (c: CanvasRenderingContext2D) => {
       c.beginPath();
       if (hasRadius) {
@@ -236,7 +244,7 @@ export class Canvas2DRenderer implements Renderer {
     this.applyLayerBlur(style);
 
     buildClip(ctx);
-    this.applyFillStroke(style, transform.width, transform.height);
+    this.applyFillStroke(style, transform.width, transform.height, shapePath);
     ctx.closePath();
 
     this.clearFilter();
@@ -255,6 +263,9 @@ export class Canvas2DRenderer implements Renderer {
     const rx = transform.width / 2;
     const ry = transform.height / 2;
 
+    const shapePath = new Path2D();
+    shapePath.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+
     const buildClip = (c: CanvasRenderingContext2D) => {
       c.beginPath();
       c.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
@@ -264,7 +275,7 @@ export class Canvas2DRenderer implements Renderer {
     this.applyLayerBlur(style);
 
     buildClip(ctx);
-    this.applyFillStroke(style, transform.width, transform.height);
+    this.applyFillStroke(style, transform.width, transform.height, shapePath);
     ctx.closePath();
 
     this.clearFilter();
@@ -342,18 +353,7 @@ export class Canvas2DRenderer implements Renderer {
       this.clearShadow();
     }
 
-    for (const stroke of style.strokes) {
-      if (!stroke.visible || stroke.width <= 0) continue;
-      ctx.strokeStyle = colorWithOpacity(stroke.color, stroke.opacity);
-      ctx.lineWidth = stroke.width;
-      ctx.lineCap = stroke.cap ?? 'butt';
-      ctx.lineJoin = stroke.join ?? 'miter';
-      ctx.miterLimit = stroke.miterLimit ?? 4;
-      ctx.setLineDash(resolveDashArray(stroke));
-      ctx.lineDashOffset = stroke.dashOffset ?? 0;
-      ctx.stroke(path);
-      ctx.setLineDash([]);
-    }
+    this.applyAlignedStrokes(style.strokes, path, closed);
 
     const innerShadows = style.shadows.filter((s) => s.type === 'inner' && s.visible !== false);
     if (innerShadows.length > 0 && closed) {
@@ -411,18 +411,7 @@ export class Canvas2DRenderer implements Renderer {
       this.clearShadow();
     }
 
-    for (const stroke of style.strokes) {
-      if (!stroke.visible || stroke.width <= 0) continue;
-      ctx.strokeStyle = colorWithOpacity(stroke.color, stroke.opacity);
-      ctx.lineWidth = stroke.width;
-      ctx.lineCap = stroke.cap ?? 'butt';
-      ctx.lineJoin = stroke.join ?? 'miter';
-      ctx.miterLimit = stroke.miterLimit ?? 4;
-      ctx.setLineDash(resolveDashArray(stroke));
-      ctx.lineDashOffset = stroke.dashOffset ?? 0;
-      ctx.stroke(path);
-      ctx.setLineDash([]);
-    }
+    this.applyAlignedStrokes(style.strokes, path);
 
     const innerShadows = style.shadows.filter((s) => s.type === 'inner' && s.visible !== false);
     if (innerShadows.length > 0) {
@@ -469,8 +458,8 @@ export class Canvas2DRenderer implements Renderer {
     const { ctx } = this;
 
     const fontStyle = options.fontStyle === 'italic' ? 'italic' : '';
-    ctx.font =
-      `${fontStyle} ${options.fontWeight} ${options.fontSize}px ${options.fontFamily}`.trim();
+    const resolvedFamily = resolveCanvasFontFamily(options.fontFamily);
+    ctx.font = `${fontStyle} ${options.fontWeight} ${options.fontSize}px ${resolvedFamily}`.trim();
     ctx.textAlign = options.textAlign;
     ctx.textBaseline = 'middle';
 
@@ -540,7 +529,7 @@ export class Canvas2DRenderer implements Renderer {
     const baseFontStyle = options.fontStyle === 'italic' ? 'italic' : '';
     const baseFontWeight = options.fontWeight;
     const baseFontSize = options.fontSize;
-    const baseFontFamily = options.fontFamily;
+    const baseFontFamily = resolveCanvasFontFamily(options.fontFamily);
     const baseLetterSpacing = options.letterSpacing;
 
     const visibleFill = options.fills.find((f) => f.visible);
@@ -591,7 +580,7 @@ export class Canvas2DRenderer implements Renderer {
           char,
           color: seg.color ?? baseColor,
           fontSize: seg.fontSize ?? baseFontSize,
-          fontFamily: seg.fontFamily ?? baseFontFamily,
+          fontFamily: seg.fontFamily ? resolveCanvasFontFamily(seg.fontFamily) : baseFontFamily,
           fontWeight: seg.fontWeight ?? baseFontWeight,
           fontStyle: seg.fontStyle === 'italic' ? 'italic' : baseFontStyle,
           letterSpacing: seg.letterSpacing ?? baseLetterSpacing,
@@ -755,7 +744,14 @@ export class Canvas2DRenderer implements Renderer {
     ctx.restore();
   }
 
-  beginClip(x: number, y: number, width: number, height: number, rotation = 0) {
+  beginClip(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    rotation = 0,
+    cornerRadius: number | [number, number, number, number] = 0,
+  ) {
     const { ctx } = this;
     ctx.save();
     if (rotation !== 0) {
@@ -766,7 +762,14 @@ export class Canvas2DRenderer implements Renderer {
       ctx.translate(-cx, -cy);
     }
     ctx.beginPath();
-    ctx.rect(x, y, width, height);
+    const hasRadius = Array.isArray(cornerRadius)
+      ? cornerRadius.some((r) => r > 0)
+      : cornerRadius > 0;
+    if (hasRadius) {
+      ctx.roundRect(x, y, width, height, cornerRadius);
+    } else {
+      ctx.rect(x, y, width, height);
+    }
     ctx.clip();
   }
 
@@ -1196,7 +1199,7 @@ export class Canvas2DRenderer implements Renderer {
   ): { width: number; height: number } {
     const { ctx } = this;
     ctx.save();
-    ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+    ctx.font = `${fontWeight} ${fontSize}px ${resolveCanvasFontFamily(fontFamily)}`;
 
     const lines = content.split('\n');
     let maxWidth = 0;
@@ -1220,6 +1223,84 @@ export class Canvas2DRenderer implements Renderer {
     const metrics = ctx.measureText(name);
     ctx.restore();
     return { width: metrics.width, height: fontSize };
+  }
+
+  drawShimmerOverlay(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    rotation: number,
+    cornerRadius: number | [number, number, number, number],
+    shimmerPhase: number,
+    isLightBackground: boolean = false,
+  ) {
+    const { ctx } = this;
+    ctx.save();
+
+    if (rotation !== 0) {
+      const cx = x + width / 2;
+      const cy = y + height / 2;
+      ctx.translate(cx, cy);
+      ctx.rotate((rotation * Math.PI) / 180);
+      ctx.translate(-width / 2, -height / 2);
+    } else {
+      ctx.translate(x, y);
+    }
+
+    ctx.beginPath();
+    const hasRadius = Array.isArray(cornerRadius)
+      ? cornerRadius.some((r) => r > 0)
+      : cornerRadius > 0;
+    if (hasRadius) {
+      ctx.roundRect(0, 0, width, height, cornerRadius);
+    } else {
+      ctx.rect(0, 0, width, height);
+    }
+    ctx.clip();
+
+    ctx.fillStyle = isLightBackground ? 'rgba(60, 60, 80, 0.04)' : 'rgba(180, 190, 210, 0.06)';
+    ctx.fillRect(0, 0, width, height);
+
+    const diagonal = Math.sqrt(width * width + height * height);
+    const bandWidth = diagonal * 0.4;
+    const totalTravel = diagonal + bandWidth;
+    const offset = shimmerPhase * totalTravel - bandWidth;
+
+    const angle = Math.atan2(height, width);
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+
+    const gx0 = offset * cos;
+    const gy0 = offset * sin;
+    const gx1 = (offset + bandWidth) * cos;
+    const gy1 = (offset + bandWidth) * sin;
+
+    const shimmerColor = isLightBackground ? '0, 0, 0' : '255, 255, 255';
+    const gradient = ctx.createLinearGradient(gx0, gy0, gx1, gy1);
+    gradient.addColorStop(0, `rgba(${shimmerColor}, 0)`);
+    gradient.addColorStop(0.3, `rgba(${shimmerColor}, 0.06)`);
+    gradient.addColorStop(0.5, `rgba(${shimmerColor}, 0.1)`);
+    gradient.addColorStop(0.7, `rgba(${shimmerColor}, 0.06)`);
+    gradient.addColorStop(1, `rgba(${shimmerColor}, 0)`);
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.strokeStyle = 'rgba(99, 102, 241, 0.25)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 4]);
+    ctx.lineDashOffset = -shimmerPhase * 40;
+    ctx.beginPath();
+    if (hasRadius) {
+      ctx.roundRect(0, 0, width, height, cornerRadius);
+    } else {
+      ctx.rect(0, 0, width, height);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.restore();
   }
 
   private applyTransform(transform: RenderTransform) {
@@ -1359,7 +1440,43 @@ export class Canvas2DRenderer implements Renderer {
     this.ctx.filter = 'none';
   }
 
-  private applyFillStroke(style: RenderStyle, width = 0, height = 0) {
+  private applyAlignedStrokes(strokes: Stroke[], path: Path2D, closed = true) {
+    const { ctx } = this;
+    for (const stroke of strokes) {
+      if (!stroke.visible || stroke.width <= 0) continue;
+      ctx.strokeStyle = colorWithOpacity(stroke.color, stroke.opacity);
+      ctx.lineCap = stroke.cap ?? 'butt';
+      ctx.lineJoin = stroke.join ?? 'miter';
+      ctx.miterLimit = stroke.miterLimit ?? 4;
+      ctx.setLineDash(resolveDashArray(stroke));
+      ctx.lineDashOffset = stroke.dashOffset ?? 0;
+
+      const align = stroke.align ?? 'inside';
+
+      if ((align === 'inside' || (align === 'center' && closed)) && closed) {
+        ctx.save();
+        ctx.clip(path);
+        ctx.lineWidth = stroke.width * 2;
+        ctx.stroke(path);
+        ctx.restore();
+      } else if (align === 'outside' && closed) {
+        ctx.save();
+        ctx.lineWidth = stroke.width * 2;
+        const inversePath = new Path2D();
+        inversePath.rect(-1e5, -1e5, 2e5, 2e5);
+        inversePath.addPath(path);
+        ctx.clip(inversePath, 'evenodd');
+        ctx.stroke(path);
+        ctx.restore();
+      } else {
+        ctx.lineWidth = stroke.width;
+        ctx.stroke(path);
+      }
+      ctx.setLineDash([]);
+    }
+  }
+
+  private applyFillStroke(style: RenderStyle, width = 0, height = 0, shapePath?: Path2D) {
     const { ctx } = this;
     const dropShadows = style.shadows.filter((s) => s.type === 'drop' && s.visible !== false);
 
@@ -1390,16 +1507,34 @@ export class Canvas2DRenderer implements Renderer {
     for (const stroke of style.strokes) {
       if (!stroke.visible || stroke.width <= 0) continue;
       ctx.strokeStyle = colorWithOpacity(stroke.color, stroke.opacity);
-      ctx.lineWidth = stroke.width;
       ctx.lineCap = stroke.cap ?? 'butt';
       ctx.lineJoin = stroke.join ?? 'miter';
       ctx.miterLimit = stroke.miterLimit ?? 4;
       ctx.setLineDash(resolveDashArray(stroke));
       ctx.lineDashOffset = stroke.dashOffset ?? 0;
 
+      const align = stroke.align ?? 'inside';
+
       if (stroke.sides && width > 0 && height > 0) {
+        ctx.lineWidth = stroke.width;
         this.drawSidedStroke(stroke.sides, width, height);
+      } else if ((align === 'inside' || align === 'center') && shapePath) {
+        ctx.save();
+        ctx.clip(shapePath);
+        ctx.lineWidth = stroke.width * 2;
+        ctx.stroke();
+        ctx.restore();
+      } else if (align === 'outside' && shapePath) {
+        ctx.save();
+        ctx.lineWidth = stroke.width * 2;
+        const inversePath = new Path2D();
+        inversePath.rect(-1e5, -1e5, 2e5, 2e5);
+        inversePath.addPath(shapePath);
+        ctx.clip(inversePath, 'evenodd');
+        ctx.stroke();
+        ctx.restore();
       } else {
+        ctx.lineWidth = stroke.width;
         ctx.stroke();
       }
       ctx.setLineDash([]);

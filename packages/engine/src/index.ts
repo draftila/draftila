@@ -45,6 +45,7 @@ export {
   getChildShapes,
   applyAutoLayout,
   applyAutoLayoutForAncestors,
+  applyBooleanOperation,
 } from './scene-graph';
 
 export {
@@ -81,6 +82,7 @@ export {
   generateStarPoints,
   renderShape,
   renderSelectionForShape,
+  getCornerRadii,
 } from './shape-renderer';
 
 export { hitTestPoint, hitTestRect } from './hit-test';
@@ -106,6 +108,7 @@ export {
   pasteShapes,
   cutShapes,
   duplicateShapes,
+  duplicateShapesInPlace,
   copyStyle,
   pasteStyle,
   hasClipboardContent,
@@ -119,7 +122,7 @@ export {
   detectPasteSource,
   handlePaste,
   shapesToSvg,
-} from './figma-clipboard';
+} from './shape-import';
 
 export {
   type BooleanOperation,
@@ -201,6 +204,7 @@ export {
 } from './guides';
 
 export {
+  renderWithClipping,
   exportToPng,
   exportToSvg,
   downloadBlob,
@@ -250,9 +254,17 @@ export { StarTool } from './tools/star-tool';
 export {
   ensureFontsLoaded,
   onFontsLoaded,
-  isFontLoaded,
   collectFontFamilies,
+  resolveCanvasFontFamily,
 } from './font-manager';
+
+export {
+  type GoogleFont,
+  ALL_FONTS,
+  loadFontPreviews,
+  isFontPreviewReady,
+  subscribePreviewLoads,
+} from './google-fonts';
 
 export {
   rectToPath,
@@ -274,4 +286,8 @@ export {
   deleteNodeFromSubpath,
 } from './vector-nodes';
 
-export { computeTextAutoResizeDimensions, applyTextAutoResize } from './text-measure';
+export {
+  computeTextAutoResizeDimensions,
+  applyTextAutoResize,
+  setTextMeasureEnabled,
+} from './text-measure';

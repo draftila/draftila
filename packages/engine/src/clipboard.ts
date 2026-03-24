@@ -10,7 +10,7 @@ import {
   getTopLevelSelectedShapeIds,
   updateShape,
 } from './scene-graph';
-import { shapesToSvg } from './figma-clipboard';
+import { shapesToSvg } from './shape-import';
 
 const DUPLICATE_OFFSET = 20;
 

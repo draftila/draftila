@@ -17,8 +17,14 @@ interface TextMeasureShape {
 }
 
 let _measureCtx: CanvasRenderingContext2D | null = null;
+let _textMeasureEnabled = true;
+
+export function setTextMeasureEnabled(enabled: boolean) {
+  _textMeasureEnabled = enabled;
+}
 
 function getMeasureCtx(): CanvasRenderingContext2D | null {
+  if (!_textMeasureEnabled) return null;
   if (!_measureCtx) {
     _measureCtx = document.createElement('canvas').getContext('2d');
   }

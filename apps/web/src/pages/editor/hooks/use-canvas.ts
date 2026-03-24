@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type * as Y from 'yjs';
-import type { Shape } from '@draftila/shared';
+import type { FrameShape, Shape } from '@draftila/shared';
 import { Canvas2DRenderer } from '@draftila/engine/renderer/canvas2d';
 import { getAllShapes, observeShapes } from '@draftila/engine/scene-graph';
 import {
@@ -15,6 +15,7 @@ import {
   renderSelectionForShape,
   renderHoverForShape,
   computeArrowheadGeometry,
+  getCornerRadii,
 } from '@draftila/engine/shape-renderer';
 import { simpleStyle } from '@draftila/engine/renderer';
 import {
@@ -261,12 +262,15 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
         displayShape.type === 'frame' &&
         (displayShape as Shape & { clip?: boolean }).clip !== false
       ) {
+        const frame = displayShape as FrameShape;
+        const clipRadii = getCornerRadii(frame);
         renderer.beginClip(
           displayShape.x,
           displayShape.y,
           displayShape.width,
           displayShape.height,
           displayShape.rotation,
+          clipRadii,
         );
         clipStack.push(displayShape.id);
       }
@@ -275,6 +279,44 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
     while (clipStack.length > 0) {
       renderer.endClip();
       clipStack.pop();
+    }
+
+    const { aiActiveFrameIds } = useEditorStore.getState();
+    if (aiActiveFrameIds.size > 0) {
+      const now = performance.now();
+      const shimmerPeriod = 1800;
+      const phase = (now % shimmerPeriod) / shimmerPeriod;
+
+      for (const frameId of aiActiveFrameIds) {
+        const shape = shapeMap.get(frameId);
+        if (!shape || !isShapeVisible(shape)) continue;
+
+        const cornerRadius = shape.type === 'frame' ? getCornerRadii(shape as FrameShape) : 0;
+
+        let isLightBackground = true;
+        if ('fills' in shape && Array.isArray(shape.fills)) {
+          const visibleFill = shape.fills.find((f) => f.visible);
+          if (visibleFill) {
+            const hex = visibleFill.color.replace('#', '');
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
+            const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+            isLightBackground = luminance > 0.5;
+          }
+        }
+
+        renderer.drawShimmerOverlay(
+          shape.x,
+          shape.y,
+          shape.width,
+          shape.height,
+          shape.rotation,
+          cornerRadius,
+          phase,
+          isLightBackground,
+        );
+      }
     }
 
     if (camera.zoom >= 8) {

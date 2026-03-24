@@ -1,8 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
-import { initDocument } from '@draftila/engine/scene-graph';
+import {
+  initDocument,
+  getAllShapes,
+  updateShape,
+  applyAutoLayoutForAncestors,
+} from '@draftila/engine/scene-graph';
 import { ensureDefaultPage } from '@draftila/engine';
+import { applyTextAutoResize } from '@draftila/engine/text-measure';
+import { ensureFontsLoadedAsync, collectFontFamilies } from '@draftila/engine/font-manager';
 
 const SYNC_DEBOUNCE_MS = 100;
 
@@ -87,6 +94,31 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
     providerRef.current = wsProvider;
 
     let remoteChangeTimer: ReturnType<typeof setTimeout> | null = null;
+    let textReconcileTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const reconcileTextShapes = () => {
+      const shapes = getAllShapes(ydoc);
+      const fonts = collectFontFamilies(shapes);
+      const apply = () => {
+        const changedIds: string[] = [];
+        for (const shape of getAllShapes(ydoc)) {
+          if (shape.type !== 'text') continue;
+          const patch = applyTextAutoResize(shape);
+          if (patch) {
+            updateShape(ydoc, shape.id, patch);
+            changedIds.push(shape.id);
+          }
+        }
+        for (const id of changedIds) {
+          applyAutoLayoutForAncestors(ydoc, id);
+        }
+      };
+      if (fonts.length > 0) {
+        ensureFontsLoadedAsync(fonts).then(apply);
+      } else {
+        apply();
+      }
+    };
 
     const handleRemoteUpdate = (_update: Uint8Array, origin: unknown) => {
       if (origin !== wsProvider) return;
@@ -98,6 +130,9 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
         setApplyingRemoteChanges(false);
         remoteChangeTimer = null;
       }, 1200);
+
+      if (textReconcileTimer) clearTimeout(textReconcileTimer);
+      textReconcileTimer = setTimeout(reconcileTextShapes, 200);
     };
 
     ydoc.on('update', handleRemoteUpdate);
@@ -112,6 +147,12 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
       setSynced(isSynced);
       if (isSynced) {
         ensureDefaultPage(ydoc);
+        const fonts = collectFontFamilies(getAllShapes(ydoc));
+        if (fonts.length > 0) {
+          ensureFontsLoadedAsync(fonts).then(reconcileTextShapes);
+        } else {
+          reconcileTextShapes();
+        }
       }
     });
 
@@ -120,9 +161,8 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
       wsProvider.disconnect();
       wsProvider.destroy();
       ydoc.off('update', handleRemoteUpdate);
-      if (remoteChangeTimer) {
-        clearTimeout(remoteChangeTimer);
-      }
+      if (remoteChangeTimer) clearTimeout(remoteChangeTimer);
+      if (textReconcileTimer) clearTimeout(textReconcileTimer);
       ydoc.destroy();
       providerRef.current = null;
       setConnected(false);

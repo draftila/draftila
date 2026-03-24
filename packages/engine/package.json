@@ -17,7 +17,7 @@
     "./snap": "./src/snap.ts",
     "./history": "./src/history.ts",
     "./clipboard": "./src/clipboard.ts",
-    "./figma-clipboard": "./src/figma-clipboard.ts",
+    "./shape-import": "./src/shape-import.ts",
     "./boolean-ops": "./src/boolean-ops.ts",
     "./image-manager": "./src/image-manager.ts",
     "./auto-layout": "./src/auto-layout.ts",
@@ -39,6 +39,7 @@
     "./tools/arrow-tool": "./src/tools/arrow-tool.ts",
     "./tools/polygon-tool": "./src/tools/polygon-tool.ts",
     "./tools/star-tool": "./src/tools/star-tool.ts",
+    "./rpc-handlers": "./src/rpc-handlers.ts",
     "./text-measure": "./src/text-measure.ts",
     "./interchange": "./src/interchange/index.ts"
   },

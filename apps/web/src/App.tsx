@@ -13,6 +13,7 @@ import { ProjectsPage } from './pages/projects/index';
 import { ProjectSettingsPage } from './pages/projects/settings';
 import { EditorPage } from './pages/editor/index';
 import { AdminUsersPage } from './pages/admin/index';
+import { ApiKeysPage } from './pages/settings/api-keys';
 import { LoginPage } from './pages/auth/login';
 import { NotFoundPage } from './pages/not-found';
 
@@ -31,6 +32,7 @@ export function App() {
                 <Route path="/" element={<DraftsPage />} />
                 <Route path="/projects" element={<ProjectsPage />} />
                 <Route path="/projects/:projectId/settings" element={<ProjectSettingsPage />} />
+                <Route path="/settings/api-keys" element={<ApiKeysPage />} />
               </Route>
               <Route element={<EditorLayout />}>
                 <Route path="/drafts/:draftId" element={<EditorPage />} />

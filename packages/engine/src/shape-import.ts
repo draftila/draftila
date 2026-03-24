@@ -1,6 +1,6 @@
 import type * as Y from 'yjs';
 import type { Point, Shape } from '@draftila/shared';
-import { addShape } from './scene-graph';
+import { addShape, getShape } from './scene-graph';
 import {
   initializeDefaultAdapters,
   detectImportAdapter,
@@ -54,6 +54,16 @@ function addInterchangeDocToYdoc(
   }));
   const { offsetX, offsetY } = computeShapesOffset(boundsItems, options?.cursorPosition);
 
+  let parentOffsetX = 0;
+  let parentOffsetY = 0;
+  if (targetParentId) {
+    const parentShape = getShape(ydoc, targetParentId);
+    if (parentShape) {
+      parentOffsetX = parentShape.x;
+      parentOffsetY = parentShape.y;
+    }
+  }
+
   const indexToId = new Map<number, string>();
   const ids: string[] = [];
 
@@ -66,8 +76,8 @@ function addInterchangeDocToYdoc(
 
     const id = addShape(ydoc, item.type, {
       ...item.props,
-      x: ((item.props['x'] as number) ?? 0) + offsetX,
-      y: ((item.props['y'] as number) ?? 0) + offsetY,
+      x: ((item.props['x'] as number) ?? 0) + offsetX + parentOffsetX,
+      y: ((item.props['y'] as number) ?? 0) + offsetY + parentOffsetY,
       parentId,
     });
     indexToId.set(i, id);

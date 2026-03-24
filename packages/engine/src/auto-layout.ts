@@ -31,7 +31,7 @@ export function getAutoLayoutConfig(frame: FrameShape) {
     paddingBottom: frame.paddingBottom ?? 0,
     paddingLeft: frame.paddingLeft ?? 0,
     alignItems: (frame.layoutAlign ?? 'start') as 'start' | 'center' | 'end' | 'stretch',
-    justifyContent: (frame.layoutJustify ?? 'start') as
+    justifyContent: (frame.layoutJustify ?? 'start').replace('-', '_') as
       | 'start'
       | 'center'
       | 'end'
