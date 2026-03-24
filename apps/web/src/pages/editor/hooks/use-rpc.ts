@@ -7,7 +7,7 @@ import { getAllShapes } from '@draftila/engine/scene-graph';
 import { useEditorStore } from '@/stores/editor-store';
 
 const MESSAGE_RPC = 2;
-const SHIMMER_IDLE_MS = 10_000;
+const SHIMMER_IDLE_MS = 15_000;
 
 const READ_ONLY_TOOLS = new Set([
   'get_shape',

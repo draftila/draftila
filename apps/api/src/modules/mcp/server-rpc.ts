@@ -117,7 +117,8 @@ const handlers: Record<string, Handler> = {
     let rawProps = (args['props'] ?? {}) as Record<string, unknown>;
     if (type === 'text') rawProps = applyTextDefaults(rawProps);
     const props = toAbsoluteProps(ydoc, rawProps);
-    const id = addShape(ydoc, type, props as Partial<Shape>);
+    const idx = args['childIndex'] as number | undefined;
+    const id = addShape(ydoc, type, props as Partial<Shape>, idx);
     applyAutoLayoutForAncestors(ydoc, id);
     return { shapeId: id };
   },
@@ -185,9 +186,34 @@ const handlers: Record<string, Handler> = {
 
   list_shapes(ydoc, args) {
     const parentId = args['parentId'] as string | undefined;
+    const recursive = args['recursive'] as boolean | undefined;
     const shapes = parentId ? getChildShapes(ydoc, parentId) : getAllShapes(ydoc);
     const relativeShapes = shapes.map((s) => toRelativeShape(ydoc, s));
-    return { shapes: relativeShapes, count: relativeShapes.length };
+
+    if (!recursive) {
+      return { shapes: relativeShapes, count: relativeShapes.length };
+    }
+
+    const allShapes = getAllShapes(ydoc).map((s) => toRelativeShape(ydoc, s));
+    const byParent = new Map<string | null, Shape[]>();
+    for (const s of allShapes) {
+      const pid = s.parentId ?? null;
+      const list = byParent.get(pid);
+      if (list) list.push(s);
+      else byParent.set(pid, [s]);
+    }
+
+    type ShapeNode = Shape & { children?: ShapeNode[] };
+    const buildTree = (pid: string | null): ShapeNode[] => {
+      const children = byParent.get(pid) ?? [];
+      return children.map((s) => {
+        const kids = buildTree(s.id);
+        return kids.length > 0 ? { ...s, children: kids } : { ...s };
+      });
+    };
+
+    const roots = parentId ? buildTree(parentId) : buildTree(null);
+    return { shapes: roots, count: roots.length };
   },
 
   duplicate_shapes(ydoc, args) {
@@ -196,21 +222,30 @@ const handlers: Record<string, Handler> = {
   },
 
   batch_create_shapes(ydoc, args) {
-    const shapes = args['shapes'] as Array<{ type: string; props?: Record<string, unknown> }>;
+    const shapes = args['shapes'] as Array<{
+      type: string;
+      props?: Record<string, unknown>;
+      childIndex?: number;
+    }>;
     const ids: string[] = [];
     const autoLayoutParents = new Set<string>();
 
     for (const shape of shapes) {
       let props = { ...(shape.props ?? {}) } as Record<string, unknown>;
       if (typeof props['parentId'] === 'string' && props['parentId'].startsWith('$')) {
-        const idx = parseInt(props['parentId'].slice(1), 10);
-        if (idx >= 0 && idx < ids.length) {
-          props['parentId'] = ids[idx];
+        const refIdx = parseInt(props['parentId'].slice(1), 10);
+        if (refIdx >= 0 && refIdx < ids.length) {
+          props['parentId'] = ids[refIdx];
         }
       }
       if (shape.type === 'text') props = applyTextDefaults(props);
       const absProps = toAbsoluteProps(ydoc, props);
-      const id = addShape(ydoc, shape.type as ShapeType, absProps as Partial<Shape>);
+      const id = addShape(
+        ydoc,
+        shape.type as ShapeType,
+        absProps as Partial<Shape>,
+        shape.childIndex,
+      );
       ids.push(id);
       if (typeof absProps['parentId'] === 'string') {
         const parentShape = getShape(ydoc, absProps['parentId']);

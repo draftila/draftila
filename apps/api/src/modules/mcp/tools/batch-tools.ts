@@ -27,6 +27,12 @@ export function registerBatchTools(server: McpServer, getUserId: () => string) {
                 'svg',
               ])
               .describe('Shape type'),
+            childIndex: z
+              .number()
+              .optional()
+              .describe(
+                'Insert position among siblings (0 = first child). Omit to append as last child.',
+              ),
             props: z
               .record(z.unknown())
               .optional()
