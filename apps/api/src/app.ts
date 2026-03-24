@@ -53,11 +53,12 @@ app.use(
 );
 
 app.use('/api/*', async (c, next) => {
-  if (
-    c.req.path.startsWith('/api/auth') ||
-    c.req.path.startsWith('/api/health') ||
-    c.req.path.startsWith('/api/mcp')
-  ) {
+  if (c.req.path.startsWith('/api/auth') || c.req.path.startsWith('/api/health')) {
+    return next();
+  }
+  if (c.req.path.startsWith('/api/mcp')) {
+    const blocked = checkRateLimit(c, 'mcp', { windowMs: 60_000, max: 60 });
+    if (blocked) return blocked;
     return next();
   }
   const blocked = checkRateLimit(c, 'api-general', { windowMs: 60_000, max: 120 });

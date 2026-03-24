@@ -5,10 +5,15 @@ export async function cleanDatabase() {
   await db.draft.deleteMany();
   await db.projectMember.deleteMany();
   await db.project.deleteMany();
+  await db.apiKey.deleteMany();
   await db.session.deleteMany();
   await db.account.deleteMany();
   await db.verification.deleteMany();
   await db.user.deleteMany();
+}
+
+export async function cleanApiKeys() {
+  await db.apiKey.deleteMany();
 }
 
 export async function cleanProjects() {

@@ -82,6 +82,7 @@ export {
   generateStarPoints,
   renderShape,
   renderSelectionForShape,
+  getCornerRadii,
 } from './shape-renderer';
 
 export { hitTestPoint, hitTestRect } from './hit-test';
@@ -203,6 +204,7 @@ export {
 } from './guides';
 
 export {
+  renderWithClipping,
   exportToPng,
   exportToSvg,
   downloadBlob,

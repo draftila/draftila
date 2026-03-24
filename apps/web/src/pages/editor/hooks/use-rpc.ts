@@ -9,6 +9,10 @@ import { useEditorStore } from '@/stores/editor-store';
 const MESSAGE_RPC = 2;
 const SHIMMER_IDLE_MS = 15_000;
 
+interface WebsocketProviderWithWs extends WebsocketProvider {
+  ws: WebSocket | null;
+}
+
 const READ_ONLY_TOOLS = new Set([
   'get_shape',
   'list_shapes',
@@ -102,7 +106,7 @@ export function useRpc({ provider, ydoc, enabled }: UseRpcOptions) {
       const isMutating = !READ_ONLY_TOOLS.has(tool);
 
       const sendResponse = (result: unknown, error?: string) => {
-        const currentWs = (provider as unknown as { ws: WebSocket | null }).ws;
+        const currentWs = (provider as WebsocketProviderWithWs).ws;
         if (!currentWs || currentWs.readyState !== WebSocket.OPEN) return;
 
         const responsePayload = error
@@ -145,7 +149,7 @@ export function useRpc({ provider, ydoc, enabled }: UseRpcOptions) {
     };
 
     const setupListener = () => {
-      const currentWs = (provider as unknown as { ws: WebSocket | null }).ws;
+      const currentWs = (provider as WebsocketProviderWithWs).ws;
       if (currentWs) {
         currentWs.addEventListener('message', handleMessage);
       }
@@ -163,7 +167,7 @@ export function useRpc({ provider, ydoc, enabled }: UseRpcOptions) {
     return () => {
       provider.off('status', onStatus);
       ydoc.off('update', handleRemoteUpdate);
-      const currentWs = (provider as unknown as { ws: WebSocket | null }).ws;
+      const currentWs = (provider as WebsocketProviderWithWs).ws;
       if (currentWs) {
         currentWs.removeEventListener('message', handleMessage);
       }

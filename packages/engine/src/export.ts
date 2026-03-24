@@ -1,12 +1,12 @@
 import type { FrameShape, Shape } from '@draftila/shared';
 import { Canvas2DRenderer } from './renderer/canvas2d-renderer';
 import type { Renderer } from './renderer/types';
-import { renderShape } from './shape-renderer';
+import { renderShape, getCornerRadii } from './shape-renderer';
 import { shapesToInterchange } from './interchange/converter';
 import { generateSvg } from './interchange/svg/svg-generator';
 import { collectFontFamilies, ensureFontsLoadedAsync } from './font-manager';
 
-function renderWithClipping(renderer: Renderer, shapes: Shape[]) {
+export function renderWithClipping(renderer: Renderer, shapes: Shape[]) {
   const clipStack: string[] = [];
   const shapeMap = new Map(shapes.map((s) => [s.id, s]));
 
@@ -35,19 +35,7 @@ function renderWithClipping(renderer: Renderer, shapes: Shape[]) {
 
     if (shape.type === 'frame' && (shape as Shape & { clip?: boolean }).clip !== false) {
       const frame = shape as FrameShape;
-      const hasIndependentCorners =
-        frame.cornerRadiusTL !== undefined ||
-        frame.cornerRadiusTR !== undefined ||
-        frame.cornerRadiusBL !== undefined ||
-        frame.cornerRadiusBR !== undefined;
-      const clipRadii: number | [number, number, number, number] = hasIndependentCorners
-        ? [
-            frame.cornerRadiusTL ?? frame.cornerRadius,
-            frame.cornerRadiusTR ?? frame.cornerRadius,
-            frame.cornerRadiusBR ?? frame.cornerRadius,
-            frame.cornerRadiusBL ?? frame.cornerRadius,
-          ]
-        : frame.cornerRadius;
+      const clipRadii = getCornerRadii(frame);
       renderer.beginClip(shape.x, shape.y, shape.width, shape.height, shape.rotation, clipRadii);
       clipStack.push(shape.id);
     }

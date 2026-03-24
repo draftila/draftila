@@ -22,8 +22,15 @@ apiKeyRoutes.post('/', async (c) => {
     throw new ValidationError(flattened.fieldErrors as Record<string, string[]>);
   }
 
-  const result = await apiKeysService.create(user.id, parsed.data.name);
-  return c.json(result, 201);
+  try {
+    const result = await apiKeysService.create(user.id, parsed.data.name);
+    return c.json(result, 201);
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith('Maximum of')) {
+      return c.json({ error: err.message }, 400);
+    }
+    throw err;
+  }
 });
 
 apiKeyRoutes.get('/', async (c) => {

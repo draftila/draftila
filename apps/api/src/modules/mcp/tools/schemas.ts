@@ -18,11 +18,20 @@ export const draftAndPage = {
   pageId: z.string().describe('The page ID'),
 };
 
-type ToolHandler = (args: Record<string, unknown>) => Promise<{
-  content: Array<
-    { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }
-  >;
-}>;
+type ToolContent =
+  | { type: 'text'; text: string }
+  | { type: 'image'; data: string; mimeType: string };
+
+type ToolHandler = (args: Record<string, unknown>) => Promise<{ content: ToolContent[] }>;
+
+interface McpToolRegistrar {
+  tool(
+    name: string,
+    description: string,
+    schema: Record<string, z.ZodTypeAny>,
+    cb: ToolHandler,
+  ): void;
+}
 
 export function defineTool(
   server: McpServer,
@@ -31,5 +40,5 @@ export function defineTool(
   schema: Record<string, z.ZodTypeAny>,
   cb: ToolHandler,
 ) {
-  (server as unknown as { tool: (...a: unknown[]) => void }).tool(name, description, schema, cb);
+  (server as unknown as McpToolRegistrar).tool(name, description, schema, cb);
 }

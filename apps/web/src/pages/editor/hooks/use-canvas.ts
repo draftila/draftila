@@ -15,6 +15,7 @@ import {
   renderSelectionForShape,
   renderHoverForShape,
   computeArrowheadGeometry,
+  getCornerRadii,
 } from '@draftila/engine/shape-renderer';
 import { simpleStyle } from '@draftila/engine/renderer';
 import {
@@ -262,19 +263,7 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
         (displayShape as Shape & { clip?: boolean }).clip !== false
       ) {
         const frame = displayShape as FrameShape;
-        const hasIndependentCorners =
-          frame.cornerRadiusTL !== undefined ||
-          frame.cornerRadiusTR !== undefined ||
-          frame.cornerRadiusBL !== undefined ||
-          frame.cornerRadiusBR !== undefined;
-        const clipRadii: number | [number, number, number, number] = hasIndependentCorners
-          ? [
-              frame.cornerRadiusTL ?? frame.cornerRadius,
-              frame.cornerRadiusTR ?? frame.cornerRadius,
-              frame.cornerRadiusBR ?? frame.cornerRadius,
-              frame.cornerRadiusBL ?? frame.cornerRadius,
-            ]
-          : frame.cornerRadius;
+        const clipRadii = getCornerRadii(frame);
         renderer.beginClip(
           displayShape.x,
           displayShape.y,
@@ -302,23 +291,7 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
         const shape = shapeMap.get(frameId);
         if (!shape || !isShapeVisible(shape)) continue;
 
-        let cornerRadius: number | [number, number, number, number] = 0;
-        if (shape.type === 'frame') {
-          const frame = shape as FrameShape;
-          const hasIndependentCorners =
-            frame.cornerRadiusTL !== undefined ||
-            frame.cornerRadiusTR !== undefined ||
-            frame.cornerRadiusBL !== undefined ||
-            frame.cornerRadiusBR !== undefined;
-          cornerRadius = hasIndependentCorners
-            ? [
-                frame.cornerRadiusTL ?? frame.cornerRadius,
-                frame.cornerRadiusTR ?? frame.cornerRadius,
-                frame.cornerRadiusBR ?? frame.cornerRadius,
-                frame.cornerRadiusBL ?? frame.cornerRadius,
-              ]
-            : frame.cornerRadius;
-        }
+        const cornerRadius = shape.type === 'frame' ? getCornerRadii(shape as FrameShape) : 0;
 
         let isLightBackground = true;
         if ('fills' in shape && Array.isArray(shape.fills)) {
