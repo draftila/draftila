@@ -158,6 +158,10 @@ const handlers: Record<string, Handler> = {
         }
       }
     }
+    const updated = getShape(ydoc, shapeId);
+    if (updated && isAutoLayoutFrame(updated)) {
+      applyAutoLayout(ydoc, shapeId);
+    }
     applyAutoLayoutForAncestors(ydoc, shapeId);
     return { ok: true };
   },
@@ -170,9 +174,13 @@ const handlers: Record<string, Handler> = {
     const uniqueParents = [...new Set(parentIds)];
     deleteShapes(ydoc, shapeIds);
     for (const parentId of uniqueParents) {
+      const parent = getShape(ydoc, parentId);
+      if (parent && isAutoLayoutFrame(parent)) {
+        applyAutoLayout(ydoc, parentId);
+      }
       applyAutoLayoutForAncestors(ydoc, parentId);
     }
-    return { ok: true };
+    return { deletedIds: shapeIds };
   },
 
   list_shapes(ydoc, args) {
