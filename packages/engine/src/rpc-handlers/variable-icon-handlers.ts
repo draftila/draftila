@@ -35,6 +35,7 @@ export function variableIconHandlers(): Record<string, RpcHandler> {
       const svg = getIconSvg(name, size, strokeWidth, color);
       if (!svg) return { error: `Icon "${name}" not found` };
       const parentId = (args['parentId'] as string | undefined) ?? undefined;
+      const childIndex = args['childIndex'] as number | undefined;
       let rawProps: Record<string, unknown> = {
         x: (args['x'] as number) ?? 0,
         y: (args['y'] as number) ?? 0,
@@ -45,7 +46,7 @@ export function variableIconHandlers(): Record<string, RpcHandler> {
       };
       if (parentId) rawProps['parentId'] = parentId;
       rawProps = toAbsoluteProps(ydoc, rawProps);
-      const id = opCreateShape(ydoc, 'svg', rawProps as Partial<Shape>);
+      const id = opCreateShape(ydoc, 'svg', rawProps as Partial<Shape>, childIndex);
       return { shapeId: id };
     },
   };

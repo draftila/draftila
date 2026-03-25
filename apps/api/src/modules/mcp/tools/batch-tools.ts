@@ -26,13 +26,31 @@ export function registerBatchTools(server: McpServer, getUserId: () => string) {
                 'image',
                 'svg',
               ])
-              .describe('Shape type'),
+              .describe('Shape type. When iconName is set, type is ignored (auto-set to "svg").'),
             childIndex: z
               .number()
               .optional()
               .describe(
                 'Insert position among siblings (0 = first child). Omit to append as last child.',
               ),
+            iconName: z
+              .string()
+              .optional()
+              .describe(
+                'Lucide icon name (e.g. "search", "user", "folder"). When set, creates an SVG icon shape — type is auto-set to "svg". Use list_icons to discover available names.',
+              ),
+            iconSize: z
+              .number()
+              .optional()
+              .describe('Icon size in pixels (default 24). Only used when iconName is set.'),
+            iconStrokeWidth: z
+              .number()
+              .optional()
+              .describe('Icon stroke width (default 2). Only used when iconName is set.'),
+            iconColor: z
+              .string()
+              .optional()
+              .describe('Icon color as hex (default "#000000"). Only used when iconName is set.'),
             props: z
               .record(z.unknown())
               .optional()

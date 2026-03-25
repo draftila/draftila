@@ -7,6 +7,7 @@ import {
   opDeleteShapes,
   opDuplicateShapesInPlace,
 } from '../operations';
+import { getIconSvg } from '../icons';
 import type { RpcHandler } from './types';
 import { toAbsoluteProps, applyTextDefaults, toRelativeShape } from './utils';
 
@@ -51,11 +52,24 @@ export function shapeHandlers(): Record<string, RpcHandler> {
     list_shapes(ydoc, args) {
       const parentId = args['parentId'] as string | undefined;
       const recursive = args['recursive'] as boolean | undefined;
+      const compact = args['compact'] as boolean | undefined;
       const shapes = parentId ? getChildShapes(ydoc, parentId) : getAllShapes(ydoc);
       const relativeShapes = shapes.map((s) => toRelativeShape(ydoc, s));
 
+      const compactShape = (s: Shape) => ({
+        id: s.id,
+        type: s.type,
+        name: s.name,
+        x: s.x,
+        y: s.y,
+        width: s.width,
+        height: s.height,
+        parentId: s.parentId,
+      });
+
       if (!recursive) {
-        return { shapes: relativeShapes, count: relativeShapes.length };
+        const out = compact ? relativeShapes.map(compactShape) : relativeShapes;
+        return { shapes: out, count: out.length };
       }
 
       const allShapes = getAllShapes(ydoc).map((s) => toRelativeShape(ydoc, s));
@@ -67,12 +81,15 @@ export function shapeHandlers(): Record<string, RpcHandler> {
         else byParent.set(pid, [s]);
       }
 
-      type ShapeNode = Shape & { children?: ShapeNode[] };
+      type ShapeNode = (Shape | ReturnType<typeof compactShape>) & {
+        children?: ShapeNode[];
+      };
       const buildTree = (pid: string | null): ShapeNode[] => {
         const children = byParent.get(pid) ?? [];
         return children.map((s) => {
+          const node = compact ? compactShape(s) : { ...s };
           const kids = buildTree(s.id);
-          return kids.length > 0 ? { ...s, children: kids } : { ...s };
+          return kids.length > 0 ? { ...node, children: kids } : node;
         });
       };
 
@@ -90,6 +107,10 @@ export function shapeHandlers(): Record<string, RpcHandler> {
         type: string;
         props?: Record<string, unknown>;
         childIndex?: number;
+        iconName?: string;
+        iconSize?: number;
+        iconStrokeWidth?: number;
+        iconColor?: string;
       }>;
       const ids: string[] = [];
 
@@ -101,14 +122,28 @@ export function shapeHandlers(): Record<string, RpcHandler> {
             props['parentId'] = ids[refIdx];
           }
         }
-        if (shape.type === 'text') props = applyTextDefaults(props);
+
+        let type = shape.type as ShapeType;
+        if (shape.iconName) {
+          type = 'svg';
+          const iconSize = shape.iconSize ?? (props['width'] as number) ?? 24;
+          const svg = getIconSvg(
+            shape.iconName,
+            iconSize,
+            shape.iconStrokeWidth ?? 2,
+            shape.iconColor ?? '#000000',
+          );
+          if (svg) {
+            props['svgContent'] = svg;
+            props['width'] = props['width'] ?? iconSize;
+            props['height'] = props['height'] ?? iconSize;
+            props['name'] = props['name'] ?? `icon-${shape.iconName}`;
+          }
+        }
+
+        if (type === 'text') props = applyTextDefaults(props);
         const absProps = toAbsoluteProps(ydoc, props);
-        const id = opCreateShape(
-          ydoc,
-          shape.type as ShapeType,
-          absProps as Partial<Shape>,
-          shape.childIndex,
-        );
+        const id = opCreateShape(ydoc, type, absProps as Partial<Shape>, shape.childIndex);
         ids.push(id);
       }
 

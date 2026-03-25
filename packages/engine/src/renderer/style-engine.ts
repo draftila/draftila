@@ -46,7 +46,6 @@ export class StyleEngine {
       image.crossOrigin = 'anonymous';
       image.src = src;
       this.imageCache.set(src, image);
-      return null;
     }
 
     if (!image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0) {
