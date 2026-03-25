@@ -1,5 +1,6 @@
 import { BaseTool, getToolStore, type ToolContext, type ToolResult } from './base-tool';
-import { addShape, findContainerAtPoint } from '../scene-graph';
+import { findContainerAtPoint } from '../scene-graph';
+import { opCreateShape } from '../operations';
 import type { SnapLine, DistanceIndicator } from '../snap';
 import { snapDrawnLine, type DrawSnapState } from './draw-snap';
 
@@ -66,7 +67,7 @@ export class LineTool extends BaseTool {
       return;
     }
 
-    const id = addShape(ctx.ydoc, 'line', {
+    const id = opCreateShape(ctx.ydoc, 'line', {
       x: minX,
       y: minY,
       width: Math.max(width, 1),

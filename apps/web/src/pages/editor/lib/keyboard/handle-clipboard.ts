@@ -1,15 +1,8 @@
 import type * as Y from 'yjs';
-import {
-  copyShapes,
-  pasteShapes,
-  cutShapes,
-  duplicateShapes,
-  copyStyle,
-  pasteStyle,
-  hasStyleClipboardContent,
-} from '@draftila/engine/clipboard';
+import { copyShapes, copyStyle, hasStyleClipboardContent } from '@draftila/engine/clipboard';
 import { handlePaste as handleExternalPaste } from '@draftila/engine/shape-import';
 import { getSelectedContainer } from '@draftila/engine/scene-graph';
+import { opPasteShapes, opCutShapes, opPasteStyle } from '@draftila/engine/operations';
 import { useEditorStore } from '@/stores/editor-store';
 import { getExtensionFromMimeType, pasteImageFiles } from './clipboard-utils';
 
@@ -32,7 +25,7 @@ export function handleClipboardKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
     e.preventDefault();
     const { selectedIds } = useEditorStore.getState();
     if (selectedIds.length > 0 && hasStyleClipboardContent()) {
-      pasteStyle(ydoc, selectedIds);
+      opPasteStyle(ydoc, selectedIds);
     }
     return true;
   }
@@ -47,7 +40,7 @@ export function handleClipboardKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
   if (isMod && e.shiftKey && key === 'v' && !e.altKey) {
     e.preventDefault();
     const { selectedIds } = useEditorStore.getState();
-    const fallbackIds = pasteShapes(ydoc, { selectedIds, inPlace: true });
+    const fallbackIds = opPasteShapes(ydoc, { selectedIds, inPlace: true });
     if (fallbackIds.length > 0) useEditorStore.getState().setSelectedIds(fallbackIds);
     return true;
   }
@@ -105,14 +98,14 @@ export function handleClipboardKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
           }
         }
 
-        const fallbackIds = pasteShapes(ydoc, {
+        const fallbackIds = opPasteShapes(ydoc, {
           selectedIds,
           cursorPosition: cursorCanvasPoint,
         });
         if (fallbackIds.length > 0) useEditorStore.getState().setSelectedIds(fallbackIds);
       })
       .catch(() => {
-        const fallbackIds = pasteShapes(ydoc, {
+        const fallbackIds = opPasteShapes(ydoc, {
           selectedIds,
           cursorPosition: cursorCanvasPoint,
         });
@@ -125,7 +118,7 @@ export function handleClipboardKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
     e.preventDefault();
     const { selectedIds } = useEditorStore.getState();
     if (selectedIds.length > 0) {
-      cutShapes(ydoc, selectedIds);
+      opCutShapes(ydoc, selectedIds);
       useEditorStore.getState().clearSelection();
     }
     return true;
@@ -135,7 +128,8 @@ export function handleClipboardKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
     e.preventDefault();
     const { selectedIds } = useEditorStore.getState();
     if (selectedIds.length > 0) {
-      const newIds = duplicateShapes(ydoc, selectedIds);
+      copyShapes(ydoc, selectedIds);
+      const newIds = opPasteShapes(ydoc, { selectedIds });
       useEditorStore.getState().setSelectedIds(newIds);
     }
     return true;
@@ -178,7 +172,7 @@ export function handlePasteEvent(e: ClipboardEvent, ydoc: Y.Doc): void {
     }
   }
 
-  const fallbackIds = pasteShapes(ydoc, {
+  const fallbackIds = opPasteShapes(ydoc, {
     selectedIds,
     cursorPosition: cursorCanvasPoint,
   });

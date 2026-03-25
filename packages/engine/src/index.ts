@@ -113,7 +113,29 @@ export {
   pasteStyle,
   hasClipboardContent,
   hasStyleClipboardContent,
+  type PasteOptions,
 } from './clipboard';
+
+export {
+  opCreateShape,
+  opUpdateShape,
+  opBatchUpdateShapes,
+  opDeleteShapes,
+  opNudgeShapes,
+  opFlipShapes,
+  opGroupShapes,
+  opUngroupShapes,
+  opFrameSelection,
+  opMoveInStack,
+  opMoveByDrop,
+  opAlignShapes,
+  opDistributeShapes,
+  opBooleanOperation,
+  opDuplicateShapesInPlace,
+  opPasteShapes,
+  opCutShapes,
+  opPasteStyle,
+} from './operations';
 
 export {
   type PasteSource,

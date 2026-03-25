@@ -2,28 +2,26 @@ import { forwardRef, useCallback, useMemo, useState } from 'react';
 import type * as Y from 'yjs';
 import { ChevronRight } from 'lucide-react';
 import { createComponent, listComponents, removeGuide, removeAllGuides } from '@draftila/engine';
-import {
-  copyShapes,
-  pasteShapes,
-  cutShapes,
-  duplicateShapes,
-  copyStyle,
-  pasteStyle,
-  hasStyleClipboardContent,
-} from '@draftila/engine/clipboard';
+import { copyShapes, copyStyle, hasStyleClipboardContent } from '@draftila/engine/clipboard';
 import { handlePaste as handleExternalPaste } from '@draftila/engine/shape-import';
 import {
-  applyBooleanOperation,
   canApplyBooleanOperation,
-  deleteShapes,
   getAllShapes,
   getExpandedShapeIds,
   getSelectedContainer,
   getShape,
-  groupShapes,
-  moveShapesInStack,
-  ungroupShapes,
 } from '@draftila/engine/scene-graph';
+import {
+  opDeleteShapes,
+  opGroupShapes,
+  opUngroupShapes,
+  opMoveInStack,
+  opBooleanOperation,
+  opCutShapes,
+  opPasteShapes,
+  opDuplicateShapesInPlace,
+  opPasteStyle,
+} from '@draftila/engine/operations';
 import { exportToSvg, exportToPng } from '@draftila/engine/export';
 import { useEditorStore } from '@/stores/editor-store';
 
@@ -154,14 +152,14 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
               return;
             }
           }
-          const fallbackIds = pasteShapes(ydoc, {
+          const fallbackIds = opPasteShapes(ydoc, {
             selectedIds,
             cursorPosition: canvasPosition,
           });
           if (fallbackIds.length > 0) useEditorStore.getState().setSelectedIds(fallbackIds);
         })
         .catch(() => {
-          const fallbackIds = pasteShapes(ydoc, {
+          const fallbackIds = opPasteShapes(ydoc, {
             selectedIds,
             cursorPosition: canvasPosition,
           });
@@ -173,7 +171,7 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
 
     const handleCut = useCallback(() => {
       if (hasSelection) {
-        cutShapes(ydoc, selectedIds);
+        opCutShapes(ydoc, selectedIds);
         useEditorStore.getState().clearSelection();
       }
       onClose();
@@ -181,7 +179,8 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
 
     const handleDuplicate = useCallback(() => {
       if (hasSelection) {
-        const newIds = duplicateShapes(ydoc, selectedIds);
+        const idMap = opDuplicateShapesInPlace(ydoc, selectedIds);
+        const newIds = [...idMap.values()];
         useEditorStore.getState().setSelectedIds(newIds);
       }
       onClose();
@@ -199,21 +198,21 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
 
     const handlePasteStyle = useCallback(() => {
       if (hasSelection && hasStyleClipboardContent()) {
-        pasteStyle(ydoc, selectedIds);
+        opPasteStyle(ydoc, selectedIds);
       }
       onClose();
     }, [ydoc, selectedIds, hasSelection, onClose]);
 
     const handleDelete = useCallback(() => {
       if (hasSelection) {
-        deleteShapes(ydoc, selectedIds);
+        opDeleteShapes(ydoc, selectedIds);
         useEditorStore.getState().clearSelection();
       }
       onClose();
     }, [ydoc, selectedIds, hasSelection, onClose]);
 
     const handleGroup = useCallback(() => {
-      const groupId = groupShapes(ydoc, selectedIds);
+      const groupId = opGroupShapes(ydoc, selectedIds);
       if (groupId) {
         useEditorStore.getState().setSelectedIds([groupId]);
         useEditorStore.getState().setEnteredGroupId(null);
@@ -236,7 +235,7 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
     }, [ydoc, selectedIds, hasSelection, onClose]);
 
     const handleUngroup = useCallback(() => {
-      const childIds = ungroupShapes(ydoc, selectedIds);
+      const childIds = opUngroupShapes(ydoc, selectedIds);
       if (childIds.length > 0) {
         useEditorStore.getState().setSelectedIds(childIds);
         useEditorStore.getState().setEnteredGroupId(null);
@@ -250,7 +249,7 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
           onClose();
           return;
         }
-        const newId = applyBooleanOperation(ydoc, selectedIds, operation);
+        const newId = opBooleanOperation(ydoc, selectedIds, operation);
         if (newId) {
           useEditorStore.getState().setSelectedIds([newId]);
         }
@@ -260,25 +259,25 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
     );
 
     const handleBringToFront = useCallback(() => {
-      const ids = moveShapesInStack(ydoc, selectedIds, 'front');
+      const ids = opMoveInStack(ydoc, selectedIds, 'front');
       if (ids.length > 0) useEditorStore.getState().setSelectedIds(ids);
       onClose();
     }, [ydoc, selectedIds, onClose]);
 
     const handleBringForward = useCallback(() => {
-      const ids = moveShapesInStack(ydoc, selectedIds, 'forward');
+      const ids = opMoveInStack(ydoc, selectedIds, 'forward');
       if (ids.length > 0) useEditorStore.getState().setSelectedIds(ids);
       onClose();
     }, [ydoc, selectedIds, onClose]);
 
     const handleSendBackward = useCallback(() => {
-      const ids = moveShapesInStack(ydoc, selectedIds, 'backward');
+      const ids = opMoveInStack(ydoc, selectedIds, 'backward');
       if (ids.length > 0) useEditorStore.getState().setSelectedIds(ids);
       onClose();
     }, [ydoc, selectedIds, onClose]);
 
     const handleSendToBack = useCallback(() => {
-      const ids = moveShapesInStack(ydoc, selectedIds, 'back');
+      const ids = opMoveInStack(ydoc, selectedIds, 'back');
       if (ids.length > 0) useEditorStore.getState().setSelectedIds(ids);
       onClose();
     }, [ydoc, selectedIds, onClose]);

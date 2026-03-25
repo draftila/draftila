@@ -3,7 +3,13 @@ import type { Shape } from '@draftila/shared';
 import { BaseTool, getToolStore, type ToolContext, type ToolResult } from './base-tool';
 import { hitTestPoint } from '../hit-test';
 import { hitTestGuide, updateGuidePosition } from '../guides';
-import { getAllShapes, getExpandedShapeIds, resolveGroupTarget, updateShape } from '../scene-graph';
+import {
+  getAllShapes,
+  getExpandedShapeIds,
+  resolveGroupTarget,
+  updateShape,
+  applyAutoLayoutForAncestors,
+} from '../scene-graph';
 import { SpatialIndex } from '../spatial-index';
 import {
   getSelectionBounds,
@@ -684,6 +690,9 @@ export class MoveTool extends BaseTool {
         for (const [id, initial] of this.state.initialData) {
           updateShape(ctx.ydoc, id, buildMoveUpdate(initial, dx, dy));
         }
+        for (const [id] of this.state.initialData) {
+          applyAutoLayoutForAncestors(ctx.ydoc, id);
+        }
       }
       this.resetState();
       return { cursor: 'default' };
@@ -692,6 +701,9 @@ export class MoveTool extends BaseTool {
     if (this.state.type === 'resizing' && this.resizePreview) {
       for (const [id, bounds] of this.resizePreview) {
         updateShape(ctx.ydoc, id, bounds as Partial<Shape>);
+      }
+      for (const [id] of this.resizePreview) {
+        applyAutoLayoutForAncestors(ctx.ydoc, id);
       }
 
       this.resetState();
@@ -714,6 +726,7 @@ export class MoveTool extends BaseTool {
         x2: ep.x2,
         y2: ep.y2,
       } as Partial<Shape>);
+      applyAutoLayoutForAncestors(ctx.ydoc, ep.shapeId);
       this.resetState();
       return { cursor: 'default' };
     }
@@ -722,6 +735,9 @@ export class MoveTool extends BaseTool {
       if (this.rotationPreview) {
         for (const [id, angle] of this.rotationPreview) {
           updateShape(ctx.ydoc, id, { rotation: angle } as Partial<Shape>);
+        }
+        for (const [id] of this.rotationPreview) {
+          applyAutoLayoutForAncestors(ctx.ydoc, id);
         }
       }
       this.resetState();

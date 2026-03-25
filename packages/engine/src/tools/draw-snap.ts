@@ -1,45 +1,11 @@
 import type * as Y from 'yjs';
 import { getAllShapes } from '../scene-graph';
 import { type SnapLine, type DistanceIndicator, type GuideSnapTarget } from '../snap';
+import { type ShapeEdges, SNAP_THRESHOLD, getEdges, computeSnapLineExtent } from '../snap-utils';
 
 export interface DrawSnapState {
   snapLines: SnapLine[];
   distanceIndicators: DistanceIndicator[];
-}
-
-const SNAP_THRESHOLD = 5;
-
-interface ShapeEdges {
-  left: number;
-  centerX: number;
-  right: number;
-  top: number;
-  centerY: number;
-  bottom: number;
-}
-
-function getEdges(x: number, y: number, w: number, h: number): ShapeEdges {
-  return {
-    left: x,
-    centerX: x + w / 2,
-    right: x + w,
-    top: y,
-    centerY: y + h / 2,
-    bottom: y + h,
-  };
-}
-
-function computeExtent(
-  axis: 'x' | 'y',
-  movingEdges: ShapeEdges,
-  otherEdges: ShapeEdges,
-): { start: number; end: number } {
-  if (axis === 'x') {
-    const allY = [movingEdges.top, movingEdges.bottom, otherEdges.top, otherEdges.bottom];
-    return { start: Math.min(...allY), end: Math.max(...allY) };
-  }
-  const allX = [movingEdges.left, movingEdges.right, otherEdges.left, otherEdges.right];
-  return { start: Math.min(...allX), end: Math.max(...allX) };
 }
 
 interface CursorSnapResult {
@@ -149,7 +115,7 @@ function snapCursorPoint(
   const seenLines = new Set<string>();
 
   for (const candidate of bestXCandidates) {
-    const extent = computeExtent('x', movingEdges, candidate.otherEdges);
+    const extent = computeSnapLineExtent('x', movingEdges, candidate.otherEdges);
     const key = `x:${candidate.position}`;
     if (seenLines.has(key)) {
       const existing = snapLines.find((l) => l.axis === 'x' && l.position === candidate.position);
@@ -164,7 +130,7 @@ function snapCursorPoint(
   }
 
   for (const candidate of bestYCandidates) {
-    const extent = computeExtent('y', movingEdges, candidate.otherEdges);
+    const extent = computeSnapLineExtent('y', movingEdges, candidate.otherEdges);
     const key = `y:${candidate.position}`;
     if (seenLines.has(key)) {
       const existing = snapLines.find((l) => l.axis === 'y' && l.position === candidate.position);

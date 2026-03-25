@@ -1,4 +1,5 @@
 import type { Shape } from '@draftila/shared';
+import { type ShapeEdges, SNAP_THRESHOLD, getEdges, computeSnapLineExtent } from './snap-utils';
 
 export interface SnapLine {
   axis: 'x' | 'y';
@@ -32,36 +33,14 @@ export interface ParentFrameRect {
   paddingLeft: number;
 }
 
-const SNAP_THRESHOLD = 5;
-
 export interface GuideSnapTarget {
   axis: 'x' | 'y';
   position: number;
 }
 
-interface ShapeEdges {
-  left: number;
-  centerX: number;
-  right: number;
-  top: number;
-  centerY: number;
-  bottom: number;
-}
-
 interface EqualSpacingSnap {
   delta: number;
   indicator: DistanceIndicator;
-}
-
-function getEdges(x: number, y: number, w: number, h: number): ShapeEdges {
-  return {
-    left: x,
-    centerX: x + w / 2,
-    right: x + w,
-    top: y,
-    centerY: y + h / 2,
-    bottom: y + h,
-  };
 }
 
 function overlapsOnY(a: { y: number; height: number }, b: { y: number; height: number }): boolean {
@@ -190,20 +169,6 @@ function findEqualSpacingSnapY(
   }
 
   return best;
-}
-
-function computeSnapLineExtent(
-  axis: 'x' | 'y',
-  _position: number,
-  movingEdges: ShapeEdges,
-  otherEdges: ShapeEdges,
-): { start: number; end: number } {
-  if (axis === 'x') {
-    const allY = [movingEdges.top, movingEdges.bottom, otherEdges.top, otherEdges.bottom];
-    return { start: Math.min(...allY), end: Math.max(...allY) };
-  }
-  const allX = [movingEdges.left, movingEdges.right, otherEdges.left, otherEdges.right];
-  return { start: Math.min(...allX), end: Math.max(...allX) };
 }
 
 function buildDistanceIndicators(
@@ -459,12 +424,7 @@ export function snapPosition(
   const seenLines = new Set<string>();
 
   for (const candidate of bestXCandidates) {
-    const extent = computeSnapLineExtent(
-      'x',
-      candidate.position,
-      snappedMovingEdges,
-      candidate.otherEdges,
-    );
+    const extent = computeSnapLineExtent('x', snappedMovingEdges, candidate.otherEdges);
     const key = `x:${candidate.position}`;
     if (seenLines.has(key)) {
       const existing = snapLines.find((l) => l.axis === 'x' && l.position === candidate.position);
@@ -479,12 +439,7 @@ export function snapPosition(
   }
 
   for (const candidate of bestYCandidates) {
-    const extent = computeSnapLineExtent(
-      'y',
-      candidate.position,
-      snappedMovingEdges,
-      candidate.otherEdges,
-    );
+    const extent = computeSnapLineExtent('y', snappedMovingEdges, candidate.otherEdges);
     const key = `y:${candidate.position}`;
     if (seenLines.has(key)) {
       const existing = snapLines.find((l) => l.axis === 'y' && l.position === candidate.position);
@@ -721,7 +676,7 @@ export function snapResize(
 
   const addSnapLines = (candidates: EdgeCandidate[], axis: 'x' | 'y', position: number) => {
     for (const candidate of candidates) {
-      const extent = computeSnapLineExtent(axis, position, snappedEdges, candidate.otherEdges);
+      const extent = computeSnapLineExtent(axis, snappedEdges, candidate.otherEdges);
       const key = `${axis}:${position}`;
       if (seenLines.has(key)) {
         const existing = snapLines.find((l) => l.axis === axis && l.position === position);

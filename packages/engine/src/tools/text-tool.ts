@@ -1,5 +1,6 @@
 import { BaseTool, getToolStore, type ToolContext, type ToolResult } from './base-tool';
-import { addShape, getShape, updateShape, findContainerAtPoint } from '../scene-graph';
+import { getShape, updateShape, findContainerAtPoint } from '../scene-graph';
+import { opCreateShape } from '../operations';
 import { applyTextAutoResize } from '../text-measure';
 import type { SnapLine, DistanceIndicator } from '../snap';
 import { snapDrawnTextRect, type DrawSnapState } from './draw-snap';
@@ -68,7 +69,7 @@ export class TextTool extends BaseTool {
       this.previewRect.width > 4 &&
       this.previewRect.height > 4
     ) {
-      const id = addShape(ctx.ydoc, 'text', {
+      const id = opCreateShape(ctx.ydoc, 'text', {
         x: this.previewRect.x,
         y: this.previewRect.y,
         width: this.previewRect.width,
@@ -84,7 +85,7 @@ export class TextTool extends BaseTool {
       store.setActiveTool('move');
       onTextCreated?.(id);
     } else {
-      const id = addShape(ctx.ydoc, 'text', {
+      const id = opCreateShape(ctx.ydoc, 'text', {
         x: ctx.canvasPoint.x,
         y: ctx.canvasPoint.y,
         width: 200,

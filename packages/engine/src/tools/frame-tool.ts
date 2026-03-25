@@ -1,5 +1,6 @@
 import { BaseTool, getToolStore, type ToolContext, type ToolResult } from './base-tool';
-import { addShape, findContainerAtPoint } from '../scene-graph';
+import { findContainerAtPoint } from '../scene-graph';
+import { opCreateShape } from '../operations';
 import type { SnapLine, DistanceIndicator } from '../snap';
 import { snapDrawnRect, type DrawSnapState } from './draw-snap';
 
@@ -45,7 +46,7 @@ export class FrameTool extends BaseTool {
       return;
     }
 
-    const id = addShape(ctx.ydoc, 'frame', {
+    const id = opCreateShape(ctx.ydoc, 'frame', {
       x: this.previewRect.x,
       y: this.previewRect.y,
       width: this.previewRect.width,
