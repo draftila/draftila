@@ -29,6 +29,7 @@ import {
 import { renderToolPreviews } from './canvas-draw-tools';
 import { renderGuides, renderSnapLinesAndDistanceIndicators } from './canvas-draw-guides';
 import { renderNodeEditing } from './canvas-draw-nodes';
+import { updateLayoutAnimation } from './layout-animation';
 
 export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
   const activePageId = useEditorStore((s) => s.activePageId);
@@ -149,6 +150,16 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
 
     const { editingTextId } = useEditorStore.getState();
 
+    const autoLayoutPreview = moveTool.getAutoLayoutPreview();
+    const shapePositions = new Map<string, { x: number; y: number }>();
+    for (const s of shapes) {
+      shapePositions.set(s.id, { x: s.x, y: s.y });
+    }
+    updateLayoutAnimation(autoLayoutPreview, shapePositions);
+
+    const dragIds = tc.dragPositions;
+    const deferredShapes: Shape[] = [];
+
     const clipStack: string[] = [];
 
     for (const shape of shapes) {
@@ -173,6 +184,11 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
       }
 
       if (!isShapeVisible(shape)) continue;
+
+      if (dragIds && dragIds.has(shape.id)) {
+        deferredShapes.push(shape);
+        continue;
+      }
 
       let displayShape = applyTransforms(shape, tc);
 
@@ -206,6 +222,11 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
     while (clipStack.length > 0) {
       renderer.endClip();
       clipStack.pop();
+    }
+
+    for (const shape of deferredShapes) {
+      const displayShape = applyTransforms(shape, tc);
+      renderShape(renderer, displayShape);
     }
 
     const { aiActiveFrameIds } = useEditorStore.getState();

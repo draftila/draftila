@@ -1,5 +1,6 @@
 import type { Shape } from '@draftila/shared';
 import type { ResizePreviewEntry } from '@draftila/engine/tools/move-tool';
+import { getAnimatedPosition } from './layout-animation';
 
 export function applyDragToShape(
   s: Shape,
@@ -86,6 +87,10 @@ export function applyTransforms(shape: Shape, tc: TransformContext): Shape {
   }
   if (tc.rotationPreview?.has(shape.id)) {
     return applyRotationToShape(shape, tc.rotationPreview);
+  }
+  const animPos = getAnimatedPosition(shape.id);
+  if (animPos) {
+    return { ...shape, x: animPos.x, y: animPos.y } as Shape;
   }
   return shape;
 }

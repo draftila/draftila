@@ -40,6 +40,12 @@ export {
 
 export { canApplyBooleanOperation, applyBooleanOperation } from './scene-graph/boolean-shape-ops';
 
-export { applyAutoLayout, applyAutoLayoutForAncestors } from './scene-graph/layout-ops';
+export {
+  applyAutoLayout,
+  applyAutoLayoutForAncestors,
+  reorderAutoLayoutChildren,
+  computeAutoLayoutPreview,
+  computeAutoLayoutResizePreview,
+} from './scene-graph/layout-ops';
 
 export { observeShapes } from './scene-graph/observe';

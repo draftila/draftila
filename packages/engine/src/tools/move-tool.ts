@@ -37,6 +37,7 @@ export class MoveTool extends BaseTool {
   rotationPreview: Map<string, number> | null = null;
   endpointPreview: { shapeId: string; x1: number; y1: number; x2: number; y2: number } | null =
     null;
+  autoLayoutPreview: Map<string, { x: number; y: number }> | null = null;
   activeSnapLines: SnapLine[] = [];
   activeDistanceIndicators: DistanceIndicator[] = [];
   private dragInitialData: Map<string, InitialShapeData> | null = null;
@@ -256,6 +257,7 @@ export class MoveTool extends BaseTool {
         getToolStore().getGuides(),
       );
       this.dragOffset = result.dragOffset;
+      this.autoLayoutPreview = result.autoLayoutPreview;
       this.activeSnapLines = result.activeSnapLines;
       this.activeDistanceIndicators = result.activeDistanceIndicators;
       return { cursor: result.cursor };
@@ -270,6 +272,7 @@ export class MoveTool extends BaseTool {
         getToolStore().getGuides(),
       );
       this.resizePreview = result.resizePreview;
+      this.autoLayoutPreview = result.autoLayoutPreview;
       this.activeSnapLines = result.activeSnapLines;
       this.activeDistanceIndicators = result.activeDistanceIndicators;
       return { cursor: result.cursor };
@@ -461,6 +464,7 @@ export class MoveTool extends BaseTool {
     this.resizePreview = null;
     this.rotationPreview = null;
     this.endpointPreview = null;
+    this.autoLayoutPreview = null;
     this.dragInitialData = null;
     this.dragShapesCache = [];
     this.parentFrameCache = undefined;
@@ -509,6 +513,10 @@ export class MoveTool extends BaseTool {
     y2: number;
   } | null {
     return this.endpointPreview;
+  }
+
+  getAutoLayoutPreview(): Map<string, { x: number; y: number }> | null {
+    return this.autoLayoutPreview;
   }
 
   getSnapLines(): SnapLine[] {

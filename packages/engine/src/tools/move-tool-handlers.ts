@@ -11,7 +11,16 @@ import {
   captureShapeData,
   handleToMovingEdges,
 } from './move-tool-utils';
-import { getAllShapes, updateShape, applyAutoLayoutForAncestors } from '../scene-graph';
+import {
+  getAllShapes,
+  getShape,
+  updateShape,
+  applyAutoLayoutForAncestors,
+  reorderAutoLayoutChildren,
+  computeAutoLayoutPreview,
+  computeAutoLayoutResizePreview,
+} from '../scene-graph';
+import { isAutoLayoutFrame } from '../auto-layout';
 import { computeResize, computeRotation, getResizeCursor, type HandlePosition } from '../selection';
 import {
   snapPosition,
@@ -27,6 +36,7 @@ export interface DragMoveResult {
   dragOffset: { dx: number; dy: number };
   activeSnapLines: SnapLine[];
   activeDistanceIndicators: DistanceIndicator[];
+  autoLayoutPreview: Map<string, { x: number; y: number }> | null;
   cursor: string;
 }
 
@@ -47,6 +57,7 @@ export function handleDragMove(
       dragOffset: { dx: rawDx, dy: rawDy },
       activeSnapLines: [],
       activeDistanceIndicators: [],
+      autoLayoutPreview: null,
       cursor: 'move',
     };
   }
@@ -62,28 +73,51 @@ export function handleDragMove(
     maxY = Math.max(maxY, init.y + init.height);
   }
 
-  const boundsX = minX + rawDx;
-  const boundsY = minY + rawDy;
-  const boundsW = maxX - minX;
-  const boundsH = maxY - minY;
+  const movedIds = Array.from(state.initialData.keys());
 
-  const result = snapPosition(
-    boundsX,
-    boundsY,
-    boundsW,
-    boundsH,
-    dragShapesCache,
-    ctx.camera.zoom,
-    parentFrameCache,
-    guides,
-  );
+  const firstId = movedIds[0];
+  const firstShape = firstId ? getShape(ctx.ydoc, firstId) : null;
+  const parentId = firstShape?.parentId ?? null;
+  const parent = parentId ? getShape(ctx.ydoc, parentId) : null;
+  const inAutoLayout = !!parent && isAutoLayoutFrame(parent);
 
-  const snappedX = Math.round(result.x);
-  const snappedY = Math.round(result.y);
+  let dragOffset: { dx: number; dy: number };
+  let activeSnapLines: SnapLine[] = [];
+  let activeDistanceIndicators: DistanceIndicator[] = [];
+
+  if (inAutoLayout) {
+    dragOffset = { dx: Math.round(rawDx + minX) - minX, dy: Math.round(rawDy + minY) - minY };
+  } else {
+    const boundsX = minX + rawDx;
+    const boundsY = minY + rawDy;
+    const boundsW = maxX - minX;
+    const boundsH = maxY - minY;
+
+    const result = snapPosition(
+      boundsX,
+      boundsY,
+      boundsW,
+      boundsH,
+      dragShapesCache,
+      ctx.camera.zoom,
+      parentFrameCache,
+      guides,
+    );
+
+    const snappedX = Math.round(result.x);
+    const snappedY = Math.round(result.y);
+    dragOffset = { dx: snappedX - minX, dy: snappedY - minY };
+    activeSnapLines = result.snapLines;
+    activeDistanceIndicators = result.distanceIndicators;
+  }
+
+  const autoLayoutPreview = computeAutoLayoutPreview(ctx.ydoc, movedIds, dragOffset);
+
   return {
-    dragOffset: { dx: snappedX - minX, dy: snappedY - minY },
-    activeSnapLines: result.snapLines,
-    activeDistanceIndicators: result.distanceIndicators,
+    dragOffset,
+    activeSnapLines,
+    activeDistanceIndicators,
+    autoLayoutPreview,
     cursor: 'move',
   };
 }
@@ -92,6 +126,7 @@ export interface ResizeMoveResult {
   resizePreview: Map<string, ResizePreviewEntry>;
   activeSnapLines: SnapLine[];
   activeDistanceIndicators: DistanceIndicator[];
+  autoLayoutPreview: Map<string, { x: number; y: number }> | null;
   cursor: string;
 }
 
@@ -115,21 +150,40 @@ export function handleResizeMove(
     ctx.altKey,
   );
 
-  const moving = handleToMovingEdges(state.handle);
-  const resizeSnap = snapResize(
-    newSelectionBounds,
-    moving,
-    dragShapesCache,
-    ctx.camera.zoom,
-    parentFrameCache,
-    guides,
-  );
-  newSelectionBounds = {
-    x: Math.round(resizeSnap.bounds.x),
-    y: Math.round(resizeSnap.bounds.y),
-    width: Math.round(resizeSnap.bounds.width),
-    height: Math.round(resizeSnap.bounds.height),
-  };
+  const resizingIds = Array.from(state.initialData.keys());
+  const firstId = resizingIds[0];
+  const firstShape = firstId ? getShape(ctx.ydoc, firstId) : null;
+  const parentId = firstShape?.parentId ?? null;
+  const parent = parentId ? getShape(ctx.ydoc, parentId) : null;
+  const inAutoLayout = !!parent && isAutoLayoutFrame(parent);
+
+  let activeSnapLines: SnapLine[] = [];
+
+  if (inAutoLayout) {
+    newSelectionBounds = {
+      x: Math.round(newSelectionBounds.x),
+      y: Math.round(newSelectionBounds.y),
+      width: Math.round(newSelectionBounds.width),
+      height: Math.round(newSelectionBounds.height),
+    };
+  } else {
+    const moving = handleToMovingEdges(state.handle);
+    const resizeSnap = snapResize(
+      newSelectionBounds,
+      moving,
+      dragShapesCache,
+      ctx.camera.zoom,
+      parentFrameCache,
+      guides,
+    );
+    newSelectionBounds = {
+      x: Math.round(resizeSnap.bounds.x),
+      y: Math.round(resizeSnap.bounds.y),
+      width: Math.round(resizeSnap.bounds.width),
+      height: Math.round(resizeSnap.bounds.height),
+    };
+    activeSnapLines = resizeSnap.snapLines;
+  }
 
   const preview = new Map<string, ResizePreviewEntry>();
   for (const [id, initial] of state.initialData) {
@@ -174,10 +228,20 @@ export function handleResizeMove(
     }
   }
 
+  let autoLayoutPreview: Map<string, { x: number; y: number }> | null = null;
+  if (inAutoLayout) {
+    const overrides = new Map<string, { width: number; height: number }>();
+    for (const [id, entry] of preview) {
+      overrides.set(id, { width: entry.width, height: entry.height });
+    }
+    autoLayoutPreview = computeAutoLayoutResizePreview(ctx.ydoc, overrides);
+  }
+
   return {
     resizePreview: preview,
-    activeSnapLines: resizeSnap.snapLines,
+    activeSnapLines,
     activeDistanceIndicators: [],
+    autoLayoutPreview,
     cursor: getResizeCursor(state.handle),
   };
 }
@@ -319,6 +383,8 @@ export function commitDrag(
 ): void {
   const { dx, dy } = dragOffset;
   if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+    const movedIds = Array.from(initialData.keys());
+    reorderAutoLayoutChildren(ydoc, movedIds, dragOffset);
     for (const [id, initial] of initialData) {
       updateShape(ydoc, id, buildMoveUpdate(initial, dx, dy));
     }
