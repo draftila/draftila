@@ -24,6 +24,7 @@ Follow these steps:
 5. Return the PR URL when done.
 
 Important notes:
+
 - Strip any leading `#` from the issue ID argument if present.
 - If there are no changes to commit, inform the user and stop.
 - Do NOT run dev servers or long-running processes.
