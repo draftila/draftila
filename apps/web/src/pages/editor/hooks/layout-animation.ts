@@ -67,11 +67,3 @@ export function getAnimatedPosition(id: string): { x: number; y: number } | null
   if (!anim) return null;
   return { x: anim.currentX, y: anim.currentY };
 }
-
-export function hasActiveAnimations(): boolean {
-  return animating.size > 0;
-}
-
-export function clearLayoutAnimations(): void {
-  animating.clear();
-}

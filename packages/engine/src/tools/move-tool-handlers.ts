@@ -111,7 +111,9 @@ export function handleDragMove(
     activeDistanceIndicators = result.distanceIndicators;
   }
 
-  const autoLayoutPreview = computeAutoLayoutPreview(ctx.ydoc, movedIds, dragOffset);
+  const autoLayoutPreview = inAutoLayout
+    ? computeAutoLayoutPreview(ctx.ydoc, movedIds, dragOffset)
+    : null;
 
   return {
     dragOffset,

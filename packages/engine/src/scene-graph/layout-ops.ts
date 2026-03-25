@@ -153,58 +153,21 @@ export function applyAutoLayoutForAncestors(ydoc: Y.Doc, shapeId: string) {
   }
 }
 
-export function reorderAutoLayoutChildren(
-  ydoc: Y.Doc,
-  movedIds: string[],
-  dragOffset: { dx: number; dy: number },
-): void {
-  if (movedIds.length === 0) return;
-
-  const shapeMap = getShapeSnapshotMap(ydoc);
-  const firstShape = shapeMap.get(movedIds[0]!);
-  if (!firstShape) return;
-
-  const parentId = getValidParentId(shapeMap, firstShape.parentId ?? null);
-  if (!parentId) return;
-
-  const parent = getShape(ydoc, parentId);
-  if (!parent || !isAutoLayoutFrame(parent)) return;
-
-  const config = getAutoLayoutConfig(parent as FrameShape);
-  const isHorizontal = config.direction === 'horizontal';
-
-  const movedSet = new Set(movedIds);
-
-  const zOrder = getZOrder(ydoc);
-  const orderedIds = getOrderedIds(shapeMap, zOrder.toArray());
-  const siblingIds = getSiblingIdsForParent(parentId, shapeMap, orderedIds);
-
-  const staticSiblings = siblingIds.filter((id) => !movedSet.has(id));
-  if (staticSiblings.length === 0) return;
-
-  const movedCenter = computeGroupCenter(shapeMap, movedIds, dragOffset);
-  if (!movedCenter) return;
-
-  const insertIndex = findInsertIndex(shapeMap, staticSiblings, movedCenter, isHorizontal);
-
-  const movedOrdered = siblingIds.filter((id) => movedSet.has(id));
-  const newSiblingOrder = [
-    ...staticSiblings.slice(0, insertIndex),
-    ...movedOrdered,
-    ...staticSiblings.slice(insertIndex),
-  ];
-
-  const nextOrder = applySiblingOrder(orderedIds, siblingIds, newSiblingOrder);
-  replaceZOrder(zOrder, nextOrder);
+interface ReorderResult {
+  shapeMap: Map<string, Shape>;
+  orderedIds: string[];
+  siblingIds: string[];
+  reorderedIds: string[];
+  movedSet: Set<string>;
+  frame: FrameShape;
+  childrenByParent: Map<string | null, string[]>;
 }
 
-export function computeAutoLayoutPreview(
+function computeReorder(
   ydoc: Y.Doc,
   movedIds: string[],
   dragOffset: { dx: number; dy: number },
-): Map<string, { x: number; y: number }> | null {
-  if (movedIds.length === 0) return null;
-
+): ReorderResult | null {
   const shapeMap = getShapeSnapshotMap(ydoc);
   const firstShape = shapeMap.get(movedIds[0]!);
   if (!firstShape) return null;
@@ -240,6 +203,38 @@ export function computeAutoLayoutPreview(
     ...staticSiblings.slice(insertIndex),
   ];
 
+  const childrenByParent = buildChildrenByParent(shapeMap, orderedIds);
+
+  return { shapeMap, orderedIds, siblingIds, reorderedIds, movedSet, frame, childrenByParent };
+}
+
+export function reorderAutoLayoutChildren(
+  ydoc: Y.Doc,
+  movedIds: string[],
+  dragOffset: { dx: number; dy: number },
+): void {
+  if (movedIds.length === 0) return;
+
+  const result = computeReorder(ydoc, movedIds, dragOffset);
+  if (!result) return;
+
+  const zOrder = getZOrder(ydoc);
+  const nextOrder = applySiblingOrder(result.orderedIds, result.siblingIds, result.reorderedIds);
+  replaceZOrder(zOrder, nextOrder);
+}
+
+export function computeAutoLayoutPreview(
+  ydoc: Y.Doc,
+  movedIds: string[],
+  dragOffset: { dx: number; dy: number },
+): Map<string, { x: number; y: number }> | null {
+  if (movedIds.length === 0) return null;
+
+  const result = computeReorder(ydoc, movedIds, dragOffset);
+  if (!result) return null;
+
+  const { shapeMap, siblingIds, reorderedIds, movedSet, frame, childrenByParent } = result;
+
   const isSameOrder = reorderedIds.every((id, i) => id === siblingIds[i]);
   if (isSameOrder) return null;
 
@@ -248,7 +243,7 @@ export function computeAutoLayoutPreview(
     .filter((c): c is Shape => !!c && c.visible)
     .map((c) => toLayoutChild(c));
 
-  return buildSiblingPreview(ydoc, frame, layoutChildren, movedSet, shapeMap);
+  return buildSiblingPreview(frame, layoutChildren, movedSet, shapeMap, childrenByParent);
 }
 
 export function computeAutoLayoutResizePreview(
@@ -289,21 +284,18 @@ export function computeAutoLayoutResizePreview(
       return child;
     });
 
-  return buildSiblingPreview(ydoc, frame, layoutChildren, affectedSet, shapeMap);
+  const childrenByParent = buildChildrenByParent(shapeMap, orderedIds);
+  return buildSiblingPreview(frame, layoutChildren, affectedSet, shapeMap, childrenByParent);
 }
 
 function buildSiblingPreview(
-  ydoc: Y.Doc,
   frame: FrameShape,
   layoutChildren: LayoutChild[],
   excludeFromResult: Set<string>,
   shapeMap: Map<string, Shape>,
+  childrenByParent: Map<string | null, string[]>,
 ): Map<string, { x: number; y: number }> | null {
   const { childLayouts } = computeAutoLayout(frame, layoutChildren);
-
-  const zOrderIds = getZOrder(ydoc).toArray();
-  const orderedIds = getOrderedIds(shapeMap, zOrderIds);
-  const childrenByParent = buildChildrenByParent(shapeMap, orderedIds);
 
   const result = new Map<string, { x: number; y: number }>();
   for (const [childId, layout] of childLayouts) {
