@@ -76,13 +76,6 @@ export function useRpc({ provider, ydoc, enabled }: UseRpcOptions) {
       }, SHIMMER_IDLE_MS);
     };
 
-    const handleRemoteUpdate = (_update: Uint8Array, origin: unknown) => {
-      if (origin === provider) {
-        resetShimmerTimer();
-      }
-    };
-    ydoc.on('update', handleRemoteUpdate);
-
     const handleMessage = async (event: MessageEvent) => {
       const data = new Uint8Array(event.data as ArrayBuffer);
       const decoder = decoding.createDecoder(data);
@@ -166,7 +159,6 @@ export function useRpc({ provider, ydoc, enabled }: UseRpcOptions) {
 
     return () => {
       provider.off('status', onStatus);
-      ydoc.off('update', handleRemoteUpdate);
       const currentWs = (provider as WebsocketProviderWithWs).ws;
       if (currentWs) {
         currentWs.removeEventListener('message', handleMessage);
