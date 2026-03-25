@@ -45,7 +45,11 @@ export function opUpdateShape(ydoc: Y.Doc, shapeId: string, props: Partial<Shape
   const before = getShape(ydoc, shapeId);
   updateShape(ydoc, shapeId, props);
 
-  if (before && (typeof props.x === 'number' || typeof props.y === 'number')) {
+  if (
+    before &&
+    before.type !== 'frame' &&
+    (typeof props.x === 'number' || typeof props.y === 'number')
+  ) {
     const after = getShape(ydoc, shapeId);
     if (after) {
       const dx = after.x - before.x;
@@ -81,7 +85,11 @@ export function opBatchUpdateShapes(
     const before = getShape(ydoc, update.shapeId);
     updateShape(ydoc, update.shapeId, update.props);
 
-    if (before && (typeof update.props.x === 'number' || typeof update.props.y === 'number')) {
+    if (
+      before &&
+      before.type !== 'frame' &&
+      (typeof update.props.x === 'number' || typeof update.props.y === 'number')
+    ) {
       const after = getShape(ydoc, update.shapeId);
       if (after) {
         const dx = after.x - before.x;

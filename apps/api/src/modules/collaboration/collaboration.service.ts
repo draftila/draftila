@@ -202,10 +202,6 @@ async function snapshotToDb(draftId: string, ydoc: Y.Doc) {
 }
 
 function broadcastToRoom(room: Room, message: Uint8Array, exclude: WsLike | null) {
-  if (exclude && room.connections.size === 1 && room.connections.has(exclude)) {
-    exclude.send(message);
-    return;
-  }
   for (const conn of room.connections) {
     if (conn !== exclude) {
       conn.send(message);
