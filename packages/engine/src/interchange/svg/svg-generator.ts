@@ -1,21 +1,13 @@
-import type {
-  InterchangeDocument,
-  InterchangeNode,
-  InterchangeStroke,
-  InterchangeShadow,
-  InterchangeBlur,
-  InterchangeGradient,
-  InterchangeDashPattern,
-} from '../interchange-format';
-
-function escapeXml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
+import type { InterchangeDocument, InterchangeNode } from '../interchange-format';
+import {
+  escapeXml,
+  svgColor,
+  resolveDashArraySvg,
+  rectPath,
+  type RenderContext,
+} from './svg-gen-utils';
+import { buildDropShadowFilter, buildInnerShadowFilter, buildGradientDef } from './svg-defs';
+import { buildArrowheadSvg } from './svg-arrowheads';
 
 function renderEmbeddedSvg(
   svgContent: string,
@@ -43,159 +35,6 @@ function renderEmbeddedSvg(
   if (outerHtml) return outerHtml;
 
   return `<image x="${x}" y="${y}" width="${width}" height="${height}" href="${escapeXml(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgContent)}`)}" preserveAspectRatio="${preserveAspectRatio ?? 'xMidYMid meet'}"/>`;
-}
-
-function svgColor(hex: string, opacity: number): string {
-  if (opacity >= 1) return hex;
-  if (opacity <= 0) return 'transparent';
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r},${g},${b},${opacity})`;
-}
-
-function resolveDashArraySvg(stroke: InterchangeStroke): string {
-  if (stroke.dashArray && stroke.dashArray.length > 0) {
-    return stroke.dashArray.join(',');
-  }
-  return dashPatternToSvg(stroke.dashPattern, stroke.width);
-}
-
-function dashPatternToSvg(pattern: InterchangeDashPattern, strokeWidth: number): string {
-  switch (pattern) {
-    case 'dash':
-      return `${strokeWidth * 4},${strokeWidth * 2}`;
-    case 'dot':
-      return `${strokeWidth},${strokeWidth * 2}`;
-    case 'dash-dot':
-      return `${strokeWidth * 4},${strokeWidth * 2},${strokeWidth},${strokeWidth * 2}`;
-    default:
-      return '';
-  }
-}
-
-function parseHexAlpha(color: string): { r: number; g: number; b: number; a: number } {
-  let r = 0;
-  let g = 0;
-  let b = 0;
-  let a = 1;
-  if (color.length >= 7) {
-    r = parseInt(color.slice(1, 3), 16);
-    g = parseInt(color.slice(3, 5), 16);
-    b = parseInt(color.slice(5, 7), 16);
-  }
-  if (color.length > 7) {
-    a = parseInt(color.slice(7, 9), 16) / 255;
-  }
-  return { r, g, b, a };
-}
-
-function buildDropShadowFilter(
-  shadows: InterchangeShadow[],
-  blurs: InterchangeBlur[],
-  filterId: string,
-): string | null {
-  const dropShadows = shadows.filter((s) => s.type === 'drop' && s.visible);
-  const layerBlur = blurs.find((b) => b.type === 'layer' && b.visible);
-
-  if (dropShadows.length === 0 && !layerBlur) return null;
-
-  const parts: string[] = [
-    `<filter id="${filterId}" x="-50%" y="-50%" width="200%" height="200%">`,
-  ];
-
-  if (layerBlur && layerBlur.radius > 0) {
-    parts.push(`<feGaussianBlur in="SourceGraphic" stdDeviation="${layerBlur.radius}"/>`);
-  }
-
-  for (const shadow of dropShadows) {
-    const { r, g, b, a } = parseHexAlpha(shadow.color);
-    parts.push(
-      `<feDropShadow dx="${shadow.x}" dy="${shadow.y}" stdDeviation="${shadow.blur / 2}" flood-color="rgb(${r},${g},${b})" flood-opacity="${a}"/>`,
-    );
-  }
-
-  parts.push('</filter>');
-  return parts.join('');
-}
-
-function buildInnerShadowFilter(shadows: InterchangeShadow[], filterId: string): string | null {
-  const innerShadows = shadows.filter((s) => s.type === 'inner' && s.visible);
-  if (innerShadows.length === 0) return null;
-
-  const parts: string[] = [
-    `<filter id="${filterId}" x="-50%" y="-50%" width="200%" height="200%">`,
-    '<feComponentTransfer in="SourceAlpha"><feFuncA type="table" tableValues="1 0"/></feComponentTransfer>',
-  ];
-
-  for (const shadow of innerShadows) {
-    const { r, g, b, a } = parseHexAlpha(shadow.color);
-    parts.push(
-      `<feGaussianBlur stdDeviation="${shadow.blur / 2}"/>`,
-      `<feOffset dx="${shadow.x}" dy="${shadow.y}" result="offsetblur"/>`,
-      `<feFlood flood-color="rgb(${r},${g},${b})" flood-opacity="${a}" result="color"/>`,
-      '<feComposite in2="offsetblur" operator="in"/>',
-      '<feComposite in2="SourceAlpha" operator="in"/>',
-    );
-  }
-
-  parts.push('<feMerge><feMergeNode in="SourceGraphic"/><feMergeNode/></feMerge>', '</filter>');
-  return parts.join('');
-}
-
-function buildGradientDef(gradient: InterchangeGradient, gradId: string): string {
-  if (gradient.type === 'linear') {
-    const angleRad = ((gradient.angle ?? 0) * Math.PI) / 180;
-    const x1 = 0.5 - Math.cos(angleRad) * 0.5;
-    const y1 = 0.5 - Math.sin(angleRad) * 0.5;
-    const x2 = 0.5 + Math.cos(angleRad) * 0.5;
-    const y2 = 0.5 + Math.sin(angleRad) * 0.5;
-
-    const stops = gradient.stops
-      .map((s) => `<stop offset="${s.position}" stop-color="${s.color}"/>`)
-      .join('');
-    return `<linearGradient id="${gradId}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}">${stops}</linearGradient>`;
-  }
-
-  const stops = gradient.stops
-    .map((s) => `<stop offset="${s.position}" stop-color="${s.color}"/>`)
-    .join('');
-  return `<radialGradient id="${gradId}" cx="${gradient.cx ?? 0.5}" cy="${gradient.cy ?? 0.5}" r="${gradient.r ?? 0.5}">${stops}</radialGradient>`;
-}
-
-interface RenderContext {
-  defs: string[];
-  defCounter: number;
-}
-
-function rectPath(
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  tl: number,
-  tr: number,
-  br: number,
-  bl: number,
-): string {
-  tl = Math.min(tl, w / 2, h / 2);
-  tr = Math.min(tr, w / 2, h / 2);
-  br = Math.min(br, w / 2, h / 2);
-  bl = Math.min(bl, w / 2, h / 2);
-  return [
-    `M ${x + tl} ${y}`,
-    `L ${x + w - tr} ${y}`,
-    tr > 0 ? `A ${tr} ${tr} 0 0 1 ${x + w} ${y + tr}` : '',
-    `L ${x + w} ${y + h - br}`,
-    br > 0 ? `A ${br} ${br} 0 0 1 ${x + w - br} ${y + h}` : '',
-    `L ${x + bl} ${y + h}`,
-    bl > 0 ? `A ${bl} ${bl} 0 0 1 ${x} ${y + h - bl}` : '',
-    `L ${x} ${y + tl}`,
-    tl > 0 ? `A ${tl} ${tl} 0 0 1 ${x + tl} ${y}` : '',
-    'Z',
-  ]
-    .filter(Boolean)
-    .join(' ');
 }
 
 function buildShapeGeometry(
@@ -556,77 +395,6 @@ function nodeToSvg(
   }
 
   return `<g${gAttrs}>${content}</g>`;
-}
-
-type SvgArrowheadType =
-  | 'none'
-  | 'line_arrow'
-  | 'triangle_arrow'
-  | 'reversed_triangle'
-  | 'circle_arrow'
-  | 'diamond_arrow';
-
-function buildArrowheadSvg(
-  tipX: number,
-  tipY: number,
-  fromX: number,
-  fromY: number,
-  sw: number,
-  strokeColor: string,
-  type: SvgArrowheadType,
-  cap: string = 'butt',
-): string {
-  if (type === 'none') return '';
-
-  const swClamped = Math.max(sw, 1);
-  const headLen = swClamped * 4 + 4;
-  const angle = Math.atan2(tipY - fromY, tipX - fromX);
-  const halfSpread = Math.PI / 6;
-  const capAttr = cap !== 'butt' ? ` stroke-linecap="${cap}"` : '';
-  const joinAttr = cap === 'round' ? ' stroke-linejoin="round"' : '';
-  const strokeAttrs = `stroke="${strokeColor}" stroke-width="${sw}"${capAttr}`;
-
-  switch (type) {
-    case 'line_arrow': {
-      const lx = tipX - headLen * Math.cos(angle - halfSpread);
-      const ly = tipY - headLen * Math.sin(angle - halfSpread);
-      const rx = tipX - headLen * Math.cos(angle + halfSpread);
-      const ry = tipY - headLen * Math.sin(angle + halfSpread);
-      return `<polyline points="${lx},${ly} ${tipX},${tipY} ${rx},${ry}" fill="none" ${strokeAttrs}${joinAttr}/>`;
-    }
-    case 'triangle_arrow': {
-      const lx = tipX - headLen * Math.cos(angle - halfSpread);
-      const ly = tipY - headLen * Math.sin(angle - halfSpread);
-      const rx = tipX - headLen * Math.cos(angle + halfSpread);
-      const ry = tipY - headLen * Math.sin(angle + halfSpread);
-      return `<polygon points="${tipX},${tipY} ${lx},${ly} ${rx},${ry}" fill="${strokeColor}" ${strokeAttrs}${joinAttr}/>`;
-    }
-    case 'reversed_triangle': {
-      const baseX = tipX + headLen * Math.cos(angle);
-      const baseY = tipY + headLen * Math.sin(angle);
-      const lx = tipX - headLen * Math.cos(angle - halfSpread);
-      const ly = tipY - headLen * Math.sin(angle - halfSpread);
-      const rx = tipX - headLen * Math.cos(angle + halfSpread);
-      const ry = tipY - headLen * Math.sin(angle + halfSpread);
-      return `<polygon points="${baseX},${baseY} ${lx},${ly} ${rx},${ry}" fill="${strokeColor}" ${strokeAttrs}${joinAttr}/>`;
-    }
-    case 'circle_arrow': {
-      const r = swClamped * 2.5 + 2;
-      return `<circle cx="${tipX}" cy="${tipY}" r="${r}" fill="${strokeColor}" ${strokeAttrs}/>`;
-    }
-    case 'diamond_arrow': {
-      const half = swClamped * 2.5 + 2;
-      const cx = tipX - half * Math.cos(angle);
-      const cy = tipY - half * Math.sin(angle);
-      const backX = cx - half * Math.cos(angle);
-      const backY = cy - half * Math.sin(angle);
-      const leftX = cx - half * Math.sin(angle);
-      const leftY = cy + half * Math.cos(angle);
-      const rightX = cx + half * Math.sin(angle);
-      const rightY = cy - half * Math.cos(angle);
-      return `<polygon points="${tipX},${tipY} ${leftX},${leftY} ${backX},${backY} ${rightX},${rightY}" fill="${strokeColor}" ${strokeAttrs}${joinAttr}/>`;
-    }
-  }
 }
 
 export function generateSvg(doc: InterchangeDocument): string {

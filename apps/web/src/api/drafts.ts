@@ -96,7 +96,10 @@ export async function saveThumbnail(draftId: string, blob: Blob) {
   });
   if (!res.ok) throw new Error('Failed to save thumbnail');
   const json = (await res.json()) as { url: string };
-  queryClient.invalidateQueries({ queryKey: DRAFTS_KEY });
+  queryClient.invalidateQueries({
+    queryKey: DRAFTS_KEY,
+    predicate: (query) => !query.queryKey.includes('detail'),
+  });
   return json;
 }
 

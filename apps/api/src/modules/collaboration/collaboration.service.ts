@@ -4,13 +4,18 @@ import * as awarenessProtocol from 'y-protocols/awareness';
 import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
 import * as draftsService from '../drafts/drafts.service';
-import { nanoid } from '../../common/lib/utils';
+import {
+  sendRpc as sendRpcInternal,
+  handleRpcResponse,
+  getRpcInterceptor,
+  rejectAllPending,
+} from './collaboration.rpc';
+
+export { setRpcInterceptor } from './collaboration.rpc';
 
 const MESSAGE_SYNC = 0;
 const MESSAGE_AWARENESS = 1;
 const MESSAGE_RPC = 2;
-
-const RPC_TIMEOUT_MS = 30_000;
 
 const SNAPSHOT_INTERVAL_MS = 30_000;
 
@@ -32,15 +37,12 @@ interface Room {
   updateHandler: ((update: Uint8Array, origin: unknown) => void) | null;
 }
 
-interface PendingRpc {
-  resolve: (result: unknown) => void;
-  reject: (error: Error) => void;
-  timer: ReturnType<typeof setTimeout>;
-}
-
 const rooms = new Map<string, Room>();
-const pendingRpcs = new Map<string, PendingRpc>();
 const connectionData = new Map<WsLike, WsData>();
+
+function getRoomConnections(draftId: string): Set<WsLike> | undefined {
+  return rooms.get(draftId)?.connections;
+}
 
 export async function getOrCreateRoom(draftId: string): Promise<Room> {
   const existing = rooms.get(draftId);
@@ -175,9 +177,7 @@ export async function handleDisconnect(ws: WsLike, draftId: string) {
   connectionData.delete(ws);
 
   if (room.connections.size === 0) {
-    if (room.snapshotTimer) {
-      clearInterval(room.snapshotTimer);
-    }
+    if (room.snapshotTimer) clearInterval(room.snapshotTimer);
 
     if (room.dirty) {
       await snapshotToDb(draftId, room.ydoc);
@@ -229,7 +229,7 @@ export function applyUpdateToRoom(draftId: string, update: Uint8Array): boolean 
 }
 
 export function hasActiveConnection(draftId: string): boolean {
-  if (rpcInterceptor) return true;
+  if (getRpcInterceptor()) return true;
   const room = rooms.get(draftId);
   return !!room && room.connections.size > 0;
 }
@@ -239,69 +239,7 @@ export function sendRpc(
   tool: string,
   args: Record<string, unknown>,
 ): Promise<unknown> {
-  if (rpcInterceptor) {
-    return rpcInterceptor(draftId, tool, args);
-  }
-
-  const room = rooms.get(draftId);
-  if (!room || room.connections.size === 0) {
-    return Promise.reject(new Error('No editor connected'));
-  }
-
-  const id = nanoid();
-  const payload = JSON.stringify({ id, tool, args });
-
-  const encoder = encoding.createEncoder();
-  encoding.writeVarUint(encoder, MESSAGE_RPC);
-  encoding.writeVarString(encoder, payload);
-  const message = encoding.toUint8Array(encoder);
-
-  const target = room.connections.values().next().value as WsLike;
-
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      pendingRpcs.delete(id);
-      reject(new Error('RPC timeout'));
-    }, RPC_TIMEOUT_MS);
-
-    pendingRpcs.set(id, { resolve, reject, timer });
-    target.send(message);
-  });
-}
-
-function handleRpcResponse(payload: string) {
-  let parsed: { id?: string; result?: unknown; error?: string };
-  try {
-    parsed = JSON.parse(payload) as typeof parsed;
-  } catch {
-    return;
-  }
-
-  if (!parsed.id) return;
-
-  const pending = pendingRpcs.get(parsed.id);
-  if (!pending) return;
-
-  pendingRpcs.delete(parsed.id);
-  clearTimeout(pending.timer);
-
-  if (parsed.error) {
-    pending.reject(new Error(parsed.error));
-  } else {
-    pending.resolve(parsed.result);
-  }
-}
-
-let rpcInterceptor:
-  | ((draftId: string, tool: string, args: Record<string, unknown>) => Promise<unknown>)
-  | null = null;
-
-export function setRpcInterceptor(
-  interceptor:
-    | ((draftId: string, tool: string, args: Record<string, unknown>) => Promise<unknown>)
-    | null,
-) {
-  rpcInterceptor = interceptor;
+  return sendRpcInternal(draftId, tool, args, getRoomConnections);
 }
 
 export async function closeRoom(draftId: string) {
@@ -319,15 +257,12 @@ export async function closeRoom(draftId: string) {
 export function closeAllRooms() {
   for (const [_draftId, room] of rooms) {
     if (room.snapshotTimer) clearInterval(room.snapshotTimer);
+
     if (room.updateHandler) room.ydoc.off('update', room.updateHandler);
     room.awareness.destroy();
     room.ydoc.destroy();
   }
   rooms.clear();
 
-  for (const [id, pending] of pendingRpcs) {
-    clearTimeout(pending.timer);
-    pending.reject(new Error('Server shutting down'));
-    pendingRpcs.delete(id);
-  }
+  rejectAllPending();
 }

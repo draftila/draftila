@@ -1,6 +1,7 @@
 import type { PressurePoint } from '@draftila/shared';
 import { BaseTool, getToolStore, type ToolContext, type ToolResult } from './base-tool';
-import { addShape, findContainerAtPoint } from '../scene-graph';
+import { findContainerAtPoint } from '../scene-graph';
+import { opCreateShape } from '../operations';
 
 export class PencilTool extends BaseTool {
   readonly name = 'pencil';
@@ -40,7 +41,7 @@ export class PencilTool extends BaseTool {
       pressure: p.pressure,
     }));
 
-    const id = addShape(ctx.ydoc, 'path', {
+    const id = opCreateShape(ctx.ydoc, 'path', {
       x: bounds.x,
       y: bounds.y,
       width: Math.max(bounds.width, 1),

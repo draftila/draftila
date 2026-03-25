@@ -1,18 +1,16 @@
 import type * as Y from 'yjs';
 import { undo, redo } from '@draftila/engine/history';
+import { getAllShapes, getShape, getZOrder } from '@draftila/engine/scene-graph';
 import {
-  deleteShapes,
-  flipShapes,
-  frameSelection,
-  getAllShapes,
-  getShape,
-  getZOrder,
-  groupShapes,
-  moveShapesInStack,
-  nudgeShapes,
-  ungroupShapes,
-  updateShape,
-} from '@draftila/engine/scene-graph';
+  opDeleteShapes,
+  opFlipShapes,
+  opFrameSelection,
+  opGroupShapes,
+  opMoveInStack,
+  opNudgeShapes,
+  opUngroupShapes,
+  opUpdateShape,
+} from '@draftila/engine/operations';
 import { useEditorStore } from '@/stores/editor-store';
 
 export function handleShapeKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
@@ -45,7 +43,7 @@ export function handleShapeKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
     e.preventDefault();
     const { selectedIds } = useEditorStore.getState();
     if (selectedIds.length > 0) {
-      flipShapes(ydoc, selectedIds, 'horizontal');
+      opFlipShapes(ydoc, selectedIds, 'horizontal');
     }
     return true;
   }
@@ -54,7 +52,7 @@ export function handleShapeKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
     e.preventDefault();
     const { selectedIds } = useEditorStore.getState();
     if (selectedIds.length > 0) {
-      flipShapes(ydoc, selectedIds, 'vertical');
+      opFlipShapes(ydoc, selectedIds, 'vertical');
     }
     return true;
   }
@@ -63,7 +61,7 @@ export function handleShapeKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
     e.preventDefault();
     const { selectedIds, setSelectedIds } = useEditorStore.getState();
     if (selectedIds.length > 0) {
-      const frameId = frameSelection(ydoc, selectedIds);
+      const frameId = opFrameSelection(ydoc, selectedIds);
       if (frameId) {
         setSelectedIds([frameId]);
         useEditorStore.getState().setEnteredGroupId(null);
@@ -75,7 +73,7 @@ export function handleShapeKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
   if (isMod && key === 'g' && !e.shiftKey && !e.altKey) {
     e.preventDefault();
     const { selectedIds, setSelectedIds } = useEditorStore.getState();
-    const groupId = groupShapes(ydoc, selectedIds);
+    const groupId = opGroupShapes(ydoc, selectedIds);
     if (groupId) {
       setSelectedIds([groupId]);
       useEditorStore.getState().setEnteredGroupId(null);
@@ -86,7 +84,7 @@ export function handleShapeKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
   if (isMod && key === 'g' && e.shiftKey) {
     e.preventDefault();
     const { selectedIds, setSelectedIds } = useEditorStore.getState();
-    const childIds = ungroupShapes(ydoc, selectedIds);
+    const childIds = opUngroupShapes(ydoc, selectedIds);
     if (childIds.length > 0) {
       setSelectedIds(childIds);
       useEditorStore.getState().setEnteredGroupId(null);
@@ -101,7 +99,7 @@ export function handleShapeKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
       code === 'BracketRight' ? (toExtreme ? 'front' : 'forward') : toExtreme ? 'back' : 'backward';
 
     const { selectedIds, setSelectedIds } = useEditorStore.getState();
-    const movedIds = moveShapesInStack(ydoc, selectedIds, direction);
+    const movedIds = opMoveInStack(ydoc, selectedIds, direction);
     if (movedIds.length > 0) {
       setSelectedIds(movedIds);
     }
@@ -128,7 +126,7 @@ export function handleShapeKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
 
     const shouldLock = selectedShapes.some((shape) => !shape.locked);
     for (const shape of selectedShapes) {
-      updateShape(ydoc, shape.id, { locked: shouldLock });
+      opUpdateShape(ydoc, shape.id, { locked: shouldLock });
     }
     return true;
   }
@@ -146,7 +144,7 @@ export function handleShapeKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
 
     const shouldShow = selectedShapes.some((shape) => !shape.visible);
     for (const shape of selectedShapes) {
-      updateShape(ydoc, shape.id, { visible: shouldShow });
+      opUpdateShape(ydoc, shape.id, { visible: shouldShow });
     }
     return true;
   }
@@ -195,7 +193,7 @@ export function handleShapeKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
       if (enteredGroupId && selectedIds.includes(enteredGroupId)) {
         useEditorStore.getState().setEnteredGroupId(null);
       }
-      deleteShapes(ydoc, selectedIds);
+      opDeleteShapes(ydoc, selectedIds);
       useEditorStore.getState().clearSelection();
     }
     return true;
@@ -208,7 +206,7 @@ export function handleShapeKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
     const step = e.shiftKey ? 10 : 1;
     const dx = key === 'arrowleft' ? -step : key === 'arrowright' ? step : 0;
     const dy = key === 'arrowup' ? -step : key === 'arrowdown' ? step : 0;
-    nudgeShapes(ydoc, selectedIds, dx, dy);
+    opNudgeShapes(ydoc, selectedIds, dx, dy);
     return true;
   }
 

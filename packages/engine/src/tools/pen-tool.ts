@@ -1,6 +1,7 @@
 import type { PressurePoint, VectorNode } from '@draftila/shared';
 import { BaseTool, getToolStore, type ToolContext, type ToolResult } from './base-tool';
-import { addShape, findContainerAtPoint } from '../scene-graph';
+import { findContainerAtPoint } from '../scene-graph';
+import { opCreateShape } from '../operations';
 import { vectorNodesToSvgPath } from '../vector-nodes';
 import { normalizePathToOrigin } from '../path-gen';
 
@@ -211,7 +212,7 @@ export class PenTool extends BaseTool {
     const rawPath = vectorNodesToSvgPath([{ nodes: this.nodes, closed }]);
     const normalized = normalizePathToOrigin(rawPath);
 
-    const id = addShape(ctx.ydoc, 'path', {
+    const id = opCreateShape(ctx.ydoc, 'path', {
       x: normalized.bounds.x,
       y: normalized.bounds.y,
       width: Math.max(1, normalized.bounds.width),
@@ -276,7 +277,7 @@ export class PenTool extends BaseTool {
       if (p.y > maxY) maxY = p.y;
     }
 
-    const id = addShape(ctx.ydoc, 'path', {
+    const id = opCreateShape(ctx.ydoc, 'path', {
       x: minX,
       y: minY,
       width: Math.max(1, maxX - minX),
