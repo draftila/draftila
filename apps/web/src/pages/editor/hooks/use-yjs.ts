@@ -90,6 +90,7 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
     const wsUrl = getWebSocketUrl();
     const wsProvider = new WebsocketProvider(wsUrl, draftId, ydoc, {
       connect: true,
+      maxBackoffTime: 5000,
     });
     providerRef.current = wsProvider;
 

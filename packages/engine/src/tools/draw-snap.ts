@@ -1,7 +1,14 @@
 import type * as Y from 'yjs';
 import { getAllShapes } from '../scene-graph';
-import { type SnapLine, type DistanceIndicator, type GuideSnapTarget } from '../snap';
-import { type ShapeEdges, SNAP_THRESHOLD, getEdges, computeSnapLineExtent } from '../snap-utils';
+import {
+  type ShapeEdges,
+  type SnapLine,
+  type DistanceIndicator,
+  type GuideSnapTarget,
+  SNAP_THRESHOLD,
+  getEdges,
+  computeSnapLineExtent,
+} from '../snap';
 
 export interface DrawSnapState {
   snapLines: SnapLine[];

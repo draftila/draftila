@@ -32,13 +32,14 @@ async function generateThumbnail(ydoc: Y.Doc): Promise<Blob | null> {
 export function useThumbnail(draftId: string, ydoc: Y.Doc, synced: boolean) {
   const ydocRef = useRef(ydoc);
   const draftIdRef = useRef(draftId);
+  const syncedRef = useRef(synced);
   ydocRef.current = ydoc;
   draftIdRef.current = draftId;
+  syncedRef.current = synced;
 
   useEffect(() => {
-    if (!synced) return;
-
     return () => {
+      if (!syncedRef.current) return;
       generateThumbnail(ydocRef.current)
         .then((blob) => {
           if (blob) {
@@ -47,5 +48,5 @@ export function useThumbnail(draftId: string, ydoc: Y.Doc, synced: boolean) {
         })
         .catch(() => {});
     };
-  }, [synced]);
+  }, []);
 }

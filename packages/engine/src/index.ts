@@ -80,10 +80,10 @@ export {
   computeArrowheadGeometry,
   generatePolygonPoints,
   generateStarPoints,
-  renderShape,
-  renderSelectionForShape,
   getCornerRadii,
-} from './shape-renderer';
+} from './shape-geometry';
+
+export { renderShape, renderSelectionForShape } from './shape-renderer';
 
 export { hitTestPoint, hitTestRect } from './hit-test';
 
@@ -262,6 +262,7 @@ export {
 
 export { type ResizePreviewEntry, MoveTool } from './tools/move-tool';
 export { HandTool } from './tools/hand-tool';
+export { ShapeDrawTool } from './tools/shape-draw-tool';
 export { RectangleTool } from './tools/rectangle-tool';
 export { EllipseTool } from './tools/ellipse-tool';
 export { FrameTool } from './tools/frame-tool';

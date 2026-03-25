@@ -1,4 +1,4 @@
-import type { Camera } from '@draftila/shared';
+import type { Camera, PressurePoint } from '@draftila/shared';
 import type { Renderer } from '@draftila/engine/renderer';
 import { simpleStyle } from '@draftila/engine/renderer';
 import {
@@ -19,6 +19,24 @@ import {
   generateStarPoints,
 } from '@draftila/engine/shape-renderer';
 import getStroke from 'perfect-freehand';
+
+function renderFreehandPreview(renderer: Renderer, points: PressurePoint[]) {
+  if (points.length < 2) return;
+
+  const inputPoints = points.map((p) => [p.x, p.y, p.pressure] as [number, number, number]);
+  const strokePoints = getStroke(inputPoints, {
+    size: 4,
+    thinning: 0.5,
+    smoothing: 0.5,
+    streamline: 0.5,
+    simulatePressure: true,
+  });
+
+  if (strokePoints.length > 0) {
+    const outlinePoints = strokePoints.map((p) => [p[0]!, p[1]!] as [number, number]);
+    renderer.drawPath(outlinePoints, simpleStyle({ fill: '#000000', opacity: 0.7 }));
+  }
+}
 
 export function renderToolPreviews(renderer: Renderer, activeTool: string, camera: Camera) {
   const previewStroke = 1 / camera.zoom;
@@ -155,45 +173,11 @@ export function renderToolPreviews(renderer: Renderer, activeTool: string, camer
   const pencilTool = getPencilTool();
 
   if (activeTool === 'pencil') {
-    const freehandPoints = pencilTool.currentPoints;
-    if (freehandPoints.length >= 2) {
-      const inputPoints = freehandPoints.map(
-        (p) => [p.x, p.y, p.pressure] as [number, number, number],
-      );
-      const strokePoints = getStroke(inputPoints, {
-        size: 4,
-        thinning: 0.5,
-        smoothing: 0.5,
-        streamline: 0.5,
-        simulatePressure: true,
-      });
-
-      if (strokePoints.length > 0) {
-        const outlinePoints = strokePoints.map((p) => [p[0]!, p[1]!] as [number, number]);
-        renderer.drawPath(outlinePoints, simpleStyle({ fill: '#000000', opacity: 0.7 }));
-      }
-    }
+    renderFreehandPreview(renderer, pencilTool.currentPoints);
   }
 
   if (activeTool === 'pen') {
-    const freehandPoints = penTool.getFreehandPoints();
-    if (freehandPoints.length >= 2) {
-      const inputPoints = freehandPoints.map(
-        (p) => [p.x, p.y, p.pressure] as [number, number, number],
-      );
-      const strokePoints = getStroke(inputPoints, {
-        size: 4,
-        thinning: 0.5,
-        smoothing: 0.5,
-        streamline: 0.5,
-        simulatePressure: true,
-      });
-
-      if (strokePoints.length > 0) {
-        const outlinePoints = strokePoints.map((p) => [p[0]!, p[1]!] as [number, number]);
-        renderer.drawPath(outlinePoints, simpleStyle({ fill: '#000000', opacity: 0.7 }));
-      }
-    }
+    renderFreehandPreview(renderer, penTool.getFreehandPoints());
 
     const previewPath = penTool.getPreviewPathData();
     if (previewPath) {

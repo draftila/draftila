@@ -11,6 +11,7 @@
     "./selection": "./src/selection.ts",
     "./renderer": "./src/renderer/types.ts",
     "./renderer/canvas2d": "./src/renderer/canvas2d-renderer.ts",
+    "./shape-geometry": "./src/shape-geometry.ts",
     "./shape-renderer": "./src/shape-renderer.ts",
     "./hit-test": "./src/hit-test.ts",
     "./spatial-index": "./src/spatial-index.ts",

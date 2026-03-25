@@ -32,3 +32,40 @@ export function computeSnapLineExtent(
   const allX = [movingEdges.left, movingEdges.right, otherEdges.left, otherEdges.right];
   return { start: Math.min(...allX), end: Math.max(...allX) };
 }
+
+export interface SnapLine {
+  axis: 'x' | 'y';
+  position: number;
+  start: number;
+  end: number;
+}
+
+export interface DistanceIndicator {
+  axis: 'x' | 'y';
+  from: number;
+  to: number;
+  position: number;
+}
+
+export interface SnapResult {
+  x: number;
+  y: number;
+  snapLines: SnapLine[];
+  distanceIndicators: DistanceIndicator[];
+}
+
+export interface ParentFrameRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  paddingTop: number;
+  paddingRight: number;
+  paddingBottom: number;
+  paddingLeft: number;
+}
+
+export interface GuideSnapTarget {
+  axis: 'x' | 'y';
+  position: number;
+}
