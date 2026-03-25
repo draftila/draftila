@@ -3,6 +3,7 @@ import type * as Y from 'yjs';
 import type { TextShape, Camera } from '@draftila/shared';
 import { getShape, updateShape, deleteShape } from '@draftila/engine/scene-graph';
 import { computeTextAutoResizeDimensions } from '@draftila/engine/text-measure';
+import { resolveCanvasFontFamily } from '@draftila/engine/font-manager';
 import { useEditorStore } from '@/stores/editor-store';
 
 interface TextEditOverlayProps {
@@ -50,7 +51,11 @@ function computeTextLayout(shape: TextShape, camera: Camera) {
   if (!ctx) return { topOffset: 0, height: screenHeight, paddingTop: 0 };
 
   const fontStyle = shape.fontStyle === 'italic' ? 'italic' : '';
-  ctx.font = `${fontStyle} ${shape.fontWeight} ${shape.fontSize}px ${shape.fontFamily}`.trim();
+  const resolvedFamily = resolveCanvasFontFamily(shape.fontFamily);
+  ctx.font = `${fontStyle} ${shape.fontWeight} ${shape.fontSize}px ${resolvedFamily}`.trim();
+  (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = shape.letterSpacing
+    ? `${shape.letterSpacing}px`
+    : '0px';
 
   let content = shape.content;
   if (shape.textTransform === 'uppercase') content = content.toUpperCase();
@@ -59,13 +64,22 @@ function computeTextLayout(shape: TextShape, camera: Camera) {
     content = content.replace(/\b\w/g, (c) => c.toUpperCase());
 
   const lineCount = countWrappedLines(ctx, content, shape.width);
-  const totalTextHeight = lineCount * shape.fontSize * shape.lineHeight;
+  const lineHeightPx = shape.fontSize * shape.lineHeight;
+  const totalTextHeight = lineCount * lineHeightPx;
 
-  let offsetY = 0;
+  const metrics = ctx.measureText('Mg');
+  const fontAscent = metrics.fontBoundingBoxAscent ?? metrics.actualBoundingBoxAscent ?? 0;
+  const fontDescent = metrics.fontBoundingBoxDescent ?? metrics.actualBoundingBoxDescent ?? 0;
+  const glyphHeight = fontAscent + fontDescent;
+  const topOverflow = Math.max(0, (glyphHeight - lineHeightPx) / 2);
+
+  (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = '0px';
+
+  let offsetY = topOverflow;
   if (shape.verticalAlign === 'middle') {
     offsetY = (shape.height - totalTextHeight) / 2;
   } else if (shape.verticalAlign === 'bottom') {
-    offsetY = shape.height - totalTextHeight;
+    offsetY = shape.height - totalTextHeight - topOverflow;
   }
 
   const coverTop = Math.min(0, offsetY);
@@ -96,7 +110,7 @@ function computeStyle(shape: TextShape, camera: Camera): React.CSSProperties {
     width: screenWidth,
     minHeight: layout.height,
     fontSize,
-    fontFamily: shape.fontFamily,
+    fontFamily: resolveCanvasFontFamily(shape.fontFamily),
     fontWeight: shape.fontWeight,
     fontStyle: shape.fontStyle,
     textAlign: shape.textAlign,

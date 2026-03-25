@@ -52,6 +52,11 @@ function drawPlainText(
     ctx.fillStyle = fillStyle;
   }
 
+  if (options.letterSpacing !== 0) {
+    (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing =
+      `${options.letterSpacing}px`;
+  }
+
   const content = applyTextTransform(options.content, options.textTransform);
   let lines = wrapText(ctx, content, transform.width);
   const lineHeight = options.fontSize * options.lineHeight;
@@ -70,21 +75,22 @@ function drawPlainText(
 
   const totalTextHeight = lines.length * lineHeight;
 
-  let offsetY = 0;
+  const metrics = ctx.measureText('Mg');
+  const fontAscent = metrics.fontBoundingBoxAscent ?? metrics.actualBoundingBoxAscent ?? 0;
+  const fontDescent = metrics.fontBoundingBoxDescent ?? metrics.actualBoundingBoxDescent ?? 0;
+  const glyphHeight = fontAscent + fontDescent;
+  const topOverflow = Math.max(0, (glyphHeight - lineHeight) / 2);
+
+  let offsetY = topOverflow;
   if (options.verticalAlign === 'middle') {
     offsetY = (transform.height - totalTextHeight) / 2;
   } else if (options.verticalAlign === 'bottom') {
-    offsetY = transform.height - totalTextHeight;
+    offsetY = transform.height - totalTextHeight - topOverflow;
   }
 
   let textX = 0;
   if (options.textAlign === 'center') textX = transform.width / 2;
   else if (options.textAlign === 'right') textX = transform.width;
-
-  if (options.letterSpacing !== 0) {
-    (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing =
-      `${options.letterSpacing}px`;
-  }
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];

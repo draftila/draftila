@@ -9,7 +9,11 @@ import {
 } from '@draftila/engine/scene-graph';
 import { ensureDefaultPage } from '@draftila/engine';
 import { applyTextAutoResize } from '@draftila/engine/text-measure';
-import { ensureFontsLoadedAsync, collectFontFamilies } from '@draftila/engine/font-manager';
+import {
+  ensureFontsLoadedAsync,
+  collectFontFamilies,
+  onFontsLoaded,
+} from '@draftila/engine/font-manager';
 
 const SYNC_DEBOUNCE_MS = 100;
 
@@ -121,6 +125,8 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
       }
     };
 
+    const unsubscribeFonts = onFontsLoaded(reconcileTextShapes);
+
     const handleRemoteUpdate = (_update: Uint8Array, origin: unknown) => {
       if (origin !== wsProvider) return;
       setApplyingRemoteChanges(true);
@@ -159,6 +165,7 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
 
     return () => {
       cleanupDebounce();
+      unsubscribeFonts();
       wsProvider.disconnect();
       wsProvider.destroy();
       ydoc.off('update', handleRemoteUpdate);

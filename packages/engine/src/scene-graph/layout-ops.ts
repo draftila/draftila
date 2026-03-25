@@ -22,8 +22,8 @@ function offsetDescendants(
     const id = stack.pop()!;
     const data = shapes.get(id);
     if (!data) continue;
-    data.set('x', (data.get('x') as number) + dx);
-    data.set('y', (data.get('y') as number) + dy);
+    data.set('x', Math.round((data.get('x') as number) + dx));
+    data.set('y', Math.round((data.get('y') as number) + dy));
     const children = childrenByParent.get(id);
     if (children) {
       for (const childId of children) {
@@ -86,12 +86,14 @@ export function applyAutoLayout(ydoc: Y.Doc, frameId: string) {
     const frameData = shapes.get(frameId);
     if (frameData) {
       const frame = frameShape as FrameShape;
+      const hugW = Math.round(parentSize.width);
+      const hugH = Math.round(parentSize.height);
       if (
-        (frame.layoutSizingHorizontal === 'hug' && parentSize.width !== frame.width) ||
-        (frame.layoutSizingVertical === 'hug' && parentSize.height !== frame.height)
+        (frame.layoutSizingHorizontal === 'hug' && hugW !== frame.width) ||
+        (frame.layoutSizingVertical === 'hug' && hugH !== frame.height)
       ) {
-        if (frame.layoutSizingHorizontal === 'hug') frameData.set('width', parentSize.width);
-        if (frame.layoutSizingVertical === 'hug') frameData.set('height', parentSize.height);
+        if (frame.layoutSizingHorizontal === 'hug') frameData.set('width', hugW);
+        if (frame.layoutSizingVertical === 'hug') frameData.set('height', hugH);
       }
     }
 
@@ -105,16 +107,18 @@ export function applyAutoLayout(ydoc: Y.Doc, frameId: string) {
       const currentW = childData.get('width') as number;
       const currentH = childData.get('height') as number;
 
-      const absoluteX = frameX + layout.x;
-      const absoluteY = frameY + layout.y;
+      const absoluteX = Math.round(frameX + layout.x);
+      const absoluteY = Math.round(frameY + layout.y);
+      const newW = Math.round(layout.width);
+      const newH = Math.round(layout.height);
 
       const dx = absoluteX - currentX;
       const dy = absoluteY - currentY;
 
       if (dx !== 0) childData.set('x', absoluteX);
       if (dy !== 0) childData.set('y', absoluteY);
-      if (currentW !== layout.width) childData.set('width', layout.width);
-      if (currentH !== layout.height) childData.set('height', layout.height);
+      if (currentW !== newW) childData.set('width', newW);
+      if (currentH !== newH) childData.set('height', newH);
 
       if (dx !== 0 || dy !== 0) {
         offsetDescendants(shapes, childrenByParent, childId, dx, dy);
