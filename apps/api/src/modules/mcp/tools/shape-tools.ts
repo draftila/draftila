@@ -107,11 +107,18 @@ export function registerShapeTools(server: McpServer, getUserId: () => string) {
         .describe(
           'When true, returns a tree with nested children arrays instead of a flat list. Useful for understanding the full hierarchy in one call.',
         ),
+      compact: z
+        .boolean()
+        .optional()
+        .describe(
+          'When true, returns only essential properties (id, type, name, x, y, width, height, parentId) instead of all shape properties. Much smaller output — use this for large designs to avoid token overflow.',
+        ),
     },
-    async ({ draftId, parentId, recursive }) => {
+    async ({ draftId, parentId, recursive, compact }) => {
       const result = await sendToolRpc(draftId as string, getUserId(), 'list_shapes', {
         parentId,
         recursive,
+        compact,
       });
       return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] };
     },

@@ -23,7 +23,22 @@ export function getIconNames(): string[] {
 
 export function searchIcons(query: string): string[] {
   const lower = query.toLowerCase();
-  return Object.keys(icons).filter((name) => name.includes(lower));
+  const results = Object.keys(icons).filter((name) => name.includes(lower));
+  if (results.length === 0) {
+    const reversed = lower.split('-').reverse().join('-');
+    const reversedResults = Object.keys(icons).filter((name) => name.includes(reversed));
+    if (reversedResults.length > 0) return reversedResults;
+  }
+  return results;
+}
+
+function resolveIconName(name: string): string | null {
+  if (icons[name]) return name;
+
+  const reversed = name.split('-').reverse().join('-');
+  if (icons[reversed]) return reversed;
+
+  return null;
 }
 
 export function getIconSvg(
@@ -32,8 +47,9 @@ export function getIconSvg(
   strokeWidth = 2,
   color = '#000000',
 ): string | null {
-  const nodes = icons[name];
-  if (!nodes) return null;
+  const resolved = resolveIconName(name);
+  if (!resolved) return null;
+  const nodes = icons[resolved]!;
 
   const safeSize = Math.max(1, Math.min(Number.isFinite(size) ? size : 24, 4096));
   const safeStrokeWidth = Math.max(

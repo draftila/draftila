@@ -36,8 +36,14 @@ export function registerIconTools(server: McpServer, getUserId: () => string) {
       strokeWidth: z.number().optional().describe('Stroke width (default 2)'),
       color: z.string().optional().describe('Icon color as hex (default "#000000")'),
       parentId: z.string().optional().describe('Parent frame ID to nest the icon inside'),
+      childIndex: z
+        .number()
+        .optional()
+        .describe(
+          'Insert position among siblings (0 = first child, 1 = second, etc.). Only applies when parentId is set. Omit to append as last child.',
+        ),
     },
-    async ({ draftId, name, x, y, size, strokeWidth, color, parentId }) => {
+    async ({ draftId, name, x, y, size, strokeWidth, color, parentId, childIndex }) => {
       const result = await sendToolRpc(draftId as string, getUserId(), 'insert_icon', {
         name,
         x,
@@ -46,6 +52,7 @@ export function registerIconTools(server: McpServer, getUserId: () => string) {
         strokeWidth,
         color,
         parentId,
+        childIndex,
       });
       return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] };
     },
