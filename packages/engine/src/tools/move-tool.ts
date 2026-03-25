@@ -48,6 +48,21 @@ export class MoveTool extends BaseTool {
     this.spatialIndex.rebuild(shapes);
     const store = getToolStore();
 
+    if (ctx.metaKey) {
+      const preMarqueeIds = ctx.shiftKey ? [...store.selectedIds] : [];
+      if (!ctx.shiftKey) {
+        store.clearSelection();
+        store.setEnteredGroupId(null);
+      }
+      this.state = {
+        type: 'marquee',
+        startCanvas: { x: ctx.canvasPoint.x, y: ctx.canvasPoint.y },
+        preMarqueeIds,
+      };
+      this.marqueeRect = null;
+      return;
+    }
+
     if (store.selectedIds.length > 0) {
       const selectedShapes = store.selectedIds
         .map((id) => shapes.find((s) => s.id === id))
