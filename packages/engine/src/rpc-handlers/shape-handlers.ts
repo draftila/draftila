@@ -1,7 +1,5 @@
 import type { Shape, ShapeType } from '@draftila/shared';
-import { addShape, getShape, getAllShapes, getChildShapes } from '../scene-graph';
-import { isAutoLayoutFrame } from '../auto-layout';
-import { applyAutoLayout, applyAutoLayoutForAncestors } from '../scene-graph/layout-ops';
+import { getShape, getAllShapes, getChildShapes } from '../scene-graph';
 import {
   opCreateShape,
   opUpdateShape,
@@ -10,7 +8,7 @@ import {
   opDuplicateShapesInPlace,
 } from '../operations';
 import type { RpcHandler } from './types';
-import { sortByDepth, toAbsoluteProps, applyTextDefaults, toRelativeShape } from './utils';
+import { toAbsoluteProps, applyTextDefaults, toRelativeShape } from './utils';
 
 export function shapeHandlers(): Record<string, RpcHandler> {
   return {
@@ -94,7 +92,6 @@ export function shapeHandlers(): Record<string, RpcHandler> {
         childIndex?: number;
       }>;
       const ids: string[] = [];
-      const autoLayoutParents = new Set<string>();
 
       for (const shape of shapes) {
         let props = { ...(shape.props ?? {}) } as Record<string, unknown>;
@@ -106,27 +103,13 @@ export function shapeHandlers(): Record<string, RpcHandler> {
         }
         if (shape.type === 'text') props = applyTextDefaults(props);
         const absProps = toAbsoluteProps(ydoc, props);
-        const id = addShape(
+        const id = opCreateShape(
           ydoc,
           shape.type as ShapeType,
           absProps as Partial<Shape>,
           shape.childIndex,
         );
         ids.push(id);
-        if (typeof absProps['parentId'] === 'string') {
-          const parentShape = getShape(ydoc, absProps['parentId']);
-          if (parentShape && isAutoLayoutFrame(parentShape)) {
-            autoLayoutParents.add(absProps['parentId']);
-          }
-        }
-      }
-
-      const sorted = sortByDepth(ydoc, autoLayoutParents);
-      for (const parentId of sorted) {
-        applyAutoLayout(ydoc, parentId);
-      }
-      for (const id of ids) {
-        applyAutoLayoutForAncestors(ydoc, id);
       }
 
       return { shapeIds: ids, count: ids.length };

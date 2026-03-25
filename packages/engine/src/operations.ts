@@ -207,10 +207,7 @@ export function opAlignShapes(
   const shapes = allShapes.filter((s) => shapeSet.has(s.id));
   const updates = alignShapes(shapes, alignment);
   for (const [id, pos] of updates) {
-    updateShape(ydoc, id, pos as Partial<Shape>);
-  }
-  for (const [id] of updates) {
-    applyAutoLayoutForAncestors(ydoc, id);
+    opUpdateShape(ydoc, id, pos as Partial<Shape>);
   }
 }
 
@@ -224,10 +221,7 @@ export function opDistributeShapes(
   const shapes = allShapes.filter((s) => shapeSet.has(s.id));
   const updates = distributeShapes(shapes, direction);
   for (const [id, pos] of updates) {
-    updateShape(ydoc, id, pos as Partial<Shape>);
-  }
-  for (const [id] of updates) {
-    applyAutoLayoutForAncestors(ydoc, id);
+    opUpdateShape(ydoc, id, pos as Partial<Shape>);
   }
 }
 

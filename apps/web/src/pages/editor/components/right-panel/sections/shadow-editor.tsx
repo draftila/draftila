@@ -4,6 +4,7 @@ import type { Shadow } from '@draftila/shared';
 import { ColorPicker } from '../../color-picker';
 import { NumberInput } from '../number-input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { BlurIcon } from './blur-editor';
 
 export const DEFAULT_SHADOW: Shadow = {
   type: 'drop',
@@ -56,22 +57,6 @@ export function ShadowIcon({ className }: { className?: string }) {
     >
       <rect x="1" y="1" width="10" height="10" rx="2" stroke="currentColor" strokeWidth="1.2" />
       <rect x="3" y="3" width="10" height="10" rx="2" fill="currentColor" opacity="0.25" />
-    </svg>
-  );
-}
-
-function BlurIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 14 14"
-      fill="none"
-      className={className}
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.2" strokeDasharray="2 2" />
-      <circle cx="7" cy="7" r="2.5" fill="currentColor" opacity="0.3" />
     </svg>
   );
 }
