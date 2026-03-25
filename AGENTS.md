@@ -25,6 +25,7 @@ packages/    shared (Zod schemas + types), eslint-config, typescript-config
 - Follow the existing code style and patterns.
 - No direct changes to the Canvas! Changes to canvas must go through Yjs because it is being triggered from both Web and MCP.
 - No Hacks! No shortcuts! No symptom patches! Solutions are expected to be proper.
+- Always consider other similar cases when solving a problem. For example, if working on live feedback for moving elements on auto-layout, consider resizing as well. and same for other related things.
 
 ### API (`apps/api`)
 
