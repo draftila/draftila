@@ -21,6 +21,7 @@ import {
 import type { StackMoveDirection, LayerDropPlacement } from './scene-graph/types';
 import type { BooleanOperation } from './boolean-ops';
 import { isAutoLayoutFrame } from './auto-layout';
+import { applyTextAutoResize } from './text-measure';
 import { alignShapes, distributeShapes } from './selection';
 import {
   duplicateShapesInPlace,
@@ -37,6 +38,15 @@ export function opCreateShape(
   childIndex?: number,
 ): string {
   const id = addShape(ydoc, type, props, childIndex);
+  if (type === 'text') {
+    const shape = getShape(ydoc, id);
+    if (shape) {
+      const patch = applyTextAutoResize(shape);
+      if (patch) {
+        updateShape(ydoc, id, patch);
+      }
+    }
+  }
   applyAutoLayoutForAncestors(ydoc, id);
   return id;
 }

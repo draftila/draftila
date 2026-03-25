@@ -1,4 +1,5 @@
 import type { Shape } from '@draftila/shared';
+import { resolveCanvasFontFamily } from './font-manager';
 
 type TextAutoResize = 'none' | 'width' | 'height';
 
@@ -87,14 +88,19 @@ export function computeTextAutoResizeDimensions(
   if (!ctx) return null;
 
   const fontStyle = shape.fontStyle === 'italic' ? 'italic' : '';
-  ctx.font = `${fontStyle} ${shape.fontWeight} ${shape.fontSize}px ${shape.fontFamily}`.trim();
-  if (shape.letterSpacing) {
-    ctx.letterSpacing = `${shape.letterSpacing}px`;
-  }
+  const resolvedFamily = resolveCanvasFontFamily(shape.fontFamily);
+  ctx.font = `${fontStyle} ${shape.fontWeight} ${shape.fontSize}px ${resolvedFamily}`.trim();
+  ctx.letterSpacing = shape.letterSpacing ? `${shape.letterSpacing}px` : '0px';
 
   const content = applyTransform(shape.content || ' ', shape.textTransform);
   const lineHeightPx = shape.fontSize * shape.lineHeight;
-  const padding = 4;
+  const hPadding = 4;
+
+  const metrics = ctx.measureText('Mg');
+  const fontAscent = metrics.fontBoundingBoxAscent ?? metrics.actualBoundingBoxAscent ?? 0;
+  const fontDescent = metrics.fontBoundingBoxDescent ?? metrics.actualBoundingBoxDescent ?? 0;
+  const glyphHeight = fontAscent + fontDescent;
+  const vOverflow = Math.max(0, glyphHeight - lineHeightPx);
 
   if (mode === 'width') {
     const lines = content.split('\n');
@@ -103,17 +109,17 @@ export function computeTextAutoResizeDimensions(
       maxWidth = Math.max(maxWidth, measureSingleLineWidth(ctx, line || ' '));
     }
 
-    const totalHeight = lines.length * lineHeightPx;
+    const totalHeight = lines.length * lineHeightPx + vOverflow;
 
     ctx.letterSpacing = '0px';
     return {
-      width: Math.ceil(maxWidth) + padding,
+      width: Math.ceil(maxWidth) + hPadding,
       height: Math.max(Math.ceil(totalHeight), lineHeightPx),
     };
   }
 
   if (mode === 'height') {
-    const totalHeight = measureWrappedHeight(ctx, content, shape.width, lineHeightPx);
+    const totalHeight = measureWrappedHeight(ctx, content, shape.width, lineHeightPx) + vOverflow;
 
     ctx.letterSpacing = '0px';
     return {

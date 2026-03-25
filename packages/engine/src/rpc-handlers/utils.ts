@@ -57,7 +57,10 @@ export function applyTextDefaults(props: Record<string, unknown>): Record<string
   if (out['textAlign'] === undefined) out['textAlign'] = 'center';
   const fontSize = (out['fontSize'] as number) ?? 16;
   const lineHeight = (out['lineHeight'] as number) ?? 1.2;
-  if (out['height'] === undefined) out['height'] = Math.ceil(fontSize * lineHeight);
+  const lineHeightPx = fontSize * lineHeight;
+  const glyphHeight = fontSize * 1.2;
+  const vOverflow = Math.max(0, glyphHeight - lineHeightPx);
+  if (out['height'] === undefined) out['height'] = Math.ceil(lineHeightPx + vOverflow);
   if (out['width'] === undefined) out['width'] = 200;
   return out;
 }
