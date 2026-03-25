@@ -54,7 +54,7 @@ function cloneStyleValue<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-interface PasteOptions {
+export interface PasteOptions {
   selectedIds?: string[];
   cursorPosition?: Point | null;
   inPlace?: boolean;

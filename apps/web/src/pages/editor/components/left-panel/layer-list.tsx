@@ -7,16 +7,16 @@ import {
   listComponents,
   observeComponents,
 } from '@draftila/engine';
-import { copyStyle, hasStyleClipboardContent, pasteStyle } from '@draftila/engine/clipboard';
+import { copyStyle, hasStyleClipboardContent } from '@draftila/engine/clipboard';
+import { canApplyBooleanOperation, getExpandedShapeIds } from '@draftila/engine/scene-graph';
 import {
-  applyBooleanOperation,
-  canApplyBooleanOperation,
-  groupShapes,
-  getExpandedShapeIds,
-  moveShapesInStack,
-  ungroupShapes,
-  updateShape,
-} from '@draftila/engine/scene-graph';
+  opGroupShapes,
+  opUngroupShapes,
+  opMoveInStack,
+  opUpdateShape,
+  opBooleanOperation,
+  opPasteStyle,
+} from '@draftila/engine/operations';
 import { useEditorStore } from '@/stores/editor-store';
 import { LayerRow } from './layer-row';
 import { LayerContextMenu } from './layer-context-menu';
@@ -88,14 +88,14 @@ export function LayerList({
 
   const handleToggleVisibility = useCallback(
     (id: string, visible: boolean) => {
-      updateShape(ydoc, id, { visible: !visible } as Partial<Shape>);
+      opUpdateShape(ydoc, id, { visible: !visible } as Partial<Shape>);
     },
     [ydoc],
   );
 
   const handleToggleLock = useCallback(
     (id: string, locked: boolean) => {
-      updateShape(ydoc, id, { locked: !locked } as Partial<Shape>);
+      opUpdateShape(ydoc, id, { locked: !locked } as Partial<Shape>);
     },
     [ydoc],
   );
@@ -115,7 +115,7 @@ export function LayerList({
     if (!renamingId) return;
     const nextName = renameValue.trim();
     if (nextName.length > 0) {
-      updateShape(ydoc, renamingId, { name: nextName } as Partial<Shape>);
+      opUpdateShape(ydoc, renamingId, { name: nextName } as Partial<Shape>);
     }
     setRenamingId(null);
     setRenameValue('');
@@ -143,13 +143,13 @@ export function LayerList({
   );
 
   const handleGroup = useCallback(() => {
-    const groupId = groupShapes(ydoc, activeSelectionIds);
+    const groupId = opGroupShapes(ydoc, activeSelectionIds);
     if (groupId) setSelectedIds([groupId]);
     onCloseContextMenu();
   }, [activeSelectionIds, setSelectedIds, ydoc, onCloseContextMenu]);
 
   const handleUngroup = useCallback(() => {
-    const childIds = ungroupShapes(ydoc, activeSelectionIds);
+    const childIds = opUngroupShapes(ydoc, activeSelectionIds);
     if (childIds.length > 0) setSelectedIds(childIds);
     onCloseContextMenu();
   }, [activeSelectionIds, setSelectedIds, ydoc, onCloseContextMenu]);
@@ -168,7 +168,7 @@ export function LayerList({
 
   const handleStackMove = useCallback(
     (direction: 'forward' | 'backward' | 'front' | 'back') => {
-      const movedIds = moveShapesInStack(ydoc, activeSelectionIds, direction);
+      const movedIds = opMoveInStack(ydoc, activeSelectionIds, direction);
       if (movedIds.length > 0) setSelectedIds(movedIds);
       onCloseContextMenu();
     },
@@ -189,7 +189,7 @@ export function LayerList({
       return;
     }
     if (activeSelectionIds.length > 0) {
-      pasteStyle(ydoc, activeSelectionIds);
+      opPasteStyle(ydoc, activeSelectionIds);
     }
     onCloseContextMenu();
   }, [activeSelectionIds, ydoc, onCloseContextMenu]);
@@ -201,7 +201,7 @@ export function LayerList({
         return;
       }
 
-      const newId = applyBooleanOperation(ydoc, activeSelectionIds, operation);
+      const newId = opBooleanOperation(ydoc, activeSelectionIds, operation);
       if (newId) {
         setSelectedIds([newId]);
       }

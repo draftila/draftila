@@ -1,70 +1,13 @@
 import type { Prisma } from '../../generated/prisma/postgresql-client';
 import type { SortOrder } from '@draftila/shared';
 import { ForbiddenError } from '../../common/errors';
+import { getSortConfig, nextTimestamp, paginateResults } from '../../common/lib/pagination';
 import { generateStorageKey, getStorage } from '../../common/lib/storage';
 import { nanoid } from '../../common/lib/utils';
 import { db } from '../../db';
 
 export function userAccessFilter(userId: string): Prisma.ProjectWhereInput {
   return { OR: [{ ownerId: userId }, { members: { some: { userId } } }] };
-}
-
-let lastTimestamp = 0;
-
-function nextTimestamp() {
-  const now = Date.now();
-  if (now <= lastTimestamp) {
-    lastTimestamp += 1;
-  } else {
-    lastTimestamp = now;
-  }
-  return new Date(lastTimestamp);
-}
-
-type ProjectSortConfig = {
-  orderBy: Prisma.ProjectOrderByWithRelationInput[];
-  where: (cursorProject: {
-    id: string;
-    name: string;
-    createdAt: Date;
-    updatedAt: Date;
-  }) => Prisma.ProjectWhereInput;
-};
-
-function getSortConfig(sort: SortOrder): ProjectSortConfig {
-  switch (sort) {
-    case 'alphabetical':
-      return {
-        orderBy: [{ name: 'asc' }, { id: 'asc' }],
-        where: (cursorProject) => ({
-          OR: [
-            { name: { gt: cursorProject.name } },
-            { name: cursorProject.name, id: { gt: cursorProject.id } },
-          ],
-        }),
-      };
-    case 'last_created':
-      return {
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        where: (cursorProject) => ({
-          OR: [
-            { createdAt: { lt: cursorProject.createdAt } },
-            { createdAt: cursorProject.createdAt, id: { lt: cursorProject.id } },
-          ],
-        }),
-      };
-    case 'last_edited':
-    default:
-      return {
-        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
-        where: (cursorProject) => ({
-          OR: [
-            { updatedAt: { lt: cursorProject.updatedAt } },
-            { updatedAt: cursorProject.updatedAt, id: { lt: cursorProject.id } },
-          ],
-        }),
-      };
-  }
 }
 
 export async function listByOwner(
@@ -84,7 +27,7 @@ export async function listByOwner(
       select: { id: true, name: true, createdAt: true, updatedAt: true },
     });
     if (cursorProject) {
-      cursorFilter = sortConfig.where(cursorProject);
+      cursorFilter = sortConfig.where(cursorProject) as Prisma.ProjectWhereInput;
     }
   }
 
@@ -97,16 +40,11 @@ export async function listByOwner(
 
   const results = await db.project.findMany({
     where,
-    orderBy: sortConfig.orderBy,
+    orderBy: sortConfig.orderBy as Prisma.ProjectOrderByWithRelationInput[],
     take: limit + 1,
   });
 
-  const hasMore = results.length > limit;
-  const data = hasMore ? results.slice(0, limit) : results;
-  const lastItem = data.at(-1);
-  const nextCursor = hasMore && lastItem ? lastItem.id : null;
-
-  return { data, nextCursor };
+  return paginateResults(results, limit);
 }
 
 export function getByIdForUser(id: string, userId: string) {

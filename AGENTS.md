@@ -24,6 +24,7 @@ packages/    shared (Zod schemas + types), eslint-config, typescript-config
 - Run `bun run checks --fix` after every task. It must pass before considering work complete.
 - Follow the existing code style and patterns.
 - No direct changes to the Canvas! Changes to canvas must go through Yjs because it is being triggered from both Web and MCP.
+- No Hacks! No shortcuts! No symptom patches! Solutions are expected to be proper.
 
 ### API (`apps/api`)
 

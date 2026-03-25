@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import type * as Y from 'yjs';
-import { moveShapesByDrop, type LayerDropPlacement } from '@draftila/engine/scene-graph';
+import type { LayerDropPlacement } from '@draftila/engine/scene-graph';
+import { opMoveByDrop } from '@draftila/engine/operations';
 import type { DragState, LayerRow } from '../types';
 
 export function useLayerDragDrop(
@@ -55,12 +56,7 @@ export function useLayerDragDrop(
       e.preventDefault();
       if (!dragState || !dragState.placement) return;
 
-      const movedIds = moveShapesByDrop(
-        ydoc,
-        dragState.draggingIds,
-        row.shape.id,
-        dragState.placement,
-      );
+      const movedIds = opMoveByDrop(ydoc, dragState.draggingIds, row.shape.id, dragState.placement);
       if (movedIds.length > 0) {
         setSelectedIds(movedIds);
         if (dragState.placement === 'inside') {

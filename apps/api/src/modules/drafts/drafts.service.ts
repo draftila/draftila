@@ -1,21 +1,10 @@
 import type { Prisma } from '../../generated/prisma/postgresql-client';
 import type { SortOrder } from '@draftila/shared';
+import { getSortConfig, nextTimestamp, paginateResults } from '../../common/lib/pagination';
 import { generateStorageKey, getStorage } from '../../common/lib/storage';
 import { nanoid } from '../../common/lib/utils';
 import { db } from '../../db';
 import { userAccessFilter } from '../projects/projects.service';
-
-let lastTimestamp = 0;
-
-function nextTimestamp() {
-  const now = Date.now();
-  if (now <= lastTimestamp) {
-    lastTimestamp += 1;
-  } else {
-    lastTimestamp = now;
-  }
-  return new Date(lastTimestamp);
-}
 
 const draftListSelect = {
   id: true,
@@ -25,60 +14,6 @@ const draftListSelect = {
   createdAt: true,
   updatedAt: true,
 } as const;
-
-type DraftSortConfig = {
-  orderBy: Prisma.DraftOrderByWithRelationInput[];
-  where: (cursorDraft: {
-    id: string;
-    name: string;
-    createdAt: Date;
-    updatedAt: Date;
-  }) => Prisma.DraftWhereInput;
-};
-
-function getSortConfig(sort: SortOrder): DraftSortConfig {
-  switch (sort) {
-    case 'alphabetical':
-      return {
-        orderBy: [{ name: 'asc' }, { id: 'asc' }],
-        where: (cursorDraft) => ({
-          OR: [
-            { name: { gt: cursorDraft.name } },
-            { name: cursorDraft.name, id: { gt: cursorDraft.id } },
-          ],
-        }),
-      };
-    case 'last_created':
-      return {
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        where: (cursorDraft) => ({
-          OR: [
-            { createdAt: { lt: cursorDraft.createdAt } },
-            { createdAt: cursorDraft.createdAt, id: { lt: cursorDraft.id } },
-          ],
-        }),
-      };
-    case 'last_edited':
-    default:
-      return {
-        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
-        where: (cursorDraft) => ({
-          OR: [
-            { updatedAt: { lt: cursorDraft.updatedAt } },
-            {
-              updatedAt: cursorDraft.updatedAt,
-              createdAt: { lt: cursorDraft.createdAt },
-            },
-            {
-              updatedAt: cursorDraft.updatedAt,
-              createdAt: cursorDraft.createdAt,
-              id: { lt: cursorDraft.id },
-            },
-          ],
-        }),
-      };
-  }
-}
 
 export async function listByProject(
   projectId: string,
@@ -95,7 +30,7 @@ export async function listByProject(
       select: { id: true, name: true, createdAt: true, updatedAt: true },
     });
     if (cursorDraft) {
-      cursorFilter = sortConfig.where(cursorDraft);
+      cursorFilter = sortConfig.where(cursorDraft) as Prisma.DraftWhereInput;
     }
   }
 
@@ -109,16 +44,11 @@ export async function listByProject(
   const results = await db.draft.findMany({
     where,
     select: draftListSelect,
-    orderBy: sortConfig.orderBy,
+    orderBy: sortConfig.orderBy as Prisma.DraftOrderByWithRelationInput[],
     take: limit + 1,
   });
 
-  const hasMore = results.length > limit;
-  const data = hasMore ? results.slice(0, limit) : results;
-  const lastItem = data.at(-1);
-  const nextCursor = hasMore && lastItem ? lastItem.id : null;
-
-  return { data, nextCursor };
+  return paginateResults(results, limit);
 }
 
 export async function listByUser(
@@ -140,7 +70,7 @@ export async function listByUser(
       select: { id: true, name: true, createdAt: true, updatedAt: true },
     });
     if (cursorDraft) {
-      cursorFilter = sortConfig.where(cursorDraft);
+      cursorFilter = sortConfig.where(cursorDraft) as Prisma.DraftWhereInput;
     }
   }
 
@@ -154,16 +84,11 @@ export async function listByUser(
   const results = await db.draft.findMany({
     where,
     select: draftListSelect,
-    orderBy: sortConfig.orderBy,
+    orderBy: sortConfig.orderBy as Prisma.DraftOrderByWithRelationInput[],
     take: limit + 1,
   });
 
-  const hasMore = results.length > limit;
-  const data = hasMore ? results.slice(0, limit) : results;
-  const lastItem = data.at(-1);
-  const nextCursor = hasMore && lastItem ? lastItem.id : null;
-
-  return { data, nextCursor };
+  return paginateResults(results, limit);
 }
 
 export function getById(id: string) {
