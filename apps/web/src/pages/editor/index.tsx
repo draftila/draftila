@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { PanelLeft, Upload, Eye } from 'lucide-react';
+import { PanelLeft, Upload, Eye, Keyboard } from 'lucide-react';
 import logoSvg from '@/assets/logo.svg';
 import { useDraftById, useUpdateDraft } from '@/api/drafts';
 import { useSession } from '@/lib/auth-client';
@@ -329,6 +329,22 @@ export function EditorPage() {
               ))}
             </div>
           )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0"
+                onClick={() => setShortcutsOpen(true)}
+              >
+                <Keyboard className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="flex items-center gap-2">
+              <span>Keyboard shortcuts</span>
+              <kbd className="bg-muted/20 rounded px-1.5 py-0.5 font-mono text-[10px]">?</kbd>
+            </TooltipContent>
+          </Tooltip>
           <Separator orientation="vertical" className="data-[orientation=vertical]:h-full" />
           <UserMenu />
         </div>
