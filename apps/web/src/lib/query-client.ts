@@ -2,8 +2,14 @@ import { QueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ApiError } from '@/lib/api-client';
 
+export function clearUserCache() {
+  queryClient.clear();
+  localStorage.removeItem('dashboard');
+}
+
 function handleGlobalError(error: unknown) {
   if (error instanceof ApiError && error.status === 401) {
+    clearUserCache();
     window.location.href = '/login';
     return;
   }

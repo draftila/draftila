@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { KeyIcon, LogOutIcon } from 'lucide-react';
 import { useSession, signOut } from '@/lib/auth-client';
+import { clearUserCache } from '@/lib/query-client';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +24,7 @@ export function UserMenu() {
 
   async function handleSignOut() {
     await signOut();
+    clearUserCache();
     navigate('/login');
   }
 
