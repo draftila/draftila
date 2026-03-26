@@ -4,7 +4,8 @@ WORKDIR /app
 
 COPY . .
 
-RUN bun install --frozen-lockfile
+RUN bun install --frozen-lockfile --ignore-scripts
+RUN cd apps/api && bunx prisma generate --schema prisma/postgresql/schema.prisma && bunx prisma generate --schema prisma/sqlite/schema.prisma
 
 RUN bun run --filter @draftila/web build
 RUN bun run --filter @draftila/api build
