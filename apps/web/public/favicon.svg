@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000" viewBox="0 0 1000 1000">
+    <defs>
+        <linearGradient id="grad-0" x1="0.49999999999999994" y1="0" x2="0.5" y2="1">
+            <stop offset="0" stop-color="#F163D8" />
+            <stop offset="1" stop-color="#8B396C" />
+            <stop offset="0.53" stop-color="#F163D8" />
+        </linearGradient>
+        <clipPath id="clip-1">
+            <rect x="235" y="238" width="530" height="524" />
+        </clipPath>
+        <clipPath id="clip-2">
+            <rect x="0" y="0" width="1000" height="1000" />
+        </clipPath>
+    </defs>
+    <g clip-path="url(#clip-2)">
+        <path data-name="rectangle" d="M0 0H980V980H0Z" transform="translate(10,10)" fill="url(#grad-0)"
+            stroke="none" />
+        <g clip-path="url(#clip-1)">
+            <path data-name="Vector" d="M441.6666 0H0" transform="translate(279.16666666666663,369)" fill="none"
+                stroke="#000000" stroke-width="54" stroke-linecap="square" stroke-linejoin="bevel" />
+            <path data-name="Vector" d="M441.6666 0H0" transform="translate(279.16666666666663,631)" fill="none"
+                stroke="#000000" stroke-width="54" stroke-linecap="square" stroke-linejoin="bevel" />
+            <path data-name="Vector" d="M0 0V436.6667" transform="translate(367.5,281.6666666666667)" fill="none"
+                stroke="#000000" stroke-width="54" stroke-linecap="square" stroke-linejoin="bevel" />
+            <path data-name="Vector" d="M0 0V436.6667" transform="translate(632.5,281.6666666666667)" fill="none"
+                stroke="#000000" stroke-width="54" stroke-linecap="square" stroke-linejoin="bevel" />
+        </g>
+    </g>
+</svg>
