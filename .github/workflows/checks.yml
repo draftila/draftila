@@ -62,7 +62,7 @@ jobs:
         run: |
           docker run -d --name draftila-ci \
             -p 3001:3001 \
-            -e BETTER_AUTH_SECRET=ci-test-secret \
+            -e BETTER_AUTH_SECRET=ci-test-secret-that-is-at-least-32-characters-long \
             -e BETTER_AUTH_URL=http://localhost:3001 \
             -e FRONTEND_URL=http://localhost:3001 \
             draftila:ci
