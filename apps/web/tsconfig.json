@@ -2,6 +2,8 @@
   "extends": "@draftila/typescript-config/react.json",
   "compilerOptions": {
     "baseUrl": ".",
+    "declaration": false,
+    "declarationMap": false,
     "paths": {
       "@/*": ["./src/*"]
     }
