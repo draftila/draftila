@@ -47,3 +47,41 @@ jobs:
         run: bun run --filter @draftila/api test -- --coverage
         env:
           DB_DRIVER: sqlite
+
+  docker:
+    name: Docker build & smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t draftila:ci .
+
+      - name: Start container
+        run: |
+          docker run -d --name draftila-ci \
+            -p 3001:3001 \
+            -e BETTER_AUTH_SECRET=ci-test-secret \
+            -e BETTER_AUTH_URL=http://localhost:3001 \
+            -e FRONTEND_URL=http://localhost:3001 \
+            draftila:ci
+
+      - name: Wait for healthy response
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3001/api/health; then
+              echo ""
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Attempt $i/30 — waiting..."
+            sleep 2
+          done
+          echo "Health check failed after 60s"
+          docker logs draftila-ci
+          exit 1
+
+      - name: Print container logs on failure
+        if: failure()
+        run: docker logs draftila-ci
