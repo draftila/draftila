@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun run db:studio & bun run --hot src/index.ts",
-    "build": "bun build src/index.ts --outdir dist --target bun",
+    "build": "bun build src/index.ts --outdir dist --target bun --external paper",
     "start": "bun run dist/index.js",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
