@@ -2,6 +2,7 @@ import type { ToolType } from '@draftila/shared';
 import type { BaseTool } from './base-tool';
 import { HandTool } from './hand-tool';
 import { MoveTool } from './move-tool';
+import { CommentTool, setCommentToolCallback } from './comment-tool';
 import { RectangleTool } from './rectangle-tool';
 import { EllipseTool } from './ellipse-tool';
 import { FrameTool } from './frame-tool';
@@ -17,6 +18,7 @@ import { ArrowTool } from './arrow-tool';
 const toolInstances: Record<ToolType, BaseTool> = {
   move: new MoveTool(),
   hand: new HandTool(),
+  comment: new CommentTool(),
   rectangle: new RectangleTool(),
   ellipse: new EllipseTool(),
   frame: new FrameTool(),
@@ -36,6 +38,10 @@ export function getTool(type: ToolType): BaseTool {
 
 export function getMoveTool(): MoveTool {
   return toolInstances.move as MoveTool;
+}
+
+export function getCommentTool(): CommentTool {
+  return toolInstances.comment as CommentTool;
 }
 
 export function getRectangleTool(): RectangleTool {
@@ -82,4 +88,4 @@ export function getNodeTool(): NodeTool {
   return toolInstances.node as NodeTool;
 }
 
-export { setTextToolCallback };
+export { setTextToolCallback, setCommentToolCallback };

@@ -44,18 +44,30 @@ import { KeyboardShortcutsDialog } from './components/keyboard-shortcuts-dialog'
 
 function ViewMenuItems() {
   const rulersVisible = useEditorStore((s) => s.rulersVisible);
+  const commentsVisible = useEditorStore((s) => s.commentsVisible);
 
   return (
-    <DropdownMenuCheckboxItem
-      checked={rulersVisible}
-      onCheckedChange={(checked) => {
-        useEditorStore.getState().setRulersVisible(checked);
-        useEditorStore.getState().setGuidesVisible(checked);
-      }}
-    >
-      Rulers & Guides
-      <span className="text-muted-foreground ml-auto pl-4 text-[11px]">{'\u21E7R'}</span>
-    </DropdownMenuCheckboxItem>
+    <>
+      <DropdownMenuCheckboxItem
+        checked={rulersVisible}
+        onCheckedChange={(checked) => {
+          useEditorStore.getState().setRulersVisible(checked);
+          useEditorStore.getState().setGuidesVisible(checked);
+        }}
+      >
+        Rulers & Guides
+        <span className="text-muted-foreground ml-auto pl-4 text-[11px]">{'\u21E7R'}</span>
+      </DropdownMenuCheckboxItem>
+      <DropdownMenuCheckboxItem
+        checked={commentsVisible}
+        onCheckedChange={(checked) => {
+          useEditorStore.getState().setCommentsVisible(checked);
+        }}
+      >
+        Comments
+        <span className="text-muted-foreground ml-auto pl-4 text-[11px]">{'\u21E7C'}</span>
+      </DropdownMenuCheckboxItem>
+    </>
   );
 }
 
@@ -353,6 +365,9 @@ export function EditorPage() {
         <LeftPanel ydoc={ydoc} />
         <Canvas
           ydoc={ydoc}
+          draftId={draftId ?? ''}
+          userId={userId}
+          userName={userName}
           remoteUsers={remoteUsers}
           onActiveInteraction={handleActiveInteraction}
         />

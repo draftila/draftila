@@ -21,6 +21,8 @@ interface EditorState {
   draggingGuide: { axis: 'x' | 'y'; position: number } | null;
   rulersVisible: boolean;
   guidesVisible: boolean;
+  commentsVisible: boolean;
+  activeCommentId: string | null;
   aiActiveFrameIds: Set<string>;
 
   setActiveTool: (tool: ToolType) => void;
@@ -46,6 +48,8 @@ interface EditorState {
   setDraggingGuide: (guide: { axis: 'x' | 'y'; position: number } | null) => void;
   setRulersVisible: (visible: boolean) => void;
   setGuidesVisible: (visible: boolean) => void;
+  setCommentsVisible: (visible: boolean) => void;
+  setActiveCommentId: (id: string | null) => void;
   setAiActiveFrameIds: (ids: Set<string>) => void;
 }
 
@@ -67,6 +71,8 @@ export const useEditorStore = create<EditorState>((set) => ({
   draggingGuide: null,
   rulersVisible: localStorage.getItem('draftila:rulersVisible') !== 'false',
   guidesVisible: localStorage.getItem('draftila:rulersVisible') !== 'false',
+  commentsVisible: localStorage.getItem('draftila:commentsVisible') !== 'false',
+  activeCommentId: null,
   aiActiveFrameIds: new Set(),
 
   setActiveTool: (tool) => set({ activeTool: tool }),
@@ -144,6 +150,13 @@ export const useEditorStore = create<EditorState>((set) => ({
   },
 
   setGuidesVisible: (visible) => set({ guidesVisible: visible }),
+
+  setCommentsVisible: (visible) => {
+    localStorage.setItem('draftila:commentsVisible', String(visible));
+    set({ commentsVisible: visible });
+  },
+
+  setActiveCommentId: (id) => set({ activeCommentId: id }),
 
   setAiActiveFrameIds: (ids) => set({ aiActiveFrameIds: ids }),
 }));

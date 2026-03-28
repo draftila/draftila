@@ -27,6 +27,13 @@ export function handleShapeKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
     return true;
   }
 
+  if (!isMod && e.shiftKey && code === 'KeyC') {
+    e.preventDefault();
+    const { commentsVisible, setCommentsVisible } = useEditorStore.getState();
+    setCommentsVisible(!commentsVisible);
+    return true;
+  }
+
   if (isMod && key === 'z' && !e.shiftKey) {
     e.preventDefault();
     undo();

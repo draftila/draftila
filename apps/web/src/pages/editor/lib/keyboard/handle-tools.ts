@@ -6,6 +6,7 @@ import { useEditorStore } from '@/stores/editor-store';
 const TOOL_SHORTCUTS: Record<string, ToolType> = {
   v: 'move',
   h: 'hand',
+  c: 'comment',
   r: 'rectangle',
   o: 'ellipse',
   f: 'frame',
@@ -89,6 +90,10 @@ export function handleToolKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
     e.preventDefault();
     useEditorStore.getState().setActiveTool(e.shiftKey ? 'pencil' : 'pen');
     return true;
+  }
+
+  if (e.shiftKey) {
+    return false;
   }
 
   if (!isMod && TOOL_SHORTCUTS[key]) {

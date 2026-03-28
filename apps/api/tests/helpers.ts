@@ -2,6 +2,8 @@ import { app } from '../src/app';
 import { db } from '../src/db';
 
 export async function cleanDatabase() {
+  await db.commentRead.deleteMany();
+  await db.comment.deleteMany();
   await db.draft.deleteMany();
   await db.projectMember.deleteMany();
   await db.project.deleteMany();
@@ -22,6 +24,8 @@ export async function cleanProjects() {
 }
 
 export async function cleanDrafts() {
+  await db.commentRead.deleteMany();
+  await db.comment.deleteMany();
   await db.draft.deleteMany();
 }
 

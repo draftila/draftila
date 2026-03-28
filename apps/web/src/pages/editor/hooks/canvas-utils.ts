@@ -5,6 +5,7 @@ export function getCursorForTool(tool: string, isPanning: boolean): string {
       return 'default';
     case 'hand':
       return 'grab';
+    case 'comment':
     case 'rectangle':
     case 'ellipse':
     case 'frame':
