@@ -127,6 +127,23 @@ export function getCommentPinCanvasPosition(
   return { x: parent.x + pin.x, y: parent.y + pin.y };
 }
 
+function getCommentRevisionMap(ydoc: Y.Doc): Y.Map<number> {
+  return ydoc.getMap('commentRevision') as Y.Map<number>;
+}
+
+export function bumpCommentRevision(ydoc: Y.Doc) {
+  const revMap = getCommentRevisionMap(ydoc);
+  const current = revMap.get('rev') ?? 0;
+  revMap.set('rev', current + 1);
+}
+
+export function observeCommentRevision(ydoc: Y.Doc, callback: () => void): () => void {
+  const revMap = getCommentRevisionMap(ydoc);
+  const handler = () => callback();
+  revMap.observe(handler);
+  return () => revMap.unobserve(handler);
+}
+
 export function setCommentPinParent(
   ydoc: Y.Doc,
   commentId: string,

@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type * as Y from 'yjs';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEditorStore } from '@/stores/editor-store';
 import { zoomAtPoint, panCamera, screenToCanvas, canvasToScreen } from '@draftila/engine/camera';
 import { hitTestGuide, observeShapes } from '@draftila/engine';
 import {
   addCommentPin,
+  bumpCommentRevision,
   deleteCommentPin,
   getCommentPinCanvasPosition,
   observeCommentPins,
+  observeCommentRevision,
   setCommentPinParent,
 } from '@draftila/engine';
 import { findContainerAtPoint, getShape, resolveGroupTarget } from '@draftila/engine/scene-graph';
@@ -124,6 +127,7 @@ export function Canvas({
   onActiveInteraction,
 }: CanvasProps) {
   const { canvasRef } = useCanvas({ ydoc });
+  const queryClient = useQueryClient();
   const { handlePointerDown, handlePointerMove, handlePointerUp } = useTool({
     ydoc,
     canvasRef,
@@ -188,6 +192,12 @@ export function Canvas({
 
     return observeCommentPins(ydoc, setCommentPins, activePageId);
   }, [ydoc, activePageId]);
+
+  useEffect(() => {
+    return observeCommentRevision(ydoc, () => {
+      queryClient.invalidateQueries({ queryKey: ['comments', draftId] });
+    });
+  }, [ydoc, draftId, queryClient]);
 
   useEffect(() => {
     return observeShapes(ydoc, () => {
@@ -414,6 +424,7 @@ export function Canvas({
         userId,
         userName,
       });
+      bumpCommentRevision(ydoc);
       setPendingPlacement(null);
       useEditorStore.getState().setActiveCommentId(created.id);
       useEditorStore.getState().setActiveTool('move');
@@ -425,14 +436,16 @@ export function Canvas({
     async (parentId: string, content: string) => {
       if (!activePageId) return;
       await createComment.mutateAsync({ pageId: activePageId, content, parentId });
+      bumpCommentRevision(ydoc);
     },
-    [activePageId, createComment],
+    [activePageId, createComment, ydoc],
   );
 
   const handleDeleteComment = useCallback(
     async (commentId: string) => {
       await deleteComment.mutateAsync({ commentId });
       deleteCommentPin(ydoc, commentId);
+      bumpCommentRevision(ydoc);
       if (activeCommentId === commentId) {
         useEditorStore.getState().setActiveCommentId(null);
       }
@@ -443,8 +456,9 @@ export function Canvas({
   const handleResolveToggle = useCallback(
     async (commentId: string) => {
       await toggleResolved.mutateAsync({ commentId });
+      bumpCommentRevision(ydoc);
     },
-    [toggleResolved],
+    [toggleResolved, ydoc],
   );
 
   const openThreadById = useCallback(

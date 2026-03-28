@@ -235,6 +235,8 @@ export {
   observeCommentPins,
   getCommentPinCanvasPosition,
   setCommentPinParent,
+  bumpCommentRevision,
+  observeCommentRevision,
 } from './comments';
 
 export {
