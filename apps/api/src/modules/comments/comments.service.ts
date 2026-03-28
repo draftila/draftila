@@ -309,8 +309,9 @@ export async function markThreadRead(commentId: string, userId: string) {
   });
 
   const threadIds = collectThreadIds(allComments, rootId);
+  const commentById = new Map(allComments.map((item) => [item.id, item]));
   const readableIds = threadIds.filter((id) => {
-    const comment = allComments.find((item) => item.id === id);
+    const comment = commentById.get(id);
     return comment ? comment.userId !== userId : false;
   });
 
@@ -318,25 +319,27 @@ export async function markThreadRead(commentId: string, userId: string) {
     return { ok: true };
   }
 
-  for (const id of readableIds) {
-    await db.commentRead.upsert({
-      where: {
-        commentId_userId: {
+  await Promise.all(
+    readableIds.map((id) =>
+      db.commentRead.upsert({
+        where: {
+          commentId_userId: {
+            commentId: id,
+            userId,
+          },
+        },
+        update: {
+          readAt: nextTimestamp(),
+        },
+        create: {
+          id: nanoid(),
           commentId: id,
           userId,
+          readAt: nextTimestamp(),
         },
-      },
-      update: {
-        readAt: nextTimestamp(),
-      },
-      create: {
-        id: nanoid(),
-        commentId: id,
-        userId,
-        readAt: nextTimestamp(),
-      },
-    });
-  }
+      }),
+    ),
+  );
 
   return { ok: true };
 }
@@ -361,25 +364,27 @@ export async function markAllRead(draftId: string, pageId: string, userId: strin
     return { ok: true };
   }
 
-  for (const comment of unreadComments) {
-    await db.commentRead.upsert({
-      where: {
-        commentId_userId: {
+  await Promise.all(
+    unreadComments.map((comment) =>
+      db.commentRead.upsert({
+        where: {
+          commentId_userId: {
+            commentId: comment.id,
+            userId,
+          },
+        },
+        update: {
+          readAt: nextTimestamp(),
+        },
+        create: {
+          id: nanoid(),
           commentId: comment.id,
           userId,
+          readAt: nextTimestamp(),
         },
-      },
-      update: {
-        readAt: nextTimestamp(),
-      },
-      create: {
-        id: nanoid(),
-        commentId: comment.id,
-        userId,
-        readAt: nextTimestamp(),
-      },
-    });
-  }
+      }),
+    ),
+  );
 
   return { ok: true };
 }

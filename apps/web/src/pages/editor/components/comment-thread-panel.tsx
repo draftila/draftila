@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowUp, Check, Ellipsis, Trash2, X } from 'lucide-react';
+import { ArrowUp, Check, Trash2, X } from 'lucide-react';
 import type { CommentResponse } from '@draftila/shared';
+import { formatRelativeTime } from '@/lib/format-time';
 
 interface CommentThreadPanelProps {
-  draftId: string;
-  pageId: string;
   x: number;
   y: number;
   thread: CommentResponse | null;
@@ -33,25 +32,7 @@ function flattenThread(thread: CommentResponse | null): CommentResponse[] {
   return list;
 }
 
-function formatRelativeTime(date: Date): string {
-  const now = Date.now();
-  const diff = now - new Date(date).getTime();
-  const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return 'just now';
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} min. ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hr. ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(
-    new Date(date),
-  );
-}
-
 export function CommentThreadPanel({
-  draftId: _draftId,
-  pageId: _pageId,
   x,
   y,
   thread,
@@ -174,22 +155,14 @@ export function CommentThreadPanel({
         <p className="text-sm font-semibold">Comment</p>
         <div className="flex items-center gap-1">
           {thread && (
-            <>
-              <button
-                type="button"
-                className="flex h-7 w-7 items-center justify-center hover:bg-white/10"
-              >
-                <Ellipsis className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => onResolveToggle(thread.id)}
-                className="flex h-7 w-7 items-center justify-center hover:bg-white/10"
-                title={thread.resolved ? 'Unresolve' : 'Resolve'}
-              >
-                <Check className="h-4 w-4" />
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={() => onResolveToggle(thread.id)}
+              className="flex h-7 w-7 items-center justify-center hover:bg-white/10"
+              title={thread.resolved ? 'Unresolve' : 'Resolve'}
+            >
+              <Check className="h-4 w-4" />
+            </button>
           )}
           <button
             type="button"

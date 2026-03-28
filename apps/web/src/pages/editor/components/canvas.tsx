@@ -61,6 +61,7 @@ interface ContextMenuState {
 }
 
 const ZOOM_SENSITIVITY = 0.002;
+const NEW_COMMENT_SENTINEL = '__new__';
 
 function collectThreadRoots(threads: CommentResponse[]): Map<string, CommentResponse> {
   const roots = new Map<string, CommentResponse>();
@@ -230,7 +231,7 @@ export function Canvas({
     setCommentToolCallback((placement) => {
       setPendingPlacement(placement);
       useEditorStore.getState().setCommentsVisible(true);
-      useEditorStore.getState().setActiveCommentId('__new__');
+      useEditorStore.getState().setActiveCommentId(NEW_COMMENT_SENTINEL);
     });
 
     return () => {
@@ -697,8 +698,6 @@ export function Canvas({
       {panelAnchor && (pendingPlacement || activeThread) && activePageId && (
         <div ref={commentPanelRef}>
           <CommentThreadPanel
-            draftId={draftId}
-            pageId={activePageId}
             x={panelAnchor.x}
             y={panelAnchor.y}
             thread={pendingPlacement ? null : activeThread}
