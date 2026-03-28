@@ -24,6 +24,14 @@ Migrations will run automatically on startup.
 Always back up your database before updating.
 :::
 
+### SQLite (Default)
+
+```bash
+docker compose cp app:/app/data/draftila.sqlite ./backup.sqlite
+```
+
+### PostgreSQL
+
 ```bash
 docker compose exec db pg_dump -U draftila draftila > backup.sql
 ```
@@ -34,8 +42,8 @@ Instead of using `latest`, you can pin to a specific version:
 
 ```yaml
 services:
-  draftila:
-    image: ghcr.io/draftila/draftila:0.3.1
+  app:
+    image: draftila/draftila:0.4.4
 ```
 
 ## Changelog
