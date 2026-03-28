@@ -13,6 +13,7 @@ import {
   Hexagon,
   Star,
   MoveRight,
+  MessageCircle,
   ChevronDown,
 } from 'lucide-react';
 import { Toggle } from '@/components/ui/toggle';
@@ -178,6 +179,12 @@ export function EditorToolbar() {
         shortcut="V"
       />
       <ToolButton tool="hand" icon={<Hand className="h-4 w-4" />} label="Hand" shortcut="H" />
+      <ToolButton
+        tool="comment"
+        icon={<MessageCircle className="h-4 w-4" />}
+        label="Comment"
+        shortcut="C"
+      />
       <Separator orientation="vertical" className="mx-1 h-full" />
       <ToolButton tool="frame" icon={<Frame className="h-4 w-4" />} label="Frame" shortcut="F" />
       <ToolGroup options={SHAPE_TOOLS} />

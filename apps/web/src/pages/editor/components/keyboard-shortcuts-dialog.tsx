@@ -26,6 +26,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     shortcuts: [
       { label: 'Move', keys: 'V' },
       { label: 'Hand / Pan', keys: 'H' },
+      { label: 'Comment', keys: 'C' },
       { label: 'Frame', keys: 'F' },
       { label: 'Rectangle', keys: 'R' },
       { label: 'Ellipse', keys: 'O' },
@@ -73,6 +74,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { label: 'Zoom to Selection', keys: '\u21E72' },
       { label: 'Pan', keys: 'Space + Drag' },
       { label: 'Toggle Rulers', keys: '\u21E7R' },
+      { label: 'Toggle Comments', keys: '\u21E7C' },
     ],
   },
   {

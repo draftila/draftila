@@ -226,6 +226,18 @@ export {
 } from './guides';
 
 export {
+  type CommentPin,
+  getCommentPin,
+  getCommentPins,
+  addCommentPin,
+  updateCommentPin,
+  deleteCommentPin,
+  observeCommentPins,
+  getCommentPinCanvasPosition,
+  setCommentPinParent,
+} from './comments';
+
+export {
   renderWithClipping,
   exportToPng,
   exportToSvg,
@@ -247,6 +259,7 @@ export {
 export {
   getTool,
   getMoveTool,
+  getCommentTool,
   getRectangleTool,
   getEllipseTool,
   getFrameTool,
@@ -258,6 +271,7 @@ export {
   getStarTool,
   getTextTool,
   setTextToolCallback,
+  setCommentToolCallback,
 } from './tools/tool-manager';
 
 export { type ResizePreviewEntry, MoveTool } from './tools/move-tool';
@@ -267,6 +281,7 @@ export { RectangleTool } from './tools/rectangle-tool';
 export { EllipseTool } from './tools/ellipse-tool';
 export { FrameTool } from './tools/frame-tool';
 export { TextTool } from './tools/text-tool';
+export { type CommentPlacement, CommentTool } from './tools/comment-tool';
 export { PenTool } from './tools/pen-tool';
 export { type SelectedNode, type DragTarget, NodeTool } from './tools/node-tool';
 export { LineTool } from './tools/line-tool';
