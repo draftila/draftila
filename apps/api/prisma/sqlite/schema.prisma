@@ -25,6 +25,8 @@ model User {
   projects      Project[]
   memberships   ProjectMember[]
   apiKeys       ApiKey[]
+  comments      Comment[]
+  commentReads  CommentRead[]
 
   @@map("user")
 }
@@ -130,7 +132,44 @@ model Draft {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  comments  Comment[]
 
   @@index([projectId], map: "draft_project_id_idx")
   @@map("draft")
+}
+
+model Comment {
+  id        String      @id
+  draftId   String      @map("draft_id")
+  pageId    String      @map("page_id")
+  userId    String      @map("user_id")
+  content   String
+  parentId  String?     @map("parent_id")
+  resolved  Boolean     @default(false)
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+  draft     Draft       @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent    Comment?    @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[]   @relation("CommentReplies")
+  reads     CommentRead[]
+
+  @@index([draftId], map: "comment_draft_id_idx")
+  @@index([pageId], map: "comment_page_id_idx")
+  @@index([parentId], map: "comment_parent_id_idx")
+  @@index([userId], map: "comment_user_id_idx")
+  @@map("comment")
+}
+
+model CommentRead {
+  id        String   @id
+  commentId String   @map("comment_id")
+  userId    String   @map("user_id")
+  readAt    DateTime @default(now()) @map("read_at")
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId], map: "comment_read_comment_user_idx")
+  @@index([userId], map: "comment_read_user_id_idx")
+  @@map("comment_read")
 }

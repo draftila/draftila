@@ -19,6 +19,7 @@ export const shapeTypeSchema = z.enum(SHAPE_TYPES);
 export const TOOL_TYPES = [
   'move',
   'hand',
+  'comment',
   'rectangle',
   'ellipse',
   'frame',

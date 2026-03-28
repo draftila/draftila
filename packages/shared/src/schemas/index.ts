@@ -109,6 +109,55 @@ export const updateDraftSchema = draftSchema.pick({
   name: true,
 });
 
+export const commentSchema = z.object({
+  id: z.string(),
+  draftId: z.string(),
+  pageId: z.string(),
+  userId: z.string(),
+  content: z.string().trim().min(1).max(5000),
+  parentId: z.string().nullable(),
+  resolved: z.boolean(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+
+export const commentAuthorSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string().email(),
+  image: z.string().nullable().optional(),
+});
+
+export interface CommentResponseSchemaValue extends z.infer<typeof commentSchema> {
+  author: z.infer<typeof commentAuthorSchema>;
+  unread: boolean;
+  replies: CommentResponseSchemaValue[];
+}
+
+export const commentResponseSchema: z.ZodType<CommentResponseSchemaValue> = commentSchema.extend({
+  author: commentAuthorSchema,
+  unread: z.boolean(),
+  replies: z.array(z.lazy((): z.ZodType<CommentResponseSchemaValue> => commentResponseSchema)),
+}) as z.ZodType<CommentResponseSchemaValue>;
+
+export const createCommentSchema = z.object({
+  pageId: z.string().min(1),
+  content: z.string().trim().min(1).max(5000),
+  parentId: z.string().optional(),
+});
+
+export const updateCommentSchema = z.object({
+  content: z.string().trim().min(1).max(5000),
+});
+
+export const listCommentsQuerySchema = z.object({
+  pageId: z.string().min(1),
+});
+
+export const markAllCommentsReadSchema = z.object({
+  pageId: z.string().min(1),
+});
+
 export const sortSchema = z
   .enum(['last_edited', 'last_created', 'alphabetical'])
   .default('last_edited');
