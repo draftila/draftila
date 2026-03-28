@@ -45,6 +45,33 @@ export function getSidebar(version: Version): SidebarItem[] {
       },
       {
         type: 'category',
+        label: 'User Guide',
+        items: [
+          { type: 'doc', label: 'Editor Basics', id: 'user-guide/editor-basics' },
+          { type: 'doc', label: 'Shapes & Drawing', id: 'user-guide/shapes' },
+          { type: 'doc', label: 'Text', id: 'user-guide/text' },
+          { type: 'doc', label: 'Frames & Auto-Layout', id: 'user-guide/frames-and-layout' },
+          { type: 'doc', label: 'Layers & Pages', id: 'user-guide/layers-and-pages' },
+          { type: 'doc', label: 'Pen Tool & Paths', id: 'user-guide/pen-tool' },
+          { type: 'doc', label: 'Collaboration', id: 'user-guide/collaboration' },
+          { type: 'doc', label: 'Components', id: 'user-guide/components' },
+          { type: 'doc', label: 'Images & Export', id: 'user-guide/images-and-export' },
+          { type: 'doc', label: 'Constraints', id: 'user-guide/constraints' },
+          { type: 'doc', label: 'Projects & Drafts', id: 'user-guide/projects' },
+          { type: 'doc', label: 'Keyboard Shortcuts', id: 'user-guide/keyboard-shortcuts' },
+        ],
+      },
+      {
+        type: 'category',
+        label: 'Advanced',
+        items: [
+          { type: 'doc', label: 'API Keys', id: 'advanced/api-keys' },
+          { type: 'doc', label: 'MCP Integration', id: 'advanced/mcp' },
+          { type: 'doc', label: 'Admin Panel', id: 'advanced/admin' },
+        ],
+      },
+      {
+        type: 'category',
         label: 'Contributing',
         items: [
           { type: 'doc', label: 'Contributing', id: 'contributing/contributing' },

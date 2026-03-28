@@ -31,9 +31,19 @@ export const metadata: Metadata = {
     url: 'https://draftila.com',
     siteName: 'Draftila',
     type: 'website',
+    images: [{ url: '/img/draftila.jpg', width: 1200, height: 750, alt: 'Draftila Editor' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Draftila — Open-Source, Self-Hosted Design Tool',
+    description: 'Free, open-source, self-hosted design tool. A lightweight alternative to Figma.',
+    images: ['/img/draftila.jpg'],
   },
   icons: {
     icon: { url: '/favicon.svg', type: 'image/svg+xml' },
+  },
+  alternates: {
+    canonical: 'https://draftila.com',
   },
 };
 
