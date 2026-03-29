@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import {
@@ -29,6 +29,7 @@ interface UseYjsReturn {
   connected: boolean;
   synced: boolean;
   applyingRemoteChanges: boolean;
+  reinitialize: () => void;
 }
 
 function getWebSocketUrl(): string {
@@ -80,9 +81,15 @@ function installDebouncedSync(provider: WebsocketProvider) {
 export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn {
   const ydocRef = useRef<Y.Doc>(new Y.Doc());
   const providerRef = useRef<WebsocketProvider | null>(null);
+  const cleanupRef = useRef<(() => void) | null>(null);
   const [connected, setConnected] = useState(false);
   const [synced, setSynced] = useState(false);
   const [applyingRemoteChanges, setApplyingRemoteChanges] = useState(false);
+  const [reinitKey, setReinitKey] = useState(0);
+
+  const reinitialize = useCallback(() => {
+    setReinitKey((k) => k + 1);
+  }, []);
 
   useEffect(() => {
     if (!enabled) return;
@@ -163,7 +170,7 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
       }
     });
 
-    return () => {
+    cleanupRef.current = () => {
       cleanupDebounce();
       unsubscribeFonts();
       wsProvider.disconnect();
@@ -177,7 +184,12 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
       setSynced(false);
       setApplyingRemoteChanges(false);
     };
-  }, [draftId, enabled]);
+
+    return () => {
+      cleanupRef.current?.();
+      cleanupRef.current = null;
+    };
+  }, [draftId, enabled, reinitKey]);
 
   return {
     ydoc: ydocRef.current,
@@ -186,5 +198,6 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
     connected,
     synced,
     applyingRemoteChanges,
+    reinitialize,
   };
 }

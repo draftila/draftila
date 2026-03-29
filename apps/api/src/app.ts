@@ -19,6 +19,7 @@ import { projectRoutes } from './modules/projects/projects.routes';
 import { userRoutes } from './modules/user/user.routes';
 import { apiKeyRoutes } from './modules/api-keys/api-keys.routes';
 import { mcpRoutes } from './modules/mcp/mcp.routes';
+import { draftSnapshotRoutes, snapshotRoutes } from './modules/snapshots/snapshots.routes';
 
 initStorage({ driver: env.STORAGE_DRIVER, path: resolve(process.cwd(), env.STORAGE_PATH) });
 
@@ -75,6 +76,8 @@ app.route('/api/drafts/:draftId/comments', draftCommentsRoutes);
 app.route('/api/drafts', allDraftsRoutes);
 app.route('/api/projects/:projectId/drafts', draftRoutes);
 app.route('/api/comments', commentRoutes);
+app.route('/api/drafts/:draftId/snapshots', draftSnapshotRoutes);
+app.route('/api/snapshots', snapshotRoutes);
 app.route('/api/api-keys', apiKeyRoutes);
 app.route('/api/mcp', mcpRoutes);
 app.route('/api', userRoutes);

@@ -27,15 +27,18 @@ import { RightPanelCanvas } from './right-panel-canvas';
 import { RightPanelMultiSelect } from './right-panel-multi-select';
 import { getSectionsForShape } from './right-panel/section-registry';
 import { ZoomControls } from './right-panel/zoom-controls';
+import { VersionHistoryPanel } from './version-history-panel';
 
 interface RightPanelProps {
   ydoc: Y.Doc;
+  draftId: string;
 }
 
-export function RightPanel({ ydoc }: RightPanelProps) {
+export function RightPanel({ ydoc, draftId }: RightPanelProps) {
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const activePageId = useEditorStore((s) => s.activePageId);
   const rightPanelOpen = useEditorStore((s) => s.rightPanelOpen);
+  const versionHistoryOpen = useEditorStore((s) => s.versionHistoryOpen);
   const [selectedShape, setSelectedShape] = useState<Shape | null>(null);
   const [instanceLabel, setInstanceLabel] = useState<string | null>(null);
   const [shapeScope, setShapeScope] = useState<Shape[]>([]);
@@ -163,6 +166,14 @@ export function RightPanel({ ydoc }: RightPanelProps) {
   );
 
   if (!rightPanelOpen) return null;
+
+  if (versionHistoryOpen) {
+    return (
+      <div className="flex h-full w-60 shrink-0 flex-col border-l">
+        <VersionHistoryPanel draftId={draftId} />
+      </div>
+    );
+  }
 
   const sections = selectedShape ? getSectionsForShape(selectedShape.type) : [];
 

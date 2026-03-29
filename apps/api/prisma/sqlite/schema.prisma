@@ -27,6 +27,7 @@ model User {
   apiKeys       ApiKey[]
   comments      Comment[]
   commentReads  CommentRead[]
+  snapshots     Snapshot[]
 
   @@map("user")
 }
@@ -124,18 +125,33 @@ model ApiKey {
 }
 
 model Draft {
-  id        String   @id
+  id        String     @id
   name      String
-  projectId String   @map("project_id")
-  yjsState  Bytes?   @map("yjs_state")
+  projectId String     @map("project_id")
+  yjsState  Bytes?     @map("yjs_state")
   thumbnail String?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   comments  Comment[]
+  snapshots Snapshot[]
 
   @@index([projectId], map: "draft_project_id_idx")
   @@map("draft")
+}
+
+model Snapshot {
+  id        String   @id
+  draftId   String   @map("draft_id")
+  userId    String?  @map("user_id")
+  name      String?
+  yjsState  Bytes    @map("yjs_state")
+  createdAt DateTime @default(now()) @map("created_at")
+  draft     Draft    @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([draftId, createdAt(sort: Desc)], map: "snapshot_draft_created_idx")
+  @@map("snapshot")
 }
 
 model Comment {

@@ -213,6 +213,31 @@ export const draftExportSchema = z.object({
 
 export const importDraftSchema = draftExportSchema;
 
+export const snapshotSchema = z.object({
+  id: z.string(),
+  draftId: z.string(),
+  userId: z.string().nullable(),
+  name: z.string().nullable(),
+  createdAt: z.date(),
+});
+
+export const snapshotAuthorSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+
+export const snapshotWithAuthorSchema = snapshotSchema.extend({
+  author: snapshotAuthorSchema.nullable(),
+});
+
+export const createSnapshotSchema = z.object({
+  name: z.string().trim().min(1, 'Name is required').max(255),
+});
+
+export const updateSnapshotSchema = z.object({
+  name: z.union([z.string().trim().min(1, 'Name is required').max(255), z.null()]),
+});
+
 export function sanitizeFilename(name: string): string {
   return name.replace(/[/\\?%*:|"<>]/g, '_').trim() || 'Untitled';
 }

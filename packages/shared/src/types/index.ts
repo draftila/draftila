@@ -32,6 +32,10 @@ import type {
   exportComponentSchema,
   exportDraftDataSchema,
   draftExportSchema,
+  snapshotSchema,
+  snapshotWithAuthorSchema,
+  createSnapshotSchema,
+  updateSnapshotSchema,
 } from '../schemas';
 
 export type Login = z.infer<typeof loginSchema>;
@@ -64,6 +68,10 @@ export type ExportVariable = z.infer<typeof exportVariableSchema>;
 export type ExportComponent = z.infer<typeof exportComponentSchema>;
 export type ExportDraftData = z.infer<typeof exportDraftDataSchema>;
 export type DraftExport = z.infer<typeof draftExportSchema>;
+export type Snapshot = z.infer<typeof snapshotSchema>;
+export type SnapshotWithAuthor = z.infer<typeof snapshotWithAuthorSchema>;
+export type CreateSnapshot = z.infer<typeof createSnapshotSchema>;
+export type UpdateSnapshot = z.infer<typeof updateSnapshotSchema>;
 
 export interface PaginatedResponse<T> {
   data: T[];
