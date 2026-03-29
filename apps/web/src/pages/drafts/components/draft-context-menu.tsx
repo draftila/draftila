@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ExternalLinkIcon, CopyIcon, PencilIcon, TrashIcon, DownloadIcon } from 'lucide-react';
 import type { Draft } from '@draftila/shared';
+import { sanitizeFilename } from '@draftila/shared';
 import { downloadBlob } from '@draftila/engine';
 import { useDeleteDraft, useUpdateDraft, useExportDraft } from '@/api/drafts';
 import {
@@ -57,7 +58,7 @@ export function DraftContextMenu({ draft, children }: { draft: Draft; children: 
       onSuccess: (data) => {
         const json = JSON.stringify(data, null, 2);
         const blob = new Blob([json], { type: 'application/json' });
-        const filename = `${draft.name.replace(/[/\\?%*:|"<>]/g, '_')}.draftila.json`;
+        const filename = `${sanitizeFilename(draft.name)}.draftila.json`;
         downloadBlob(blob, filename);
         toast.success('Draft exported');
       },

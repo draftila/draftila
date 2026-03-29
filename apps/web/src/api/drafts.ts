@@ -8,8 +8,7 @@ import type {
   UpdateDraft,
 } from '@draftila/shared';
 import { draftExportSchema } from '@draftila/shared';
-import { api } from '@/lib/api-client';
-import { ApiError } from '@/lib/api-client';
+import { api, ApiError } from '@/lib/api-client';
 import { queryClient } from '@/lib/query-client';
 
 const DRAFTS_KEY = ['drafts'] as const;

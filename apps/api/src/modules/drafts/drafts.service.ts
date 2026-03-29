@@ -1,6 +1,7 @@
 import * as Y from 'yjs';
 import type { Prisma } from '../../generated/prisma/postgresql-client';
 import type { SortOrder, DraftExport, ExportDraftData } from '@draftila/shared';
+import { sanitizeFilename } from '@draftila/shared';
 import { ymapToObject, valueToYjs, DEFAULT_PAGE_BACKGROUND } from '@draftila/engine';
 import { getSortConfig, nextTimestamp, paginateResults } from '../../common/lib/pagination';
 import { generateStorageKey, getStorage } from '../../common/lib/storage';
@@ -298,17 +299,18 @@ function remapIds(data: ExportDraftData): ExportDraftData {
     return newId;
   };
 
+  const remapShape = (shape: Record<string, unknown>): Record<string, unknown> => {
+    const newShape = { ...shape };
+    newShape['id'] = mapId(newShape['id'] as string);
+    if (newShape['parentId'] && typeof newShape['parentId'] === 'string') {
+      newShape['parentId'] = idMap.get(newShape['parentId']) ?? mapId(newShape['parentId']);
+    }
+    return newShape;
+  };
+
   const pages = data.pages.map((page) => {
     const newPageId = mapId(page.id);
-    const shapes = page.shapes.map((shape) => {
-      const newShape = { ...shape };
-      const oldId = newShape['id'] as string;
-      newShape['id'] = mapId(oldId);
-      if (newShape['parentId'] && typeof newShape['parentId'] === 'string') {
-        newShape['parentId'] = idMap.get(newShape['parentId']) ?? mapId(newShape['parentId']);
-      }
-      return newShape;
-    });
+    const shapes = page.shapes.map(remapShape);
     const zOrder = page.zOrder.map((oldId) => idMap.get(oldId) ?? oldId);
     return { ...page, id: newPageId, shapes, zOrder };
   });
@@ -323,15 +325,7 @@ function remapIds(data: ExportDraftData): ExportDraftData {
   const components = data.components.map((comp) => {
     const newCompId = mapId(comp.id);
     const parsed: unknown[] = JSON.parse(comp.shapes);
-    const remapped = parsed.map((s) => {
-      const shape = s as Record<string, unknown>;
-      const newShape = { ...shape };
-      newShape['id'] = mapId(newShape['id'] as string);
-      if (newShape['parentId'] && typeof newShape['parentId'] === 'string') {
-        newShape['parentId'] = idMap.get(newShape['parentId']) ?? mapId(newShape['parentId']);
-      }
-      return newShape;
-    });
+    const remapped = parsed.map((s) => remapShape(s as Record<string, unknown>));
     return { ...comp, id: newCompId, shapes: JSON.stringify(remapped) };
   });
 
@@ -430,31 +424,32 @@ export async function importDraft(data: ExportDraftData, projectId: string) {
   return created;
 }
 
+const MAX_EXPORT_DRAFTS = 100;
+
 export async function exportAllDrafts(projectId: string): Promise<DraftExport[]> {
   const drafts = await db.draft.findMany({
     where: { projectId },
     select: { id: true, name: true, yjsState: true },
     orderBy: { updatedAt: 'desc' },
+    take: MAX_EXPORT_DRAFTS,
   });
 
-  return drafts.map((draft) => {
+  const results: DraftExport[] = [];
+  for (const draft of drafts) {
     const ydoc = new Y.Doc();
     if (draft.yjsState) {
       Y.applyUpdate(ydoc, new Uint8Array(draft.yjsState));
     }
     const data = ydocToExportData(draft.name, ydoc);
     ydoc.destroy();
-    return {
-      version: 1 as const,
+    results.push({
+      version: 1,
       exportedAt: new Date().toISOString(),
-      generator: 'draftila' as const,
+      generator: 'draftila',
       draft: data,
-    };
-  });
-}
-
-function sanitizeFilename(name: string): string {
-  return name.replace(/[/\\?%*:|"<>]/g, '_').trim() || 'Untitled';
+    });
+  }
+  return results;
 }
 
 export async function buildExportZip(exports: DraftExport[]): Promise<Uint8Array> {

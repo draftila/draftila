@@ -579,6 +579,120 @@ describe('drafts', () => {
       );
     });
 
+    test('POST /drafts/import returns 401 without auth', async () => {
+      const formData = new FormData();
+      formData.append('file', new File(['{}'], 'test.json', { type: 'application/json' }));
+      const res = await app.request(url('/import'), { method: 'POST', body: formData });
+      expect(res.status).toBe(401);
+    });
+
+    test('POST /drafts/import creates a draft from a valid export file', async () => {
+      const validImport = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        generator: 'draftila',
+        draft: {
+          name: 'Imported Draft',
+          pages: [
+            {
+              id: 'page-1',
+              name: 'Page 1',
+              backgroundColor: '#ffffff',
+              shapes: [],
+              zOrder: [],
+            },
+          ],
+          pageOrder: ['page-1'],
+          variables: [],
+          components: [],
+          componentInstances: {},
+        },
+      };
+
+      const formData = new FormData();
+      formData.append(
+        'file',
+        new File([JSON.stringify(validImport)], 'valid.draftila.json', {
+          type: 'application/json',
+        }),
+      );
+
+      const res = await app.request(url('/import'), {
+        method: 'POST',
+        headers: { Cookie: authHeaders.get('Cookie')! },
+        body: formData,
+      });
+
+      expect(res.status).toBe(201);
+      const body = (await res.json()) as { id: string; name: string; projectId: string };
+      expect(body.name).toBe('Imported Draft');
+      expect(body.projectId).toBe(projectId);
+      expect(body.id).toBeDefined();
+    });
+
+    test('GET /drafts/:draftId/export returns 401 without auth', async () => {
+      const res = await app.request(url('/some-id/export'));
+      expect(res.status).toBe(401);
+    });
+
+    test('GET /drafts/:draftId/export returns the draft export', async () => {
+      const draft = await draftsService.create({ name: 'Export Me', projectId });
+
+      const res = await app.request(url(`/${draft.id}/export`), { headers: authHeaders });
+      expect(res.status).toBe(200);
+
+      const body = (await res.json()) as {
+        version: number;
+        generator: string;
+        draft: { name: string };
+      };
+      expect(body.version).toBe(1);
+      expect(body.generator).toBe('draftila');
+      expect(body.draft.name).toBe('Export Me');
+    });
+
+    test('GET /drafts/:draftId/export returns 404 for non-existent draft', async () => {
+      const res = await app.request(url('/non-existent/export'), { headers: authHeaders });
+      expect(res.status).toBe(404);
+    });
+
+    test('GET /drafts/export-all returns 401 without auth', async () => {
+      const res = await app.request(url('/export-all'));
+      expect(res.status).toBe(401);
+    });
+
+    test('GET /drafts/export-all returns empty when no drafts exist', async () => {
+      const res = await app.request(url('/export-all'), { headers: authHeaders });
+      expect(res.status).toBe(200);
+
+      const body = (await res.json()) as { exports: unknown[] };
+      expect(body.exports).toEqual([]);
+    });
+
+    test('GET /drafts/export-all returns single draft as JSON', async () => {
+      await draftsService.create({ name: 'Only Draft', projectId });
+
+      const res = await app.request(url('/export-all'), { headers: authHeaders });
+      expect(res.status).toBe(200);
+
+      const body = (await res.json()) as {
+        version: number;
+        generator: string;
+        draft: { name: string };
+      };
+      expect(body.version).toBe(1);
+      expect(body.draft.name).toBe('Only Draft');
+    });
+
+    test('GET /drafts/export-all returns zip for multiple drafts', async () => {
+      await draftsService.create({ name: 'Draft A', projectId });
+      await draftsService.create({ name: 'Draft B', projectId });
+
+      const res = await app.request(url('/export-all'), { headers: authHeaders });
+      expect(res.status).toBe(200);
+      expect(res.headers.get('content-type')).toBe('application/zip');
+    });
+
     test('GET /drafts/:draftId returns the draft', async () => {
       const draft = await draftsService.create({ name: 'Get By Id', projectId });
 

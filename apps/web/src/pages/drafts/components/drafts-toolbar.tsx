@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import type { SortOrder, Project } from '@draftila/shared';
+import { sanitizeFilename } from '@draftila/shared';
 import { ChevronDownIcon, DownloadIcon, LayoutGridIcon, ListIcon, UploadIcon } from 'lucide-react';
 import { downloadBlob } from '@draftila/engine';
 import { toast } from 'sonner';
@@ -70,7 +71,7 @@ export function DraftsToolbar({ projects }: DraftsToolbarProps) {
         } else {
           const json = JSON.stringify(result.data, null, 2);
           const blob = new Blob([json], { type: 'application/json' });
-          const name = result.data.draft.name.replace(/[/\\?%*:|"<>]/g, '_');
+          const name = sanitizeFilename(result.data.draft.name);
           await downloadBlob(blob, `${name}.draftila.json`);
         }
         toast.success('Drafts exported');

@@ -213,6 +213,10 @@ export const draftExportSchema = z.object({
 
 export const importDraftSchema = draftExportSchema;
 
+export function sanitizeFilename(name: string): string {
+  return name.replace(/[/\\?%*:|"<>]/g, '_').trim() || 'Untitled';
+}
+
 export const paginationSchema = z.object({
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
