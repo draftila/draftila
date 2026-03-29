@@ -129,10 +129,28 @@ function fillToCssValue(fill: Fill): string {
     return gradientToCss(fill.gradient, fill.opacity);
   }
   if (fill.imageSrc) {
-    return `url(${fill.imageSrc})`;
+    return `url("${escapeCssDoubleQuotedString(fill.imageSrc)}")`;
   }
   const rgba = hexToRgba(fill.color, fill.opacity);
   return rgbaToCssColor(rgba);
+}
+
+function escapeCssSingleQuotedString(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n')
+    .replace(/\f/g, '\\f');
+}
+
+function escapeCssDoubleQuotedString(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n')
+    .replace(/\f/g, '\\f');
 }
 
 function gradientToCss(gradient: NonNullable<Fill['gradient']>, opacity: number): string {
@@ -352,7 +370,7 @@ function layoutJustifyToCss(justify: FrameShape['layoutJustify']): string {
 function textProperties(shape: TextShape): string[] {
   const props = baseDimensionProperties(shape);
 
-  props.push(`font-family: '${shape.fontFamily}';`);
+  props.push(`font-family: '${escapeCssSingleQuotedString(shape.fontFamily)}';`);
   props.push(`font-size: ${roundTo(shape.fontSize, 1)}px;`);
 
   if (shape.fontWeight !== 400) {
@@ -414,7 +432,7 @@ function vectorProperties(shape: Shape): string[] {
   const svgPathData =
     'svgPathData' in shape ? (shape.svgPathData as string | undefined) : undefined;
   if (svgPathData) {
-    props.push(`clip-path: path('${svgPathData}');`);
+    props.push(`clip-path: path('${escapeCssSingleQuotedString(svgPathData)}');`);
   }
 
   if ('fills' in shape) {

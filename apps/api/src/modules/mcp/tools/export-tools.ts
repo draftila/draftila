@@ -3,6 +3,13 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { sendToolRpc } from '../mcp.auth';
 import { draftId, defineTool } from './schemas';
 
+const MAX_EXPORT_SHAPE_IDS = 500;
+const optionalShapeIds = z
+  .array(z.string())
+  .max(MAX_EXPORT_SHAPE_IDS)
+  .optional()
+  .describe(`Shape IDs to export (exports all shapes if omitted, max ${MAX_EXPORT_SHAPE_IDS} IDs)`);
+
 export function registerExportTools(server: McpServer, getUserId: () => string) {
   defineTool(
     server,
@@ -10,10 +17,7 @@ export function registerExportTools(server: McpServer, getUserId: () => string) 
     'Export shapes as SVG markup',
     {
       ...draftId,
-      shapeIds: z
-        .array(z.string())
-        .optional()
-        .describe('Shape IDs to export (exports all shapes if omitted)'),
+      shapeIds: optionalShapeIds,
     },
     async ({ draftId, shapeIds }) => {
       const result = await sendToolRpc(draftId as string, getUserId(), 'export_svg', { shapeIds });
@@ -27,10 +31,7 @@ export function registerExportTools(server: McpServer, getUserId: () => string) 
     'Export shapes as a PNG screenshot to visually verify your design. Use this after batch_create_shapes and after major updates to catch layout, clipping, and z-order issues early. Pass specific shapeIds to screenshot just those shapes, or omit to capture everything.',
     {
       ...draftId,
-      shapeIds: z
-        .array(z.string())
-        .optional()
-        .describe('Shape IDs to export (exports all shapes if omitted)'),
+      shapeIds: optionalShapeIds,
       scale: z.number().optional().describe('Pixel scale factor (default 1)'),
       backgroundColor: z.string().optional().describe('Background color hex (e.g. "#ffffff")'),
     },
@@ -63,10 +64,7 @@ export function registerExportTools(server: McpServer, getUserId: () => string) 
     'Export shapes as CSS code. Returns CSS properties for each selected shape including dimensions, fills, strokes, shadows, blur, border-radius, and auto-layout (flexbox).',
     {
       ...draftId,
-      shapeIds: z
-        .array(z.string())
-        .optional()
-        .describe('Shape IDs to export (exports all shapes if omitted)'),
+      shapeIds: optionalShapeIds,
     },
     async ({ draftId, shapeIds }) => {
       const result = await sendToolRpc(draftId as string, getUserId(), 'export_css', { shapeIds });
@@ -80,10 +78,7 @@ export function registerExportTools(server: McpServer, getUserId: () => string) 
     'Export shapes and all their descendants as CSS code. Each shape gets a separate CSS rule block with class selectors. Useful for exporting a full component tree.',
     {
       ...draftId,
-      shapeIds: z
-        .array(z.string())
-        .optional()
-        .describe('Shape IDs to export (exports all shapes if omitted)'),
+      shapeIds: optionalShapeIds,
     },
     async ({ draftId, shapeIds }) => {
       const result = await sendToolRpc(draftId as string, getUserId(), 'export_css_all_layers', {
@@ -99,10 +94,7 @@ export function registerExportTools(server: McpServer, getUserId: () => string) 
     'Export shapes as SwiftUI code. Generates hierarchical SwiftUI views with HStack/VStack/ZStack for auto-layout frames, shape modifiers, and Text views.',
     {
       ...draftId,
-      shapeIds: z
-        .array(z.string())
-        .optional()
-        .describe('Shape IDs to export (exports all shapes if omitted)'),
+      shapeIds: optionalShapeIds,
     },
     async ({ draftId, shapeIds }) => {
       const result = await sendToolRpc(draftId as string, getUserId(), 'export_swiftui', {
@@ -118,10 +110,7 @@ export function registerExportTools(server: McpServer, getUserId: () => string) 
     'Export shapes as Jetpack Compose code. Generates hierarchical Compose code with Row/Column/Box for auto-layout frames, Modifier chains, and Text composables.',
     {
       ...draftId,
-      shapeIds: z
-        .array(z.string())
-        .optional()
-        .describe('Shape IDs to export (exports all shapes if omitted)'),
+      shapeIds: optionalShapeIds,
     },
     async ({ draftId, shapeIds }) => {
       const result = await sendToolRpc(draftId as string, getUserId(), 'export_compose', {

@@ -76,6 +76,15 @@ function rgbaToSwiftUIColor(r: number, g: number, b: number, a: number): string 
   return `Color(red: ${rf}, green: ${gf}, blue: ${bf})`;
 }
 
+function escapeSwiftStringLiteral(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t');
+}
+
 function fillToSwiftUI(fill: Fill): string {
   if (fill.gradient) {
     return gradientToSwiftUI(fill.gradient, fill.opacity);
@@ -436,7 +445,7 @@ function crossAxisAlignment(align: FrameShape['layoutAlign'], direction: 'h' | '
 }
 
 function textToSwiftUI(shape: TextShape): string {
-  const content = shape.content.replace(/"/g, '\\"');
+  const content = escapeSwiftStringLiteral(shape.content);
   let code = `Text("${content}")`;
   const modifiers: string[] = [];
 
@@ -456,7 +465,9 @@ function textToSwiftUI(shape: TextShape): string {
   if (shape.fontFamily === 'Inter' || shape.fontFamily === 'system') {
     modifiers.push(`.font(.system(size: ${roundTo(shape.fontSize, 1)}, weight: ${weight}))`);
   } else {
-    modifiers.push(`.font(.custom("${shape.fontFamily}", size: ${roundTo(shape.fontSize, 1)}))`);
+    modifiers.push(
+      `.font(.custom("${escapeSwiftStringLiteral(shape.fontFamily)}", size: ${roundTo(shape.fontSize, 1)}))`,
+    );
     if (shape.fontWeight !== 400) {
       modifiers.push(`.fontWeight(${weight})`);
     }
@@ -538,7 +549,7 @@ function vectorToSwiftUI(shape: Shape): string {
   if (svgPathData) {
     const modifiers = buildModifiersWithoutClipShape(shape);
     const lines = modifiers.map((m) => `  ${m}`).join('\n');
-    const pathView = `Path { path in\n  path.addPath(Path("${svgPathData}"))\n}`;
+    const pathView = `Path { path in\n  path.addPath(Path("${escapeSwiftStringLiteral(svgPathData)}"))\n}`;
     return lines ? `${pathView}\n${lines}` : pathView;
   }
 
@@ -613,7 +624,7 @@ function imageToSwiftUI(shape: ImageShape): string {
     }
   }
 
-  const src = shape.src || 'placeholder';
+  const src = escapeSwiftStringLiteral(shape.src || 'placeholder');
   const lines = modifiers.map((m) => `  ${m}`).join('\n');
   return `Image("${src}")\n${lines}`;
 }

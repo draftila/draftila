@@ -86,6 +86,16 @@ function fillToComposeColor(fill: Fill): string {
   return hexToComposeColor(fill.color, fill.opacity);
 }
 
+function escapeKotlinStringLiteral(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\$/g, '\\$')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t');
+}
+
 function fillToComposeBrush(fill: Fill): string | null {
   if (!fill.gradient) return null;
 
@@ -417,7 +427,7 @@ function alignToComposeAlignment(align: FrameShape['layoutAlign'], direction: 'h
 }
 
 function textToCompose(shape: TextShape): string {
-  const content = shape.content.replace(/"/g, '\\"');
+  const content = escapeKotlinStringLiteral(shape.content);
 
   const params: string[] = [];
   params.push(`text = "${content}"`);
@@ -435,7 +445,7 @@ function textToCompose(shape: TextShape): string {
   }
 
   if (shape.fontFamily !== 'Inter') {
-    params.push(`fontFamily = FontFamily("${shape.fontFamily}")`);
+    params.push(`fontFamily = FontFamily("${escapeKotlinStringLiteral(shape.fontFamily)}")`);
   }
 
   if (shape.fontStyle === 'italic') {
@@ -521,7 +531,7 @@ function vectorToCompose(shape: Shape): string {
     const fills = 'fills' in shape ? getVisibleFills(shape.fills as Fill[]) : [];
     const fillColor = fills.length > 0 ? fillToComposeColor(fills[0]!) : 'Color.Black';
 
-    return `Canvas(\n  modifier = ${modifier}\n) {\n  drawPath(\n    path = PathParser.createPathFromPathData("${svgPathData}"),\n    color = ${fillColor}\n  )\n}`;
+    return `Canvas(\n  modifier = ${modifier}\n) {\n  drawPath(\n    path = PathParser.createPathFromPathData("${escapeKotlinStringLiteral(svgPathData)}"),\n    color = ${fillColor}\n  )\n}`;
   }
 
   return boxWithModifier(shape);
@@ -583,7 +593,7 @@ function imageToCompose(shape: ImageShape): string {
   const modifier =
     modifierParts.length > 0 ? `Modifier\n    .${modifierParts.join('\n    .')}` : 'Modifier';
 
-  const src = shape.src || 'placeholder';
+  const src = escapeKotlinStringLiteral(shape.src || 'placeholder');
   return `AsyncImage(\n  model = "${src}",\n  contentDescription = null,\n  modifier = ${modifier},\n  contentScale = ${fitMap[shape.fit]}\n)`;
 }
 
