@@ -69,7 +69,7 @@ function generateNodeCss(shape: Shape): string {
   return props.join('\n');
 }
 
-function shapeToProperties(shape: Shape): string[] {
+export function shapeToProperties(shape: Shape): string[] {
   switch (shape.type) {
     case 'rectangle':
       return rectangleProperties(shape);

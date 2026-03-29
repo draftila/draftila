@@ -6,7 +6,9 @@ export type CodeFormat =
   | 'tailwind'
   | 'tailwind-all-layers'
   | 'swiftui'
-  | 'compose';
+  | 'compose'
+  | 'html-css'
+  | 'html-tailwind';
 
 export interface ShapeTreeNode {
   shape: Shape;

@@ -63,7 +63,7 @@ export function generateTailwindAllLayers(shapes: Shape[]): string {
   return blocks.join('\n\n');
 }
 
-function shapeToClasses(shape: Shape): string[] {
+export function shapeToClasses(shape: Shape): string[] {
   switch (shape.type) {
     case 'rectangle':
       return rectangleClasses(shape);

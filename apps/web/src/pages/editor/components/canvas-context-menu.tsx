@@ -347,6 +347,8 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
           case 'compose':
             code = generateCompose(shapes);
             break;
+          default:
+            return;
         }
 
         await navigator.clipboard.writeText(code);

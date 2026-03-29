@@ -12,6 +12,7 @@ import { InspectEffects } from './inspect-effects';
 import { InspectLayout } from './inspect-layout';
 import { InspectConstraints } from './inspect-constraints';
 import { InspectCode } from './inspect-code';
+import { InspectPreview } from './inspect-preview';
 
 interface InspectPanelProps {
   ydoc: Y.Doc;
@@ -39,7 +40,7 @@ function hasStrokes(shape: Shape): boolean {
   return 'strokes' in shape;
 }
 
-type InspectTab = 'list' | 'code';
+type InspectTab = 'list' | 'code' | 'preview';
 
 export function InspectPanel({ ydoc }: InspectPanelProps) {
   const selectedIds = useEditorStore((s) => s.selectedIds);
@@ -63,8 +64,13 @@ export function InspectPanel({ ydoc }: InspectPanelProps) {
         <TabButton active={activeTab === 'code'} onClick={() => setActiveTab('code')}>
           Code
         </TabButton>
+        <TabButton active={activeTab === 'preview'} onClick={() => setActiveTab('preview')}>
+          Preview
+        </TabButton>
       </div>
-      {activeTab === 'code' ? (
+      {activeTab === 'preview' ? (
+        <InspectPreview ydoc={ydoc} shapes={shapes} />
+      ) : activeTab === 'code' ? (
         <InspectCode ydoc={ydoc} shapes={shapes} />
       ) : (
         <InspectListView shapes={shapes} />
