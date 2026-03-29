@@ -1,4 +1,5 @@
 [build]
+  ignore = "git diff --quiet $CACHED_COMMIT_REF HEAD -- apps/website/"
   command = "npm install -g bun && bun install && bun run website:build"
   publish = "apps/website/out"
 
