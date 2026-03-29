@@ -43,7 +43,8 @@
     "./operations": "./src/operations.ts",
     "./rpc-handlers": "./src/rpc-handlers/index.ts",
     "./text-measure": "./src/text-measure.ts",
-    "./interchange": "./src/interchange/index.ts"
+    "./interchange": "./src/interchange/index.ts",
+    "./codegen": "./src/codegen/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
