@@ -6,6 +6,7 @@ import { nanoid } from '../../common/lib/utils';
 import { db } from '../../db';
 
 export const auth = betterAuth({
+  basePath: '/api/auth',
   database: prismaAdapter(db, { provider: env.DB_DRIVER }),
   emailAndPassword: {
     enabled: true,

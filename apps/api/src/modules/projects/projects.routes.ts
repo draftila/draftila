@@ -12,9 +12,7 @@ import * as projectsService from './projects.service';
 
 const projectRoutes = new Hono<AuthEnv>();
 
-projectRoutes.use(requireAuth);
-
-projectRoutes.get('/', async (c) => {
+projectRoutes.get('/', requireAuth, async (c) => {
   const user = c.get('user');
   const parsed = sortablePaginationSchema.safeParse({
     cursor: c.req.query('cursor'),
@@ -36,7 +34,7 @@ projectRoutes.get('/', async (c) => {
   return c.json(result);
 });
 
-projectRoutes.post('/', async (c) => {
+projectRoutes.post('/', requireAuth, async (c) => {
   const user = c.get('user');
   const body = await c.req.json();
   const parsed = createProjectSchema.safeParse(body);
@@ -54,7 +52,7 @@ projectRoutes.post('/', async (c) => {
   return c.json(project, 201);
 });
 
-projectRoutes.get('/:id', async (c) => {
+projectRoutes.get('/:id', requireAuth, async (c) => {
   const user = c.get('user');
   const project = await projectsService.getByIdForUser(c.req.param('id'), user.id);
 
@@ -65,7 +63,7 @@ projectRoutes.get('/:id', async (c) => {
   return c.json(project);
 });
 
-projectRoutes.patch('/:id', async (c) => {
+projectRoutes.patch('/:id', requireAuth, async (c) => {
   const user = c.get('user');
   const projectId = c.req.param('id');
 
@@ -90,7 +88,7 @@ projectRoutes.patch('/:id', async (c) => {
   return c.json(updated);
 });
 
-projectRoutes.put('/:id/logo', async (c) => {
+projectRoutes.put('/:id/logo', requireAuth, async (c) => {
   const user = c.get('user');
   const projectId = c.req.param('id');
 
@@ -116,7 +114,7 @@ projectRoutes.put('/:id/logo', async (c) => {
   return c.json({ url });
 });
 
-projectRoutes.delete('/:id', async (c) => {
+projectRoutes.delete('/:id', requireAuth, async (c) => {
   const user = c.get('user');
   const deleted = await projectsService.remove(c.req.param('id'), user.id);
 

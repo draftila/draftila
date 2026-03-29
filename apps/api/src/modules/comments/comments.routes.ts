@@ -14,10 +14,7 @@ type CommentsEnv = AuthEnv & { Variables: AuthEnv['Variables'] };
 const draftCommentsRoutes = new Hono<CommentsEnv>();
 const commentRoutes = new Hono<CommentsEnv>();
 
-draftCommentsRoutes.use(requireAuth);
-commentRoutes.use(requireAuth);
-
-draftCommentsRoutes.get('/', async (c) => {
+draftCommentsRoutes.get('/', requireAuth, async (c) => {
   const user = c.get('user');
   const draftId = c.req.param('draftId') as string;
 
@@ -34,7 +31,7 @@ draftCommentsRoutes.get('/', async (c) => {
   return c.json(comments);
 });
 
-draftCommentsRoutes.post('/', async (c) => {
+draftCommentsRoutes.post('/', requireAuth, async (c) => {
   const user = c.get('user');
   const draftId = c.req.param('draftId') as string;
 
@@ -50,7 +47,7 @@ draftCommentsRoutes.post('/', async (c) => {
   return c.json(created, 201);
 });
 
-draftCommentsRoutes.post('/read-all', async (c) => {
+draftCommentsRoutes.post('/read-all', requireAuth, async (c) => {
   const user = c.get('user');
   const draftId = c.req.param('draftId') as string;
 
@@ -66,7 +63,7 @@ draftCommentsRoutes.post('/read-all', async (c) => {
   return c.json(result);
 });
 
-commentRoutes.patch('/:id', async (c) => {
+commentRoutes.patch('/:id', requireAuth, async (c) => {
   const user = c.get('user');
   const commentId = c.req.param('id');
 
@@ -82,7 +79,7 @@ commentRoutes.patch('/:id', async (c) => {
   return c.json(updated);
 });
 
-commentRoutes.delete('/:id', async (c) => {
+commentRoutes.delete('/:id', requireAuth, async (c) => {
   const user = c.get('user');
   const commentId = c.req.param('id');
 
@@ -90,7 +87,7 @@ commentRoutes.delete('/:id', async (c) => {
   return c.json(result);
 });
 
-commentRoutes.post('/:id/resolve', async (c) => {
+commentRoutes.post('/:id/resolve', requireAuth, async (c) => {
   const user = c.get('user');
   const commentId = c.req.param('id');
 
@@ -98,7 +95,7 @@ commentRoutes.post('/:id/resolve', async (c) => {
   return c.json(updated);
 });
 
-commentRoutes.post('/:id/read', async (c) => {
+commentRoutes.post('/:id/read', requireAuth, async (c) => {
   const user = c.get('user');
   const commentId = c.req.param('id');
 

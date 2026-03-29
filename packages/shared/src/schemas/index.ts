@@ -162,6 +162,45 @@ export const sortSchema = z
   .enum(['last_edited', 'last_created', 'alphabetical'])
   .default('last_edited');
 
+export const exportPageSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  backgroundColor: z.string(),
+  shapes: z.array(z.record(z.string(), z.unknown())),
+  zOrder: z.array(z.string()),
+});
+
+export const exportVariableSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  type: z.literal('color'),
+  value: z.string(),
+});
+
+export const exportComponentSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  shapes: z.string(),
+});
+
+export const exportDraftDataSchema = z.object({
+  name: z.string().min(1).max(255),
+  pages: z.array(exportPageSchema).min(1),
+  pageOrder: z.array(z.string()).min(1),
+  variables: z.array(exportVariableSchema).default([]),
+  components: z.array(exportComponentSchema).default([]),
+  componentInstances: z.record(z.string(), z.string()).default({}),
+});
+
+export const draftExportSchema = z.object({
+  version: z.literal(1),
+  exportedAt: z.string(),
+  generator: z.literal('draftila'),
+  draft: exportDraftDataSchema,
+});
+
+export const importDraftSchema = draftExportSchema;
+
 export const paginationSchema = z.object({
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),

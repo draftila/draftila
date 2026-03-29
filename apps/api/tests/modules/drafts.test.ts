@@ -311,6 +311,15 @@ describe('drafts', () => {
   describe('routes', () => {
     const url = (path = '') => `/api/projects/${projectId}/drafts${path}`;
 
+    test('does not register a blanket middleware route on parameterized draft paths', () => {
+      const hasParameterizedAllMiddleware = app.routes.some(
+        (route) =>
+          route.method === 'ALL' && route.path.startsWith('/api/projects/:projectId/drafts'),
+      );
+
+      expect(hasParameterizedAllMiddleware).toBe(false);
+    });
+
     test('GET /drafts returns 401 without auth', async () => {
       const res = await app.request(url());
       expect(res.status).toBe(401);

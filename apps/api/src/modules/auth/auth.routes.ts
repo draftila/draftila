@@ -4,7 +4,7 @@ import { auth } from './auth.service';
 
 const authRoutes = new Hono();
 
-authRoutes.on(['POST', 'GET'], '/**', (c) => {
+authRoutes.on(['POST', 'GET'], '/*', (c) => {
   if (c.req.method === 'POST') {
     const path = new URL(c.req.url).pathname;
 

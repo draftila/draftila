@@ -1,5 +1,9 @@
+import { useRef } from 'react';
 import type { SortOrder, Project } from '@draftila/shared';
-import { ChevronDownIcon, LayoutGridIcon, ListIcon } from 'lucide-react';
+import { ChevronDownIcon, DownloadIcon, LayoutGridIcon, ListIcon, UploadIcon } from 'lucide-react';
+import { downloadBlob } from '@draftila/engine';
+import { toast } from 'sonner';
+import { useExportAllDrafts, useImportDraft } from '@/api/drafts';
 import { useDashboardStore } from '@/stores/dashboard-store';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,6 +36,47 @@ export function DraftsToolbar({ projects }: DraftsToolbarProps) {
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
   const projectLabel = selectedProjectId ? (selectedProject?.name ?? 'Project') : 'All projects';
   const sortLabel = SORT_OPTIONS.find((o) => o.value === sortOrder)?.label ?? 'Last edited';
+
+  const importDraft = useImportDraft(selectedProjectId ?? '');
+  const exportAllDrafts = useExportAllDrafts(selectedProjectId ?? '');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleImportClick() {
+    fileInputRef.current?.click();
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    importDraft.mutate(file, {
+      onSuccess: (draft) => {
+        toast.success(`Imported "${draft.name}"`);
+      },
+      onError: (err) => {
+        toast.error(err instanceof Error ? err.message : 'Failed to import draft');
+      },
+    });
+  }
+
+  function handleExportAll() {
+    exportAllDrafts.mutate(undefined, {
+      onSuccess: async (result) => {
+        if (result.type === 'zip') {
+          await downloadBlob(result.blob, 'drafts.draftila.zip');
+        } else {
+          const json = JSON.stringify(result.data, null, 2);
+          const blob = new Blob([json], { type: 'application/json' });
+          const name = result.data.draft.name.replace(/[/\\?%*:|"<>]/g, '_');
+          await downloadBlob(blob, `${name}.draftila.json`);
+        }
+        toast.success('Drafts exported');
+      },
+      onError: () => {
+        toast.error('Failed to export drafts');
+      },
+    });
+  }
 
   return (
     <div className="flex items-center gap-2">
@@ -94,6 +139,38 @@ export function DraftsToolbar({ projects }: DraftsToolbarProps) {
           <ListIcon />
         </ToggleGroupItem>
       </ToggleGroup>
+
+      <div className="ml-auto flex items-center gap-2">
+        {selectedProjectId && (
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json,.draftila.json"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleImportClick}
+              disabled={importDraft.isPending}
+            >
+              <UploadIcon />
+              Import
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportAll}
+              disabled={exportAllDrafts.isPending}
+            >
+              <DownloadIcon />
+              Export All
+            </Button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
