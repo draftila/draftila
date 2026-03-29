@@ -27,6 +27,11 @@ import type {
   markAllCommentsReadSchema,
   paginationSchema,
   sortSchema,
+  exportPageSchema,
+  exportVariableSchema,
+  exportComponentSchema,
+  exportDraftDataSchema,
+  draftExportSchema,
 } from '../schemas';
 
 export type Login = z.infer<typeof loginSchema>;
@@ -54,6 +59,11 @@ export type ListCommentsQuery = z.infer<typeof listCommentsQuerySchema>;
 export type MarkAllCommentsRead = z.infer<typeof markAllCommentsReadSchema>;
 export type Pagination = z.infer<typeof paginationSchema>;
 export type SortOrder = z.infer<typeof sortSchema>;
+export type ExportPage = z.infer<typeof exportPageSchema>;
+export type ExportVariable = z.infer<typeof exportVariableSchema>;
+export type ExportComponent = z.infer<typeof exportComponentSchema>;
+export type ExportDraftData = z.infer<typeof exportDraftDataSchema>;
+export type DraftExport = z.infer<typeof draftExportSchema>;
 
 export interface PaginatedResponse<T> {
   data: T[];

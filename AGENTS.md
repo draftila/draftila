@@ -55,3 +55,7 @@ packages/    shared (Zod schemas + types), eslint-config, typescript-config
 - All data shapes shared between API and frontend must be Zod schemas here.
 - Export both the Zod schema and the inferred TypeScript type.
 - WebSocket event types live here.
+
+### Documentation
+
+The documentation website is in apps/website. If adding a new feature or making a change to existing functionality, update the documentation accordingly.

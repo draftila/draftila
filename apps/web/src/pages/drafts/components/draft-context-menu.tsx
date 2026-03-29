@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ExternalLinkIcon, CopyIcon, PencilIcon, TrashIcon } from 'lucide-react';
+import { ExternalLinkIcon, CopyIcon, PencilIcon, TrashIcon, DownloadIcon } from 'lucide-react';
 import type { Draft } from '@draftila/shared';
-import { useDeleteDraft, useUpdateDraft } from '@/api/drafts';
+import { sanitizeFilename } from '@draftila/shared';
+import { downloadBlob } from '@draftila/engine';
+import { useDeleteDraft, useUpdateDraft, useExportDraft } from '@/api/drafts';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -35,6 +37,7 @@ export function DraftContextMenu({ draft, children }: { draft: Draft; children: 
   const navigate = useNavigate();
   const deleteDraft = useDeleteDraft(draft.projectId);
   const updateDraft = useUpdateDraft(draft.projectId);
+  const exportDraft = useExportDraft(draft.projectId);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameName, setRenameName] = useState(draft.name);
@@ -48,6 +51,21 @@ export function DraftContextMenu({ draft, children }: { draft: Draft; children: 
 
   function handleOpen() {
     navigate(`/drafts/${draft.id}`);
+  }
+
+  function handleExport() {
+    exportDraft.mutate(draft.id, {
+      onSuccess: (data) => {
+        const json = JSON.stringify(data, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const filename = `${sanitizeFilename(draft.name)}.draftila.json`;
+        downloadBlob(blob, filename);
+        toast.success('Draft exported');
+      },
+      onError: () => {
+        toast.error('Failed to export draft');
+      },
+    });
   }
 
   function handleCopyLink() {
@@ -95,6 +113,10 @@ export function DraftContextMenu({ draft, children }: { draft: Draft; children: 
           <ContextMenuItem onSelect={handleCopyLink}>
             <CopyIcon />
             Copy Link
+          </ContextMenuItem>
+          <ContextMenuItem onSelect={handleExport} disabled={exportDraft.isPending}>
+            <DownloadIcon />
+            Export
           </ContextMenuItem>
           <ContextMenuItem onSelect={() => setRenameOpen(true)}>
             <PencilIcon />

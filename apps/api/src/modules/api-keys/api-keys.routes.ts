@@ -10,9 +10,7 @@ const createApiKeySchema = z.object({
 
 const apiKeyRoutes = new Hono<AuthEnv>();
 
-apiKeyRoutes.use(requireAuth);
-
-apiKeyRoutes.post('/', async (c) => {
+apiKeyRoutes.post('/', requireAuth, async (c) => {
   const user = c.get('user');
   const body = await c.req.json();
   const parsed = createApiKeySchema.safeParse(body);
@@ -33,13 +31,13 @@ apiKeyRoutes.post('/', async (c) => {
   }
 });
 
-apiKeyRoutes.get('/', async (c) => {
+apiKeyRoutes.get('/', requireAuth, async (c) => {
   const user = c.get('user');
   const keys = await apiKeysService.listByUser(user.id);
   return c.json({ data: keys });
 });
 
-apiKeyRoutes.delete('/:id', async (c) => {
+apiKeyRoutes.delete('/:id', requireAuth, async (c) => {
   const user = c.get('user');
   const id = c.req.param('id');
   const deleted = await apiKeysService.remove(id, user.id);
