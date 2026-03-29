@@ -107,15 +107,19 @@ The MCP server exposes 30+ tools organized into categories.
 | `list_components`  | List all components         |
 | `remove_component` | Delete a component          |
 
-### Export and Import
+### Export, Import, and Code Generation
 
-| Tool          | Description                                              |
-| ------------- | -------------------------------------------------------- |
-| `export_svg`  | Export as SVG markup                                     |
-| `export_png`  | Export as base64 PNG (configurable scale and background) |
-| `import_svg`  | Parse SVG and create shapes                              |
-| `list_icons`  | List available Lucide icons                              |
-| `insert_icon` | Insert a Lucide icon as SVG                              |
+| Tool                    | Description                                              |
+| ----------------------- | -------------------------------------------------------- |
+| `export_svg`            | Export as SVG markup                                     |
+| `export_png`            | Export as base64 PNG (configurable scale and background) |
+| `export_css`            | Export as CSS code (dimensions, fills, borders, flexbox) |
+| `export_css_all_layers` | Export as CSS with rules for all descendant layers       |
+| `export_swiftui`        | Export as SwiftUI code (HStack/VStack, modifiers)        |
+| `export_compose`        | Export as Jetpack Compose code (Row/Column, Modifiers)   |
+| `import_svg`            | Parse SVG and create shapes                              |
+| `list_icons`            | List available Lucide icons                              |
+| `insert_icon`           | Insert a Lucide icon as SVG                              |
 
 ### Guides and Variables
 

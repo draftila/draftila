@@ -23,6 +23,13 @@ import {
   opPasteStyle,
 } from '@draftila/engine/operations';
 import { exportToSvg, exportToPng } from '@draftila/engine/export';
+import {
+  generateCss,
+  generateCssAllLayers,
+  generateSwiftUI,
+  generateCompose,
+} from '@draftila/engine/codegen';
+import type { CodeFormat } from '@draftila/engine/codegen';
 import { useEditorStore } from '@/stores/editor-store';
 
 interface CanvasContextMenuProps {
@@ -97,6 +104,7 @@ function SubMenuTrigger({
 export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuProps>(
   function CanvasContextMenu({ ydoc, position, canvasPosition, onClose }, ref) {
     const [subMenu, setSubMenu] = useState<SubMenuState | null>(null);
+    const [subSubMenu, setSubSubMenu] = useState<SubMenuState | null>(null);
 
     const selectedIds = useEditorStore((s) => s.selectedIds);
     const selectedGuideId = useEditorStore((s) => s.selectedGuideId);
@@ -311,8 +319,40 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
       onClose();
     }, [getExportableShapes, onClose]);
 
+    const handleCopyAsCode = useCallback(
+      async (format: CodeFormat) => {
+        const shapes = getExportableShapes();
+        if (shapes.length === 0) return;
+
+        let code: string;
+        switch (format) {
+          case 'css':
+            code = generateCss(shapes);
+            break;
+          case 'css-all-layers':
+            code = generateCssAllLayers(shapes);
+            break;
+          case 'swiftui':
+            code = generateSwiftUI(shapes);
+            break;
+          case 'compose':
+            code = generateCompose(shapes);
+            break;
+        }
+
+        await navigator.clipboard.writeText(code);
+        onClose();
+      },
+      [getExportableShapes, onClose],
+    );
+
     const openCopyPasteAsSubmenu = useCallback((rect: DOMRect) => {
       setSubMenu({ id: 'copy-paste-as', x: rect.right, y: rect.top });
+      setSubSubMenu(null);
+    }, []);
+
+    const openCopyAsCodeSubmenu = useCallback((rect: DOMRect) => {
+      setSubSubMenu({ id: 'copy-as-code', x: rect.right, y: rect.top });
     }, []);
 
     const openBooleanSubmenu = useCallback(
@@ -437,6 +477,12 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
             className="bg-popover text-popover-foreground fixed z-50 min-w-48 rounded-md border p-1 shadow-lg"
             style={{ left: subMenu.x + 2, top: subMenu.y }}
           >
+            <SubMenuTrigger
+              onHover={openCopyAsCodeSubmenu}
+              isOpen={subSubMenu?.id === 'copy-as-code'}
+            >
+              Copy as code
+            </SubMenuTrigger>
             <MenuItem onClick={handleCopyAsSvg} disabled={!hasSelection}>
               Copy as SVG
             </MenuItem>
@@ -446,6 +492,26 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
               shortcut={isMac ? '\u21E7\u2318C' : 'Ctrl+Shift+C'}
             >
               Copy as PNG
+            </MenuItem>
+          </div>
+        )}
+
+        {subSubMenu?.id === 'copy-as-code' && (
+          <div
+            className="bg-popover text-popover-foreground fixed z-50 min-w-44 rounded-md border p-1 shadow-lg"
+            style={{ left: subSubMenu.x + 2, top: subSubMenu.y }}
+          >
+            <MenuItem onClick={() => handleCopyAsCode('css')} disabled={!hasSelection}>
+              CSS
+            </MenuItem>
+            <MenuItem onClick={() => handleCopyAsCode('css-all-layers')} disabled={!hasSelection}>
+              CSS (all layers)
+            </MenuItem>
+            <MenuItem onClick={() => handleCopyAsCode('swiftui')} disabled={!hasSelection}>
+              iOS (SwiftUI)
+            </MenuItem>
+            <MenuItem onClick={() => handleCopyAsCode('compose')} disabled={!hasSelection}>
+              Android (Compose)
             </MenuItem>
           </div>
         )}

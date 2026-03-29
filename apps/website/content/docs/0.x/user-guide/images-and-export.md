@@ -1,6 +1,6 @@
 ---
 title: Images & Export
-description: Import images and export your designs in multiple formats.
+description: Import images, export your designs in multiple formats, and copy as code.
 ---
 
 # Images & Export
@@ -27,7 +27,7 @@ Images support all the same properties as other shapes — fills, strokes, shado
 
 ## Exporting Designs
 
-Draftila can export your designs in two formats.
+Draftila can export your designs in multiple formats.
 
 ### SVG
 
@@ -48,6 +48,38 @@ Export raster images with configurable options:
 - **Without selection** — All shapes on the current page are exported
 
 Exports respect all visual properties including fills, strokes, shadows, blur, clipping, and blend modes.
+
+## Copy as Code
+
+Right-click on selected shapes and navigate to **Copy/Paste as > Copy as code** to copy your design as platform-native code.
+
+### Supported Formats
+
+| Format            | Description                                                                                   |
+| ----------------- | --------------------------------------------------------------------------------------------- |
+| CSS               | CSS properties for the selected shape — dimensions, fills, borders, shadows, blur, flexbox    |
+| CSS (all layers)  | CSS for the shape and all its descendants, each as a separate rule block with class selectors |
+| iOS (SwiftUI)     | SwiftUI views with HStack/VStack, shape modifiers, Text views, and gradient fills             |
+| Android (Compose) | Jetpack Compose code with Row/Column/Box, Modifier chains, and Text composables               |
+
+### What Gets Generated
+
+Code generation maps design properties to their platform equivalents:
+
+- **Fills** — solid colors, linear gradients, radial gradients
+- **Strokes** — borders with width, color, dash style, and per-side control
+- **Shadows** — drop shadows and inner shadows
+- **Blur** — layer blur and background blur (backdrop-filter / frosted glass)
+- **Border radius** — uniform or per-corner radii
+- **Auto-layout** — flexbox (CSS), HStack/VStack (SwiftUI), Row/Column (Compose)
+- **Text** — font family, size, weight, style, line height, letter spacing, alignment, decoration
+- **Opacity and blend modes**
+- **Rotation** — transforms
+- **Vector shapes** — clip-path (CSS), Path views (SwiftUI/Compose)
+
+:::tip
+The generated code is a reference starting point, not production-ready output. It captures visual properties accurately but may need adjustments for your specific layout context.
+:::
 
 ## Figma Clipboard
 
