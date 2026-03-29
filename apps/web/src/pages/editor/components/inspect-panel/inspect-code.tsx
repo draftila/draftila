@@ -6,15 +6,25 @@ import { getExpandedShapeIds, getAllShapes } from '@draftila/engine/scene-graph'
 import {
   generateCss,
   generateCssAllLayers,
+  generateTailwind,
+  generateTailwindAllLayers,
   generateSwiftUI,
   generateCompose,
 } from '@draftila/engine/codegen';
 
-type CodeLanguage = 'css' | 'css-all-layers' | 'swiftui' | 'compose';
+type CodeLanguage =
+  | 'css'
+  | 'css-all-layers'
+  | 'tailwind'
+  | 'tailwind-all-layers'
+  | 'swiftui'
+  | 'compose';
 
 const LANGUAGE_LABELS: Record<CodeLanguage, string> = {
   css: 'CSS',
   'css-all-layers': 'CSS (All)',
+  tailwind: 'Tailwind',
+  'tailwind-all-layers': 'Tailwind (All)',
   swiftui: 'SwiftUI',
   compose: 'Compose',
 };
@@ -42,6 +52,10 @@ export function InspectCode({ ydoc, shapes }: InspectCodeProps) {
         return generateCss(expandedShapes);
       case 'css-all-layers':
         return generateCssAllLayers(expandedShapes);
+      case 'tailwind':
+        return generateTailwind(expandedShapes);
+      case 'tailwind-all-layers':
+        return generateTailwindAllLayers(expandedShapes);
       case 'swiftui':
         return generateSwiftUI(expandedShapes);
       case 'compose':

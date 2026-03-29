@@ -26,6 +26,8 @@ import { exportToSvg, exportToPng } from '@draftila/engine/export';
 import {
   generateCss,
   generateCssAllLayers,
+  generateTailwind,
+  generateTailwindAllLayers,
   generateSwiftUI,
   generateCompose,
 } from '@draftila/engine/codegen';
@@ -333,6 +335,12 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
           case 'css-all-layers':
             code = generateCssAllLayers(shapes);
             break;
+          case 'tailwind':
+            code = generateTailwind(shapes);
+            break;
+          case 'tailwind-all-layers':
+            code = generateTailwindAllLayers(shapes);
+            break;
           case 'swiftui':
             code = generateSwiftUI(shapes);
             break;
@@ -390,6 +398,15 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
             </MenuItem>
             <MenuItem onClick={() => handleCopyAsCode('css-all-layers')} disabled={!hasSelection}>
               Copy CSS (all layers)
+            </MenuItem>
+            <MenuItem onClick={() => handleCopyAsCode('tailwind')} disabled={!hasSelection}>
+              Copy Tailwind
+            </MenuItem>
+            <MenuItem
+              onClick={() => handleCopyAsCode('tailwind-all-layers')}
+              disabled={!hasSelection}
+            >
+              Copy Tailwind (all layers)
             </MenuItem>
             <MenuItem onClick={() => handleCopyAsCode('swiftui')} disabled={!hasSelection}>
               Copy SwiftUI
@@ -553,6 +570,15 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
             </MenuItem>
             <MenuItem onClick={() => handleCopyAsCode('css-all-layers')} disabled={!hasSelection}>
               CSS (all layers)
+            </MenuItem>
+            <MenuItem onClick={() => handleCopyAsCode('tailwind')} disabled={!hasSelection}>
+              Tailwind
+            </MenuItem>
+            <MenuItem
+              onClick={() => handleCopyAsCode('tailwind-all-layers')}
+              disabled={!hasSelection}
+            >
+              Tailwind (all layers)
             </MenuItem>
             <MenuItem onClick={() => handleCopyAsCode('swiftui')} disabled={!hasSelection}>
               iOS (SwiftUI)
