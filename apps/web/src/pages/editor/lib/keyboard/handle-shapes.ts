@@ -13,6 +13,35 @@ import {
 } from '@draftila/engine/operations';
 import { useEditorStore } from '@/stores/editor-store';
 
+function cycleSelection(ydoc: Y.Doc, reverse: boolean): void {
+  const { selectedIds, setSelectedIds, setEnteredGroupId } = useEditorStore.getState();
+  const baseSelectedId = selectedIds[0] ?? null;
+  const allShapes = getAllShapes(ydoc);
+  if (allShapes.length === 0) return;
+  const zOrder = getZOrder(ydoc).toArray();
+  const shapeById = new Map(allShapes.map((shape) => [shape.id, shape]));
+  const baseShape = baseSelectedId ? shapeById.get(baseSelectedId) : null;
+  const parentId = baseShape?.parentId ?? null;
+  const siblingIds = zOrder.filter((id: string) => {
+    const shape = shapeById.get(id);
+    if (!shape || !shape.visible) return false;
+    return shape.parentId === parentId;
+  });
+  if (siblingIds.length === 0) return;
+  const currentIndex = baseSelectedId ? siblingIds.indexOf(baseSelectedId) : -1;
+  const delta = reverse ? -1 : 1;
+  const nextIndex =
+    currentIndex === -1
+      ? reverse
+        ? siblingIds.length - 1
+        : 0
+      : (currentIndex + delta + siblingIds.length) % siblingIds.length;
+  const nextId = siblingIds[nextIndex];
+  if (!nextId) return;
+  setSelectedIds([nextId]);
+  setEnteredGroupId(null);
+}
+
 export function handleShapeKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
   const isMod = e.metaKey || e.ctrlKey;
   const key = e.key.toLowerCase();
@@ -42,32 +71,7 @@ export function handleShapeKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
     }
     if (!isMod && code === 'Tab') {
       e.preventDefault();
-      const { selectedIds, setSelectedIds, setEnteredGroupId } = useEditorStore.getState();
-      const baseSelectedId = selectedIds[0] ?? null;
-      const allShapes = getAllShapes(ydoc);
-      if (allShapes.length === 0) return true;
-      const zOrder = getZOrder(ydoc).toArray();
-      const shapeById = new Map(allShapes.map((shape) => [shape.id, shape]));
-      const baseShape = baseSelectedId ? shapeById.get(baseSelectedId) : null;
-      const parentId = baseShape?.parentId ?? null;
-      const siblingIds = zOrder.filter((id: string) => {
-        const shape = shapeById.get(id);
-        if (!shape || !shape.visible) return false;
-        return shape.parentId === parentId;
-      });
-      if (siblingIds.length === 0) return true;
-      const currentIndex = baseSelectedId ? siblingIds.indexOf(baseSelectedId) : -1;
-      const delta = e.shiftKey ? -1 : 1;
-      const nextIndex =
-        currentIndex === -1
-          ? e.shiftKey
-            ? siblingIds.length - 1
-            : 0
-          : (currentIndex + delta + siblingIds.length) % siblingIds.length;
-      const nextId = siblingIds[nextIndex];
-      if (!nextId) return true;
-      setSelectedIds([nextId]);
-      setEnteredGroupId(null);
+      cycleSelection(ydoc, e.shiftKey);
       return true;
     }
     return false;
@@ -213,38 +217,7 @@ export function handleShapeKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
 
   if (!isMod && code === 'Tab') {
     e.preventDefault();
-    const { selectedIds, setSelectedIds, setEnteredGroupId } = useEditorStore.getState();
-    const baseSelectedId = selectedIds[0] ?? null;
-    const allShapes = getAllShapes(ydoc);
-
-    if (allShapes.length === 0) return true;
-
-    const zOrder = getZOrder(ydoc).toArray();
-    const shapeById = new Map(allShapes.map((shape) => [shape.id, shape]));
-    const baseShape = baseSelectedId ? shapeById.get(baseSelectedId) : null;
-    const parentId = baseShape?.parentId ?? null;
-
-    const siblingIds = zOrder.filter((id: string) => {
-      const shape = shapeById.get(id);
-      if (!shape || !shape.visible) return false;
-      return shape.parentId === parentId;
-    });
-
-    if (siblingIds.length === 0) return true;
-
-    const currentIndex = baseSelectedId ? siblingIds.indexOf(baseSelectedId) : -1;
-    const delta = e.shiftKey ? -1 : 1;
-    const nextIndex =
-      currentIndex === -1
-        ? e.shiftKey
-          ? siblingIds.length - 1
-          : 0
-        : (currentIndex + delta + siblingIds.length) % siblingIds.length;
-    const nextId = siblingIds[nextIndex];
-    if (!nextId) return true;
-
-    setSelectedIds([nextId]);
-    setEnteredGroupId(null);
+    cycleSelection(ydoc, e.shiftKey);
     return true;
   }
 

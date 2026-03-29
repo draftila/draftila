@@ -186,7 +186,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       ...(on && state.versionHistoryOpen ? { versionHistoryOpen: false } : {}),
     })),
 
-  setVersionHistoryOpen: (open) => set({ versionHistoryOpen: open }),
+  setVersionHistoryOpen: (open) =>
+    set((state) => ({
+      versionHistoryOpen: open,
+      ...(open && state.devMode ? { devMode: false } : {}),
+    })),
 
   enterPreviewMode: (snapshotId, ydoc) =>
     set({

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type * as Y from 'yjs';
+import type { Shape } from '@draftila/shared';
 import { screenToCanvas } from '@draftila/engine/camera';
 import { getTool, getMoveTool } from '@draftila/engine/tools/tool-manager';
 import type { ToolContext } from '@draftila/engine/tools/base-tool';
 import type { HandTool } from '@draftila/engine/tools/hand-tool';
 import { hitTestPoint } from '@draftila/engine/hit-test';
-import { getAllShapes, resolveGroupTarget } from '@draftila/engine/scene-graph';
+import { getAllShapes, resolveGroupTarget, observeShapes } from '@draftila/engine/scene-graph';
 import { SpatialIndex } from '@draftila/engine/spatial-index';
 import { useEditorStore } from '@/stores/editor-store';
 
@@ -46,6 +47,22 @@ function buildContext(
   };
 }
 
+function devModeHitTest(
+  ctx: ToolContext,
+  shapes: Shape[],
+  spatialIndex: SpatialIndex,
+): string | null {
+  const hit = hitTestPoint(
+    ctx.canvasPoint.x,
+    ctx.canvasPoint.y,
+    shapes,
+    spatialIndex,
+    ctx.camera.zoom,
+  );
+  if (!hit) return null;
+  return resolveGroupTarget(ctx.ydoc, hit.id, useEditorStore.getState().enteredGroupId);
+}
+
 export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions) {
   const spaceHeldRef = useRef(false);
   const middleClickPanRef = useRef(false);
@@ -54,6 +71,8 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
   onActiveInteractionRef.current = onActiveInteraction;
 
   const isPanningRef = useRef(false);
+  const cachedShapesRef = useRef<Shape[]>([]);
+  const cachedSpatialIndexRef = useRef(new SpatialIndex());
 
   const startPan = useCallback(() => {
     if (isPanningRef.current) return;
@@ -96,19 +115,13 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
       const activeTool = useEditorStore.getState().activeTool;
 
       if (useEditorStore.getState().devMode && activeTool !== 'comment') {
-        const shapes = getAllShapes(ydoc);
-        const spatialIndex = new SpatialIndex();
-        spatialIndex.rebuild(shapes);
-        const hit = hitTestPoint(
-          ctx.canvasPoint.x,
-          ctx.canvasPoint.y,
-          shapes,
-          spatialIndex,
-          ctx.camera.zoom,
+        const targetId = devModeHitTest(
+          ctx,
+          cachedShapesRef.current,
+          cachedSpatialIndexRef.current,
         );
         const store = useEditorStore.getState();
-        if (hit) {
-          const targetId = resolveGroupTarget(ydoc, hit.id, store.enteredGroupId);
+        if (targetId) {
           if (ctx.shiftKey) {
             store.toggleSelection(targetId);
           } else {
@@ -148,30 +161,19 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
         return;
       }
 
-      const activeTool2 = useEditorStore.getState().activeTool;
+      const activeTool = useEditorStore.getState().activeTool;
 
-      if (useEditorStore.getState().devMode && activeTool2 !== 'comment') {
-        const shapes = getAllShapes(ydoc);
-        const spatialIndex = new SpatialIndex();
-        spatialIndex.rebuild(shapes);
-        const hit = hitTestPoint(
-          ctx.canvasPoint.x,
-          ctx.canvasPoint.y,
-          shapes,
-          spatialIndex,
-          ctx.camera.zoom,
+      if (useEditorStore.getState().devMode && activeTool !== 'comment') {
+        const targetId = devModeHitTest(
+          ctx,
+          cachedShapesRef.current,
+          cachedSpatialIndexRef.current,
         );
-        const store = useEditorStore.getState();
-        if (hit) {
-          const targetId = resolveGroupTarget(ydoc, hit.id, store.enteredGroupId);
-          store.setHoveredId(targetId);
-        } else {
-          store.setHoveredId(null);
-        }
+        useEditorStore.getState().setHoveredId(targetId);
         return;
       }
 
-      const tool = getTool(activeTool2);
+      const tool = getTool(activeTool);
       tool.onPointerMove(ctx);
     },
     [ydoc, canvasRef],
@@ -209,19 +211,29 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
         return;
       }
 
-      const activeTool3 = useEditorStore.getState().activeTool;
+      const activeTool = useEditorStore.getState().activeTool;
 
-      if (useEditorStore.getState().devMode && activeTool3 !== 'comment') {
+      if (useEditorStore.getState().devMode && activeTool !== 'comment') {
         return;
       }
 
-      const tool = getTool(activeTool3);
+      const tool = getTool(activeTool);
       tool.onPointerUp(ctx);
     },
     [ydoc, canvasRef, stopPan],
   );
 
   useEffect(() => {
+    function rebuildSpatialCache() {
+      const shapes = getAllShapes(ydoc);
+      cachedShapesRef.current = shapes;
+      cachedSpatialIndexRef.current = new SpatialIndex();
+      cachedSpatialIndexRef.current.rebuild(shapes);
+    }
+
+    rebuildSpatialCache();
+    const unobserveShapes = observeShapes(ydoc, rebuildSpatialCache);
+
     const unsubscribe = useEditorStore.subscribe((state, prev) => {
       if (state.activeTool === prev.activeTool) return;
       const prevTool = getTool(prev.activeTool);
@@ -255,11 +267,12 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     return () => {
+      unobserveShapes();
       unsubscribe();
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [startPan, stopPan]);
+  }, [ydoc, startPan, stopPan]);
 
   return {
     handlePointerDown,
