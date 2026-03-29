@@ -86,6 +86,27 @@ export function handleToolKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
     return true;
   }
 
+  if (!isMod && e.shiftKey && key === 'd') {
+    e.preventDefault();
+    const store = useEditorStore.getState();
+    store.setDevMode(!store.devMode);
+    return true;
+  }
+
+  if (useEditorStore.getState().devMode) {
+    if (!isMod && key === 'c') {
+      e.preventDefault();
+      useEditorStore.getState().setActiveTool('comment');
+      return true;
+    }
+    if (!isMod && key === 'v') {
+      e.preventDefault();
+      useEditorStore.getState().setActiveTool('move');
+      return true;
+    }
+    return false;
+  }
+
   if (!isMod && key === 'p') {
     e.preventDefault();
     useEditorStore.getState().setActiveTool(e.shiftKey ? 'pencil' : 'pen');

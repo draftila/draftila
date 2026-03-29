@@ -25,6 +25,7 @@ interface EditorState {
   commentsVisible: boolean;
   activeCommentId: string | null;
   aiActiveFrameIds: Set<string>;
+  devMode: boolean;
   versionHistoryOpen: boolean;
   previewSnapshotId: string | null;
   previewYdoc: Y.Doc | null;
@@ -57,6 +58,7 @@ interface EditorState {
   setCommentsVisible: (visible: boolean) => void;
   setActiveCommentId: (id: string | null) => void;
   setAiActiveFrameIds: (ids: Set<string>) => void;
+  setDevMode: (on: boolean) => void;
   setVersionHistoryOpen: (open: boolean) => void;
   enterPreviewMode: (snapshotId: string, ydoc: Y.Doc) => void;
   exitPreviewMode: () => void;
@@ -85,6 +87,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   commentsVisible: localStorage.getItem('draftila:commentsVisible') !== 'false',
   activeCommentId: null,
   aiActiveFrameIds: new Set(),
+  devMode: false,
   versionHistoryOpen: false,
   previewSnapshotId: null,
   previewYdoc: null,
@@ -176,7 +179,18 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setAiActiveFrameIds: (ids) => set({ aiActiveFrameIds: ids }),
 
-  setVersionHistoryOpen: (open) => set({ versionHistoryOpen: open }),
+  setDevMode: (on) =>
+    set((state) => ({
+      devMode: on,
+      ...(on ? { activeTool: 'move' as const, editingTextId: null } : {}),
+      ...(on && state.versionHistoryOpen ? { versionHistoryOpen: false } : {}),
+    })),
+
+  setVersionHistoryOpen: (open) =>
+    set((state) => ({
+      versionHistoryOpen: open,
+      ...(open && state.devMode ? { devMode: false } : {}),
+    })),
 
   enterPreviewMode: (snapshotId, ydoc) =>
     set({

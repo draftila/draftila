@@ -90,6 +90,41 @@ export function registerExportTools(server: McpServer, getUserId: () => string) 
 
   defineTool(
     server,
+    'export_tailwind',
+    'Export shapes as Tailwind CSS utility classes. Returns Tailwind v4 classes for each selected shape including dimensions, fills, strokes, shadows, blur, border-radius, and auto-layout (flexbox).',
+    {
+      ...draftId,
+      shapeIds: optionalShapeIds,
+    },
+    async ({ draftId, shapeIds }) => {
+      const result = await sendToolRpc(draftId as string, getUserId(), 'export_tailwind', {
+        shapeIds,
+      });
+      return { content: [{ type: 'text' as const, text: result as string }] };
+    },
+  );
+
+  defineTool(
+    server,
+    'export_tailwind_all_layers',
+    'Export shapes and all their descendants as Tailwind CSS utility classes. Each shape gets a separate block with @apply directives and class selectors. Useful for exporting a full component tree with Tailwind classes.',
+    {
+      ...draftId,
+      shapeIds: optionalShapeIds,
+    },
+    async ({ draftId, shapeIds }) => {
+      const result = await sendToolRpc(
+        draftId as string,
+        getUserId(),
+        'export_tailwind_all_layers',
+        { shapeIds },
+      );
+      return { content: [{ type: 'text' as const, text: result as string }] };
+    },
+  );
+
+  defineTool(
+    server,
     'export_swiftui',
     'Export shapes as SwiftUI code. Generates hierarchical SwiftUI views with HStack/VStack/ZStack for auto-layout frames, shape modifiers, and Text views.',
     {

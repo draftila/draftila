@@ -2,7 +2,14 @@ import { getAllShapes, getShape } from '../scene-graph';
 import { isAutoLayoutFrame } from '../auto-layout';
 import { applyAutoLayout, applyAutoLayoutForAncestors } from '../scene-graph/layout-ops';
 import { exportToSvg } from '../export';
-import { generateCss, generateCssAllLayers, generateSwiftUI, generateCompose } from '../codegen';
+import {
+  generateCss,
+  generateCssAllLayers,
+  generateTailwind,
+  generateTailwindAllLayers,
+  generateSwiftUI,
+  generateCompose,
+} from '../codegen';
 import { importSvgShapes } from '../shape-import';
 import type { RpcHandler } from './types';
 import { collectShapesWithDescendants } from './utils';
@@ -32,6 +39,22 @@ export function interchangeHandlers(): Record<string, RpcHandler> {
       const shapes =
         ids && ids.length > 0 ? collectShapesWithDescendants(allShapes, ids) : allShapes;
       return generateCssAllLayers(shapes);
+    },
+
+    export_tailwind(ydoc, args) {
+      const allShapes = getAllShapes(ydoc);
+      const ids = args['shapeIds'] as string[] | undefined;
+      const shapes =
+        ids && ids.length > 0 ? collectShapesWithDescendants(allShapes, ids) : allShapes;
+      return generateTailwind(shapes);
+    },
+
+    export_tailwind_all_layers(ydoc, args) {
+      const allShapes = getAllShapes(ydoc);
+      const ids = args['shapeIds'] as string[] | undefined;
+      const shapes =
+        ids && ids.length > 0 ? collectShapesWithDescendants(allShapes, ids) : allShapes;
+      return generateTailwindAllLayers(shapes);
     },
 
     export_swiftui(ydoc, args) {

@@ -69,12 +69,12 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     shortcuts: [
       { label: 'Zoom In', keys: `${mod}+` },
       { label: 'Zoom Out', keys: `${mod}-` },
-
       { label: 'Zoom to Fit All', keys: '\u21E71' },
       { label: 'Zoom to Selection', keys: '\u21E72' },
       { label: 'Pan', keys: 'Space + Drag' },
       { label: 'Toggle Rulers', keys: '\u21E7R' },
       { label: 'Toggle Comments', keys: '\u21E7C' },
+      { label: 'Toggle Dev Mode', keys: '\u21E7D' },
     ],
   },
   {
