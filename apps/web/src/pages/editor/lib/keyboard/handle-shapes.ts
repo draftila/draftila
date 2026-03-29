@@ -18,6 +18,61 @@ export function handleShapeKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
   const key = e.key.toLowerCase();
   const code = e.code;
 
+  if (useEditorStore.getState().devMode) {
+    if (key === 'escape') {
+      e.preventDefault();
+      const { enteredGroupId, setEnteredGroupId, setSelectedIds } = useEditorStore.getState();
+      if (enteredGroupId) {
+        const groupShape = getShape(ydoc, enteredGroupId);
+        const parentGroupId = groupShape?.parentId ?? null;
+        const parentShape = parentGroupId ? getShape(ydoc, parentGroupId) : null;
+        const nextEnteredId = parentShape?.type === 'group' ? parentGroupId : null;
+        setEnteredGroupId(nextEnteredId);
+        setSelectedIds([enteredGroupId]);
+        return true;
+      }
+      useEditorStore.getState().clearSelection();
+      return true;
+    }
+    if (isMod && key === 'a') {
+      e.preventDefault();
+      const allShapes = getAllShapes(ydoc);
+      useEditorStore.getState().setSelectedIds(allShapes.map((s) => s.id));
+      return true;
+    }
+    if (!isMod && code === 'Tab') {
+      e.preventDefault();
+      const { selectedIds, setSelectedIds, setEnteredGroupId } = useEditorStore.getState();
+      const baseSelectedId = selectedIds[0] ?? null;
+      const allShapes = getAllShapes(ydoc);
+      if (allShapes.length === 0) return true;
+      const zOrder = getZOrder(ydoc).toArray();
+      const shapeById = new Map(allShapes.map((shape) => [shape.id, shape]));
+      const baseShape = baseSelectedId ? shapeById.get(baseSelectedId) : null;
+      const parentId = baseShape?.parentId ?? null;
+      const siblingIds = zOrder.filter((id: string) => {
+        const shape = shapeById.get(id);
+        if (!shape || !shape.visible) return false;
+        return shape.parentId === parentId;
+      });
+      if (siblingIds.length === 0) return true;
+      const currentIndex = baseSelectedId ? siblingIds.indexOf(baseSelectedId) : -1;
+      const delta = e.shiftKey ? -1 : 1;
+      const nextIndex =
+        currentIndex === -1
+          ? e.shiftKey
+            ? siblingIds.length - 1
+            : 0
+          : (currentIndex + delta + siblingIds.length) % siblingIds.length;
+      const nextId = siblingIds[nextIndex];
+      if (!nextId) return true;
+      setSelectedIds([nextId]);
+      setEnteredGroupId(null);
+      return true;
+    }
+    return false;
+  }
+
   if (!isMod && e.shiftKey && code === 'KeyR') {
     e.preventDefault();
     const { rulersVisible, setRulersVisible, setGuidesVisible } = useEditorStore.getState();

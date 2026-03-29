@@ -4,6 +4,9 @@ import { screenToCanvas } from '@draftila/engine/camera';
 import { getTool, getMoveTool } from '@draftila/engine/tools/tool-manager';
 import type { ToolContext } from '@draftila/engine/tools/base-tool';
 import type { HandTool } from '@draftila/engine/tools/hand-tool';
+import { hitTestPoint } from '@draftila/engine/hit-test';
+import { getAllShapes, resolveGroupTarget } from '@draftila/engine/scene-graph';
+import { SpatialIndex } from '@draftila/engine/spatial-index';
 import { useEditorStore } from '@/stores/editor-store';
 
 interface UseToolOptions {
@@ -91,6 +94,32 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
       }
 
       const activeTool = useEditorStore.getState().activeTool;
+
+      if (useEditorStore.getState().devMode && activeTool !== 'comment') {
+        const shapes = getAllShapes(ydoc);
+        const spatialIndex = new SpatialIndex();
+        spatialIndex.rebuild(shapes);
+        const hit = hitTestPoint(
+          ctx.canvasPoint.x,
+          ctx.canvasPoint.y,
+          shapes,
+          spatialIndex,
+          ctx.camera.zoom,
+        );
+        const store = useEditorStore.getState();
+        if (hit) {
+          const targetId = resolveGroupTarget(ydoc, hit.id, store.enteredGroupId);
+          if (ctx.shiftKey) {
+            store.toggleSelection(targetId);
+          } else {
+            store.setSelectedIds([targetId]);
+          }
+        } else if (!ctx.shiftKey) {
+          store.clearSelection();
+        }
+        return;
+      }
+
       const tool = getTool(activeTool);
       tool.onPointerDown(ctx);
     },
@@ -119,8 +148,30 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
         return;
       }
 
-      const activeTool = useEditorStore.getState().activeTool;
-      const tool = getTool(activeTool);
+      const activeTool2 = useEditorStore.getState().activeTool;
+
+      if (useEditorStore.getState().devMode && activeTool2 !== 'comment') {
+        const shapes = getAllShapes(ydoc);
+        const spatialIndex = new SpatialIndex();
+        spatialIndex.rebuild(shapes);
+        const hit = hitTestPoint(
+          ctx.canvasPoint.x,
+          ctx.canvasPoint.y,
+          shapes,
+          spatialIndex,
+          ctx.camera.zoom,
+        );
+        const store = useEditorStore.getState();
+        if (hit) {
+          const targetId = resolveGroupTarget(ydoc, hit.id, store.enteredGroupId);
+          store.setHoveredId(targetId);
+        } else {
+          store.setHoveredId(null);
+        }
+        return;
+      }
+
+      const tool = getTool(activeTool2);
       tool.onPointerMove(ctx);
     },
     [ydoc, canvasRef],
@@ -158,8 +209,13 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
         return;
       }
 
-      const activeTool = useEditorStore.getState().activeTool;
-      const tool = getTool(activeTool);
+      const activeTool3 = useEditorStore.getState().activeTool;
+
+      if (useEditorStore.getState().devMode && activeTool3 !== 'comment') {
+        return;
+      }
+
+      const tool = getTool(activeTool3);
       tool.onPointerUp(ctx);
     },
     [ydoc, canvasRef, stopPan],
