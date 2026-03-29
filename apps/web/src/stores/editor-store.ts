@@ -29,6 +29,7 @@ interface EditorState {
   previewSnapshotId: string | null;
   previewYdoc: Y.Doc | null;
   saveVersionDialogOpen: boolean;
+  reinitializeYjs: (() => void) | null;
 
   setActiveTool: (tool: ToolType) => void;
   setActivePageId: (pageId: string | null) => void;
@@ -60,6 +61,7 @@ interface EditorState {
   enterPreviewMode: (snapshotId: string, ydoc: Y.Doc) => void;
   exitPreviewMode: () => void;
   setSaveVersionDialogOpen: (open: boolean) => void;
+  setReinitializeYjs: (fn: (() => void) | null) => void;
 }
 
 export const useEditorStore = create<EditorState>((set, get) => ({
@@ -87,6 +89,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   previewSnapshotId: null,
   previewYdoc: null,
   saveVersionDialogOpen: false,
+  reinitializeYjs: null,
 
   setActiveTool: (tool) => set({ activeTool: tool }),
 
@@ -196,6 +199,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   setSaveVersionDialogOpen: (open) => set({ saveVersionDialogOpen: open }),
+
+  setReinitializeYjs: (fn) => set({ reinitializeYjs: fn }),
 }));
 
 configureToolStore({

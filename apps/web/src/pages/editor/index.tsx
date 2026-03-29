@@ -78,7 +78,7 @@ export function EditorPage() {
   const { draftId } = useParams<{ draftId: string }>();
   const navigate = useNavigate();
   const { data: draft, isLoading, isError, error } = useDraftById(draftId ?? '');
-  const { ydoc, provider, connected, synced, applyingRemoteChanges } = useYjs({
+  const { ydoc, provider, connected, synced, applyingRemoteChanges, reinitialize } = useYjs({
     draftId: draftId ?? '',
     enabled: !!draft,
   });
@@ -178,6 +178,11 @@ export function EditorPage() {
   useKeyboard({ ydoc });
   useThumbnail(draftId ?? '', ydoc, synced);
   useRpc({ provider, ydoc, enabled: synced });
+
+  useEffect(() => {
+    useEditorStore.getState().setReinitializeYjs(reinitialize);
+    return () => useEditorStore.getState().setReinitializeYjs(null);
+  }, [reinitialize]);
 
   useEffect(() => {
     if (!synced) return;

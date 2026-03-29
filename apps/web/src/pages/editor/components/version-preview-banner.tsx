@@ -28,6 +28,7 @@ export function VersionPreviewBanner({ draftId, snapshot }: VersionPreviewBanner
       await restoreRef.current.mutateAsync(snapshotId);
       toast.success('Version restored');
       useEditorStore.getState().exitPreviewMode();
+      useEditorStore.getState().reinitializeYjs?.();
     } catch {
       toast.error('Failed to restore version');
     }
