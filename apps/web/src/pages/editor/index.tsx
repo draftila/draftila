@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { PanelLeft, Upload, Eye, Keyboard } from 'lucide-react';
+import { PanelLeft, Upload, Eye, Keyboard, History } from 'lucide-react';
 import logoSvg from '@/assets/logo.svg';
 import { useDraftById, useUpdateDraft } from '@/api/drafts';
 import { useSession } from '@/lib/auth-client';
@@ -41,6 +41,9 @@ import { useAwareness } from './hooks/use-awareness';
 import { useThumbnail } from './hooks/use-thumbnail';
 import { useRpc } from './hooks/use-rpc';
 import { KeyboardShortcutsDialog } from './components/keyboard-shortcuts-dialog';
+import { SaveVersionDialog } from './components/save-version-dialog';
+import { VersionPreviewBanner } from './components/version-preview-banner';
+import { useSnapshots } from '@/api/snapshots';
 
 function ViewMenuItems() {
   const rulersVisible = useEditorStore((s) => s.rulersVisible);
@@ -87,9 +90,17 @@ export function EditorPage() {
   const updateDraft = useUpdateDraft(draft?.projectId ?? '');
   const activePageId = useEditorStore((s) => s.activePageId);
   const setActivePageId = useEditorStore((s) => s.setActivePageId);
+  const previewSnapshotId = useEditorStore((s) => s.previewSnapshotId);
+  const previewYdoc = useEditorStore((s) => s.previewYdoc);
   const lastPageIdRef = useRef<string | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isPreview = !!previewSnapshotId && !!previewYdoc;
+  const activeYdoc = isPreview ? previewYdoc : ydoc;
+
+  const { data: snapshots } = useSnapshots(draftId ?? '', true);
+  const previewSnapshot = snapshots?.find((s) => s.id === previewSnapshotId);
 
   const handleImportFile = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -278,6 +289,17 @@ export function EditorPage() {
                   <ViewMenuItems />
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => {
+                  const store = useEditorStore.getState();
+                  store.setVersionHistoryOpen(!store.versionHistoryOpen);
+                  store.setRightPanelOpen(true);
+                }}
+              >
+                <History className="mr-2 h-4 w-4" />
+                Version History
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <div className="flex min-w-0 flex-1 items-center gap-1.5">
@@ -347,6 +369,23 @@ export function EditorPage() {
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 shrink-0"
+                onClick={() => {
+                  const store = useEditorStore.getState();
+                  store.setVersionHistoryOpen(!store.versionHistoryOpen);
+                  store.setRightPanelOpen(true);
+                }}
+              >
+                <History className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Version History</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0"
                 onClick={() => setShortcutsOpen(true)}
               >
                 <Keyboard className="h-4 w-4" />
@@ -362,17 +401,19 @@ export function EditorPage() {
         </div>
       </header>
       <div className="relative flex flex-1 overflow-hidden">
-        <LeftPanel ydoc={ydoc} />
+        <LeftPanel ydoc={activeYdoc} />
+        {isPreview && <VersionPreviewBanner draftId={draftId ?? ''} snapshot={previewSnapshot} />}
         <Canvas
-          ydoc={ydoc}
+          ydoc={activeYdoc}
           draftId={draftId ?? ''}
           userId={userId}
           userName={userName}
-          remoteUsers={remoteUsers}
-          onActiveInteraction={handleActiveInteraction}
+          remoteUsers={isPreview ? [] : remoteUsers}
+          onActiveInteraction={isPreview ? undefined : handleActiveInteraction}
         />
-        <RightPanel ydoc={ydoc} />
+        <RightPanel ydoc={activeYdoc} draftId={draftId ?? ''} />
       </div>
+      <SaveVersionDialog draftId={draftId ?? ''} />
       <KeyboardShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </div>
   );

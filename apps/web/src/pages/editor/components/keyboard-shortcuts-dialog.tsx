@@ -82,6 +82,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     shortcuts: [
       { label: 'Undo', keys: `${mod}Z` },
       { label: 'Redo', keys: `${mod}\u21E7Z` },
+      { label: 'Save Version', keys: `${mod}\u2325S` },
     ],
   },
   {

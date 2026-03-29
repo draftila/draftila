@@ -4,6 +4,7 @@ import * as awarenessProtocol from 'y-protocols/awareness';
 import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
 import * as draftsService from '../drafts/drafts.service';
+import * as snapshotsService from '../snapshots/snapshots.service';
 import {
   sendRpc as sendRpcInternal,
   handleRpcResponse,
@@ -26,6 +27,7 @@ export interface WsData {
 
 interface WsLike {
   send(data: Uint8Array | ArrayBuffer | string): void;
+  close?(): void;
 }
 
 interface Room {
@@ -173,6 +175,7 @@ export async function handleDisconnect(ws: WsLike, draftId: string) {
   const room = rooms.get(draftId);
   if (!room) return;
 
+  const wsData = connectionData.get(ws);
   room.connections.delete(ws);
   connectionData.delete(ws);
 
@@ -180,7 +183,9 @@ export async function handleDisconnect(ws: WsLike, draftId: string) {
     if (room.snapshotTimer) clearInterval(room.snapshotTimer);
 
     if (room.dirty) {
-      await snapshotToDb(draftId, room.ydoc);
+      const state = Buffer.from(Y.encodeStateAsUpdate(room.ydoc));
+      await draftsService.saveYjsState(draftId, state);
+      await snapshotsService.createAutoSave(draftId, wsData?.userId ?? null, state);
     }
 
     if (room.updateHandler) {
@@ -240,6 +245,22 @@ export function sendRpc(
   args: Record<string, unknown>,
 ): Promise<unknown> {
   return sendRpcInternal(draftId, tool, args, getRoomConnections);
+}
+
+export function forceReplaceRoomState(draftId: string) {
+  const room = rooms.get(draftId);
+  if (!room) return;
+
+  if (room.snapshotTimer) clearInterval(room.snapshotTimer);
+  if (room.updateHandler) room.ydoc.off('update', room.updateHandler);
+
+  for (const conn of room.connections) {
+    conn.close?.();
+  }
+
+  room.awareness.destroy();
+  room.ydoc.destroy();
+  rooms.delete(draftId);
 }
 
 export async function closeRoom(draftId: string) {

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type * as Y from 'yjs';
 import type { Camera, CanvasGuide, Point, ToolType } from '@draftila/shared';
 import type { GuideSnapTarget } from '@draftila/engine';
 import { DEFAULT_CAMERA, clampZoom, configureToolStore } from '@draftila/engine';
@@ -24,6 +25,10 @@ interface EditorState {
   commentsVisible: boolean;
   activeCommentId: string | null;
   aiActiveFrameIds: Set<string>;
+  versionHistoryOpen: boolean;
+  previewSnapshotId: string | null;
+  previewYdoc: Y.Doc | null;
+  saveVersionDialogOpen: boolean;
 
   setActiveTool: (tool: ToolType) => void;
   setActivePageId: (pageId: string | null) => void;
@@ -51,6 +56,10 @@ interface EditorState {
   setCommentsVisible: (visible: boolean) => void;
   setActiveCommentId: (id: string | null) => void;
   setAiActiveFrameIds: (ids: Set<string>) => void;
+  setVersionHistoryOpen: (open: boolean) => void;
+  enterPreviewMode: (snapshotId: string, ydoc: Y.Doc) => void;
+  exitPreviewMode: () => void;
+  setSaveVersionDialogOpen: (open: boolean) => void;
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
@@ -74,6 +83,10 @@ export const useEditorStore = create<EditorState>((set) => ({
   commentsVisible: localStorage.getItem('draftila:commentsVisible') !== 'false',
   activeCommentId: null,
   aiActiveFrameIds: new Set(),
+  versionHistoryOpen: false,
+  previewSnapshotId: null,
+  previewYdoc: null,
+  saveVersionDialogOpen: false,
 
   setActiveTool: (tool) => set({ activeTool: tool }),
 
@@ -159,6 +172,30 @@ export const useEditorStore = create<EditorState>((set) => ({
   setActiveCommentId: (id) => set({ activeCommentId: id }),
 
   setAiActiveFrameIds: (ids) => set({ aiActiveFrameIds: ids }),
+
+  setVersionHistoryOpen: (open) => set({ versionHistoryOpen: open }),
+
+  enterPreviewMode: (snapshotId, ydoc) =>
+    set({
+      previewSnapshotId: snapshotId,
+      previewYdoc: ydoc,
+      selectedIds: [],
+      hoveredId: null,
+      editingTextId: null,
+    }),
+
+  exitPreviewMode: () =>
+    set((state) => {
+      state.previewYdoc?.destroy();
+      return {
+        previewSnapshotId: null,
+        previewYdoc: null,
+        selectedIds: [],
+        hoveredId: null,
+      };
+    }),
+
+  setSaveVersionDialogOpen: (open) => set({ saveVersionDialogOpen: open }),
 }));
 
 configureToolStore({

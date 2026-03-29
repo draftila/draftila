@@ -8,6 +8,7 @@ import {
   handleClipboardKeyDown,
   handleShapeKeyDown,
   handlePasteEvent,
+  handleVersionKeyDown,
 } from '../lib/keyboard';
 
 interface UseKeyboardOptions {
@@ -20,6 +21,7 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (useEditorStore.getState().editingTextId) return;
 
+      if (handleVersionKeyDown(e)) return;
       if (handleGuideKeyDown(e, ydoc)) return;
       if (handleToolKeyDown(e, ydoc)) return;
       if (handleCameraKeyDown(e, ydoc)) return;
