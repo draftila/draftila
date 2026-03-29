@@ -1,5 +1,10 @@
 import { Hono } from 'hono';
-import { createDraftSchema, sortablePaginationSchema, updateDraftSchema } from '@draftila/shared';
+import {
+  createDraftSchema,
+  importDraftSchema,
+  sortablePaginationSchema,
+  updateDraftSchema,
+} from '@draftila/shared';
 import { ForbiddenError, NotFoundError, ValidationError } from '../../common/errors';
 import { requireAuth, type AuthEnv } from '../../common/middleware/auth';
 import { canDelete, canEdit, getEffectiveMembership } from '../projects/members.service';
@@ -9,9 +14,7 @@ type DraftEnv = AuthEnv & { Variables: AuthEnv['Variables'] };
 
 const draftRoutes = new Hono<DraftEnv>();
 
-draftRoutes.use(requireAuth);
-
-draftRoutes.get('/', async (c) => {
+draftRoutes.get('/', requireAuth, async (c) => {
   const user = c.get('user');
   const projectId = c.req.param('projectId') as string;
 
@@ -40,7 +43,7 @@ draftRoutes.get('/', async (c) => {
   return c.json(result);
 });
 
-draftRoutes.post('/', async (c) => {
+draftRoutes.post('/', requireAuth, async (c) => {
   const user = c.get('user');
   const projectId = c.req.param('projectId') as string;
 
@@ -65,7 +68,103 @@ draftRoutes.post('/', async (c) => {
   return c.json(draftRecord, 201);
 });
 
-draftRoutes.get('/:draftId', async (c) => {
+draftRoutes.get('/export-all', requireAuth, async (c) => {
+  const user = c.get('user');
+  const projectId = c.req.param('projectId') as string;
+
+  const membership = await getEffectiveMembership(projectId, user.id);
+  if (!membership) {
+    throw new NotFoundError('Project');
+  }
+
+  const exports = await draftsService.exportAllDrafts(projectId);
+
+  if (exports.length === 0) {
+    return c.json({ exports: [] });
+  }
+
+  if (exports.length === 1) {
+    return c.json(exports[0]!);
+  }
+
+  const zip = await draftsService.buildExportZip(exports);
+  return new Response(Buffer.from(zip), {
+    headers: {
+      'Content-Type': 'application/zip',
+      'Content-Disposition': 'attachment; filename="drafts.draftila.zip"',
+    },
+  });
+});
+
+draftRoutes.post('/import', requireAuth, async (c) => {
+  const user = c.get('user');
+  const projectId = c.req.param('projectId') as string;
+
+  const membership = await getEffectiveMembership(projectId, user.id);
+  if (!membership || !canEdit(membership.role)) {
+    throw new ForbiddenError();
+  }
+
+  const formData = await c.req.formData();
+  const file = formData.get('file');
+
+  if (!file || !(file instanceof File)) {
+    throw new ValidationError({ file: ['A .draftila.json file is required'] });
+  }
+
+  if (file.size > 50 * 1024 * 1024) {
+    throw new ValidationError({ file: ['File must be under 50MB'] });
+  }
+
+  const text = await file.text();
+  let json: unknown;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new ValidationError({ file: ['Invalid JSON file'] });
+  }
+
+  const parsed = importDraftSchema.safeParse(json);
+  if (!parsed.success) {
+    const flattened = parsed.error.flatten();
+    throw new ValidationError({
+      file: [
+        'Invalid draft file format',
+        ...Object.entries(flattened.fieldErrors).map(
+          ([key, errors]) => `${key}: ${(errors as string[]).join(', ')}`,
+        ),
+      ],
+    });
+  }
+
+  const draft = await draftsService.importDraft(parsed.data.draft, projectId);
+  return c.json(draft, 201);
+});
+
+draftRoutes.get('/:draftId/export', requireAuth, async (c) => {
+  const user = c.get('user');
+  const projectId = c.req.param('projectId') as string;
+  const draftId = c.req.param('draftId');
+
+  const membership = await getEffectiveMembership(projectId, user.id);
+  if (!membership) {
+    throw new NotFoundError('Project');
+  }
+
+  const existing = await draftsService.getById(draftId);
+  if (!existing || existing.projectId !== projectId) {
+    throw new NotFoundError('Draft');
+  }
+
+  const exported = await draftsService.exportDraft(draftId);
+  if (!exported) {
+    throw new NotFoundError('Draft');
+  }
+
+  return c.json(exported);
+});
+
+draftRoutes.get('/:draftId', requireAuth, async (c) => {
   const user = c.get('user');
   const projectId = c.req.param('projectId') as string;
   const draftId = c.req.param('draftId');
@@ -83,7 +182,7 @@ draftRoutes.get('/:draftId', async (c) => {
   return c.json(draftRecord);
 });
 
-draftRoutes.patch('/:draftId', async (c) => {
+draftRoutes.patch('/:draftId', requireAuth, async (c) => {
   const user = c.get('user');
   const projectId = c.req.param('projectId') as string;
   const draftId = c.req.param('draftId');
@@ -110,7 +209,7 @@ draftRoutes.patch('/:draftId', async (c) => {
   return c.json(updated);
 });
 
-draftRoutes.delete('/:draftId', async (c) => {
+draftRoutes.delete('/:draftId', requireAuth, async (c) => {
   const user = c.get('user');
   const projectId = c.req.param('projectId') as string;
   const draftId = c.req.param('draftId');
@@ -131,9 +230,7 @@ draftRoutes.delete('/:draftId', async (c) => {
 
 const allDraftsRoutes = new Hono<DraftEnv>();
 
-allDraftsRoutes.use(requireAuth);
-
-allDraftsRoutes.get('/:draftId', async (c) => {
+allDraftsRoutes.get('/:draftId', requireAuth, async (c) => {
   const user = c.get('user');
   const draftId = c.req.param('draftId');
 
@@ -145,7 +242,7 @@ allDraftsRoutes.get('/:draftId', async (c) => {
   return c.json(draftRecord);
 });
 
-allDraftsRoutes.put('/:draftId/thumbnail', async (c) => {
+allDraftsRoutes.put('/:draftId/thumbnail', requireAuth, async (c) => {
   const user = c.get('user');
   const draftId = c.req.param('draftId');
 
@@ -171,7 +268,7 @@ allDraftsRoutes.put('/:draftId/thumbnail', async (c) => {
   return c.json({ url });
 });
 
-allDraftsRoutes.get('/', async (c) => {
+allDraftsRoutes.get('/', requireAuth, async (c) => {
   const user = c.get('user');
 
   const parsed = sortablePaginationSchema.safeParse({

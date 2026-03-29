@@ -30,6 +30,7 @@
     "@prisma/client": "^6.7.0",
     "better-auth": "^1.1.14",
     "hono": "^4.6.14",
+    "jszip": "^3.10.1",
     "lib0": "^0.2.117",
     "linkedom": "^0.18.12",
     "y-protocols": "^1.0.7",

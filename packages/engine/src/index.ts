@@ -342,3 +342,5 @@ export {
 } from './variables';
 
 export { getIconNames, searchIcons, getIconSvg } from './icons';
+
+export { objectToYMap, ymapToObject, valueToYjs } from './scene-graph/yjs-utils';

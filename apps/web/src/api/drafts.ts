@@ -2,11 +2,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   CreateDraft,
   Draft,
+  DraftExport,
   SortOrder,
   PaginatedResponse,
   UpdateDraft,
 } from '@draftila/shared';
-import { api } from '@/lib/api-client';
+import { draftExportSchema } from '@draftila/shared';
+import { api, ApiError } from '@/lib/api-client';
 import { queryClient } from '@/lib/query-client';
 
 const DRAFTS_KEY = ['drafts'] as const;
@@ -108,6 +110,71 @@ export function useDeleteDraft(projectId: string) {
   return useMutation({
     mutationFn: (draftId: string) =>
       api.delete<{ ok: true }>(`/api/projects/${projectId}/drafts/${draftId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...DRAFTS_KEY, projectId] });
+      queryClient.invalidateQueries({ queryKey: [...DRAFTS_KEY, 'all'] });
+    },
+  });
+}
+
+export function useExportDraft(projectId: string) {
+  return useMutation({
+    mutationFn: (draftId: string) =>
+      api.get<DraftExport>(`/api/projects/${projectId}/drafts/${draftId}/export`),
+  });
+}
+
+export function useExportAllDrafts(projectId: string) {
+  return useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/projects/${projectId}/drafts/export-all`, {
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: 'Export failed' }));
+        throw new ApiError(res.status, body.error);
+      }
+      const contentType = res.headers.get('content-type') ?? '';
+      if (contentType.includes('application/zip')) {
+        return { type: 'zip' as const, blob: await res.blob() };
+      }
+      const json = (await res.json()) as unknown;
+      if (
+        typeof json === 'object' &&
+        json !== null &&
+        'exports' in json &&
+        Array.isArray((json as { exports: unknown }).exports)
+      ) {
+        return { type: 'empty' as const };
+      }
+
+      const parsed = draftExportSchema.safeParse(json);
+      if (!parsed.success) {
+        throw new ApiError(500, 'Invalid export response');
+      }
+
+      return { type: 'json' as const, data: parsed.data };
+    },
+  });
+}
+
+export function useImportDraft(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch(`/api/projects/${projectId}/drafts/import`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: 'Import failed' }));
+        throw new ApiError(res.status, body.error, body.fieldErrors);
+      }
+      return (await res.json()) as Draft;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [...DRAFTS_KEY, projectId] });
       queryClient.invalidateQueries({ queryKey: [...DRAFTS_KEY, 'all'] });

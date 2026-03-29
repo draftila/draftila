@@ -6,9 +6,7 @@ import * as membersService from './members.service';
 
 const memberRoutes = new Hono<AuthEnv>();
 
-memberRoutes.use(requireAuth);
-
-memberRoutes.get('/', async (c) => {
+memberRoutes.get('/', requireAuth, async (c) => {
   const user = c.get('user');
   const projectId = c.req.param('projectId') as string;
 
@@ -21,7 +19,7 @@ memberRoutes.get('/', async (c) => {
   return c.json({ data: members });
 });
 
-memberRoutes.post('/', async (c) => {
+memberRoutes.post('/', requireAuth, async (c) => {
   const user = c.get('user');
   const projectId = c.req.param('projectId') as string;
 
@@ -42,7 +40,7 @@ memberRoutes.post('/', async (c) => {
   return c.json(member, 201);
 });
 
-memberRoutes.patch('/:memberId', async (c) => {
+memberRoutes.patch('/:memberId', requireAuth, async (c) => {
   const user = c.get('user');
   const projectId = c.req.param('projectId') as string;
   const memberId = c.req.param('memberId');
@@ -59,7 +57,7 @@ memberRoutes.patch('/:memberId', async (c) => {
   return c.json(member);
 });
 
-memberRoutes.delete('/:memberId', async (c) => {
+memberRoutes.delete('/:memberId', requireAuth, async (c) => {
   const user = c.get('user');
   const projectId = c.req.param('projectId') as string;
   const memberId = c.req.param('memberId');
