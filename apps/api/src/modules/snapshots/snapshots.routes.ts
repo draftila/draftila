@@ -5,10 +5,8 @@ import { requireAuth, type AuthEnv } from '../../common/middleware/auth';
 import * as draftsService from '../drafts/drafts.service';
 import * as snapshotsService from './snapshots.service';
 
-type SnapshotsEnv = AuthEnv & { Variables: AuthEnv['Variables'] };
-
-const draftSnapshotRoutes = new Hono<SnapshotsEnv>();
-const snapshotRoutes = new Hono<SnapshotsEnv>();
+const draftSnapshotRoutes = new Hono<AuthEnv>();
+const snapshotRoutes = new Hono<AuthEnv>();
 
 async function ensureDraftAccess(draftId: string, userId: string) {
   const draft = await draftsService.getByIdForUser(draftId, userId);

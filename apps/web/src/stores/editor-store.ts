@@ -62,7 +62,7 @@ interface EditorState {
   setSaveVersionDialogOpen: (open: boolean) => void;
 }
 
-export const useEditorStore = create<EditorState>((set) => ({
+export const useEditorStore = create<EditorState>((set, get) => ({
   activeTool: 'move',
   activePageId: null,
   camera: DEFAULT_CAMERA,
@@ -184,16 +184,16 @@ export const useEditorStore = create<EditorState>((set) => ({
       editingTextId: null,
     }),
 
-  exitPreviewMode: () =>
-    set((state) => {
-      state.previewYdoc?.destroy();
-      return {
-        previewSnapshotId: null,
-        previewYdoc: null,
-        selectedIds: [],
-        hoveredId: null,
-      };
-    }),
+  exitPreviewMode: () => {
+    const { previewYdoc } = get();
+    previewYdoc?.destroy();
+    set({
+      previewSnapshotId: null,
+      previewYdoc: null,
+      selectedIds: [],
+      hoveredId: null,
+    });
+  },
 
   setSaveVersionDialogOpen: (open) => set({ saveVersionDialogOpen: open }),
 }));

@@ -5,9 +5,10 @@ import { nanoid } from '../../common/lib/utils';
 import { nextTimestamp } from '../../common/lib/pagination';
 import { db } from '../../db';
 import * as draftsService from '../drafts/drafts.service';
-import { getRoomYDoc, forceReplaceRoomState } from '../collaboration/collaboration.service';
+import { getRoomYDoc, destroyRoom } from '../collaboration/collaboration.service';
 
 const MAX_AUTO_SAVES = 50;
+const MAX_LIST_RESULTS = 200;
 
 const snapshotListSelect = {
   id: true,
@@ -51,6 +52,7 @@ export async function listByDraft(
     where,
     select: snapshotListSelect,
     orderBy: { createdAt: 'desc' },
+    take: MAX_LIST_RESULTS,
   });
 
   return rows.map(mapSnapshot);
@@ -78,7 +80,7 @@ export async function createNamedVersion(
   const id = nanoid();
   const timestamp = nextTimestamp();
 
-  await db.snapshot.create({
+  const row = await db.snapshot.create({
     data: {
       id,
       draftId,
@@ -87,10 +89,6 @@ export async function createNamedVersion(
       yjsState: new Uint8Array(state),
       createdAt: timestamp,
     },
-  });
-
-  const row = await db.snapshot.findUniqueOrThrow({
-    where: { id },
     select: snapshotListSelect,
   });
 
@@ -132,13 +130,9 @@ export async function updateName(
     throw new NotFoundError('Snapshot');
   }
 
-  await db.snapshot.update({
+  const row = await db.snapshot.update({
     where: { id: snapshotId },
     data: { name },
-  });
-
-  const row = await db.snapshot.findUniqueOrThrow({
-    where: { id: snapshotId },
     select: snapshotListSelect,
   });
 
@@ -214,7 +208,7 @@ export async function restoreSnapshot(
   const id = nanoid();
   const timestamp = nextTimestamp();
 
-  await db.snapshot.create({
+  const row = await db.snapshot.create({
     data: {
       id,
       draftId,
@@ -223,16 +217,12 @@ export async function restoreSnapshot(
       yjsState: new Uint8Array(snapshot.yjsState),
       createdAt: timestamp,
     },
+    select: snapshotListSelect,
   });
 
   await draftsService.saveYjsState(draftId, Buffer.from(snapshot.yjsState));
 
-  forceReplaceRoomState(draftId);
-
-  const row = await db.snapshot.findUniqueOrThrow({
-    where: { id },
-    select: snapshotListSelect,
-  });
+  destroyRoom(draftId);
 
   return mapSnapshot(row);
 }

@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import * as Y from 'yjs';
+import { toast } from 'sonner';
 import { Plus, X } from 'lucide-react';
 import type { SnapshotWithAuthor } from '@draftila/shared';
 import { Button } from '@/components/ui/button';
@@ -39,10 +40,12 @@ function VersionEntry({
   snapshot,
   onPreview,
   onRename,
+  onRemoveName,
 }: {
   snapshot: SnapshotWithAuthor;
   onPreview: () => void;
   onRename: () => void;
+  onRemoveName: () => void;
 }) {
   const previewSnapshotId = useEditorStore((s) => s.previewSnapshotId);
   const isActive = previewSnapshotId === snapshot.id;
@@ -72,7 +75,7 @@ function VersionEntry({
         {snapshot.name ? (
           <>
             <ContextMenuItem onClick={onRename}>Rename</ContextMenuItem>
-            <ContextMenuItem onClick={onRename}>Remove Name</ContextMenuItem>
+            <ContextMenuItem onClick={onRemoveName}>Remove Name</ContextMenuItem>
           </>
         ) : (
           <ContextMenuItem onClick={onRename}>Name This Version</ContextMenuItem>
@@ -89,20 +92,31 @@ export function VersionHistoryPanel({ draftId }: VersionHistoryPanelProps) {
   const [renamingSnapshot, setRenamingSnapshot] = useState<SnapshotWithAuthor | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
-  const { data: snapshots, isLoading } = useSnapshots(draftId, true);
+  const { data: snapshots, isLoading } = useSnapshots(draftId, showAutoSaves);
   const updateSnapshot = useUpdateSnapshot(draftId);
 
   const handlePreview = useCallback(async (snapshotId: string) => {
-    const state = await fetchSnapshotState(snapshotId);
-    const previewDoc = new Y.Doc();
-    Y.applyUpdate(previewDoc, state);
-    useEditorStore.getState().enterPreviewMode(snapshotId, previewDoc);
+    try {
+      const state = await fetchSnapshotState(snapshotId);
+      const previewDoc = new Y.Doc();
+      Y.applyUpdate(previewDoc, state);
+      useEditorStore.getState().enterPreviewMode(snapshotId, previewDoc);
+    } catch {
+      toast.error('Failed to load version preview');
+    }
   }, []);
 
   const handleStartRename = useCallback((snapshot: SnapshotWithAuthor) => {
     setRenamingSnapshot(snapshot);
     setRenameValue(snapshot.name ?? '');
   }, []);
+
+  const handleRemoveName = useCallback(
+    (snapshot: SnapshotWithAuthor) => {
+      updateSnapshot.mutate({ snapshotId: snapshot.id, data: { name: null } });
+    },
+    [updateSnapshot],
+  );
 
   const handleSubmitRename = useCallback(() => {
     if (!renamingSnapshot) return;
@@ -124,16 +138,12 @@ export function VersionHistoryPanel({ draftId }: VersionHistoryPanelProps) {
     setRenameValue('');
   }, []);
 
-  const filtered = useMemo(() => {
-    if (!snapshots) return [];
-    return showAutoSaves ? snapshots : snapshots.filter((s) => s.name);
-  }, [snapshots, showAutoSaves]);
-
   const grouped = useMemo(() => {
+    if (!snapshots) return [];
     const groups: { label: string; entries: SnapshotWithAuthor[] }[] = [];
     let currentKey = '';
 
-    for (const s of filtered) {
+    for (const s of snapshots) {
       const date = new Date(s.createdAt);
       const key = getDayKey(date);
       if (key !== currentKey) {
@@ -144,7 +154,7 @@ export function VersionHistoryPanel({ draftId }: VersionHistoryPanelProps) {
     }
 
     return groups;
-  }, [filtered]);
+  }, [snapshots]);
 
   return (
     <div className="flex h-full flex-col">
@@ -195,6 +205,7 @@ export function VersionHistoryPanel({ draftId }: VersionHistoryPanelProps) {
                 snapshot={s}
                 onPreview={() => handlePreview(s.id)}
                 onRename={() => handleStartRename(s)}
+                onRemoveName={() => handleRemoveName(s)}
               />
             ))}
           </div>

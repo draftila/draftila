@@ -235,7 +235,7 @@ export const createSnapshotSchema = z.object({
 });
 
 export const updateSnapshotSchema = z.object({
-  name: z.string().trim().min(1, 'Name is required').max(255).nullable(),
+  name: z.union([z.string().trim().min(1, 'Name is required').max(255), z.null()]),
 });
 
 export function sanitizeFilename(name: string): string {

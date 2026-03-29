@@ -247,7 +247,7 @@ export function sendRpc(
   return sendRpcInternal(draftId, tool, args, getRoomConnections);
 }
 
-export function forceReplaceRoomState(draftId: string) {
+export function destroyRoom(draftId: string) {
   const room = rooms.get(draftId);
   if (!room) return;
 

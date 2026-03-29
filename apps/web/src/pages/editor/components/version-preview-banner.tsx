@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import type { SnapshotWithAuthor } from '@draftila/shared';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,8 @@ interface VersionPreviewBannerProps {
 
 export function VersionPreviewBanner({ draftId, snapshot }: VersionPreviewBannerProps) {
   const restoreSnapshot = useRestoreSnapshot(draftId);
+  const restoreRef = useRef(restoreSnapshot);
+  restoreRef.current = restoreSnapshot;
 
   const handleBack = useCallback(() => {
     useEditorStore.getState().exitPreviewMode();
@@ -23,13 +25,13 @@ export function VersionPreviewBanner({ draftId, snapshot }: VersionPreviewBanner
     if (!snapshotId) return;
 
     try {
-      await restoreSnapshot.mutateAsync(snapshotId);
+      await restoreRef.current.mutateAsync(snapshotId);
       toast.success('Version restored');
-      window.location.reload();
+      useEditorStore.getState().exitPreviewMode();
     } catch {
       toast.error('Failed to restore version');
     }
-  }, [restoreSnapshot]);
+  }, []);
 
   const label = snapshot?.name
     ? `Viewing "${snapshot.name}"`
