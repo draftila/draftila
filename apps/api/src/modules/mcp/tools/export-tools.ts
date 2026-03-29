@@ -59,6 +59,80 @@ export function registerExportTools(server: McpServer, getUserId: () => string) 
 
   defineTool(
     server,
+    'export_css',
+    'Export shapes as CSS code. Returns CSS properties for each selected shape including dimensions, fills, strokes, shadows, blur, border-radius, and auto-layout (flexbox).',
+    {
+      ...draftId,
+      shapeIds: z
+        .array(z.string())
+        .optional()
+        .describe('Shape IDs to export (exports all shapes if omitted)'),
+    },
+    async ({ draftId, shapeIds }) => {
+      const result = await sendToolRpc(draftId as string, getUserId(), 'export_css', { shapeIds });
+      return { content: [{ type: 'text' as const, text: result as string }] };
+    },
+  );
+
+  defineTool(
+    server,
+    'export_css_all_layers',
+    'Export shapes and all their descendants as CSS code. Each shape gets a separate CSS rule block with class selectors. Useful for exporting a full component tree.',
+    {
+      ...draftId,
+      shapeIds: z
+        .array(z.string())
+        .optional()
+        .describe('Shape IDs to export (exports all shapes if omitted)'),
+    },
+    async ({ draftId, shapeIds }) => {
+      const result = await sendToolRpc(draftId as string, getUserId(), 'export_css_all_layers', {
+        shapeIds,
+      });
+      return { content: [{ type: 'text' as const, text: result as string }] };
+    },
+  );
+
+  defineTool(
+    server,
+    'export_swiftui',
+    'Export shapes as SwiftUI code. Generates hierarchical SwiftUI views with HStack/VStack/ZStack for auto-layout frames, shape modifiers, and Text views.',
+    {
+      ...draftId,
+      shapeIds: z
+        .array(z.string())
+        .optional()
+        .describe('Shape IDs to export (exports all shapes if omitted)'),
+    },
+    async ({ draftId, shapeIds }) => {
+      const result = await sendToolRpc(draftId as string, getUserId(), 'export_swiftui', {
+        shapeIds,
+      });
+      return { content: [{ type: 'text' as const, text: result as string }] };
+    },
+  );
+
+  defineTool(
+    server,
+    'export_compose',
+    'Export shapes as Jetpack Compose code. Generates hierarchical Compose code with Row/Column/Box for auto-layout frames, Modifier chains, and Text composables.',
+    {
+      ...draftId,
+      shapeIds: z
+        .array(z.string())
+        .optional()
+        .describe('Shape IDs to export (exports all shapes if omitted)'),
+    },
+    async ({ draftId, shapeIds }) => {
+      const result = await sendToolRpc(draftId as string, getUserId(), 'export_compose', {
+        shapeIds,
+      });
+      return { content: [{ type: 'text' as const, text: result as string }] };
+    },
+  );
+
+  defineTool(
+    server,
     'import_svg',
     'Import SVG markup as shapes onto the canvas. When targetParentId is set, x and y are relative to the parent frame. If x/y are omitted with a targetParentId, shapes are centered inside the parent frame. Triggers auto-layout recomputation when importing into auto-layout frames.',
     {
