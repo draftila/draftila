@@ -7,6 +7,17 @@ function Toaster({ ...props }: ToasterProps) {
       position="bottom-right"
       richColors
       theme="system"
+      style={
+        {
+          '--normal-bg': 'var(--color-popover)',
+          '--normal-text': 'var(--color-popover-foreground)',
+          '--normal-border': 'var(--color-border)',
+        } as React.CSSProperties
+      }
+      toastOptions={{
+        className:
+          'rounded-[var(--radius-lg)]! border-border! bg-popover! text-popover-foreground! shadow-md!',
+      }}
       {...props}
     />
   );
