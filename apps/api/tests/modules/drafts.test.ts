@@ -523,6 +523,62 @@ describe('drafts', () => {
       expect(res.status).toBe(403);
     });
 
+    test('POST /drafts/import returns 400 for invalid component shapes JSON', async () => {
+      const invalidImport = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        generator: 'draftila',
+        draft: {
+          name: 'Imported Draft',
+          pages: [
+            {
+              id: 'page-1',
+              name: 'Page 1',
+              backgroundColor: '#ffffff',
+              shapes: [],
+              zOrder: [],
+            },
+          ],
+          pageOrder: ['page-1'],
+          variables: [],
+          components: [
+            {
+              id: 'component-1',
+              name: 'Component 1',
+              shapes: '{"id": "shape-1"}',
+            },
+          ],
+          componentInstances: {},
+        },
+      };
+
+      const formData = new FormData();
+      formData.append(
+        'file',
+        new File([JSON.stringify(invalidImport)], 'invalid.draftila.json', {
+          type: 'application/json',
+        }),
+      );
+
+      const res = await app.request(url('/import'), {
+        method: 'POST',
+        headers: { Cookie: authHeaders.get('Cookie')! },
+        body: formData,
+      });
+
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as {
+        error: string;
+        fieldErrors: Record<string, string[]>;
+      };
+      expect(body.error).toBe('Validation failed');
+      const fileErrors = body.fieldErrors.file;
+      expect(fileErrors).toBeDefined();
+      expect(fileErrors?.some((message) => message.includes('Invalid draft file format'))).toBe(
+        true,
+      );
+    });
+
     test('GET /drafts/:draftId returns the draft', async () => {
       const draft = await draftsService.create({ name: 'Get By Id', projectId });
 

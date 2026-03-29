@@ -7,6 +7,7 @@ import type {
   PaginatedResponse,
   UpdateDraft,
 } from '@draftila/shared';
+import { draftExportSchema } from '@draftila/shared';
 import { api } from '@/lib/api-client';
 import { ApiError } from '@/lib/api-client';
 import { queryClient } from '@/lib/query-client';
@@ -138,7 +139,22 @@ export function useExportAllDrafts(projectId: string) {
       if (contentType.includes('application/zip')) {
         return { type: 'zip' as const, blob: await res.blob() };
       }
-      return { type: 'json' as const, data: (await res.json()) as DraftExport };
+      const json = (await res.json()) as unknown;
+      if (
+        typeof json === 'object' &&
+        json !== null &&
+        'exports' in json &&
+        Array.isArray((json as { exports: unknown }).exports)
+      ) {
+        return { type: 'empty' as const };
+      }
+
+      const parsed = draftExportSchema.safeParse(json);
+      if (!parsed.success) {
+        throw new ApiError(500, 'Invalid export response');
+      }
+
+      return { type: 'json' as const, data: parsed.data };
     },
   });
 }

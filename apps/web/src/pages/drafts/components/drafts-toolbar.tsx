@@ -64,6 +64,9 @@ export function DraftsToolbar({ projects }: DraftsToolbarProps) {
       onSuccess: async (result) => {
         if (result.type === 'zip') {
           await downloadBlob(result.blob, 'drafts.draftila.zip');
+        } else if (result.type === 'empty') {
+          toast.info('No drafts to export');
+          return;
         } else {
           const json = JSON.stringify(result.data, null, 2);
           const blob = new Blob([json], { type: 'application/json' });

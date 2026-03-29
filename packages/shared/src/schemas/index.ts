@@ -177,10 +177,22 @@ export const exportVariableSchema = z.object({
   value: z.string(),
 });
 
+const exportComponentShapesSchema = z.string().refine((value) => {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return (
+      Array.isArray(parsed) &&
+      parsed.every((item) => typeof item === 'object' && item !== null && !Array.isArray(item))
+    );
+  } catch {
+    return false;
+  }
+}, 'Invalid component shapes JSON');
+
 export const exportComponentSchema = z.object({
   id: z.string(),
   name: z.string(),
-  shapes: z.string(),
+  shapes: exportComponentShapesSchema,
 });
 
 export const exportDraftDataSchema = z.object({
