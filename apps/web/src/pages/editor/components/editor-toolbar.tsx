@@ -15,6 +15,7 @@ import {
   MoveRight,
   MessageCircle,
   ChevronDown,
+  Code2,
 } from 'lucide-react';
 import { Toggle } from '@/components/ui/toggle';
 import { Separator } from '@/components/ui/separator';
@@ -169,7 +170,58 @@ const PEN_TOOLS: ToolOption[] = [
   },
 ];
 
+function DevModeToggle() {
+  const devMode = useEditorStore((s) => s.devMode);
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Toggle
+          size="sm"
+          pressed={devMode}
+          onPressedChange={() => {
+            const store = useEditorStore.getState();
+            store.setDevMode(!store.devMode);
+            store.setRightPanelOpen(true);
+          }}
+          aria-label="Dev Mode"
+          className="h-8 w-8 p-0"
+        >
+          <Code2 className="h-4 w-4" />
+        </Toggle>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="flex items-center gap-2">
+        <span>Dev Mode</span>
+        <kbd className="bg-muted/20 rounded px-1.5 py-0.5 font-mono text-[10px]">⇧D</kbd>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 export function EditorToolbar() {
+  const devMode = useEditorStore((s) => s.devMode);
+
+  if (devMode) {
+    return (
+      <div className="bg-background flex items-center gap-1 rounded-lg border p-1 shadow-sm">
+        <ToolButton
+          tool="move"
+          icon={<MousePointer2 className="h-4 w-4" />}
+          label="Move"
+          shortcut="V"
+        />
+        <ToolButton
+          tool="comment"
+          icon={<MessageCircle className="h-4 w-4" />}
+          label="Comment"
+          shortcut="C"
+        />
+        <Separator orientation="vertical" className="mx-1 h-full" />
+        <DevModeToggle />
+      </div>
+    );
+  }
+
   return (
     <div className="bg-background flex items-center gap-1 rounded-lg border p-1 shadow-sm">
       <ToolButton
@@ -191,6 +243,8 @@ export function EditorToolbar() {
       <Separator orientation="vertical" className="mx-1 h-full" />
       <ToolButton tool="text" icon={<Type className="h-4 w-4" />} label="Text" shortcut="T" />
       <ToolGroup options={PEN_TOOLS} />
+      <Separator orientation="vertical" className="mx-1 h-full" />
+      <DevModeToggle />
     </div>
   );
 }

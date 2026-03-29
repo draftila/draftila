@@ -14,6 +14,16 @@ packages/    shared (Zod schemas + types), eslint-config, typescript-config
 
 ## Rules
 
+### TOP Level
+
+- Security
+- Maintainability
+- Scalability
+- Clean Code
+- Clean Architecture
+- Best Practices
+- No Hacks
+
 ### General
 
 - **Never run dev servers.** Do not run `bun run dev`, `bun run api:dev`, or any long-running process. The user always has dev servers running in their own terminal.
