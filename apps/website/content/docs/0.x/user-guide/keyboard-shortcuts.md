@@ -92,10 +92,11 @@ description: Complete reference of keyboard shortcuts in Draftila.
 
 ## History
 
-| Shortcut                   | Action |
-| -------------------------- | ------ |
-| `Cmd/Ctrl` + `Z`           | Undo   |
-| `Cmd/Ctrl` + `Shift` + `Z` | Redo   |
+| Shortcut                   | Action       |
+| -------------------------- | ------------ |
+| `Cmd/Ctrl` + `Z`           | Undo         |
+| `Cmd/Ctrl` + `Shift` + `Z` | Redo         |
+| `Cmd/Ctrl` + `Alt` + `S`   | Save Version |
 
 ## Modifiers
 
