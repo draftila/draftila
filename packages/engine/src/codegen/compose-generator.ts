@@ -129,12 +129,46 @@ function cornerShapeCompose(shape: Shape): string | null {
   return `RoundedCornerShape(topStart = ${roundTo(tl, 1)}.dp, topEnd = ${roundTo(tr, 1)}.dp, bottomStart = ${roundTo(bl, 1)}.dp, bottomEnd = ${roundTo(br, 1)}.dp)`;
 }
 
+function sizingModifiers(shape: Shape): string[] {
+  const parts: string[] = [];
+  const hSizing = shape.layoutSizingHorizontal;
+  const vSizing = shape.layoutSizingVertical;
+
+  if (hSizing === 'fill' && vSizing === 'fill') {
+    parts.push('fillMaxSize()');
+  } else if (hSizing === 'fill') {
+    parts.push('fillMaxWidth()');
+    if (vSizing === 'fixed') parts.push(`height(${roundTo(shape.height, 1)}.dp)`);
+  } else if (vSizing === 'fill') {
+    parts.push('fillMaxHeight()');
+    if (hSizing === 'fixed') parts.push(`width(${roundTo(shape.width, 1)}.dp)`);
+  } else {
+    const wPart = hSizing === 'hug' ? null : `width = ${roundTo(shape.width, 1)}.dp`;
+    const hPart = vSizing === 'hug' ? null : `height = ${roundTo(shape.height, 1)}.dp`;
+    if (wPart && hPart) {
+      parts.push(`size(${wPart}, ${hPart})`);
+    } else if (wPart) {
+      parts.push(`width(${roundTo(shape.width, 1)}.dp)`);
+    } else if (hPart) {
+      parts.push(`height(${roundTo(shape.height, 1)}.dp)`);
+    }
+  }
+
+  if (shape.minWidth !== undefined) parts.push(`widthIn(min = ${roundTo(shape.minWidth, 1)}.dp)`);
+  if (shape.maxWidth !== undefined && hSizing !== 'fill')
+    parts.push(`widthIn(max = ${roundTo(shape.maxWidth, 1)}.dp)`);
+  if (shape.minHeight !== undefined)
+    parts.push(`heightIn(min = ${roundTo(shape.minHeight, 1)}.dp)`);
+  if (shape.maxHeight !== undefined && vSizing !== 'fill')
+    parts.push(`heightIn(max = ${roundTo(shape.maxHeight, 1)}.dp)`);
+
+  return parts;
+}
+
 function buildModifierChain(shape: Shape, extraParts: string[]): string {
   const parts: string[] = [...extraParts];
 
-  parts.push(
-    `size(width = ${roundTo(shape.width, 1)}.dp, height = ${roundTo(shape.height, 1)}.dp)`,
-  );
+  parts.push(...sizingModifiers(shape));
 
   const cornerShape = cornerShapeCompose(shape);
   if (cornerShape) {
@@ -142,8 +176,7 @@ function buildModifierChain(shape: Shape, extraParts: string[]): string {
   }
 
   const fills = 'fills' in shape ? getVisibleFills(shape.fills as Fill[]) : [];
-  if (fills.length > 0) {
-    const fill = fills[0]!;
+  for (const fill of fills) {
     const brush = fillToComposeBrush(fill);
     if (brush) {
       parts.push(`background(${brush})`);
@@ -153,8 +186,7 @@ function buildModifierChain(shape: Shape, extraParts: string[]): string {
   }
 
   const strokes = 'strokes' in shape ? getVisibleStrokes(shape.strokes as Stroke[]) : [];
-  if (strokes.length > 0) {
-    const stroke = strokes[0]!;
+  for (const stroke of strokes) {
     const color = hexToComposeColor(stroke.color, stroke.opacity);
     const borderShape = cornerShape ?? 'RectangleShape';
     parts.push(`border(width = ${stroke.width}.dp, color = ${color}, shape = ${borderShape})`);
@@ -283,9 +315,7 @@ function frameToCompose(shape: FrameShape, children: ShapeTreeNode[]): string {
   let container: string;
   const modifierParts: string[] = [];
 
-  modifierParts.push(
-    `size(width = ${roundTo(shape.width, 1)}.dp, height = ${roundTo(shape.height, 1)}.dp)`,
-  );
+  modifierParts.push(...sizingModifiers(shape));
 
   const cornerShape = cornerShapeCompose(shape);
   if (cornerShape) {
@@ -295,8 +325,7 @@ function frameToCompose(shape: FrameShape, children: ShapeTreeNode[]): string {
   }
 
   const fills = getVisibleFills(shape.fills);
-  if (fills.length > 0) {
-    const fill = fills[0]!;
+  for (const fill of fills) {
     const brush = fillToComposeBrush(fill);
     if (brush) {
       modifierParts.push(`background(${brush})`);
@@ -306,8 +335,7 @@ function frameToCompose(shape: FrameShape, children: ShapeTreeNode[]): string {
   }
 
   const strokes = getVisibleStrokes(shape.strokes);
-  if (strokes.length > 0) {
-    const stroke = strokes[0]!;
+  for (const stroke of strokes) {
     const color = hexToComposeColor(stroke.color, stroke.opacity);
     const borderShape = cornerShape ?? 'RectangleShape';
     modifierParts.push(

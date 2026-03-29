@@ -96,10 +96,40 @@ function shapeToProperties(shape: Shape): string[] {
   }
 }
 
+function sizingToCss(shape: Shape, direction: 'width' | 'height', value: number): string | null {
+  const sizing = direction === 'width' ? shape.layoutSizingHorizontal : shape.layoutSizingVertical;
+  if (sizing === 'fill') return null;
+  if (sizing === 'hug') return `${direction}: auto;`;
+  return `${direction}: ${roundTo(value, 1)}px;`;
+}
+
+function minMaxToCss(shape: Shape): string[] {
+  const props: string[] = [];
+  if (shape.minWidth !== undefined) props.push(`min-width: ${roundTo(shape.minWidth, 1)}px;`);
+  if (shape.maxWidth !== undefined) props.push(`max-width: ${roundTo(shape.maxWidth, 1)}px;`);
+  if (shape.minHeight !== undefined) props.push(`min-height: ${roundTo(shape.minHeight, 1)}px;`);
+  if (shape.maxHeight !== undefined) props.push(`max-height: ${roundTo(shape.maxHeight, 1)}px;`);
+  return props;
+}
+
 function baseDimensionProperties(shape: Shape): string[] {
   const props: string[] = [];
-  props.push(`width: ${roundTo(shape.width, 1)}px;`);
-  props.push(`height: ${roundTo(shape.height, 1)}px;`);
+
+  if (shape.layoutSizingHorizontal === 'fill') {
+    props.push('flex: 1;');
+    props.push('align-self: stretch;');
+  }
+  const w = sizingToCss(shape, 'width', shape.width);
+  if (w) props.push(w);
+
+  if (shape.layoutSizingVertical === 'fill' && shape.layoutSizingHorizontal !== 'fill') {
+    props.push('align-self: stretch;');
+  }
+  const h = sizingToCss(shape, 'height', shape.height);
+  if (h) props.push(h);
+
+  props.push(...minMaxToCss(shape));
+
   if (shape.rotation !== 0) {
     props.push(`transform: rotate(${roundTo(shape.rotation, 2)}deg);`);
   }

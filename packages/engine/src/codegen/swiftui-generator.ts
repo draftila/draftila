@@ -24,6 +24,37 @@ import {
   indent,
 } from './helpers';
 
+function frameModifier(shape: Shape): string {
+  const hSizing = shape.layoutSizingHorizontal;
+  const vSizing = shape.layoutSizingVertical;
+
+  const parts: string[] = [];
+  if (hSizing === 'fill') {
+    parts.push('maxWidth: .infinity');
+  } else if (hSizing === 'hug') {
+    // hug = no fixed width, let content size it
+  } else {
+    parts.push(`width: ${roundTo(shape.width, 1)}`);
+  }
+  if (vSizing === 'fill') {
+    parts.push('maxHeight: .infinity');
+  } else if (vSizing === 'hug') {
+    // hug = no fixed height, let content size it
+  } else {
+    parts.push(`height: ${roundTo(shape.height, 1)}`);
+  }
+
+  if (shape.minWidth !== undefined) parts.push(`minWidth: ${roundTo(shape.minWidth, 1)}`);
+  if (shape.maxWidth !== undefined && hSizing !== 'fill')
+    parts.push(`maxWidth: ${roundTo(shape.maxWidth, 1)}`);
+  if (shape.minHeight !== undefined) parts.push(`minHeight: ${roundTo(shape.minHeight, 1)}`);
+  if (shape.maxHeight !== undefined && vSizing !== 'fill')
+    parts.push(`maxHeight: ${roundTo(shape.maxHeight, 1)}`);
+
+  if (parts.length === 0) return '';
+  return `.frame(${parts.join(', ')})`;
+}
+
 export function generateSwiftUI(shapes: Shape[]): string {
   if (shapes.length === 0) return '';
   const tree = buildShapeTree(shapes);
@@ -143,8 +174,7 @@ function buildModifiers(shape: Shape, extras: string[]): string[] {
   const modifiers: string[] = [...extras];
 
   const fills = 'fills' in shape ? getVisibleFills(shape.fills as Fill[]) : [];
-  if (fills.length > 0) {
-    const fill = fills[0]!;
+  for (const fill of fills) {
     modifiers.push(`.background(${fillToSwiftUI(fill)})`);
   }
 
@@ -154,8 +184,7 @@ function buildModifiers(shape: Shape, extras: string[]): string[] {
   }
 
   const strokes = 'strokes' in shape ? getVisibleStrokes(shape.strokes as Stroke[]) : [];
-  if (strokes.length > 0) {
-    const stroke = strokes[0]!;
+  for (const stroke of strokes) {
     const rgba = hexToRgba(stroke.color, stroke.opacity);
     const color = rgbaToSwiftUIColor(rgba.r, rgba.g, rgba.b, rgba.a);
     const overlay = path
@@ -182,7 +211,8 @@ function buildModifiers(shape: Shape, extras: string[]): string[] {
     }
   }
 
-  modifiers.push(`.frame(width: ${roundTo(shape.width, 1)}, height: ${roundTo(shape.height, 1)})`);
+  const frame = frameModifier(shape);
+  if (frame) modifiers.push(frame);
 
   if (shape.opacity < 1) {
     modifiers.push(`.opacity(${roundTo(shape.opacity, 2)})`);
@@ -254,13 +284,14 @@ function buildModifiersWithoutClipShape(shape: Shape): string[] {
 
   const fills = 'fills' in shape ? getVisibleFills(shape.fills as Fill[]) : [];
   if (fills.length > 0) {
-    const fill = fills[0]!;
-    modifiers.push(`.fill(${fillToSwiftUI(fill)})`);
+    modifiers.push(`.fill(${fillToSwiftUI(fills[0]!)})`);
+    for (let i = 1; i < fills.length; i++) {
+      modifiers.push(`.background(${fillToSwiftUI(fills[i]!)})`);
+    }
   }
 
   const strokes = 'strokes' in shape ? getVisibleStrokes(shape.strokes as Stroke[]) : [];
-  if (strokes.length > 0) {
-    const stroke = strokes[0]!;
+  for (const stroke of strokes) {
     const rgba = hexToRgba(stroke.color, stroke.opacity);
     const color = rgbaToSwiftUIColor(rgba.r, rgba.g, rgba.b, rgba.a);
     modifiers.push(`.stroke(${color}, lineWidth: ${stroke.width})`);
@@ -284,7 +315,8 @@ function buildModifiersWithoutClipShape(shape: Shape): string[] {
     }
   }
 
-  modifiers.push(`.frame(width: ${roundTo(shape.width, 1)}, height: ${roundTo(shape.height, 1)})`);
+  const frame = frameModifier(shape);
+  if (frame) modifiers.push(frame);
 
   if (shape.opacity < 1) {
     modifiers.push(`.opacity(${roundTo(shape.opacity, 2)})`);
@@ -333,8 +365,8 @@ function frameToSwiftUI(shape: FrameShape, children: ShapeTreeNode[]): string {
   const modifiers: string[] = [];
 
   const fills = getVisibleFills(shape.fills);
-  if (fills.length > 0) {
-    modifiers.push(`.background(${fillToSwiftUI(fills[0]!)})`);
+  for (const fill of fills) {
+    modifiers.push(`.background(${fillToSwiftUI(fill)})`);
   }
 
   const path = shapePath(shape);
@@ -343,8 +375,7 @@ function frameToSwiftUI(shape: FrameShape, children: ShapeTreeNode[]): string {
   }
 
   const strokes = getVisibleStrokes(shape.strokes);
-  if (strokes.length > 0) {
-    const stroke = strokes[0]!;
+  for (const stroke of strokes) {
     const rgba = hexToRgba(stroke.color, stroke.opacity);
     const color = rgbaToSwiftUIColor(rgba.r, rgba.g, rgba.b, rgba.a);
     const overlay = path
@@ -388,18 +419,14 @@ function frameToSwiftUI(shape: FrameShape, children: ShapeTreeNode[]): string {
     ) {
       modifiers.push(`.padding(${roundTo(shape.paddingTop, 1)})`);
     } else {
-      const parts: string[] = [];
-      if (shape.paddingTop > 0) parts.push(`.top, ${roundTo(shape.paddingTop, 1)}`);
-      if (shape.paddingLeft > 0) parts.push(`.leading, ${roundTo(shape.paddingLeft, 1)}`);
-      if (shape.paddingBottom > 0) parts.push(`.bottom, ${roundTo(shape.paddingBottom, 1)}`);
-      if (shape.paddingRight > 0) parts.push(`.trailing, ${roundTo(shape.paddingRight, 1)}`);
       modifiers.push(
         `.padding(EdgeInsets(top: ${roundTo(shape.paddingTop, 1)}, leading: ${roundTo(shape.paddingLeft, 1)}, bottom: ${roundTo(shape.paddingBottom, 1)}, trailing: ${roundTo(shape.paddingRight, 1)}))`,
       );
     }
   }
 
-  modifiers.push(`.frame(width: ${roundTo(shape.width, 1)}, height: ${roundTo(shape.height, 1)})`);
+  const frame = frameModifier(shape);
+  if (frame) modifiers.push(frame);
 
   if (shape.opacity < 1) {
     modifiers.push(`.opacity(${roundTo(shape.opacity, 2)})`);
