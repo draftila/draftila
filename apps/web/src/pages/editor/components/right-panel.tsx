@@ -240,7 +240,7 @@ function DevModePanel({ ydoc }: { ydoc: Y.Doc }) {
   return (
     <div className={`flex h-full ${panelWidth} shrink-0 flex-col border-l transition-[width]`}>
       <ZoomControls ydoc={ydoc} />
-      <div className="flex-1 overflow-auto">
+      <div className="min-h-0 flex-1">
         <InspectPanel ydoc={ydoc} />
       </div>
     </div>

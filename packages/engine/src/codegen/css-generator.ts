@@ -11,7 +11,7 @@ import type {
   ImageShape,
   EllipseShape,
 } from '@draftila/shared';
-import type { ShapeTreeNode } from './types';
+import type { ShapeTreeNode, ShapeContext } from './types';
 import {
   hexToRgba,
   rgbaToCssColor,
@@ -24,6 +24,7 @@ import {
   getEffectiveCornerRadii,
   buildShapeTree,
   gradientToCssValue,
+  childContextForShape,
 } from './helpers';
 
 export function generateCss(shapes: Shape[]): string {
@@ -38,7 +39,7 @@ export function generateCssAllLayers(shapes: Shape[]): string {
   const blocks: string[] = [];
   const usedNames = new Map<string, number>();
 
-  function walkTree(node: ShapeTreeNode, parentSelector: string) {
+  function walkTree(node: ShapeTreeNode, parentSelector: string, ctx?: ShapeContext) {
     if (!node.shape.visible) return;
 
     const baseName = sanitizeName(node.shape.name, node.shape.type);
@@ -47,13 +48,14 @@ export function generateCssAllLayers(shapes: Shape[]): string {
     const className = count > 0 ? `${baseName}-${count + 1}` : baseName;
     const selector = parentSelector ? `${parentSelector} .${className}` : `.${className}`;
 
-    const props = shapeToProperties(node.shape);
+    const props = shapeToProperties(node.shape, ctx);
     if (props.length > 0) {
       blocks.push(`${selector} {\n${props.map((p) => `  ${p}`).join('\n')}\n}`);
     }
 
+    const childCtx = childContextForShape(node.shape);
     for (const child of node.children) {
-      walkTree(child, selector);
+      walkTree(child, selector, childCtx);
     }
   }
 
@@ -70,30 +72,30 @@ function generateNodeCss(shape: Shape): string {
   return props.join('\n');
 }
 
-export function shapeToProperties(shape: Shape): string[] {
+export function shapeToProperties(shape: Shape, ctx?: ShapeContext): string[] {
   switch (shape.type) {
     case 'rectangle':
-      return rectangleProperties(shape);
+      return rectangleProperties(shape, ctx);
     case 'ellipse':
-      return ellipseProperties(shape);
+      return ellipseProperties(shape, ctx);
     case 'frame':
-      return frameProperties(shape);
+      return frameProperties(shape, ctx);
     case 'text':
-      return textProperties(shape);
+      return textProperties(shape, ctx);
     case 'path':
-      return vectorProperties(shape);
+      return vectorProperties(shape, ctx);
     case 'polygon':
-      return vectorProperties(shape);
+      return vectorProperties(shape, ctx);
     case 'star':
-      return vectorProperties(shape);
+      return vectorProperties(shape, ctx);
     case 'line':
-      return lineProperties(shape);
+      return lineProperties(shape, ctx);
     case 'image':
-      return imageProperties(shape);
+      return imageProperties(shape, ctx);
     case 'svg':
-      return baseDimensionProperties(shape);
+      return baseDimensionProperties(shape, ctx);
     case 'group':
-      return baseDimensionProperties(shape);
+      return groupProperties(shape, ctx);
   }
 }
 
@@ -113,8 +115,22 @@ function minMaxToCss(shape: Shape): string[] {
   return props;
 }
 
-function baseDimensionProperties(shape: Shape): string[] {
+function absolutePositionToCss(shape: Shape, ctx: ShapeContext): string[] {
+  const relX = shape.x - (ctx.parentX ?? 0);
+  const relY = shape.y - (ctx.parentY ?? 0);
   const props: string[] = [];
+  props.push('position: absolute;');
+  props.push(`left: ${roundTo(relX, 1)}px;`);
+  props.push(`top: ${roundTo(relY, 1)}px;`);
+  return props;
+}
+
+function baseDimensionProperties(shape: Shape, ctx?: ShapeContext): string[] {
+  const props: string[] = [];
+
+  if (ctx?.needsAbsolutePosition) {
+    props.push(...absolutePositionToCss(shape, ctx));
+  }
 
   if (shape.layoutSizingHorizontal === 'fill') {
     props.push('flex: 1;');
@@ -268,8 +284,8 @@ function cornerRadiusToCss(shape: Shape): string[] {
   ];
 }
 
-function rectangleProperties(shape: RectangleShape): string[] {
-  const props = baseDimensionProperties(shape);
+function rectangleProperties(shape: RectangleShape, ctx?: ShapeContext): string[] {
+  const props = baseDimensionProperties(shape, ctx);
   props.push(...cornerRadiusToCss(shape));
   props.push(...fillsToCss(shape.fills));
   props.push(...strokesToCss(shape.strokes));
@@ -278,8 +294,9 @@ function rectangleProperties(shape: RectangleShape): string[] {
   return props;
 }
 
-function ellipseProperties(shape: EllipseShape): string[] {
-  const props = baseDimensionProperties(shape);
+function ellipseProperties(shape: EllipseShape, ctx?: ShapeContext): string[] {
+  const props = baseDimensionProperties(shape, ctx);
+  if (ctx?.layoutOnly) return props;
   props.push('border-radius: 50%;');
   props.push(...fillsToCss(shape.fills));
   props.push(...strokesToCss(shape.strokes));
@@ -288,8 +305,8 @@ function ellipseProperties(shape: EllipseShape): string[] {
   return props;
 }
 
-function frameProperties(shape: FrameShape): string[] {
-  const props = baseDimensionProperties(shape);
+function frameProperties(shape: FrameShape, ctx?: ShapeContext): string[] {
+  const props = baseDimensionProperties(shape, ctx);
   props.push(...cornerRadiusToCss(shape));
   props.push(...fillsToCss(shape.fills));
   props.push(...strokesToCss(shape.strokes));
@@ -323,8 +340,16 @@ function frameProperties(shape: FrameShape): string[] {
     props.push(...paddingToCss(shape));
     props.push(`align-items: ${layoutAlignToCss(shape.layoutAlign)};`);
     props.push(`justify-content: ${layoutJustifyToCss(shape.layoutJustify)};`);
+  } else {
+    props.push('position: relative;');
   }
 
+  return props;
+}
+
+function groupProperties(shape: Shape, ctx?: ShapeContext): string[] {
+  const props = baseDimensionProperties(shape, ctx);
+  props.push('position: relative;');
   return props;
 }
 
@@ -376,8 +401,8 @@ function layoutJustifyToCss(justify: FrameShape['layoutJustify']): string {
   }
 }
 
-function textProperties(shape: TextShape): string[] {
-  const props = baseDimensionProperties(shape);
+function textProperties(shape: TextShape, ctx?: ShapeContext): string[] {
+  const props = baseDimensionProperties(shape, ctx);
 
   props.push(`font-family: '${escapeCssSingleQuotedString(shape.fontFamily)}';`);
   props.push(`font-size: ${roundTo(shape.fontSize, 1)}px;`);
@@ -435,8 +460,9 @@ function textProperties(shape: TextShape): string[] {
   return props;
 }
 
-function vectorProperties(shape: Shape): string[] {
-  const props = baseDimensionProperties(shape);
+function vectorProperties(shape: Shape, ctx?: ShapeContext): string[] {
+  const props = baseDimensionProperties(shape, ctx);
+  if (ctx?.layoutOnly) return props;
 
   const svgPathData =
     'svgPathData' in shape ? (shape.svgPathData as string | undefined) : undefined;
@@ -460,13 +486,22 @@ function vectorProperties(shape: Shape): string[] {
   return props;
 }
 
-function lineProperties(shape: LineShape): string[] {
+function lineProperties(shape: LineShape, ctx?: ShapeContext): string[] {
   const dx = shape.x2 - shape.x1;
   const dy = shape.y2 - shape.y1;
   const length = Math.sqrt(dx * dx + dy * dy);
   const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
 
   const props: string[] = [];
+
+  if (ctx?.needsAbsolutePosition) {
+    const relX = shape.x + shape.x1 - (ctx.parentX ?? 0);
+    const relY = shape.y + shape.y1 - (ctx.parentY ?? 0);
+    props.push('position: absolute;');
+    props.push(`left: ${roundTo(relX, 1)}px;`);
+    props.push(`top: ${roundTo(relY, 1)}px;`);
+  }
+
   props.push(`width: ${roundTo(length, 1)}px;`);
   props.push('height: 0;');
 
@@ -494,8 +529,8 @@ function lineProperties(shape: LineShape): string[] {
   return props;
 }
 
-function imageProperties(shape: ImageShape): string[] {
-  const props = baseDimensionProperties(shape);
+function imageProperties(shape: ImageShape, ctx?: ShapeContext): string[] {
+  const props = baseDimensionProperties(shape, ctx);
 
   const fitMap: Record<ImageShape['fit'], string> = {
     fill: 'cover',

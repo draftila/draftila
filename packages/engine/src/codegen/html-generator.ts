@@ -1,6 +1,15 @@
 import type { Shape, TextShape, ImageShape, SvgShape, TextSegment } from '@draftila/shared';
-import type { ShapeTreeNode } from './types';
-import { buildShapeTree, sanitizeName, indent, escapeHtml, sanitizeSvgContent } from './helpers';
+import type { ShapeTreeNode, ShapeContext } from './types';
+import {
+  buildShapeTree,
+  sanitizeName,
+  indent,
+  escapeHtml,
+  sanitizeSvgContent,
+  childContextForShape,
+  isVectorShape,
+  shapeToInlineSvg,
+} from './helpers';
 import { shapeToProperties } from './css-generator';
 import { shapeToClasses } from './tailwind-generator';
 
@@ -45,17 +54,23 @@ function textSegmentToTailwindClasses(segment: TextSegment): string[] {
   return classes;
 }
 
-function nodeToHtmlCss(node: ShapeTreeNode, ctx: CssContext, depth: number): string {
+function nodeToHtmlCss(
+  node: ShapeTreeNode,
+  ctx: CssContext,
+  depth: number,
+  shapeCtx?: ShapeContext,
+): string {
   if (!node.shape.visible) return '';
 
-  const className = uniqueClassName(node.shape.name, node.shape.type, ctx.usedNames);
-  const cssProps = shapeToProperties(node.shape);
+  const shape = node.shape;
+  const isVector = isVectorShape(shape);
+  const effectiveCtx = isVector ? { ...shapeCtx, layoutOnly: true } : shapeCtx;
+  const className = uniqueClassName(shape.name, shape.type, ctx.usedNames);
+  const cssProps = shapeToProperties(shape, effectiveCtx);
 
   if (cssProps.length > 0) {
     ctx.cssBlocks.push(`.${className} {\n${cssProps.map((p) => `  ${p}`).join('\n')}\n}`);
   }
-
-  const shape = node.shape;
 
   if (shape.type === 'text') {
     const textShape = shape as TextShape;
@@ -78,10 +93,16 @@ function nodeToHtmlCss(node: ShapeTreeNode, ctx: CssContext, depth: number): str
     return indent(`<div class="${className}"></div>`, depth);
   }
 
+  if (isVector) {
+    const svg = shapeToInlineSvg(shape);
+    return indent(`<div class="${className}">\n  ${svg}\n</div>`, depth);
+  }
+
   const isContainer = shape.type === 'frame' || shape.type === 'group';
   if (isContainer && node.children.length > 0) {
+    const childCtx = childContextForShape(shape);
     const childrenHtml = node.children
-      .map((child) => nodeToHtmlCss(child, ctx, depth + 1))
+      .map((child) => nodeToHtmlCss(child, ctx, depth + 1, childCtx))
       .filter(Boolean)
       .join('\n');
     return (
@@ -113,11 +134,13 @@ function renderTextContentCss(shape: TextShape, _parentClass: string, ctx: CssCo
     .join('');
 }
 
-function nodeToHtmlTailwind(node: ShapeTreeNode, depth: number): string {
+function nodeToHtmlTailwind(node: ShapeTreeNode, depth: number, shapeCtx?: ShapeContext): string {
   if (!node.shape.visible) return '';
 
-  const classes = shapeToClasses(node.shape).join(' ');
   const shape = node.shape;
+  const isVector = isVectorShape(shape);
+  const effectiveCtx = isVector ? { ...shapeCtx, layoutOnly: true } : shapeCtx;
+  const classes = shapeToClasses(shape, effectiveCtx).join(' ');
 
   if (shape.type === 'text') {
     const textShape = shape as TextShape;
@@ -140,10 +163,16 @@ function nodeToHtmlTailwind(node: ShapeTreeNode, depth: number): string {
     return indent(`<div class="${classes}"></div>`, depth);
   }
 
+  if (isVector) {
+    const svg = shapeToInlineSvg(shape);
+    return indent(`<div class="${classes}">\n  ${svg}\n</div>`, depth);
+  }
+
   const isContainer = shape.type === 'frame' || shape.type === 'group';
   if (isContainer && node.children.length > 0) {
+    const childCtx = childContextForShape(shape);
     const childrenHtml = node.children
-      .map((child) => nodeToHtmlTailwind(child, depth + 1))
+      .map((child) => nodeToHtmlTailwind(child, depth + 1, childCtx))
       .filter(Boolean)
       .join('\n');
     return (

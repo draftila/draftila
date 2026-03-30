@@ -14,3 +14,10 @@ export interface ShapeTreeNode {
   shape: Shape;
   children: ShapeTreeNode[];
 }
+
+export interface ShapeContext {
+  needsAbsolutePosition?: boolean;
+  parentX?: number;
+  parentY?: number;
+  layoutOnly?: boolean;
+}

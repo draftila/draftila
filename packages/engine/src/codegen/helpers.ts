@@ -1,5 +1,6 @@
-import type { Fill, Stroke, Shadow, Blur, Shape } from '@draftila/shared';
-import type { ShapeTreeNode } from './types';
+import type { Fill, Stroke, Shadow, Blur, Shape, FrameShape } from '@draftila/shared';
+import type { ShapeTreeNode, ShapeContext } from './types';
+import { shapesToInterchange, generateSvg } from '../interchange';
 
 export interface Rgba {
   r: number;
@@ -187,4 +188,29 @@ export function deduplicateNames(names: string[]): Map<string, string> {
   }
 
   return result;
+}
+
+export function childContextForShape(shape: Shape): ShapeContext | undefined {
+  if (shape.type === 'frame') {
+    const frame = shape as FrameShape;
+    if (frame.layoutMode === 'none') {
+      return { needsAbsolutePosition: true, parentX: shape.x, parentY: shape.y };
+    }
+  }
+  if (shape.type === 'group') {
+    return { needsAbsolutePosition: true, parentX: shape.x, parentY: shape.y };
+  }
+  return undefined;
+}
+
+const VECTOR_TYPES = new Set(['path', 'polygon', 'star', 'ellipse']);
+
+export function isVectorShape(shape: Shape): boolean {
+  return VECTOR_TYPES.has(shape.type);
+}
+
+export function shapeToInlineSvg(shape: Shape): string {
+  const normalized: Shape = { ...shape, x: 0, y: 0, rotation: 0, opacity: 1 };
+  const doc = shapesToInterchange([normalized]);
+  return generateSvg(doc);
 }

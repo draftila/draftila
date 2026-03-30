@@ -55,7 +55,7 @@ export function InspectPanel({ ydoc }: InspectPanelProps) {
   void revision;
 
   return (
-    <div className="flex flex-col">
+    <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b px-3 py-1.5">
         <span className="text-muted-foreground text-[11px] font-medium">Dev Mode</span>
         <div className="flex items-center gap-1">
@@ -71,11 +71,17 @@ export function InspectPanel({ ydoc }: InspectPanelProps) {
         </div>
       </div>
       {activeTab === 'preview' ? (
-        <InspectPreview ydoc={ydoc} shapes={shapes} />
+        <div className="min-h-0 flex-1">
+          <InspectPreview ydoc={ydoc} shapes={shapes} />
+        </div>
       ) : activeTab === 'code' ? (
-        <InspectCode ydoc={ydoc} shapes={shapes} />
+        <div className="min-h-0 flex-1 overflow-auto">
+          <InspectCode ydoc={ydoc} shapes={shapes} />
+        </div>
       ) : (
-        <InspectListView shapes={shapes} />
+        <div className="min-h-0 flex-1 overflow-auto">
+          <InspectListView shapes={shapes} />
+        </div>
       )}
     </div>
   );

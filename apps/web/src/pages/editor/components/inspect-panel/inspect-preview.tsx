@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type * as Y from 'yjs';
 import { Copy, Check, Download, ChevronDown } from 'lucide-react';
 import type { Shape } from '@draftila/shared';
@@ -86,18 +86,71 @@ function downloadFile(content: string, filename: string, type: string) {
   URL.revokeObjectURL(url);
 }
 
+function getContentBounds(shapes: Shape[]): { width: number; height: number } | null {
+  const roots = shapes.filter((s) => !s.parentId || !shapes.some((p) => p.id === s.parentId));
+  if (roots.length === 0) return null;
+  let maxW = 0;
+  let maxH = 0;
+  for (const s of roots) {
+    maxW = Math.max(maxW, s.width);
+    maxH = Math.max(maxH, s.height);
+  }
+  return { width: maxW, height: maxH };
+}
+
+function useContainerSize(ref: React.RefObject<HTMLDivElement | null>) {
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        setSize({ width: entry.contentRect.width, height: entry.contentRect.height });
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref]);
+
+  return size;
+}
+
+function injectScaleStyle(html: string, scale: number, contentWidth: number): string {
+  const centeredLeft = `calc(50% - ${Math.round((contentWidth * scale) / 2)}px)`;
+  const scaleStyle =
+    `<style>body{display:block!important;padding:0!important;margin:0!important;}` +
+    `body>*:first-child{transform:scale(${scale});transform-origin:top left;` +
+    `position:relative;left:${centeredLeft};}</style>`;
+  return html.replace('</head>', `${scaleStyle}</head>`);
+}
+
 export function InspectPreview({ ydoc, shapes }: InspectPreviewProps) {
   const [mode, setMode] = useState<PreviewMode>('css');
   const [view, setView] = useState<PreviewView>('preview');
   const [copied, setCopied] = useState(false);
   const expandedShapes = useExpandedShapes(ydoc, shapes);
   const tailwindScript = useTailwindScript();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const containerSize = useContainerSize(containerRef);
 
   const html = useMemo(() => {
     if (expandedShapes.length === 0) return '';
     if (mode === 'css') return generateHtmlCss(expandedShapes);
     return generateHtmlTailwind(expandedShapes, tailwindScript ?? undefined);
   }, [expandedShapes, mode, tailwindScript]);
+
+  const previewHtml = useMemo(() => {
+    if (!html || !containerSize) return html;
+    const bounds = getContentBounds(expandedShapes);
+    if (!bounds || bounds.width === 0 || bounds.height === 0) return html;
+    const scaleX = containerSize.width / bounds.width;
+    const scaleY = containerSize.height / bounds.height;
+    const scale = Math.min(scaleX, scaleY, 1);
+    if (scale >= 1) return html;
+    return injectScaleStyle(html, scale, bounds.width);
+  }, [html, containerSize, expandedShapes]);
 
   const parts = useMemo(() => {
     if (mode !== 'css' || expandedShapes.length === 0) return null;
@@ -169,10 +222,10 @@ export function InspectPreview({ ydoc, shapes }: InspectPreviewProps) {
           />
         </div>
       </div>
-      <div className="min-h-0 flex-1">
+      <div ref={containerRef} className="min-h-0 flex-1">
         {view === 'preview' ? (
           <iframe
-            srcDoc={html}
+            srcDoc={previewHtml}
             sandbox="allow-scripts"
             className="h-full w-full border-0 bg-white"
             title="Live Preview"
