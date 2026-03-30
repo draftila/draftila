@@ -135,6 +135,47 @@ export function indent(text: string, level: number): string {
     .join('\n');
 }
 
+export function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+export function sanitizeSvgContent(svg: string): string {
+  return svg
+    .replace(/<script[\s>][\s\S]*?<\/script>/gi, '')
+    .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
+    .replace(/\son\w+\s*=\s*'[^']*'/gi, '');
+}
+
+export function gradientToCssValue(
+  gradient: NonNullable<Fill['gradient']>,
+  opacity: number,
+): string {
+  if (gradient.type === 'linear') {
+    const stops = gradient.stops
+      .map((s) => {
+        const rgba = hexToRgba(s.color, opacity);
+        return `${rgbaToCssColor(rgba)} ${roundTo(s.position * 100, 1)}%`;
+      })
+      .join(', ');
+    const cssAngle = gradient.angle + 90;
+    return `linear-gradient(${roundTo(cssAngle, 1)}deg, ${stops})`;
+  }
+
+  const stops = gradient.stops
+    .map((s) => {
+      const rgba = hexToRgba(s.color, opacity);
+      return `${rgbaToCssColor(rgba)} ${roundTo(s.position * 100, 1)}%`;
+    })
+    .join(', ');
+  const cx = roundTo((gradient.cx ?? 0.5) * 100, 1);
+  const cy = roundTo((gradient.cy ?? 0.5) * 100, 1);
+  return `radial-gradient(circle at ${cx}% ${cy}%, ${stops})`;
+}
+
 export function deduplicateNames(names: string[]): Map<string, string> {
   const counts = new Map<string, number>();
   const result = new Map<string, string>();

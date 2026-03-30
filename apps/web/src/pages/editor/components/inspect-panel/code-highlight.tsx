@@ -14,22 +14,51 @@ function getHighlighter(): Promise<Highlighter> {
     highlighterPromise = createHighlighter({
       themes: [DARK_THEME, LIGHT_THEME],
       langs: ['css', 'html', 'swift', 'kotlin'],
+    }).catch((err) => {
+      highlighterPromise = null;
+      throw err;
     });
   }
   return highlighterPromise;
 }
 
-const darkQuery =
-  typeof window !== 'undefined' ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+let darkSnapshot = false;
+const darkListeners = new Set<() => void>();
+
+function computeIsDark(): boolean {
+  if (document.documentElement.classList.contains('dark')) return true;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+function notifyDarkListeners() {
+  const next = computeIsDark();
+  if (next !== darkSnapshot) {
+    darkSnapshot = next;
+    for (const cb of darkListeners) cb();
+  }
+}
+
+if (typeof window !== 'undefined') {
+  darkSnapshot = computeIsDark();
+
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', notifyDarkListeners);
+
+  const observer = new MutationObserver(notifyDarkListeners);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['class'],
+  });
+}
 
 function subscribeToDarkMode(callback: () => void) {
-  darkQuery?.addEventListener('change', callback);
-  return () => darkQuery?.removeEventListener('change', callback);
+  darkListeners.add(callback);
+  return () => {
+    darkListeners.delete(callback);
+  };
 }
 
 function getIsDark() {
-  if (document.documentElement.classList.contains('dark')) return true;
-  return darkQuery?.matches ?? false;
+  return darkSnapshot;
 }
 
 function useIsDark() {
@@ -47,7 +76,9 @@ export function CodeHighlight({ code, language, className }: CodeHighlightProps)
   const isDark = useIsDark();
 
   useEffect(() => {
-    getHighlighter().then(setHighlighter);
+    getHighlighter()
+      .then(setHighlighter)
+      .catch(() => {});
   }, []);
 
   const theme = isDark ? DARK_THEME : LIGHT_THEME;

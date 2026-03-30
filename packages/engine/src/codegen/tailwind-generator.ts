@@ -23,6 +23,7 @@ import {
   getVisibleBlurs,
   getEffectiveCornerRadii,
   buildShapeTree,
+  gradientToCssValue,
 } from './helpers';
 
 function spacingClass(prefix: string, px: number): string {
@@ -349,29 +350,6 @@ function linearAngleToDirection(angle: number): string | null {
     315: 'to-tl',
   };
   return map[cssAngle] ?? null;
-}
-
-function gradientToCssValue(gradient: NonNullable<Fill['gradient']>, opacity: number): string {
-  if (gradient.type === 'linear') {
-    const stops = gradient.stops
-      .map((s) => {
-        const rgba = hexToRgba(s.color, opacity);
-        return `${rgbaToCssColor(rgba)} ${roundTo(s.position * 100, 1)}%`;
-      })
-      .join(', ');
-    const cssAngle = gradient.angle + 90;
-    return `linear-gradient(${roundTo(cssAngle, 1)}deg, ${stops})`;
-  }
-
-  const stops = gradient.stops
-    .map((s) => {
-      const rgba = hexToRgba(s.color, opacity);
-      return `${rgbaToCssColor(rgba)} ${roundTo(s.position * 100, 1)}%`;
-    })
-    .join(', ');
-  const cx = roundTo((gradient.cx ?? 0.5) * 100, 1);
-  const cy = roundTo((gradient.cy ?? 0.5) * 100, 1);
-  return `radial-gradient(circle at ${cx}% ${cy}%, ${stops})`;
 }
 
 function strokesToTailwind(strokes: Stroke[]): string[] {

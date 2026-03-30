@@ -8,6 +8,7 @@ export {
   generateHtmlCssParts,
   generateHtmlTailwindParts,
   assembleHtmlWithCssLink,
+  TAILWIND_CDN_URL,
 } from './html-generator';
 export type { HtmlCssOutput, HtmlTailwindOutput } from './html-generator';
 export type { CodeFormat, ShapeTreeNode } from './types';

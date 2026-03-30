@@ -1,6 +1,6 @@
 import type { Shape, TextShape, ImageShape, SvgShape, TextSegment } from '@draftila/shared';
 import type { ShapeTreeNode } from './types';
-import { buildShapeTree, sanitizeName, indent } from './helpers';
+import { buildShapeTree, sanitizeName, indent, escapeHtml, sanitizeSvgContent } from './helpers';
 import { shapeToProperties } from './css-generator';
 import { shapeToClasses } from './tailwind-generator';
 
@@ -14,14 +14,6 @@ function uniqueClassName(name: string, fallback: string, usedNames: Map<string, 
   const count = usedNames.get(baseName) ?? 0;
   usedNames.set(baseName, count + 1);
   return count > 0 ? `${baseName}-${count + 1}` : baseName;
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 function textSegmentToCssProperties(segment: TextSegment): string[] {
@@ -80,7 +72,8 @@ function nodeToHtmlCss(node: ShapeTreeNode, ctx: CssContext, depth: number): str
   if (shape.type === 'svg') {
     const svgShape = shape as SvgShape;
     if (svgShape.svgContent) {
-      return indent(`<div class="${className}">\n  ${svgShape.svgContent}\n</div>`, depth);
+      const safe = sanitizeSvgContent(svgShape.svgContent);
+      return indent(`<div class="${className}">\n  ${safe}\n</div>`, depth);
     }
     return indent(`<div class="${className}"></div>`, depth);
   }
@@ -141,7 +134,8 @@ function nodeToHtmlTailwind(node: ShapeTreeNode, depth: number): string {
   if (shape.type === 'svg') {
     const svgShape = shape as SvgShape;
     if (svgShape.svgContent) {
-      return indent(`<div class="${classes}">\n  ${svgShape.svgContent}\n</div>`, depth);
+      const safe = sanitizeSvgContent(svgShape.svgContent);
+      return indent(`<div class="${classes}">\n  ${safe}\n</div>`, depth);
     }
     return indent(`<div class="${classes}"></div>`, depth);
   }
@@ -227,10 +221,10 @@ export function generateHtmlCss(shapes: Shape[]): string {
   return assembleCssDocument(html, css);
 }
 
-export function generateHtmlTailwind(shapes: Shape[]): string {
+export function generateHtmlTailwind(shapes: Shape[], inlineScript?: string): string {
   const { html } = generateHtmlTailwindParts(shapes);
   if (!html) return '';
-  return assembleTailwindDocument(html);
+  return assembleTailwindDocument(html, inlineScript);
 }
 
 export function assembleHtmlWithCssLink(bodyHtml: string, cssFileName: string): string {
@@ -272,13 +266,18 @@ ${bodyHtml}
 </html>`;
 }
 
-function assembleTailwindDocument(bodyHtml: string): string {
+export const TAILWIND_CDN_URL = 'https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4';
+
+function assembleTailwindDocument(bodyHtml: string, inlineScript?: string): string {
+  const scriptTag = inlineScript
+    ? `<script>${inlineScript}</script>`
+    : `<script src="${TAILWIND_CDN_URL}"></script>`;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  ${scriptTag}
   <style type="text/tailwindcss">
     body { display: flex; justify-content: center; padding: 16px; }
   </style>
