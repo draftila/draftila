@@ -178,14 +178,7 @@ export function RightPanel({ ydoc, draftId }: RightPanelProps) {
   }
 
   if (devMode) {
-    return (
-      <div className="flex h-full w-72 shrink-0 flex-col border-l">
-        <ZoomControls ydoc={ydoc} />
-        <div className="flex-1 overflow-auto">
-          <InspectPanel ydoc={ydoc} />
-        </div>
-      </div>
-    );
+    return <DevModePanel ydoc={ydoc} />;
   }
 
   const sections = selectedShape ? getSectionsForShape(selectedShape.type) : [];
@@ -235,6 +228,20 @@ export function RightPanel({ ydoc, draftId }: RightPanelProps) {
             ))}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function DevModePanel({ ydoc }: { ydoc: Y.Doc }) {
+  const inspectTab = useEditorStore((s) => s.inspectTab);
+  const panelWidth = inspectTab === 'preview' ? 'w-[560px]' : 'w-72';
+
+  return (
+    <div className={`flex h-full ${panelWidth} shrink-0 flex-col border-l transition-[width]`}>
+      <ZoomControls ydoc={ydoc} />
+      <div className="flex-1 overflow-auto">
+        <InspectPanel ydoc={ydoc} />
       </div>
     </div>
   );

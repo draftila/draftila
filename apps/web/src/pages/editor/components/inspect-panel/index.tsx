@@ -12,6 +12,7 @@ import { InspectEffects } from './inspect-effects';
 import { InspectLayout } from './inspect-layout';
 import { InspectConstraints } from './inspect-constraints';
 import { InspectCode } from './inspect-code';
+import { InspectPreview } from './inspect-preview';
 
 interface InspectPanelProps {
   ydoc: Y.Doc;
@@ -39,12 +40,11 @@ function hasStrokes(shape: Shape): boolean {
   return 'strokes' in shape;
 }
 
-type InspectTab = 'list' | 'code';
-
 export function InspectPanel({ ydoc }: InspectPanelProps) {
   const selectedIds = useEditorStore((s) => s.selectedIds);
+  const activeTab = useEditorStore((s) => s.inspectTab);
+  const setActiveTab = useEditorStore((s) => s.setInspectTab);
   const [revision, setRevision] = useState(0);
-  const [activeTab, setActiveTab] = useState<InspectTab>('list');
 
   useEffect(() => {
     return observeShapes(ydoc, () => setRevision((r) => r + 1));
@@ -56,15 +56,23 @@ export function InspectPanel({ ydoc }: InspectPanelProps) {
 
   return (
     <div className="flex flex-col">
-      <div className="flex items-center gap-1 border-b px-3 py-1.5">
-        <TabButton active={activeTab === 'list'} onClick={() => setActiveTab('list')}>
-          List
-        </TabButton>
-        <TabButton active={activeTab === 'code'} onClick={() => setActiveTab('code')}>
-          Code
-        </TabButton>
+      <div className="flex items-center justify-between border-b px-3 py-1.5">
+        <span className="text-muted-foreground text-[11px] font-medium">Dev Mode</span>
+        <div className="flex items-center gap-1">
+          <TabButton active={activeTab === 'list'} onClick={() => setActiveTab('list')}>
+            List
+          </TabButton>
+          <TabButton active={activeTab === 'code'} onClick={() => setActiveTab('code')}>
+            Code
+          </TabButton>
+          <TabButton active={activeTab === 'preview'} onClick={() => setActiveTab('preview')}>
+            Preview
+          </TabButton>
+        </div>
       </div>
-      {activeTab === 'code' ? (
+      {activeTab === 'preview' ? (
+        <InspectPreview ydoc={ydoc} shapes={shapes} />
+      ) : activeTab === 'code' ? (
         <InspectCode ydoc={ydoc} shapes={shapes} />
       ) : (
         <InspectListView shapes={shapes} />
@@ -85,7 +93,7 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${
+      className={`h-7 px-2.5 text-[11px] font-medium transition-colors ${
         active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
       }`}
     >

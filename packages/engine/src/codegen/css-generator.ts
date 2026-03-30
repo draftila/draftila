@@ -23,6 +23,7 @@ import {
   getVisibleBlurs,
   getEffectiveCornerRadii,
   buildShapeTree,
+  gradientToCssValue,
 } from './helpers';
 
 export function generateCss(shapes: Shape[]): string {
@@ -69,7 +70,7 @@ function generateNodeCss(shape: Shape): string {
   return props.join('\n');
 }
 
-function shapeToProperties(shape: Shape): string[] {
+export function shapeToProperties(shape: Shape): string[] {
   switch (shape.type) {
     case 'rectangle':
       return rectangleProperties(shape);
@@ -156,7 +157,7 @@ function fillsToCss(fills: Fill[]): string[] {
 
 function fillToCssValue(fill: Fill): string {
   if (fill.gradient) {
-    return gradientToCss(fill.gradient, fill.opacity);
+    return gradientToCssValue(fill.gradient, fill.opacity);
   }
   if (fill.imageSrc) {
     return `url("${escapeCssDoubleQuotedString(fill.imageSrc)}")`;
@@ -181,28 +182,6 @@ function escapeCssDoubleQuotedString(value: string): string {
     .replace(/\r/g, '\\r')
     .replace(/\n/g, '\\n')
     .replace(/\f/g, '\\f');
-}
-
-function gradientToCss(gradient: NonNullable<Fill['gradient']>, opacity: number): string {
-  if (gradient.type === 'linear') {
-    const stops = gradient.stops
-      .map((s) => {
-        const rgba = hexToRgba(s.color, opacity);
-        return `${rgbaToCssColor(rgba)} ${roundTo(s.position * 100, 1)}%`;
-      })
-      .join(', ');
-    return `linear-gradient(${roundTo(gradient.angle, 1)}deg, ${stops})`;
-  }
-
-  const stops = gradient.stops
-    .map((s) => {
-      const rgba = hexToRgba(s.color, opacity);
-      return `${rgbaToCssColor(rgba)} ${roundTo(s.position * 100, 1)}%`;
-    })
-    .join(', ');
-  const cx = roundTo((gradient.cx ?? 0.5) * 100, 1);
-  const cy = roundTo((gradient.cy ?? 0.5) * 100, 1);
-  return `radial-gradient(circle at ${cx}% ${cy}%, ${stops})`;
 }
 
 function strokesToCss(strokes: Stroke[]): string[] {
@@ -440,7 +419,7 @@ function textProperties(shape: TextShape): string[] {
   if (visibleFills.length > 0) {
     const fill = visibleFills[0]!;
     if (fill.gradient) {
-      const gradientValue = gradientToCss(fill.gradient, fill.opacity);
+      const gradientValue = gradientToCssValue(fill.gradient, fill.opacity);
       props.push(`background: ${gradientValue};`);
       props.push('-webkit-background-clip: text;');
       props.push('-webkit-text-fill-color: transparent;');

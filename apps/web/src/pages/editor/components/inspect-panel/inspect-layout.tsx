@@ -93,8 +93,8 @@ function BoxModelDiagram({
   const hasPadding = paddingTop > 0 || paddingRight > 0 || paddingBottom > 0 || paddingLeft > 0;
 
   return (
-    <div className="border-border rounded border p-1.5">
-      <div className="relative flex flex-col items-center rounded border border-blue-500/30 bg-blue-500/10 px-1 py-1">
+    <div className="border-border border p-1.5">
+      <div className="relative flex flex-col items-center border border-blue-500/30 bg-blue-500/10 px-1 py-1">
         {hasPadding && paddingTop > 0 && (
           <span className="text-[9px] text-blue-400">{paddingTop}</span>
         )}
@@ -102,7 +102,7 @@ function BoxModelDiagram({
           {hasPadding && paddingLeft > 0 && (
             <span className="text-[9px] text-blue-400">{paddingLeft}</span>
           )}
-          <div className="flex min-h-[24px] flex-1 items-center justify-center rounded border border-emerald-500/30 bg-emerald-500/10">
+          <div className="flex min-h-[24px] flex-1 items-center justify-center border border-emerald-500/30 bg-emerald-500/10">
             <span className="text-muted-foreground text-[9px]">
               {width} × {height}
             </span>

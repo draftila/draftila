@@ -23,7 +23,113 @@ import {
   getVisibleBlurs,
   getEffectiveCornerRadii,
   buildShapeTree,
+  gradientToCssValue,
 } from './helpers';
+
+function spacingClass(prefix: string, px: number): string {
+  const rounded = roundTo(px, 1);
+  if (rounded === 0) return `${prefix}-0`;
+  if (rounded % 1 === 0 && rounded % 4 === 0) return `${prefix}-${rounded / 4}`;
+  if (rounded === 1) return `${prefix}-px`;
+  if (rounded === 2) return `${prefix}-0.5`;
+  if (rounded === 6) return `${prefix}-1.5`;
+  if (rounded === 10) return `${prefix}-2.5`;
+  if (rounded === 14) return `${prefix}-3.5`;
+  return `${prefix}-[${rounded}px]`;
+}
+
+const FONT_SIZE_MAP: Record<number, string> = {
+  12: 'text-xs',
+  14: 'text-sm',
+  16: 'text-base',
+  18: 'text-lg',
+  20: 'text-xl',
+  24: 'text-2xl',
+  30: 'text-3xl',
+  36: 'text-4xl',
+  48: 'text-5xl',
+  60: 'text-6xl',
+  72: 'text-7xl',
+  96: 'text-8xl',
+  128: 'text-9xl',
+};
+
+function fontSizeClass(px: number): string {
+  return FONT_SIZE_MAP[px] ?? `text-[${roundTo(px, 1)}px]`;
+}
+
+const BORDER_RADIUS_MAP: Record<number, string> = {
+  2: 'rounded-sm',
+  4: 'rounded',
+  6: 'rounded-md',
+  8: 'rounded-lg',
+  12: 'rounded-xl',
+  16: 'rounded-2xl',
+  24: 'rounded-3xl',
+};
+
+function radiusClass(prefix: string, px: number): string {
+  if (prefix === 'rounded') {
+    return BORDER_RADIUS_MAP[px] ?? `rounded-[${roundTo(px, 1)}px]`;
+  }
+  const mapped = BORDER_RADIUS_MAP[px];
+  if (mapped) {
+    const suffix = mapped.replace('rounded', '');
+    return `${prefix}${suffix || ''}`;
+  }
+  return `${prefix}-[${roundTo(px, 1)}px]`;
+}
+
+const BORDER_WIDTH_MAP: Record<number, string> = {
+  0: '0',
+  1: '',
+  2: '2',
+  4: '4',
+  8: '8',
+};
+
+function borderWidthClass(prefix: string, px: number): string {
+  const mapped = BORDER_WIDTH_MAP[px];
+  if (mapped !== undefined) {
+    return mapped === '' ? prefix : `${prefix}-${mapped}`;
+  }
+  return `${prefix}-[${px}px]`;
+}
+
+const BLUR_MAP: Record<number, string> = {
+  0: 'blur-none',
+  4: 'blur-xs',
+  8: 'blur-sm',
+  12: 'blur-md',
+  16: 'blur-lg',
+  24: 'blur-xl',
+  40: 'blur-2xl',
+  64: 'blur-3xl',
+};
+
+const BACKDROP_BLUR_MAP: Record<number, string> = {
+  0: 'backdrop-blur-none',
+  4: 'backdrop-blur-xs',
+  8: 'backdrop-blur-sm',
+  12: 'backdrop-blur-md',
+  16: 'backdrop-blur-lg',
+  24: 'backdrop-blur-xl',
+  40: 'backdrop-blur-2xl',
+  64: 'backdrop-blur-3xl',
+};
+
+const LEADING_MAP: Record<number, string> = {
+  1: 'leading-none',
+  1.25: 'leading-tight',
+  1.375: 'leading-snug',
+  1.5: 'leading-normal',
+  1.625: 'leading-relaxed',
+  2: 'leading-loose',
+};
+
+function leadingClass(value: number): string {
+  return LEADING_MAP[value] ?? `leading-[${roundTo(value, 2)}]`;
+}
 
 export function generateTailwind(shapes: Shape[]): string {
   if (shapes.length === 0) return '';
@@ -63,7 +169,7 @@ export function generateTailwindAllLayers(shapes: Shape[]): string {
   return blocks.join('\n\n');
 }
 
-function shapeToClasses(shape: Shape): string[] {
+export function shapeToClasses(shape: Shape): string[] {
   switch (shape.type) {
     case 'rectangle':
       return rectangleClasses(shape);
@@ -95,15 +201,15 @@ function sizingToTailwind(shape: Shape, direction: 'width' | 'height', value: nu
   const prefix = direction === 'width' ? 'w' : 'h';
   if (sizing === 'fill') return [];
   if (sizing === 'hug') return [`${prefix}-auto`];
-  return [`${prefix}-[${roundTo(value, 1)}px]`];
+  return [spacingClass(prefix, value)];
 }
 
 function minMaxToTailwind(shape: Shape): string[] {
   const classes: string[] = [];
-  if (shape.minWidth !== undefined) classes.push(`min-w-[${roundTo(shape.minWidth, 1)}px]`);
-  if (shape.maxWidth !== undefined) classes.push(`max-w-[${roundTo(shape.maxWidth, 1)}px]`);
-  if (shape.minHeight !== undefined) classes.push(`min-h-[${roundTo(shape.minHeight, 1)}px]`);
-  if (shape.maxHeight !== undefined) classes.push(`max-h-[${roundTo(shape.maxHeight, 1)}px]`);
+  if (shape.minWidth !== undefined) classes.push(spacingClass('min-w', shape.minWidth));
+  if (shape.maxWidth !== undefined) classes.push(spacingClass('max-w', shape.maxWidth));
+  if (shape.minHeight !== undefined) classes.push(spacingClass('min-h', shape.minHeight));
+  if (shape.maxHeight !== undefined) classes.push(spacingClass('max-h', shape.maxHeight));
   return classes;
 }
 
@@ -161,7 +267,7 @@ function fillsToTailwind(fills: Fill[]): string[] {
   }
 
   const layers = visible.map(fillToCssValue).reverse();
-  return [`bg-[${layers.join(',_')}]`];
+  return [`bg-[${layers.map((l) => l.replaceAll(' ', '_')).join(',_')}]`];
 }
 
 function singleFillToTailwind(fill: Fill, prefix: string): string[] {
@@ -185,6 +291,19 @@ function fillToCssValue(fill: Fill): string {
   return rgbaToCssColor(rgba);
 }
 
+function gradientStopsToArbitrary(
+  stops: NonNullable<Fill['gradient']>['stops'],
+  opacity: number,
+): string {
+  return stops
+    .map((s) => {
+      const rgba = hexToRgba(s.color, opacity);
+      const color = rgbaToCssColor(rgba).replaceAll(' ', '_');
+      return `${color}_${roundTo(s.position * 100, 1)}%`;
+    })
+    .join(',');
+}
+
 function gradientToTailwind(gradient: NonNullable<Fill['gradient']>, opacity: number): string[] {
   if (gradient.type === 'linear') {
     const dirClass = linearAngleToDirection(gradient.angle);
@@ -206,10 +325,20 @@ function gradientToTailwind(gradient: NonNullable<Fill['gradient']>, opacity: nu
     }
   }
 
-  return [`bg-[${gradientToCssValue(gradient, opacity).replaceAll(' ', '_')}]`];
+  if (gradient.type === 'linear') {
+    const stops = gradientStopsToArbitrary(gradient.stops, opacity);
+    const cssAngle = gradient.angle + 90;
+    return [`bg-linear-[${roundTo(cssAngle, 1)}deg,${stops}]`];
+  }
+
+  const stops = gradientStopsToArbitrary(gradient.stops, opacity);
+  const cx = roundTo((gradient.cx ?? 0.5) * 100, 1);
+  const cy = roundTo((gradient.cy ?? 0.5) * 100, 1);
+  return [`bg-[radial-gradient(circle_at_${cx}%_${cy}%,${stops})]`];
 }
 
 function linearAngleToDirection(angle: number): string | null {
+  const cssAngle = (((Math.round(angle) + 90) % 360) + 360) % 360;
   const map: Record<number, string> = {
     0: 'to-t',
     45: 'to-tr',
@@ -220,29 +349,7 @@ function linearAngleToDirection(angle: number): string | null {
     270: 'to-l',
     315: 'to-tl',
   };
-  return map[Math.round(angle)] ?? null;
-}
-
-function gradientToCssValue(gradient: NonNullable<Fill['gradient']>, opacity: number): string {
-  if (gradient.type === 'linear') {
-    const stops = gradient.stops
-      .map((s) => {
-        const rgba = hexToRgba(s.color, opacity);
-        return `${rgbaToCssColor(rgba)} ${roundTo(s.position * 100, 1)}%`;
-      })
-      .join(', ');
-    return `linear-gradient(${roundTo(gradient.angle, 1)}deg, ${stops})`;
-  }
-
-  const stops = gradient.stops
-    .map((s) => {
-      const rgba = hexToRgba(s.color, opacity);
-      return `${rgbaToCssColor(rgba)} ${roundTo(s.position * 100, 1)}%`;
-    })
-    .join(', ');
-  const cx = roundTo((gradient.cx ?? 0.5) * 100, 1);
-  const cy = roundTo((gradient.cy ?? 0.5) * 100, 1);
-  return `radial-gradient(circle at ${cx}% ${cy}%, ${stops})`;
+  return map[cssAngle] ?? null;
 }
 
 function strokesToTailwind(strokes: Stroke[]): string[] {
@@ -257,16 +364,16 @@ function strokesToTailwind(strokes: Stroke[]): string[] {
   if (stroke.sides) {
     const sides = stroke.sides;
     if (sides.top) {
-      classes.push(`border-t-[${stroke.width}px]`, `border-t-[${color}]`);
+      classes.push(borderWidthClass('border-t', stroke.width), `border-t-[${color}]`);
     }
     if (sides.right) {
-      classes.push(`border-r-[${stroke.width}px]`, `border-r-[${color}]`);
+      classes.push(borderWidthClass('border-r', stroke.width), `border-r-[${color}]`);
     }
     if (sides.bottom) {
-      classes.push(`border-b-[${stroke.width}px]`, `border-b-[${color}]`);
+      classes.push(borderWidthClass('border-b', stroke.width), `border-b-[${color}]`);
     }
     if (sides.left) {
-      classes.push(`border-l-[${stroke.width}px]`, `border-l-[${color}]`);
+      classes.push(borderWidthClass('border-l', stroke.width), `border-l-[${color}]`);
     }
     if (style) classes.push(style);
   } else if (stroke.align === 'outside') {
@@ -277,7 +384,7 @@ function strokesToTailwind(strokes: Stroke[]): string[] {
       classes.push('outline-solid');
     }
   } else {
-    classes.push(`border-[${stroke.width}px]`, `border-[${color}]`);
+    classes.push(borderWidthClass('border', stroke.width), `border-[${color}]`);
     if (style) classes.push(style);
     if (stroke.align === 'inside') {
       classes.push('box-border');
@@ -334,9 +441,11 @@ function blursToTailwind(blurs: Blur[]): string[] {
   const classes: string[] = [];
   for (const blur of visible) {
     if (blur.type === 'layer') {
-      classes.push(`blur-[${roundTo(blur.radius, 1)}px]`);
+      classes.push(BLUR_MAP[blur.radius] ?? `blur-[${roundTo(blur.radius, 1)}px]`);
     } else {
-      classes.push(`backdrop-blur-[${roundTo(blur.radius, 1)}px]`);
+      classes.push(
+        BACKDROP_BLUR_MAP[blur.radius] ?? `backdrop-blur-[${roundTo(blur.radius, 1)}px]`,
+      );
     }
   }
   return classes;
@@ -348,13 +457,13 @@ function cornerRadiusToTailwind(shape: Shape): string[] {
 
   const { tl, tr, br, bl } = radii;
   if (tl === tr && tr === br && br === bl) {
-    return [`rounded-[${roundTo(tl, 1)}px]`];
+    return [radiusClass('rounded', tl)];
   }
   return [
-    `rounded-tl-[${roundTo(tl, 1)}px]`,
-    `rounded-tr-[${roundTo(tr, 1)}px]`,
-    `rounded-br-[${roundTo(br, 1)}px]`,
-    `rounded-bl-[${roundTo(bl, 1)}px]`,
+    radiusClass('rounded-tl', tl),
+    radiusClass('rounded-tr', tr),
+    radiusClass('rounded-br', br),
+    radiusClass('rounded-bl', bl),
   ];
 }
 
@@ -399,14 +508,14 @@ function frameClasses(shape: FrameShape): string[] {
     }
 
     if (shape.layoutGap > 0) {
-      classes.push(`gap-[${roundTo(shape.layoutGap, 1)}px]`);
+      classes.push(spacingClass('gap', shape.layoutGap));
     }
 
     if (shape.layoutWrap === 'wrap' && shape.layoutGapColumn > 0) {
       if (shape.layoutMode === 'horizontal') {
-        classes.push(`gap-y-[${roundTo(shape.layoutGapColumn, 1)}px]`);
+        classes.push(spacingClass('gap-y', shape.layoutGapColumn));
       } else {
-        classes.push(`gap-x-[${roundTo(shape.layoutGapColumn, 1)}px]`);
+        classes.push(spacingClass('gap-x', shape.layoutGapColumn));
       }
     }
 
@@ -428,16 +537,16 @@ function paddingToTailwind(shape: FrameShape): string[] {
     paddingRight === paddingBottom &&
     paddingBottom === paddingLeft
   ) {
-    return [`p-[${roundTo(paddingTop, 1)}px]`];
+    return [spacingClass('p', paddingTop)];
   }
   if (paddingTop === paddingBottom && paddingLeft === paddingRight) {
-    return [`px-[${roundTo(paddingRight, 1)}px]`, `py-[${roundTo(paddingTop, 1)}px]`];
+    return [spacingClass('px', paddingRight), spacingClass('py', paddingTop)];
   }
   return [
-    `pt-[${roundTo(paddingTop, 1)}px]`,
-    `pr-[${roundTo(paddingRight, 1)}px]`,
-    `pb-[${roundTo(paddingBottom, 1)}px]`,
-    `pl-[${roundTo(paddingLeft, 1)}px]`,
+    spacingClass('pt', paddingTop),
+    spacingClass('pr', paddingRight),
+    spacingClass('pb', paddingBottom),
+    spacingClass('pl', paddingLeft),
   ];
 }
 
@@ -485,7 +594,7 @@ function textClasses(shape: TextShape): string[] {
   const classes = baseDimensionClasses(shape);
 
   classes.push(`font-['${shape.fontFamily.replaceAll(' ', '_')}']`);
-  classes.push(`text-[${roundTo(shape.fontSize, 1)}px]`);
+  classes.push(fontSizeClass(shape.fontSize));
 
   if (shape.fontWeight !== 400) {
     classes.push(FONT_WEIGHT_MAP[shape.fontWeight] ?? `font-[${shape.fontWeight}]`);
@@ -495,7 +604,7 @@ function textClasses(shape: TextShape): string[] {
     classes.push('italic');
   }
 
-  classes.push(`leading-[${roundTo(shape.lineHeight, 2)}]`);
+  classes.push(leadingClass(shape.lineHeight));
 
   if (shape.letterSpacing !== 0) {
     classes.push(`tracking-[${roundTo(shape.letterSpacing, 2)}px]`);
