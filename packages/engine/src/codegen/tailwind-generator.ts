@@ -11,7 +11,7 @@ import type {
   ImageShape,
   EllipseShape,
 } from '@draftila/shared';
-import type { ShapeTreeNode } from './types';
+import type { ShapeTreeNode, ShapeContext } from './types';
 import {
   hexToRgba,
   rgbaToCssColor,
@@ -24,6 +24,7 @@ import {
   getEffectiveCornerRadii,
   buildShapeTree,
   gradientToCssValue,
+  childContextForShape,
 } from './helpers';
 
 function spacingClass(prefix: string, px: number): string {
@@ -143,7 +144,7 @@ export function generateTailwindAllLayers(shapes: Shape[]): string {
   const blocks: string[] = [];
   const usedNames = new Map<string, number>();
 
-  function walkTree(node: ShapeTreeNode, parentSelector: string) {
+  function walkTree(node: ShapeTreeNode, parentSelector: string, ctx?: ShapeContext) {
     if (!node.shape.visible) return;
 
     const baseName = sanitizeName(node.shape.name, node.shape.type);
@@ -152,13 +153,14 @@ export function generateTailwindAllLayers(shapes: Shape[]): string {
     const className = count > 0 ? `${baseName}-${count + 1}` : baseName;
     const selector = parentSelector ? `${parentSelector} .${className}` : `.${className}`;
 
-    const classes = shapeToClasses(node.shape);
+    const classes = shapeToClasses(node.shape, ctx);
     if (classes.length > 0) {
       blocks.push(`${selector} {\n  @apply ${classes.join(' ')};\n}`);
     }
 
+    const childCtx = childContextForShape(node.shape);
     for (const child of node.children) {
-      walkTree(child, selector);
+      walkTree(child, selector, childCtx);
     }
   }
 
@@ -169,30 +171,30 @@ export function generateTailwindAllLayers(shapes: Shape[]): string {
   return blocks.join('\n\n');
 }
 
-export function shapeToClasses(shape: Shape): string[] {
+export function shapeToClasses(shape: Shape, ctx?: ShapeContext): string[] {
   switch (shape.type) {
     case 'rectangle':
-      return rectangleClasses(shape);
+      return rectangleClasses(shape, ctx);
     case 'ellipse':
-      return ellipseClasses(shape);
+      return ellipseClasses(shape, ctx);
     case 'frame':
-      return frameClasses(shape);
+      return frameClasses(shape, ctx);
     case 'text':
-      return textClasses(shape);
+      return textClasses(shape, ctx);
     case 'path':
-      return vectorClasses(shape);
+      return vectorClasses(shape, ctx);
     case 'polygon':
-      return vectorClasses(shape);
+      return vectorClasses(shape, ctx);
     case 'star':
-      return vectorClasses(shape);
+      return vectorClasses(shape, ctx);
     case 'line':
-      return lineClasses(shape);
+      return lineClasses(shape, ctx);
     case 'image':
-      return imageClasses(shape);
+      return imageClasses(shape, ctx);
     case 'svg':
-      return baseDimensionClasses(shape);
+      return baseDimensionClasses(shape, ctx);
     case 'group':
-      return baseDimensionClasses(shape);
+      return groupClasses(shape, ctx);
   }
 }
 
@@ -213,8 +215,18 @@ function minMaxToTailwind(shape: Shape): string[] {
   return classes;
 }
 
-function baseDimensionClasses(shape: Shape): string[] {
+function absolutePositionToTailwind(shape: Shape, ctx: ShapeContext): string[] {
+  const relX = shape.x - (ctx.parentX ?? 0);
+  const relY = shape.y - (ctx.parentY ?? 0);
+  return ['absolute', `left-[${roundTo(relX, 1)}px]`, `top-[${roundTo(relY, 1)}px]`];
+}
+
+function baseDimensionClasses(shape: Shape, ctx?: ShapeContext): string[] {
   const classes: string[] = [];
+
+  if (ctx?.needsAbsolutePosition) {
+    classes.push(...absolutePositionToTailwind(shape, ctx));
+  }
 
   if (shape.layoutSizingHorizontal === 'fill') {
     classes.push('flex-1', 'self-stretch');
@@ -467,8 +479,8 @@ function cornerRadiusToTailwind(shape: Shape): string[] {
   ];
 }
 
-function rectangleClasses(shape: RectangleShape): string[] {
-  const classes = baseDimensionClasses(shape);
+function rectangleClasses(shape: RectangleShape, ctx?: ShapeContext): string[] {
+  const classes = baseDimensionClasses(shape, ctx);
   classes.push(...cornerRadiusToTailwind(shape));
   classes.push(...fillsToTailwind(shape.fills));
   classes.push(...strokesToTailwind(shape.strokes));
@@ -477,8 +489,9 @@ function rectangleClasses(shape: RectangleShape): string[] {
   return classes;
 }
 
-function ellipseClasses(shape: EllipseShape): string[] {
-  const classes = baseDimensionClasses(shape);
+function ellipseClasses(shape: EllipseShape, ctx?: ShapeContext): string[] {
+  const classes = baseDimensionClasses(shape, ctx);
+  if (ctx?.layoutOnly) return classes;
   classes.push('rounded-full');
   classes.push(...fillsToTailwind(shape.fills));
   classes.push(...strokesToTailwind(shape.strokes));
@@ -487,8 +500,8 @@ function ellipseClasses(shape: EllipseShape): string[] {
   return classes;
 }
 
-function frameClasses(shape: FrameShape): string[] {
-  const classes = baseDimensionClasses(shape);
+function frameClasses(shape: FrameShape, ctx?: ShapeContext): string[] {
+  const classes = baseDimensionClasses(shape, ctx);
   classes.push(...cornerRadiusToTailwind(shape));
   classes.push(...fillsToTailwind(shape.fills));
   classes.push(...strokesToTailwind(shape.strokes));
@@ -522,8 +535,16 @@ function frameClasses(shape: FrameShape): string[] {
     classes.push(...paddingToTailwind(shape));
     classes.push(layoutAlignToTailwind(shape.layoutAlign));
     classes.push(layoutJustifyToTailwind(shape.layoutJustify));
+  } else {
+    classes.push('relative');
   }
 
+  return classes;
+}
+
+function groupClasses(shape: Shape, ctx?: ShapeContext): string[] {
+  const classes = baseDimensionClasses(shape, ctx);
+  classes.push('relative');
   return classes;
 }
 
@@ -590,8 +611,8 @@ const FONT_WEIGHT_MAP: Record<number, string> = {
   900: 'font-black',
 };
 
-function textClasses(shape: TextShape): string[] {
-  const classes = baseDimensionClasses(shape);
+function textClasses(shape: TextShape, ctx?: ShapeContext): string[] {
+  const classes = baseDimensionClasses(shape, ctx);
 
   classes.push(`font-['${shape.fontFamily.replaceAll(' ', '_')}']`);
   classes.push(fontSizeClass(shape.fontSize));
@@ -643,8 +664,9 @@ function textClasses(shape: TextShape): string[] {
   return classes;
 }
 
-function vectorClasses(shape: Shape): string[] {
-  const classes = baseDimensionClasses(shape);
+function vectorClasses(shape: Shape, ctx?: ShapeContext): string[] {
+  const classes = baseDimensionClasses(shape, ctx);
+  if (ctx?.layoutOnly) return classes;
 
   const svgPathData =
     'svgPathData' in shape ? (shape.svgPathData as string | undefined) : undefined;
@@ -668,13 +690,20 @@ function vectorClasses(shape: Shape): string[] {
   return classes;
 }
 
-function lineClasses(shape: LineShape): string[] {
+function lineClasses(shape: LineShape, ctx?: ShapeContext): string[] {
   const dx = shape.x2 - shape.x1;
   const dy = shape.y2 - shape.y1;
   const length = Math.sqrt(dx * dx + dy * dy);
   const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
 
   const classes: string[] = [];
+
+  if (ctx?.needsAbsolutePosition) {
+    const relX = shape.x + shape.x1 - (ctx.parentX ?? 0);
+    const relY = shape.y + shape.y1 - (ctx.parentY ?? 0);
+    classes.push('absolute', `left-[${roundTo(relX, 1)}px]`, `top-[${roundTo(relY, 1)}px]`);
+  }
+
   classes.push(`w-[${roundTo(length, 1)}px]`);
   classes.push('h-0');
 
@@ -702,8 +731,8 @@ function lineClasses(shape: LineShape): string[] {
   return classes;
 }
 
-function imageClasses(shape: ImageShape): string[] {
-  const classes = baseDimensionClasses(shape);
+function imageClasses(shape: ImageShape, ctx?: ShapeContext): string[] {
+  const classes = baseDimensionClasses(shape, ctx);
 
   const fitMap: Record<ImageShape['fit'], string> = {
     fill: 'object-cover',
