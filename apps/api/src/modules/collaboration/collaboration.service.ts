@@ -95,8 +95,7 @@ export async function getOrCreateRoom(draftId: string): Promise<Room> {
         awarenessProtocol.encodeAwarenessUpdate(awareness, changedClients),
       );
       const message = encoding.toUint8Array(encoder);
-      const originWs = origin instanceof Object && 'send' in origin ? (origin as WsLike) : null;
-      broadcastToRoom(room, message, originWs);
+      broadcastToRoom(room, message, null);
     },
   );
 
