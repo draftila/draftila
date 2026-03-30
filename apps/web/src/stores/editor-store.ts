@@ -26,6 +26,7 @@ interface EditorState {
   activeCommentId: string | null;
   aiActiveFrameIds: Set<string>;
   devMode: boolean;
+  inspectTab: 'list' | 'code' | 'preview';
   versionHistoryOpen: boolean;
   previewSnapshotId: string | null;
   previewYdoc: Y.Doc | null;
@@ -59,6 +60,7 @@ interface EditorState {
   setActiveCommentId: (id: string | null) => void;
   setAiActiveFrameIds: (ids: Set<string>) => void;
   setDevMode: (on: boolean) => void;
+  setInspectTab: (tab: 'list' | 'code' | 'preview') => void;
   setVersionHistoryOpen: (open: boolean) => void;
   enterPreviewMode: (snapshotId: string, ydoc: Y.Doc) => void;
   exitPreviewMode: () => void;
@@ -88,6 +90,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   activeCommentId: null,
   aiActiveFrameIds: new Set(),
   devMode: false,
+  inspectTab: 'list',
   versionHistoryOpen: false,
   previewSnapshotId: null,
   previewYdoc: null,
@@ -185,6 +188,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       ...(on ? { activeTool: 'move' as const, editingTextId: null } : {}),
       ...(on && state.versionHistoryOpen ? { versionHistoryOpen: false } : {}),
     })),
+
+  setInspectTab: (tab) => set({ inspectTab: tab }),
 
   setVersionHistoryOpen: (open) =>
     set((state) => ({

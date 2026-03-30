@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState } from 'react';
 import type * as Y from 'yjs';
 import { Copy, Check } from 'lucide-react';
 import type { Shape } from '@draftila/shared';
-import { getExpandedShapeIds, getAllShapes } from '@draftila/engine/scene-graph';
 import {
   generateCss,
   generateCssAllLayers,
@@ -11,6 +10,15 @@ import {
   generateSwiftUI,
   generateCompose,
 } from '@draftila/engine/codegen';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { CodeHighlight } from './code-highlight';
+import { useExpandedShapes } from './use-expanded-shapes';
 
 type CodeLanguage =
   | 'css'
@@ -29,6 +37,15 @@ const LANGUAGE_LABELS: Record<CodeLanguage, string> = {
   compose: 'Compose',
 };
 
+const SHIKI_LANG_MAP: Record<CodeLanguage, 'css' | 'html' | 'swift' | 'kotlin'> = {
+  css: 'css',
+  'css-all-layers': 'css',
+  tailwind: 'css',
+  'tailwind-all-layers': 'css',
+  swiftui: 'swift',
+  compose: 'kotlin',
+};
+
 interface InspectCodeProps {
   ydoc: Y.Doc;
   shapes: Shape[];
@@ -37,13 +54,7 @@ interface InspectCodeProps {
 export function InspectCode({ ydoc, shapes }: InspectCodeProps) {
   const [language, setLanguage] = useState<CodeLanguage>('css');
   const [copied, setCopied] = useState(false);
-
-  const expandedShapes = useMemo(() => {
-    if (shapes.length === 0) return [];
-    const ids = shapes.map((s) => s.id);
-    const expandedIds = new Set(getExpandedShapeIds(ydoc, ids));
-    return getAllShapes(ydoc).filter((s) => expandedIds.has(s.id));
-  }, [ydoc, shapes]);
+  const expandedShapes = useExpandedShapes(ydoc, shapes);
 
   const code = useMemo(() => {
     if (expandedShapes.length === 0) return '';
@@ -78,44 +89,30 @@ export function InspectCode({ ydoc, shapes }: InspectCodeProps) {
     );
   }
 
-  const lines = code.split('\n');
-
   return (
     <div className="flex flex-col">
       <div className="flex items-center justify-between border-b px-3 py-1.5">
-        <select
-          value={language}
-          onChange={(e) => setLanguage(e.target.value as CodeLanguage)}
-          className="bg-muted rounded px-2 py-0.5 text-[11px]"
-        >
-          {Object.entries(LANGUAGE_LABELS).map(([key, label]) => (
-            <option key={key} value={key}>
-              {label}
-            </option>
-          ))}
-        </select>
+        <Select value={language} onValueChange={(v) => setLanguage(v as CodeLanguage)}>
+          <SelectTrigger className="bg-muted h-7 w-auto gap-1 rounded-none border-none px-2 text-[11px] shadow-none">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(LANGUAGE_LABELS).map(([key, label]) => (
+              <SelectItem key={key} value={key} className="text-[11px]">
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <button
           onClick={handleCopy}
-          className="text-muted-foreground hover:text-foreground flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] transition-colors"
+          className="text-muted-foreground hover:text-foreground flex h-7 items-center gap-1 px-1.5 text-[11px] transition-colors"
         >
           {copied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
           <span>{copied ? 'Copied' : 'Copy'}</span>
         </button>
       </div>
-      <div className="overflow-auto">
-        <pre className="p-3 text-[11px] leading-5">
-          <code>
-            {lines.map((line, i) => (
-              <div key={i} className="flex">
-                <span className="text-muted-foreground/50 mr-3 inline-block w-5 shrink-0 select-none text-right">
-                  {i + 1}
-                </span>
-                <span className="min-w-0 break-all">{line}</span>
-              </div>
-            ))}
-          </code>
-        </pre>
-      </div>
+      <CodeHighlight code={code} language={SHIKI_LANG_MAP[language]} />
     </div>
   );
 }
