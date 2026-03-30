@@ -53,13 +53,6 @@ function textSegmentToTailwindClasses(segment: TextSegment): string[] {
   return classes;
 }
 
-function textContent(shape: TextShape): string {
-  if (shape.segments && shape.segments.length > 0) {
-    return shape.segments.map((s) => s.text).join('');
-  }
-  return shape.content;
-}
-
 function nodeToHtmlCss(node: ShapeTreeNode, ctx: CssContext, depth: number): string {
   if (!node.shape.visible) return '';
 
@@ -187,8 +180,17 @@ function renderTextContentTailwind(shape: TextShape): string {
     .join('');
 }
 
-export function generateHtmlCss(shapes: Shape[]): string {
-  if (shapes.length === 0) return '';
+export interface HtmlCssOutput {
+  html: string;
+  css: string;
+}
+
+export interface HtmlTailwindOutput {
+  html: string;
+}
+
+export function generateHtmlCssParts(shapes: Shape[]): HtmlCssOutput {
+  if (shapes.length === 0) return { html: '', css: '' };
 
   const tree = buildShapeTree(shapes);
   const ctx: CssContext = {
@@ -196,38 +198,66 @@ export function generateHtmlCss(shapes: Shape[]): string {
     usedNames: new Map(),
   };
 
-  const bodyHtml = tree
+  const html = tree
     .map((node) => nodeToHtmlCss(node, ctx, 1))
     .filter(Boolean)
     .join('\n');
 
   const css = ctx.cssBlocks.join('\n\n');
 
-  return assembleDocument(bodyHtml, { mode: 'css', css });
+  return { html, css };
 }
 
-export function generateHtmlTailwind(shapes: Shape[]): string {
-  if (shapes.length === 0) return '';
+export function generateHtmlTailwindParts(shapes: Shape[]): HtmlTailwindOutput {
+  if (shapes.length === 0) return { html: '' };
 
   const tree = buildShapeTree(shapes);
 
-  const bodyHtml = tree
+  const html = tree
     .map((node) => nodeToHtmlTailwind(node, 1))
     .filter(Boolean)
     .join('\n');
 
-  return assembleDocument(bodyHtml, { mode: 'tailwind' });
+  return { html };
 }
 
-type DocumentOptions = { mode: 'css'; css: string } | { mode: 'tailwind' };
+export function generateHtmlCss(shapes: Shape[]): string {
+  const { html, css } = generateHtmlCssParts(shapes);
+  if (!html) return '';
+  return assembleCssDocument(html, css);
+}
 
-function assembleDocument(bodyHtml: string, options: DocumentOptions): string {
+export function generateHtmlTailwind(shapes: Shape[]): string {
+  const { html } = generateHtmlTailwindParts(shapes);
+  if (!html) return '';
+  return assembleTailwindDocument(html);
+}
+
+export function assembleHtmlWithCssLink(bodyHtml: string, cssFileName: string): string {
   const resetCss = '* { margin: 0; padding: 0; box-sizing: border-box; }';
   const bodyCss = 'body { display: flex; justify-content: center; padding: 16px; }';
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="${cssFileName}">
+  <style>
+    ${resetCss}
+    ${bodyCss}
+  </style>
+</head>
+<body>
+${bodyHtml}
+</body>
+</html>`;
+}
 
-  if (options.mode === 'css') {
-    const styleContent = [resetCss, bodyCss, options.css].filter(Boolean).join('\n    ');
-    return `<!DOCTYPE html>
+function assembleCssDocument(bodyHtml: string, css: string): string {
+  const resetCss = '* { margin: 0; padding: 0; box-sizing: border-box; }';
+  const bodyCss = 'body { display: flex; justify-content: center; padding: 16px; }';
+  const styleContent = [resetCss, bodyCss, css].filter(Boolean).join('\n    ');
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -240,17 +270,17 @@ function assembleDocument(bodyHtml: string, options: DocumentOptions): string {
 ${bodyHtml}
 </body>
 </html>`;
-  }
+}
 
+function assembleTailwindDocument(bodyHtml: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    ${resetCss}
-    ${bodyCss}
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style type="text/tailwindcss">
+    body { display: flex; justify-content: center; padding: 16px; }
   </style>
 </head>
 <body>

@@ -11,6 +11,7 @@ import {
   generateSwiftUI,
   generateCompose,
 } from '@draftila/engine/codegen';
+import { CodeHighlight } from './code-highlight';
 
 type CodeLanguage =
   | 'css'
@@ -27,6 +28,15 @@ const LANGUAGE_LABELS: Record<CodeLanguage, string> = {
   'tailwind-all-layers': 'Tailwind (All)',
   swiftui: 'SwiftUI',
   compose: 'Compose',
+};
+
+const SHIKI_LANG_MAP: Record<CodeLanguage, 'css' | 'html' | 'swift' | 'kotlin'> = {
+  css: 'css',
+  'css-all-layers': 'css',
+  tailwind: 'css',
+  'tailwind-all-layers': 'css',
+  swiftui: 'swift',
+  compose: 'kotlin',
 };
 
 interface InspectCodeProps {
@@ -78,15 +88,13 @@ export function InspectCode({ ydoc, shapes }: InspectCodeProps) {
     );
   }
 
-  const lines = code.split('\n');
-
   return (
     <div className="flex flex-col">
       <div className="flex items-center justify-between border-b px-3 py-1.5">
         <select
           value={language}
           onChange={(e) => setLanguage(e.target.value as CodeLanguage)}
-          className="bg-muted rounded px-2 py-0.5 text-[11px]"
+          className="bg-muted h-7 px-2 text-[11px]"
         >
           {Object.entries(LANGUAGE_LABELS).map(([key, label]) => (
             <option key={key} value={key}>
@@ -96,26 +104,13 @@ export function InspectCode({ ydoc, shapes }: InspectCodeProps) {
         </select>
         <button
           onClick={handleCopy}
-          className="text-muted-foreground hover:text-foreground flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] transition-colors"
+          className="text-muted-foreground hover:text-foreground flex h-7 items-center gap-1 px-1.5 text-[11px] transition-colors"
         >
           {copied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
           <span>{copied ? 'Copied' : 'Copy'}</span>
         </button>
       </div>
-      <div className="overflow-auto">
-        <pre className="p-3 text-[11px] leading-5">
-          <code>
-            {lines.map((line, i) => (
-              <div key={i} className="flex">
-                <span className="text-muted-foreground/50 mr-3 inline-block w-5 shrink-0 select-none text-right">
-                  {i + 1}
-                </span>
-                <span className="min-w-0 break-all">{line}</span>
-              </div>
-            ))}
-          </code>
-        </pre>
-      </div>
+      <CodeHighlight code={code} language={SHIKI_LANG_MAP[language]} />
     </div>
   );
 }

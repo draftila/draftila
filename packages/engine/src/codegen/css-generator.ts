@@ -191,7 +191,8 @@ function gradientToCss(gradient: NonNullable<Fill['gradient']>, opacity: number)
         return `${rgbaToCssColor(rgba)} ${roundTo(s.position * 100, 1)}%`;
       })
       .join(', ');
-    return `linear-gradient(${roundTo(gradient.angle, 1)}deg, ${stops})`;
+    const cssAngle = gradient.angle + 90;
+    return `linear-gradient(${roundTo(cssAngle, 1)}deg, ${stops})`;
   }
 
   const stops = gradient.stops

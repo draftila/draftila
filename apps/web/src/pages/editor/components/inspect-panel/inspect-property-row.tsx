@@ -25,7 +25,7 @@ export function InspectPropertyRow({ label, value, colorSwatch }: InspectPropert
       <div className="flex min-w-0 items-center gap-1.5">
         {colorSwatch && (
           <span
-            className="border-border inline-block size-3 shrink-0 rounded-sm border"
+            className="border-border inline-block size-3 shrink-0 border"
             style={{ backgroundColor: colorSwatch }}
           />
         )}
