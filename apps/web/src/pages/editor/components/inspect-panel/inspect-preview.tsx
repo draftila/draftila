@@ -9,6 +9,7 @@ import {
   assembleHtmlWithCssLink,
   TAILWIND_CDN_URL,
 } from '@draftila/engine/codegen';
+import { getPageBackgroundColor } from '@draftila/engine/pages';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useEditorStore } from '@/stores/editor-store';
 import { CodeHighlight } from './code-highlight';
 import { useExpandedShapes } from './use-expanded-shapes';
 
@@ -89,13 +91,17 @@ function downloadFile(content: string, filename: string, type: string) {
 function getContentBounds(shapes: Shape[]): { width: number; height: number } | null {
   const roots = shapes.filter((s) => !s.parentId || !shapes.some((p) => p.id === s.parentId));
   if (roots.length === 0) return null;
-  let maxW = 0;
-  let maxH = 0;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
   for (const s of roots) {
-    maxW = Math.max(maxW, s.width);
-    maxH = Math.max(maxH, s.height);
+    minX = Math.min(minX, s.x);
+    minY = Math.min(minY, s.y);
+    maxX = Math.max(maxX, s.x + s.width);
+    maxY = Math.max(maxY, s.y + s.height);
   }
-  return { width: maxW, height: maxH };
+  return { width: Math.max(0, maxX - minX), height: Math.max(0, maxY - minY) };
 }
 
 function useContainerSize(ref: React.RefObject<HTMLDivElement | null>) {
@@ -118,6 +124,7 @@ function useContainerSize(ref: React.RefObject<HTMLDivElement | null>) {
 }
 
 function injectScaleStyle(html: string, scale: number, contentWidth: number): string {
+  if (!html.includes('</head>')) return html;
   const centeredLeft = `calc(50% - ${Math.round((contentWidth * scale) / 2)}px)`;
   const scaleStyle =
     `<style>body{display:block!important;padding:0!important;margin:0!important;}` +
@@ -134,12 +141,17 @@ export function InspectPreview({ ydoc, shapes }: InspectPreviewProps) {
   const tailwindScript = useTailwindScript();
   const containerRef = useRef<HTMLDivElement>(null);
   const containerSize = useContainerSize(containerRef);
+  const activePageId = useEditorStore((state) => state.activePageId);
+  const pageBackgroundColor = useMemo(() => {
+    if (!activePageId) return null;
+    return getPageBackgroundColor(ydoc, activePageId);
+  }, [ydoc, activePageId]);
 
   const html = useMemo(() => {
     if (expandedShapes.length === 0) return '';
-    if (mode === 'css') return generateHtmlCss(expandedShapes);
-    return generateHtmlTailwind(expandedShapes, tailwindScript ?? undefined);
-  }, [expandedShapes, mode, tailwindScript]);
+    if (mode === 'css') return generateHtmlCss(expandedShapes, pageBackgroundColor);
+    return generateHtmlTailwind(expandedShapes, tailwindScript ?? undefined, pageBackgroundColor);
+  }, [expandedShapes, mode, tailwindScript, pageBackgroundColor]);
 
   const previewHtml = useMemo(() => {
     if (!html || !containerSize) return html;
@@ -227,7 +239,7 @@ export function InspectPreview({ ydoc, shapes }: InspectPreviewProps) {
           <iframe
             srcDoc={previewHtml}
             sandbox="allow-scripts"
-            className="h-full w-full border-0 bg-white"
+            className="h-full w-full border-0"
             title="Live Preview"
           />
         ) : (

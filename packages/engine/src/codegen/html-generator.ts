@@ -1,4 +1,5 @@
 import type { Shape, TextShape, ImageShape, SvgShape, TextSegment } from '@draftila/shared';
+import { collectFontFamilies } from '../font-manager';
 import type { ShapeTreeNode, ShapeContext } from './types';
 import {
   buildShapeTree,
@@ -17,6 +18,21 @@ interface CssContext {
   cssBlocks: string[];
   usedNames: Map<string, number>;
 }
+
+const CSS_GENERIC_FAMILIES = new Set([
+  'serif',
+  'sans-serif',
+  'monospace',
+  'cursive',
+  'fantasy',
+  'system-ui',
+  'ui-serif',
+  'ui-sans-serif',
+  'ui-monospace',
+  'ui-rounded',
+]);
+
+const GOOGLE_FONTS_CSS_URL = 'https://fonts.googleapis.com/css2';
 
 function uniqueClassName(name: string, fallback: string, usedNames: Map<string, number>): string {
   const baseName = sanitizeName(name, fallback);
@@ -212,6 +228,17 @@ export interface HtmlTailwindOutput {
   html: string;
 }
 
+function buildGoogleFontsLink(shapes: Shape[]): string {
+  const families = collectFontFamilies(shapes).filter((family) => !CSS_GENERIC_FAMILIES.has(family));
+  if (families.length === 0) return '';
+
+  const params = families.map(
+    (family) => `family=${encodeURIComponent(family)}:wght@100;200;300;400;500;600;700;800;900`,
+  );
+  const href = `${GOOGLE_FONTS_CSS_URL}?${params.join('&')}&display=swap`;
+  return `<link rel="stylesheet" href="${href}">`;
+}
+
 export function generateHtmlCssParts(shapes: Shape[]): HtmlCssOutput {
   if (shapes.length === 0) return { html: '', css: '' };
 
@@ -244,16 +271,20 @@ export function generateHtmlTailwindParts(shapes: Shape[]): HtmlTailwindOutput {
   return { html };
 }
 
-export function generateHtmlCss(shapes: Shape[]): string {
+export function generateHtmlCss(shapes: Shape[], backgroundColor?: string | null): string {
   const { html, css } = generateHtmlCssParts(shapes);
   if (!html) return '';
-  return assembleCssDocument(html, css);
+  return assembleCssDocument(html, css, buildGoogleFontsLink(shapes), backgroundColor);
 }
 
-export function generateHtmlTailwind(shapes: Shape[], inlineScript?: string): string {
+export function generateHtmlTailwind(
+  shapes: Shape[],
+  inlineScript?: string,
+  backgroundColor?: string | null,
+): string {
   const { html } = generateHtmlTailwindParts(shapes);
   if (!html) return '';
-  return assembleTailwindDocument(html, inlineScript);
+  return assembleTailwindDocument(html, inlineScript, buildGoogleFontsLink(shapes), backgroundColor);
 }
 
 export function assembleHtmlWithCssLink(bodyHtml: string, cssFileName: string): string {
@@ -276,15 +307,22 @@ ${bodyHtml}
 </html>`;
 }
 
-function assembleCssDocument(bodyHtml: string, css: string): string {
+function assembleCssDocument(
+  bodyHtml: string,
+  css: string,
+  fontLinkTag: string,
+  backgroundColor?: string | null,
+): string {
   const resetCss = '* { margin: 0; padding: 0; box-sizing: border-box; }';
-  const bodyCss = 'body { display: flex; justify-content: center; padding: 16px; }';
+  const bodyBg = backgroundColor ? ` background: ${backgroundColor};` : '';
+  const bodyCss = `body { display: flex; justify-content: center; padding: 16px;${bodyBg} }`;
   const styleContent = [resetCss, bodyCss, css].filter(Boolean).join('\n    ');
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  ${fontLinkTag}
   <style>
     ${styleContent}
   </style>
@@ -297,18 +335,25 @@ ${bodyHtml}
 
 export const TAILWIND_CDN_URL = 'https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4';
 
-function assembleTailwindDocument(bodyHtml: string, inlineScript?: string): string {
+function assembleTailwindDocument(
+  bodyHtml: string,
+  inlineScript?: string,
+  fontLinkTag = '',
+  backgroundColor?: string | null,
+): string {
   const scriptTag = inlineScript
     ? `<script>${inlineScript}</script>`
     : `<script src="${TAILWIND_CDN_URL}"></script>`;
+  const bodyBg = backgroundColor ? ` background: ${backgroundColor};` : '';
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  ${fontLinkTag}
   ${scriptTag}
   <style type="text/tailwindcss">
-    body { display: flex; justify-content: center; padding: 16px; }
+    body { display: flex; justify-content: center; padding: 16px;${bodyBg} }
   </style>
 </head>
 <body>
