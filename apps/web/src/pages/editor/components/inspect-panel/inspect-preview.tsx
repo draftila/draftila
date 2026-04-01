@@ -91,10 +91,11 @@ function downloadFile(content: string, filename: string, type: string) {
 function getContentBounds(shapes: Shape[]): { width: number; height: number } | null {
   const roots = shapes.filter((s) => !s.parentId || !shapes.some((p) => p.id === s.parentId));
   if (roots.length === 0) return null;
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
+  const first = roots[0];
+  let minX = first.x;
+  let minY = first.y;
+  let maxX = first.x + first.width;
+  let maxY = first.y + first.height;
   for (const s of roots) {
     minX = Math.min(minX, s.x);
     minY = Math.min(minY, s.y);

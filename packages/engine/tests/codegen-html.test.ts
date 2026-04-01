@@ -39,13 +39,13 @@ describe('html codegen', () => {
     const html = generateHtmlCss([textShape], '#101010');
     expect(html).toContain('background: #101010;');
     expect(html).toContain('<link rel="stylesheet" href="https://fonts.googleapis.com/css2?');
-    expect(html).toContain('family=Inter:wght@100;200;300;400;500;600;700;800;900');
+    expect(html).toContain('family=Inter:wght@400');
   });
 
   test('includes page background and google font link in tailwind output', () => {
     const html = generateHtmlTailwind([textShape], undefined, '#111111');
     expect(html).toContain('background: #111111;');
     expect(html).toContain('<link rel="stylesheet" href="https://fonts.googleapis.com/css2?');
-    expect(html).toContain('family=Inter:wght@100;200;300;400;500;600;700;800;900');
+    expect(html).toContain('family=Inter:wght@400');
   });
 });

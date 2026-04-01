@@ -1,5 +1,4 @@
 import type { Shape, TextShape, ImageShape, SvgShape, TextSegment } from '@draftila/shared';
-import { collectFontFamilies } from '../font-manager';
 import type { ShapeTreeNode, ShapeContext } from './types';
 import {
   buildShapeTree,
@@ -33,6 +32,32 @@ const CSS_GENERIC_FAMILIES = new Set([
 ]);
 
 const GOOGLE_FONTS_CSS_URL = 'https://fonts.googleapis.com/css2';
+
+function normalizeFontWeight(weight: number): number {
+  const normalizedWeight = Number.isFinite(weight) ? Math.round(weight) : 400;
+  return Math.max(100, Math.min(900, normalizedWeight));
+}
+
+function collectGoogleFontWeights(shapes: Shape[]): Map<string, Set<number>> {
+  const familyWeights = new Map<string, Set<number>>();
+  const addFamilyWeight = (family: string, weight: number) => {
+    if (CSS_GENERIC_FAMILIES.has(family)) return;
+    const weights = familyWeights.get(family) ?? new Set<number>();
+    weights.add(normalizeFontWeight(weight));
+    familyWeights.set(family, weights);
+  };
+
+  const textShapes = shapes.filter((shape): shape is TextShape => shape.type === 'text');
+  for (const shape of textShapes) {
+    addFamilyWeight(shape.fontFamily, shape.fontWeight);
+    if (!shape.segments) continue;
+    for (const segment of shape.segments) {
+      addFamilyWeight(segment.fontFamily ?? shape.fontFamily, segment.fontWeight ?? shape.fontWeight);
+    }
+  }
+
+  return familyWeights;
+}
 
 function uniqueClassName(name: string, fallback: string, usedNames: Map<string, number>): string {
   const baseName = sanitizeName(name, fallback);
@@ -229,12 +254,12 @@ export interface HtmlTailwindOutput {
 }
 
 function buildGoogleFontsLink(shapes: Shape[]): string {
-  const families = collectFontFamilies(shapes).filter((family) => !CSS_GENERIC_FAMILIES.has(family));
-  if (families.length === 0) return '';
-
-  const params = families.map(
-    (family) => `family=${encodeURIComponent(family)}:wght@100;200;300;400;500;600;700;800;900`,
-  );
+  const familyWeights = collectGoogleFontWeights(shapes);
+  if (familyWeights.size === 0) return '';
+  const params = [...familyWeights.entries()].map(([family, weights]) => {
+    const weightParam = [...weights].sort((a, b) => a - b).join(';');
+    return `family=${encodeURIComponent(family)}:wght@${weightParam}`;
+  });
   const href = `${GOOGLE_FONTS_CSS_URL}?${params.join('&')}&display=swap`;
   return `<link rel="stylesheet" href="${href}">`;
 }
