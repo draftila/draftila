@@ -26,7 +26,7 @@ interface EditorState {
   activeCommentId: string | null;
   aiActiveFrameIds: Set<string>;
   devMode: boolean;
-  inspectTab: 'list' | 'code' | 'preview';
+  inspectTab: 'list' | 'code';
   versionHistoryOpen: boolean;
   previewSnapshotId: string | null;
   previewYdoc: Y.Doc | null;
@@ -60,7 +60,7 @@ interface EditorState {
   setActiveCommentId: (id: string | null) => void;
   setAiActiveFrameIds: (ids: Set<string>) => void;
   setDevMode: (on: boolean) => void;
-  setInspectTab: (tab: 'list' | 'code' | 'preview') => void;
+  setInspectTab: (tab: 'list' | 'code') => void;
   setVersionHistoryOpen: (open: boolean) => void;
   enterPreviewMode: (snapshotId: string, ydoc: Y.Doc) => void;
   exitPreviewMode: () => void;

@@ -52,7 +52,10 @@ function collectGoogleFontWeights(shapes: Shape[]): Map<string, Set<number>> {
     addFamilyWeight(shape.fontFamily, shape.fontWeight);
     if (!shape.segments) continue;
     for (const segment of shape.segments) {
-      addFamilyWeight(segment.fontFamily ?? shape.fontFamily, segment.fontWeight ?? shape.fontWeight);
+      addFamilyWeight(
+        segment.fontFamily ?? shape.fontFamily,
+        segment.fontWeight ?? shape.fontWeight,
+      );
     }
   }
 
@@ -309,7 +312,12 @@ export function generateHtmlTailwind(
 ): string {
   const { html } = generateHtmlTailwindParts(shapes);
   if (!html) return '';
-  return assembleTailwindDocument(html, inlineScript, buildGoogleFontsLink(shapes), backgroundColor);
+  return assembleTailwindDocument(
+    html,
+    inlineScript,
+    buildGoogleFontsLink(shapes),
+    backgroundColor,
+  );
 }
 
 export function assembleHtmlWithCssLink(bodyHtml: string, cssFileName: string): string {

@@ -6,7 +6,12 @@ import { shapesToInterchange } from './interchange/converter';
 import { generateSvg } from './interchange/svg/svg-generator';
 import { collectFontFamilies, ensureFontsLoadedAsync } from './font-manager';
 
-function getShapesBounds(shapes: Shape[]): { minX: number; minY: number; maxX: number; maxY: number } {
+function getShapesBounds(shapes: Shape[]): {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+} {
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
