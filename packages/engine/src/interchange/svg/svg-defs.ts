@@ -3,7 +3,7 @@ import type {
   InterchangeBlur,
   InterchangeGradient,
 } from '../interchange-format';
-import { parseHexAlpha } from './svg-gen-utils';
+import { parseHexAlpha, svgColor } from './svg-gen-utils';
 
 export function buildDropShadowFilter(
   shadows: InterchangeShadow[],
@@ -70,7 +70,7 @@ export function buildGradientDef(gradient: InterchangeGradient, gradId: string):
     const y2 = 0.5 + Math.sin(angleRad) * 0.5;
 
     const stops = gradient.stops
-      .map((s) => `<stop offset="${s.position}" stop-color="${s.color}"/>`)
+      .map((s) => `<stop offset="${s.position}" stop-color="${svgColor(s.color, 1)}"/>`)
       .join('');
     return `<linearGradient id="${gradId}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}">${stops}</linearGradient>`;
   }

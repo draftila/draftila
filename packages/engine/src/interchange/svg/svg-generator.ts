@@ -206,6 +206,8 @@ function nodeToSvg(
   offsetY: number,
   rctx: RenderContext,
 ): string {
+  if (!node.visible) return '';
+
   const ox = node.x - offsetX;
   const oy = node.y - offsetY;
 

@@ -14,15 +14,6 @@ export function escapeXml(text: string): string {
     .replace(/'/g, '&apos;');
 }
 
-export function svgColor(hex: string, opacity: number): string {
-  if (opacity >= 1) return hex;
-  if (opacity <= 0) return 'transparent';
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r},${g},${b},${opacity})`;
-}
-
 export function parseHexAlpha(color: string): { r: number; g: number; b: number; a: number } {
   let r = 0;
   let g = 0;
@@ -37,6 +28,14 @@ export function parseHexAlpha(color: string): { r: number; g: number; b: number;
     a = parseInt(color.slice(7, 9), 16) / 255;
   }
   return { r, g, b, a };
+}
+
+export function svgColor(hex: string, opacity: number): string {
+  const { r, g, b, a } = parseHexAlpha(hex);
+  const finalAlpha = a * opacity;
+  if (finalAlpha <= 0) return 'transparent';
+  if (finalAlpha >= 1) return hex.slice(0, 7);
+  return `rgba(${r},${g},${b},${+finalAlpha.toFixed(4)})`;
 }
 
 export function dashPatternToSvg(pattern: InterchangeDashPattern, strokeWidth: number): string {

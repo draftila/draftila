@@ -314,6 +314,71 @@ describe('SVG Generator', () => {
     expect(svg).not.toContain('fill-rule');
   });
 
+  test('converts 8-digit hex fill color to rgba', () => {
+    const node = createInterchangeNode('rectangle', {
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      fills: [{ color: '#FFFFFF80', opacity: 1, visible: true }],
+    });
+    const doc = createInterchangeDocument([node], { source: 'test' });
+    const svg = generateSvg(doc);
+    expect(svg).not.toContain('#FFFFFF80');
+    expect(svg).toContain('rgba(255,255,255,');
+  });
+
+  test('converts 8-digit hex stroke color to rgba', () => {
+    const node = createInterchangeNode('rectangle', {
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      fills: [],
+      strokes: [
+        {
+          color: '#FFFFFF25',
+          width: 3,
+          opacity: 1,
+          visible: true,
+          cap: 'butt',
+          join: 'miter',
+          align: 'center',
+          dashPattern: 'solid',
+          dashOffset: 0,
+          miterLimit: 4,
+        },
+      ],
+    });
+    const doc = createInterchangeDocument([node], { source: 'test' });
+    const svg = generateSvg(doc);
+    expect(svg).not.toContain('#FFFFFF25');
+    expect(svg).toContain('rgba(255,255,255,');
+  });
+
+  test('excludes invisible nodes from SVG output', () => {
+    const visible = createInterchangeNode('rectangle', {
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      visible: true,
+      fills: [{ color: '#FF0000', opacity: 1, visible: true }],
+    });
+    const hidden = createInterchangeNode('ellipse', {
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      visible: false,
+      fills: [{ color: '#00FF00', opacity: 1, visible: true }],
+    });
+    const doc = createInterchangeDocument([visible, hidden], { source: 'test' });
+    const svg = generateSvg(doc);
+    expect(svg).toContain('<rect');
+    expect(svg).not.toContain('<ellipse');
+  });
+
   test('generates gradient definitions', () => {
     const node = createInterchangeNode('rectangle', {
       x: 0,
