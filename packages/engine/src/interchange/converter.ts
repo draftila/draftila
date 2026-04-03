@@ -111,7 +111,7 @@ function shapeToNode(shape: Shape, childrenByParent: Map<string, Shape[]>): Inte
 
   const gradients: InterchangeGradient[] = [];
   for (const fill of fills) {
-    if (fill.gradient) {
+    if (fill.gradient && fill.visible) {
       gradients.push(gradientToInterchange(fill.gradient));
     }
   }
