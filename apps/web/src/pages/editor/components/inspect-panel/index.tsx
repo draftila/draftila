@@ -12,7 +12,6 @@ import { InspectEffects } from './inspect-effects';
 import { InspectLayout } from './inspect-layout';
 import { InspectConstraints } from './inspect-constraints';
 import { InspectCode } from './inspect-code';
-import { InspectPreview } from './inspect-preview';
 
 interface InspectPanelProps {
   ydoc: Y.Doc;
@@ -65,17 +64,10 @@ export function InspectPanel({ ydoc }: InspectPanelProps) {
           <TabButton active={activeTab === 'code'} onClick={() => setActiveTab('code')}>
             Code
           </TabButton>
-          <TabButton active={activeTab === 'preview'} onClick={() => setActiveTab('preview')}>
-            Preview
-          </TabButton>
         </div>
       </div>
-      {activeTab === 'preview' ? (
+      {activeTab === 'code' ? (
         <div className="min-h-0 flex-1">
-          <InspectPreview ydoc={ydoc} shapes={shapes} />
-        </div>
-      ) : activeTab === 'code' ? (
-        <div className="min-h-0 flex-1 overflow-auto">
           <InspectCode ydoc={ydoc} shapes={shapes} />
         </div>
       ) : (

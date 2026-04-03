@@ -173,7 +173,7 @@ function renderFillsAndStrokes(
     if (stroke.dashOffset) strokeAttrs += ` stroke-dashoffset="${stroke.dashOffset}"`;
 
     if (stroke.align === 'inside') {
-      const clipId = `stroke-clip-${rctx.defCounter++}`;
+      const clipId = `${rctx.idPrefix}stroke-clip-${rctx.defCounter++}`;
       rctx.defs.push(`<clipPath id="${clipId}"><${geom.tag} ${geom.attrs}/></clipPath>`);
       const insideAttrs = strokeAttrs.replace(
         `stroke-width="${stroke.width}"`,
@@ -183,7 +183,7 @@ function renderFillsAndStrokes(
         `<${geom.tag} ${geom.attrs} fill="none" ${insideAttrs} clip-path="url(#${clipId})"/>`,
       );
     } else if (stroke.align === 'outside') {
-      const maskId = `stroke-mask-${rctx.defCounter++}`;
+      const maskId = `${rctx.idPrefix}stroke-mask-${rctx.defCounter++}`;
       rctx.defs.push(
         `<mask id="${maskId}"><rect x="-50%" y="-50%" width="200%" height="200%" fill="white"/><${geom.tag} ${geom.attrs} fill="black"/></mask>`,
       );
@@ -211,7 +211,7 @@ function nodeToSvg(
 
   let dropFilterAttr = '';
   if (node.shadows.length > 0 || node.blurs.length > 0) {
-    const filterId = `filter-${rctx.defCounter++}`;
+    const filterId = `${rctx.idPrefix}filter-${rctx.defCounter++}`;
     const filterDef = buildDropShadowFilter(node.shadows, node.blurs, filterId);
     if (filterDef) {
       rctx.defs.push(filterDef);
@@ -222,7 +222,7 @@ function nodeToSvg(
   let innerShadowAttr = '';
   const innerShadows = node.shadows.filter((s) => s.type === 'inner' && s.visible);
   if (innerShadows.length > 0) {
-    const filterId = `inner-${rctx.defCounter++}`;
+    const filterId = `${rctx.idPrefix}inner-${rctx.defCounter++}`;
     const filterDef = buildInnerShadowFilter(node.shadows, filterId);
     if (filterDef) {
       rctx.defs.push(filterDef);
@@ -232,7 +232,7 @@ function nodeToSvg(
 
   const gradientIds: string[] = [];
   for (const grad of node.gradients) {
-    const gradId = `grad-${rctx.defCounter++}`;
+    const gradId = `${rctx.idPrefix}grad-${rctx.defCounter++}`;
     rctx.defs.push(buildGradientDef(grad, gradId));
     gradientIds.push(gradId);
   }
@@ -267,7 +267,7 @@ function nodeToSvg(
         .map((child) => nodeToSvg(child, offsetX, offsetY, rctx))
         .join('');
 
-      const clipId = node.clip ? `clip-${rctx.defCounter++}` : null;
+      const clipId = node.clip ? `${rctx.idPrefix}clip-${rctx.defCounter++}` : null;
       if (clipId) {
         const geom = buildShapeGeometry(node, ox, oy);
         if (geom) {
@@ -397,7 +397,7 @@ function nodeToSvg(
   return `<g${gAttrs}>${content}</g>`;
 }
 
-export function generateSvg(doc: InterchangeDocument): string {
+export function generateSvg(doc: InterchangeDocument, idPrefix = ''): string {
   if (doc.nodes.length === 0) {
     return '<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0"></svg>';
   }
@@ -421,7 +421,7 @@ export function generateSvg(doc: InterchangeDocument): string {
   const width = maxX - minX;
   const height = maxY - minY;
 
-  const rctx: RenderContext = { defs: [], defCounter: 0 };
+  const rctx: RenderContext = { defs: [], defCounter: 0, idPrefix };
   const elements: string[] = [];
 
   for (const node of doc.nodes) {

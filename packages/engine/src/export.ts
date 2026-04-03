@@ -6,6 +6,25 @@ import { shapesToInterchange } from './interchange/converter';
 import { generateSvg } from './interchange/svg/svg-generator';
 import { collectFontFamilies, ensureFontsLoadedAsync } from './font-manager';
 
+function getShapesBounds(shapes: Shape[]): {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+} {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const s of shapes) {
+    minX = Math.min(minX, s.x);
+    minY = Math.min(minY, s.y);
+    maxX = Math.max(maxX, s.x + s.width);
+    maxY = Math.max(maxY, s.y + s.height);
+  }
+  return { minX, minY, maxX, maxY };
+}
+
 export function renderWithClipping(renderer: Renderer, shapes: Shape[]) {
   const clipStack: string[] = [];
   const shapeMap = new Map(shapes.map((s) => [s.id, s]));
@@ -61,16 +80,7 @@ export async function exportToPng(
     await ensureFontsLoadedAsync(families);
   }
 
-  let minX = Infinity,
-    minY = Infinity,
-    maxX = -Infinity,
-    maxY = -Infinity;
-  for (const s of shapes) {
-    minX = Math.min(minX, s.x);
-    minY = Math.min(minY, s.y);
-    maxX = Math.max(maxX, s.x + s.width);
-    maxY = Math.max(maxY, s.y + s.height);
-  }
+  const { minX, minY, maxX, maxY } = getShapesBounds(shapes);
 
   const width = maxX - minX;
   const height = maxY - minY;
@@ -139,16 +149,7 @@ export async function exportToJpg(
     await ensureFontsLoadedAsync(families);
   }
 
-  let minX = Infinity,
-    minY = Infinity,
-    maxX = -Infinity,
-    maxY = -Infinity;
-  for (const s of shapes) {
-    minX = Math.min(minX, s.x);
-    minY = Math.min(minY, s.y);
-    maxX = Math.max(maxX, s.x + s.width);
-    maxY = Math.max(maxY, s.y + s.height);
-  }
+  const { minX, minY, maxX, maxY } = getShapesBounds(shapes);
 
   const width = maxX - minX;
   const height = maxY - minY;
@@ -157,7 +158,9 @@ export async function exportToJpg(
   const renderer = new Canvas2DRenderer(canvas);
   renderer.resize(width, height, scale);
   renderer.clear();
-  renderer.fillBackground(backgroundColor ?? '#ffffff');
+  if (backgroundColor) {
+    renderer.fillBackground(backgroundColor);
+  }
 
   renderer.save();
   renderer.applyCamera({ x: -minX, y: -minY, zoom: 1 });

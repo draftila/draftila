@@ -16,6 +16,51 @@ import { shapeToClasses } from './tailwind-generator';
 interface CssContext {
   cssBlocks: string[];
   usedNames: Map<string, number>;
+  svgIdCounter: number;
+}
+
+const CSS_GENERIC_FAMILIES = new Set([
+  'serif',
+  'sans-serif',
+  'monospace',
+  'cursive',
+  'fantasy',
+  'system-ui',
+  'ui-serif',
+  'ui-sans-serif',
+  'ui-monospace',
+  'ui-rounded',
+]);
+
+const GOOGLE_FONTS_CSS_URL = 'https://fonts.googleapis.com/css2';
+
+function normalizeFontWeight(weight: number): number {
+  const normalizedWeight = Number.isFinite(weight) ? Math.round(weight) : 400;
+  return Math.max(100, Math.min(900, normalizedWeight));
+}
+
+function collectGoogleFontWeights(shapes: Shape[]): Map<string, Set<number>> {
+  const familyWeights = new Map<string, Set<number>>();
+  const addFamilyWeight = (family: string, weight: number) => {
+    if (CSS_GENERIC_FAMILIES.has(family)) return;
+    const weights = familyWeights.get(family) ?? new Set<number>();
+    weights.add(normalizeFontWeight(weight));
+    familyWeights.set(family, weights);
+  };
+
+  const textShapes = shapes.filter((shape): shape is TextShape => shape.type === 'text');
+  for (const shape of textShapes) {
+    addFamilyWeight(shape.fontFamily, shape.fontWeight);
+    if (!shape.segments) continue;
+    for (const segment of shape.segments) {
+      addFamilyWeight(
+        segment.fontFamily ?? shape.fontFamily,
+        segment.fontWeight ?? shape.fontWeight,
+      );
+    }
+  }
+
+  return familyWeights;
 }
 
 function uniqueClassName(name: string, fallback: string, usedNames: Map<string, number>): string {
@@ -94,7 +139,8 @@ function nodeToHtmlCss(
   }
 
   if (isVector) {
-    const svg = shapeToInlineSvg(shape);
+    const svgPrefix = `s${ctx.svgIdCounter++}-`;
+    const svg = shapeToInlineSvg(shape, svgPrefix);
     return indent(`<div class="${className}">\n  ${svg}\n</div>`, depth);
   }
 
@@ -134,7 +180,16 @@ function renderTextContentCss(shape: TextShape, _parentClass: string, ctx: CssCo
     .join('');
 }
 
-function nodeToHtmlTailwind(node: ShapeTreeNode, depth: number, shapeCtx?: ShapeContext): string {
+interface TailwindContext {
+  svgIdCounter: number;
+}
+
+function nodeToHtmlTailwind(
+  node: ShapeTreeNode,
+  twCtx: TailwindContext,
+  depth: number,
+  shapeCtx?: ShapeContext,
+): string {
   if (!node.shape.visible) return '';
 
   const shape = node.shape;
@@ -164,7 +219,8 @@ function nodeToHtmlTailwind(node: ShapeTreeNode, depth: number, shapeCtx?: Shape
   }
 
   if (isVector) {
-    const svg = shapeToInlineSvg(shape);
+    const svgPrefix = `s${twCtx.svgIdCounter++}-`;
+    const svg = shapeToInlineSvg(shape, svgPrefix);
     return indent(`<div class="${classes}">\n  ${svg}\n</div>`, depth);
   }
 
@@ -172,7 +228,7 @@ function nodeToHtmlTailwind(node: ShapeTreeNode, depth: number, shapeCtx?: Shape
   if (isContainer && node.children.length > 0) {
     const childCtx = childContextForShape(shape);
     const childrenHtml = node.children
-      .map((child) => nodeToHtmlTailwind(child, depth + 1, childCtx))
+      .map((child) => nodeToHtmlTailwind(child, twCtx, depth + 1, childCtx))
       .filter(Boolean)
       .join('\n');
     return (
@@ -212,6 +268,17 @@ export interface HtmlTailwindOutput {
   html: string;
 }
 
+function buildGoogleFontsLink(shapes: Shape[]): string {
+  const familyWeights = collectGoogleFontWeights(shapes);
+  if (familyWeights.size === 0) return '';
+  const params = [...familyWeights.entries()].map(([family, weights]) => {
+    const weightParam = [...weights].sort((a, b) => a - b).join(';');
+    return `family=${encodeURIComponent(family)}:wght@${weightParam}`;
+  });
+  const href = `${GOOGLE_FONTS_CSS_URL}?${params.join('&')}&display=swap`;
+  return `<link rel="stylesheet" href="${href}">`;
+}
+
 export function generateHtmlCssParts(shapes: Shape[]): HtmlCssOutput {
   if (shapes.length === 0) return { html: '', css: '' };
 
@@ -219,6 +286,7 @@ export function generateHtmlCssParts(shapes: Shape[]): HtmlCssOutput {
   const ctx: CssContext = {
     cssBlocks: [],
     usedNames: new Map(),
+    svgIdCounter: 0,
   };
 
   const html = tree
@@ -235,25 +303,35 @@ export function generateHtmlTailwindParts(shapes: Shape[]): HtmlTailwindOutput {
   if (shapes.length === 0) return { html: '' };
 
   const tree = buildShapeTree(shapes);
+  const twCtx: TailwindContext = { svgIdCounter: 0 };
 
   const html = tree
-    .map((node) => nodeToHtmlTailwind(node, 1))
+    .map((node) => nodeToHtmlTailwind(node, twCtx, 1))
     .filter(Boolean)
     .join('\n');
 
   return { html };
 }
 
-export function generateHtmlCss(shapes: Shape[]): string {
+export function generateHtmlCss(shapes: Shape[], backgroundColor?: string | null): string {
   const { html, css } = generateHtmlCssParts(shapes);
   if (!html) return '';
-  return assembleCssDocument(html, css);
+  return assembleCssDocument(html, css, buildGoogleFontsLink(shapes), backgroundColor);
 }
 
-export function generateHtmlTailwind(shapes: Shape[], inlineScript?: string): string {
+export function generateHtmlTailwind(
+  shapes: Shape[],
+  inlineScript?: string,
+  backgroundColor?: string | null,
+): string {
   const { html } = generateHtmlTailwindParts(shapes);
   if (!html) return '';
-  return assembleTailwindDocument(html, inlineScript);
+  return assembleTailwindDocument(
+    html,
+    inlineScript,
+    buildGoogleFontsLink(shapes),
+    backgroundColor,
+  );
 }
 
 export function assembleHtmlWithCssLink(bodyHtml: string, cssFileName: string): string {
@@ -276,15 +354,22 @@ ${bodyHtml}
 </html>`;
 }
 
-function assembleCssDocument(bodyHtml: string, css: string): string {
+function assembleCssDocument(
+  bodyHtml: string,
+  css: string,
+  fontLinkTag: string,
+  backgroundColor?: string | null,
+): string {
   const resetCss = '* { margin: 0; padding: 0; box-sizing: border-box; }';
-  const bodyCss = 'body { display: flex; justify-content: center; padding: 16px; }';
+  const bodyBg = backgroundColor ? ` background: ${backgroundColor};` : '';
+  const bodyCss = `body { display: flex; justify-content: center; padding: 16px;${bodyBg} }`;
   const styleContent = [resetCss, bodyCss, css].filter(Boolean).join('\n    ');
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  ${fontLinkTag}
   <style>
     ${styleContent}
   </style>
@@ -297,18 +382,25 @@ ${bodyHtml}
 
 export const TAILWIND_CDN_URL = 'https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4';
 
-function assembleTailwindDocument(bodyHtml: string, inlineScript?: string): string {
+function assembleTailwindDocument(
+  bodyHtml: string,
+  inlineScript?: string,
+  fontLinkTag = '',
+  backgroundColor?: string | null,
+): string {
   const scriptTag = inlineScript
     ? `<script>${inlineScript}</script>`
     : `<script src="${TAILWIND_CDN_URL}"></script>`;
+  const bodyBg = backgroundColor ? ` background: ${backgroundColor};` : '';
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  ${fontLinkTag}
   ${scriptTag}
   <style type="text/tailwindcss">
-    body { display: flex; justify-content: center; padding: 16px; }
+    body { display: flex; justify-content: center; padding: 16px;${bodyBg} }
   </style>
 </head>
 <body>

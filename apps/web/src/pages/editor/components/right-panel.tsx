@@ -234,11 +234,8 @@ export function RightPanel({ ydoc, draftId }: RightPanelProps) {
 }
 
 function DevModePanel({ ydoc }: { ydoc: Y.Doc }) {
-  const inspectTab = useEditorStore((s) => s.inspectTab);
-  const panelWidth = inspectTab === 'preview' ? 'w-[560px]' : 'w-72';
-
   return (
-    <div className={`flex h-full ${panelWidth} shrink-0 flex-col border-l transition-[width]`}>
+    <div className="flex h-full w-72 shrink-0 flex-col border-l">
       <ZoomControls ydoc={ydoc} />
       <div className="min-h-0 flex-1">
         <InspectPanel ydoc={ydoc} />
