@@ -4,6 +4,7 @@ import {
   svgColor,
   resolveDashArraySvg,
   rectPath,
+  offsetSvgPath,
   type RenderContext,
 } from './svg-gen-utils';
 import { buildDropShadowFilter, buildInnerShadowFilter, buildGradientDef } from './svg-defs';
@@ -42,13 +43,12 @@ function buildShapeGeometry(
   ox: number,
   oy: number,
 ): { tag: string; attrs: string; selfClose: boolean } | null {
-  const translateAttr = ox !== 0 || oy !== 0 ? ` transform="translate(${ox},${oy})"` : '';
-
   if (node.svgPathData && node.type !== 'frame') {
     const fillRuleAttr = node.fillRule === 'evenodd' ? ' fill-rule="evenodd"' : '';
+    const offsetD = offsetSvgPath(node.svgPathData, ox, oy);
     return {
       tag: 'path',
-      attrs: `d="${node.svgPathData}"${fillRuleAttr}${translateAttr}`,
+      attrs: `d="${offsetD}"${fillRuleAttr}`,
       selfClose: true,
     };
   }
@@ -124,9 +124,10 @@ function buildShapeGeometry(
     case 'path': {
       if (node.svgPathData) {
         const fillRuleAttr = node.fillRule === 'evenodd' ? ' fill-rule="evenodd"' : '';
+        const offsetD = offsetSvgPath(node.svgPathData, ox, oy);
         return {
           tag: 'path',
-          attrs: `d="${node.svgPathData}"${fillRuleAttr}${translateAttr}`,
+          attrs: `d="${offsetD}"${fillRuleAttr}`,
           selfClose: true,
         };
       }

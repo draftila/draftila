@@ -4,6 +4,59 @@ import {
   createInterchangeNode,
   createInterchangeDocument,
 } from '../../../src/interchange/interchange-format';
+import { offsetSvgPath } from '../../../src/interchange/svg/svg-gen-utils';
+
+describe('offsetSvgPath', () => {
+  test('returns original path when offset is zero', () => {
+    const d = 'M10 20H50V80H10Z';
+    expect(offsetSvgPath(d, 0, 0)).toBe(d);
+  });
+
+  test('offsets absolute M and L commands', () => {
+    const result = offsetSvgPath('M10 20L50 60', 100, 200);
+    expect(result).toContain('110');
+    expect(result).toContain('220');
+    expect(result).toContain('150');
+    expect(result).toContain('260');
+  });
+
+  test('offsets absolute H command (x only)', () => {
+    const result = offsetSvgPath('M0 0H100', 50, 0);
+    expect(result).toContain('H 150');
+  });
+
+  test('offsets absolute V command (y only)', () => {
+    const result = offsetSvgPath('M0 0V100', 0, 50);
+    expect(result).toContain('V 150');
+  });
+
+  test('does not modify relative commands', () => {
+    const result = offsetSvgPath('M0 0l50 60', 100, 200);
+    expect(result).toContain('l 50 60');
+  });
+
+  test('offsets absolute C command (cubic bezier)', () => {
+    const result = offsetSvgPath('M0 0C10 20 30 40 50 60', 5, 10);
+    expect(result).toContain('15');
+    expect(result).toContain('30');
+  });
+
+  test('offsets absolute A command (only endpoint)', () => {
+    const result = offsetSvgPath('M0 0A24 24 0 0 1 200 24', 50, 50);
+    expect(result).toContain('250');
+    expect(result).toContain('74');
+    expect(result).toContain('A 24 24 0 0 1');
+  });
+
+  test('handles complex rounded rect path', () => {
+    const d =
+      'M24 0H176C194.55 0 200 5.45 200 24V176C200 194.55 194.55 200 176 200H24C5.45 200 0 194.55 0 176V24C0 5.45 5.45 0 24 0Z';
+    const result = offsetSvgPath(d, 50, 50);
+    expect(result).not.toContain('M 24 0');
+    expect(result).toContain('M 74 50');
+    expect(result).toContain('Z');
+  });
+});
 
 describe('SVG Generator', () => {
   test('generates empty SVG for empty document', () => {
@@ -377,6 +430,59 @@ describe('SVG Generator', () => {
     const svg = generateSvg(doc);
     expect(svg).toContain('<rect');
     expect(svg).not.toContain('<ellipse');
+  });
+
+  test('inside stroke on offset svgPathData has no transform attributes', () => {
+    const node = createInterchangeNode('rectangle', {
+      x: 50,
+      y: 50,
+      width: 200,
+      height: 200,
+      fills: [{ color: '#FFFFFF10', opacity: 1, visible: true }],
+      strokes: [
+        {
+          color: '#FFFFFF80',
+          width: 3,
+          opacity: 1,
+          visible: true,
+          cap: 'butt',
+          join: 'miter',
+          align: 'inside',
+          dashPattern: 'solid',
+          dashOffset: 0,
+          miterLimit: 4,
+        },
+      ],
+      svgPathData:
+        'M24 0H176C194.55 0 200 5.45 200 24V176C200 194.55 194.55 200 176 200H24C5.45 200 0 194.55 0 176V24C0 5.45 5.45 0 24 0Z',
+    });
+    const doc = createInterchangeDocument([node], { source: 'test' });
+    const svg = generateSvg(doc);
+    expect(svg).not.toContain('transform=');
+    expect(svg).toContain('clip-path=');
+    expect(svg).toContain('stroke-width="6"');
+  });
+
+  test('offset svgPathData bakes coordinates into path data', () => {
+    const bg = createInterchangeNode('rectangle', {
+      x: 0,
+      y: 0,
+      width: 200,
+      height: 200,
+      fills: [{ color: '#000000', opacity: 1, visible: true }],
+    });
+    const node = createInterchangeNode('rectangle', {
+      x: 50,
+      y: 50,
+      width: 100,
+      height: 100,
+      fills: [{ color: '#FF0000', opacity: 1, visible: true }],
+      svgPathData: 'M10 0H90L100 100H0Z',
+    });
+    const doc = createInterchangeDocument([bg, node], { source: 'test' });
+    const svg = generateSvg(doc);
+    expect(svg).not.toContain('transform=');
+    expect(svg).toContain('M 60 50');
   });
 
   test('generates gradient definitions', () => {

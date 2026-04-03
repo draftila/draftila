@@ -59,6 +59,106 @@ export function resolveDashArraySvg(stroke: InterchangeStroke): string {
   return dashPatternToSvg(stroke.dashPattern, stroke.width);
 }
 
+const SVG_PATH_TOKEN = /([MmLlHhVvCcSsQqTtAaZz])|(-?\d*\.?\d+(?:e[+-]?\d+)?)/g;
+
+export function offsetSvgPath(d: string, dx: number, dy: number): string {
+  if (dx === 0 && dy === 0) return d;
+
+  const tokens: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = SVG_PATH_TOKEN.exec(d)) !== null) {
+    tokens.push(match[0]);
+  }
+
+  const out: string[] = [];
+  let i = 0;
+
+  while (i < tokens.length) {
+    const cmd = tokens[i]!;
+    out.push(cmd);
+    i++;
+
+    const isRelative = cmd === cmd.toLowerCase();
+    const upper = cmd.toUpperCase();
+
+    if (upper === 'Z') continue;
+
+    if (isRelative) {
+      const count = paramCount(upper);
+      for (let j = 0; j < count && i < tokens.length; j++) {
+        out.push(tokens[i]!);
+        i++;
+      }
+      continue;
+    }
+
+    switch (upper) {
+      case 'H':
+        while (i < tokens.length && !isCommand(tokens[i]!)) {
+          out.push(String(parseFloat(tokens[i]!) + dx));
+          i++;
+        }
+        break;
+      case 'V':
+        while (i < tokens.length && !isCommand(tokens[i]!)) {
+          out.push(String(parseFloat(tokens[i]!) + dy));
+          i++;
+        }
+        break;
+      case 'A':
+        while (i < tokens.length && !isCommand(tokens[i]!)) {
+          out.push(tokens[i]!);
+          out.push(tokens[i + 1]!);
+          out.push(tokens[i + 2]!);
+          out.push(tokens[i + 3]!);
+          out.push(tokens[i + 4]!);
+          out.push(String(parseFloat(tokens[i + 5]!) + dx));
+          out.push(String(parseFloat(tokens[i + 6]!) + dy));
+          i += 7;
+        }
+        break;
+      default: {
+        while (i < tokens.length && !isCommand(tokens[i]!)) {
+          out.push(String(parseFloat(tokens[i]!) + dx));
+          i++;
+          if (i < tokens.length && !isCommand(tokens[i]!)) {
+            out.push(String(parseFloat(tokens[i]!) + dy));
+            i++;
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  return out.join(' ');
+}
+
+function paramCount(cmd: string): number {
+  switch (cmd) {
+    case 'M':
+    case 'L':
+    case 'T':
+      return 2;
+    case 'H':
+    case 'V':
+      return 1;
+    case 'C':
+      return 6;
+    case 'S':
+    case 'Q':
+      return 4;
+    case 'A':
+      return 7;
+    default:
+      return 0;
+  }
+}
+
+function isCommand(token: string): boolean {
+  return /^[MmLlHhVvCcSsQqTtAaZz]$/.test(token);
+}
+
 export function rectPath(
   x: number,
   y: number,
