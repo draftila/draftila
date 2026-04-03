@@ -76,9 +76,15 @@ export function ExportSection({ ydoc, shape, shapeScope }: PropertySectionProps)
 
       const currentPageId = useEditorStore.getState().activePageId;
       const pageBg = currentPageId ? getPageBackgroundColor(ydoc, currentPageId) : null;
+      const isCanvasExport = shape.id === 'canvas-scope';
 
       if (config.format === 'PNG') {
-        await exportAndDownloadPng(exportShapes, `${baseName}${suffix}.png`, scale, pageBg);
+        await exportAndDownloadPng(
+          exportShapes,
+          `${baseName}${suffix}.png`,
+          scale,
+          isCanvasExport ? pageBg : null,
+        );
       } else if (config.format === 'JPG') {
         const quality = QUALITY_VALUES[config.quality];
         await exportAndDownloadJpg(
@@ -86,7 +92,7 @@ export function ExportSection({ ydoc, shape, shapeScope }: PropertySectionProps)
           `${baseName}${suffix}.jpg`,
           scale,
           quality,
-          pageBg,
+          isCanvasExport ? pageBg : null,
         );
       } else if (config.format === 'SVG') {
         await exportAndDownloadSvg(exportShapes, `${baseName}${suffix}.svg`);

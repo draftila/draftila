@@ -3,6 +3,7 @@ import type { InterchangeStroke, InterchangeDashPattern } from '../interchange-f
 export interface RenderContext {
   defs: string[];
   defCounter: number;
+  idPrefix: string;
 }
 
 export function escapeXml(text: string): string {

@@ -35,10 +35,13 @@ export function roundTo(value: number, decimals: number): number {
 
 export function sanitizeName(name: string, fallbackType: string): string {
   const base = name.trim() || fallbackType;
-  return base
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+  const normalized = base.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const hyphenCode = '-'.charCodeAt(0);
+  let start = 0;
+  let end = normalized.length;
+  while (start < end && normalized.charCodeAt(start) === hyphenCode) start += 1;
+  while (end > start && normalized.charCodeAt(end - 1) === hyphenCode) end -= 1;
+  return normalized.slice(start, end);
 }
 
 export function sanitizeSwiftName(name: string, fallbackType: string): string {
@@ -145,10 +148,32 @@ export function escapeHtml(text: string): string {
 }
 
 export function sanitizeSvgContent(svg: string): string {
-  return svg
-    .replace(/<script[\s>][\s\S]*?<\/script>/gi, '')
-    .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
-    .replace(/\son\w+\s*=\s*'[^']*'/gi, '');
+  if (typeof DOMParser === 'undefined') return '';
+
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svg, 'image/svg+xml');
+
+    const scripts = Array.from(doc.getElementsByTagName('script'));
+    for (const script of scripts) {
+      script.remove();
+    }
+
+    const allElements = doc.getElementsByTagName('*');
+    for (const element of allElements) {
+      const attrNames = element.getAttributeNames();
+      for (const attrName of attrNames) {
+        if (attrName.toLowerCase().startsWith('on')) {
+          element.removeAttribute(attrName);
+        }
+      }
+    }
+
+    const root = doc.documentElement;
+    return root ? root.outerHTML : '';
+  } catch {
+    return '';
+  }
 }
 
 export function gradientToCssValue(
@@ -209,8 +234,8 @@ export function isVectorShape(shape: Shape): boolean {
   return VECTOR_TYPES.has(shape.type);
 }
 
-export function shapeToInlineSvg(shape: Shape): string {
+export function shapeToInlineSvg(shape: Shape, idPrefix = ''): string {
   const normalized: Shape = { ...shape, x: 0, y: 0, rotation: 0, opacity: 1 };
   const doc = shapesToInterchange([normalized]);
-  return generateSvg(doc);
+  return generateSvg(doc, idPrefix);
 }
