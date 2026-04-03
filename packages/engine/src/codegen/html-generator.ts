@@ -16,6 +16,7 @@ import { shapeToClasses } from './tailwind-generator';
 interface CssContext {
   cssBlocks: string[];
   usedNames: Map<string, number>;
+  svgIdCounter: number;
 }
 
 const CSS_GENERIC_FAMILIES = new Set([
@@ -138,7 +139,8 @@ function nodeToHtmlCss(
   }
 
   if (isVector) {
-    const svg = shapeToInlineSvg(shape);
+    const svgPrefix = `s${ctx.svgIdCounter++}-`;
+    const svg = shapeToInlineSvg(shape, svgPrefix);
     return indent(`<div class="${className}">\n  ${svg}\n</div>`, depth);
   }
 
@@ -178,7 +180,16 @@ function renderTextContentCss(shape: TextShape, _parentClass: string, ctx: CssCo
     .join('');
 }
 
-function nodeToHtmlTailwind(node: ShapeTreeNode, depth: number, shapeCtx?: ShapeContext): string {
+interface TailwindContext {
+  svgIdCounter: number;
+}
+
+function nodeToHtmlTailwind(
+  node: ShapeTreeNode,
+  twCtx: TailwindContext,
+  depth: number,
+  shapeCtx?: ShapeContext,
+): string {
   if (!node.shape.visible) return '';
 
   const shape = node.shape;
@@ -208,7 +219,8 @@ function nodeToHtmlTailwind(node: ShapeTreeNode, depth: number, shapeCtx?: Shape
   }
 
   if (isVector) {
-    const svg = shapeToInlineSvg(shape);
+    const svgPrefix = `s${twCtx.svgIdCounter++}-`;
+    const svg = shapeToInlineSvg(shape, svgPrefix);
     return indent(`<div class="${classes}">\n  ${svg}\n</div>`, depth);
   }
 
@@ -216,7 +228,7 @@ function nodeToHtmlTailwind(node: ShapeTreeNode, depth: number, shapeCtx?: Shape
   if (isContainer && node.children.length > 0) {
     const childCtx = childContextForShape(shape);
     const childrenHtml = node.children
-      .map((child) => nodeToHtmlTailwind(child, depth + 1, childCtx))
+      .map((child) => nodeToHtmlTailwind(child, twCtx, depth + 1, childCtx))
       .filter(Boolean)
       .join('\n');
     return (
@@ -274,6 +286,7 @@ export function generateHtmlCssParts(shapes: Shape[]): HtmlCssOutput {
   const ctx: CssContext = {
     cssBlocks: [],
     usedNames: new Map(),
+    svgIdCounter: 0,
   };
 
   const html = tree
@@ -290,9 +303,10 @@ export function generateHtmlTailwindParts(shapes: Shape[]): HtmlTailwindOutput {
   if (shapes.length === 0) return { html: '' };
 
   const tree = buildShapeTree(shapes);
+  const twCtx: TailwindContext = { svgIdCounter: 0 };
 
   const html = tree
-    .map((node) => nodeToHtmlTailwind(node, 1))
+    .map((node) => nodeToHtmlTailwind(node, twCtx, 1))
     .filter(Boolean)
     .join('\n');
 

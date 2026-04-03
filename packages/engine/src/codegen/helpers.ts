@@ -234,8 +234,8 @@ export function isVectorShape(shape: Shape): boolean {
   return VECTOR_TYPES.has(shape.type);
 }
 
-export function shapeToInlineSvg(shape: Shape): string {
+export function shapeToInlineSvg(shape: Shape, idPrefix = ''): string {
   const normalized: Shape = { ...shape, x: 0, y: 0, rotation: 0, opacity: 1 };
   const doc = shapesToInterchange([normalized]);
-  return generateSvg(doc);
+  return generateSvg(doc, idPrefix);
 }
