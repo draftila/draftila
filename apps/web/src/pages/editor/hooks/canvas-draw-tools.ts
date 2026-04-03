@@ -179,7 +179,7 @@ export function renderToolPreviews(renderer: Renderer, activeTool: string, camer
   const brushTool = getBrushTool();
 
   if (activeTool === 'brush') {
-    renderFreehandPreview(renderer, brushTool.currentPoints, brushTool.brushSettings);
+    renderFreehandPreview(renderer, brushTool.currentPoints, brushTool.getBrushSettings());
   }
 
   if (activeTool === 'pencil') {

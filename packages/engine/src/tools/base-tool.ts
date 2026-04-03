@@ -1,4 +1,4 @@
-import type { Point, Camera, CanvasGuide, ToolType } from '@draftila/shared';
+import type { BrushSettings, Point, Camera, CanvasGuide, ToolType } from '@draftila/shared';
 import type * as Y from 'yjs';
 import type { GuideSnapTarget } from '../snap';
 
@@ -19,6 +19,8 @@ export interface ToolStore {
   getCanvasGuides(): CanvasGuide[];
   setSelectedGuideId(id: string | null): void;
   getActivePageId(): string | null;
+  getBrushSettings(): BrushSettings;
+  setBrushSettings(settings: Partial<BrushSettings>): void;
 }
 
 let toolStore: ToolStore | null = null;

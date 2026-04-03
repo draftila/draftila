@@ -18,13 +18,19 @@ export class BrushTool extends BaseTool {
   private points: PressurePoint[] = [];
   private isDrawing = false;
   private containerId: string | null = null;
+  private activeBrushSettings: BrushSettings = { ...DEFAULT_BRUSH_SETTINGS };
   currentPoints: PressurePoint[] = [];
-  brushSettings: BrushSettings = { ...DEFAULT_BRUSH_SETTINGS };
+
+  getBrushSettings(): BrushSettings {
+    if (this.isDrawing) return this.activeBrushSettings;
+    return getToolStore().getBrushSettings();
+  }
 
   onPointerDown(ctx: ToolContext): ToolResult | void {
     this.isDrawing = true;
     this.points = [];
     this.containerId = findContainerAtPoint(ctx.ydoc, ctx.canvasPoint.x, ctx.canvasPoint.y);
+    this.activeBrushSettings = { ...getToolStore().getBrushSettings() };
     this.addPoint(ctx);
     getToolStore().setIsDrawing(true);
   }
@@ -56,7 +62,7 @@ export class BrushTool extends BaseTool {
       width: Math.max(bounds.width, 1),
       height: Math.max(bounds.height, 1),
       points: normalizedPoints,
-      brushSettings: { ...this.brushSettings },
+      brushSettings: { ...this.activeBrushSettings },
       parentId: this.containerId,
     });
 

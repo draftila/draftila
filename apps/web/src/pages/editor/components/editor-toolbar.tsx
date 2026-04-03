@@ -1,6 +1,5 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { ToolType, EditorMode } from '@draftila/shared';
-import { getBrushTool } from '@draftila/engine/tools/tool-manager';
 import {
   MousePointer2,
   Hand,
@@ -299,13 +298,8 @@ const TOOLS_BY_MODE: Record<EditorMode, React.FC> = {
 
 function BrushSecondaryToolbar() {
   const activeTool = useEditorStore((s) => s.activeTool);
-  const [size, setSize] = useState(() => getBrushTool().brushSettings.size);
-
-  const handleSizeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = Number(e.target.value);
-    setSize(value);
-    getBrushTool().brushSettings.size = value;
-  }, []);
+  const size = useEditorStore((s) => s.brushSettings.size);
+  const setBrushSettings = useEditorStore((s) => s.setBrushSettings);
 
   if (activeTool !== 'brush') return null;
 
@@ -315,9 +309,9 @@ function BrushSecondaryToolbar() {
       <input
         type="range"
         min={1}
-        max={100}
+        max={200}
         value={size}
-        onChange={handleSizeChange}
+        onChange={(e) => setBrushSettings({ size: Number(e.target.value) })}
         className="h-1 w-24 accent-current"
       />
       <span className="text-muted-foreground w-6 text-right text-[11px]">{size}</span>

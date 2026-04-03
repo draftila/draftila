@@ -1,6 +1,7 @@
 import type * as Y from 'yjs';
 import type { ToolType } from '@draftila/shared';
 import { getNodeTool, getPenTool } from '@draftila/engine/tools/tool-manager';
+import { isToolAllowedInMode } from '@/lib/editor-modes';
 import { useEditorStore } from '@/stores/editor-store';
 
 import type { EditorMode } from '@draftila/shared';
@@ -20,8 +21,6 @@ const TOOL_SHORTCUTS: Record<string, ToolType> = {
   n: 'node',
   b: 'brush',
 };
-
-const DRAW_MODE_DISABLED_TOOLS: Set<ToolType> = new Set(['frame', 'comment']);
 
 export function handleToolKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
   const isMod = e.metaKey || e.ctrlKey;
@@ -132,7 +131,7 @@ export function handleToolKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
   if (!isMod && TOOL_SHORTCUTS[key]) {
     const tool = TOOL_SHORTCUTS[key]!;
     const mode: EditorMode = useEditorStore.getState().editorMode;
-    if (mode === 'draw' && DRAW_MODE_DISABLED_TOOLS.has(tool)) return false;
+    if (!isToolAllowedInMode(tool, mode)) return false;
     e.preventDefault();
     useEditorStore.getState().setActiveTool(tool);
     return true;
