@@ -394,7 +394,7 @@ function nodeToSvg(
   if (node.rotation !== 0) {
     const cx = ox + node.width / 2;
     const cy = oy + node.height / 2;
-    gAttrs += ` transform="rotate(${(node.rotation * 180) / Math.PI},${cx},${cy})"`;
+    gAttrs += ` transform="rotate(${node.rotation},${cx},${cy})"`;
   }
 
   return `<g${gAttrs}>${content}</g>`;
