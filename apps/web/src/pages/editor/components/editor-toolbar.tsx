@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
-import type { ToolType } from '@draftila/shared';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import type { ToolType, EditorMode } from '@draftila/shared';
+import { getBrushTool } from '@draftila/engine/tools/tool-manager';
 import {
   MousePointer2,
   Hand,
@@ -16,6 +17,8 @@ import {
   MessageCircle,
   ChevronDown,
   Code2,
+  Spline,
+  Brush,
 } from 'lucide-react';
 import { Toggle } from '@/components/ui/toggle';
 import { Separator } from '@/components/ui/separator';
@@ -168,62 +171,65 @@ const PEN_TOOLS: ToolOption[] = [
     label: 'Pencil',
     shortcut: '\u21E7P',
   },
+  { tool: 'brush', icon: <Brush className="h-4 w-4" />, label: 'Brush', shortcut: 'B' },
 ];
 
-function DevModeToggle() {
-  const devMode = useEditorStore((s) => s.devMode);
+const MODE_CONFIG: { mode: EditorMode; icon: React.ReactNode; label: string; shortcut: string }[] =
+  [
+    {
+      mode: 'design',
+      icon: <MousePointer2 className="h-3.5 w-3.5" />,
+      label: 'Design',
+      shortcut: '',
+    },
+    { mode: 'draw', icon: <Spline className="h-3.5 w-3.5" />, label: 'Draw', shortcut: '\u21E7W' },
+    { mode: 'dev', icon: <Code2 className="h-3.5 w-3.5" />, label: 'Dev', shortcut: '\u21E7D' },
+  ];
+
+function ModeToggle() {
+  const editorMode = useEditorStore((s) => s.editorMode);
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Toggle
-          size="sm"
-          pressed={devMode}
-          onPressedChange={() => {
-            const store = useEditorStore.getState();
-            store.setDevMode(!store.devMode);
-            store.setRightPanelOpen(true);
-          }}
-          aria-label="Dev Mode"
-          className="h-8 w-8 p-0"
-        >
-          <Code2 className="h-4 w-4" />
-        </Toggle>
-      </TooltipTrigger>
-      <TooltipContent side="top" className="flex items-center gap-2">
-        <span>Dev Mode</span>
-        <kbd className="bg-muted/20 rounded px-1.5 py-0.5 font-mono text-[10px]">⇧D</kbd>
-      </TooltipContent>
-    </Tooltip>
+    <div className="bg-muted/50 flex items-center gap-0.5 rounded-md p-0.5">
+      {MODE_CONFIG.map(({ mode, icon, label, shortcut }) => (
+        <Tooltip key={mode}>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className={`flex h-7 items-center gap-1.5 rounded px-2 text-xs font-medium transition-colors ${
+                editorMode === mode
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+              onClick={() => {
+                const store = useEditorStore.getState();
+                store.setEditorMode(mode);
+                if (mode === 'dev') {
+                  store.setRightPanelOpen(true);
+                }
+              }}
+            >
+              {icon}
+              <span>{label}</span>
+            </button>
+          </TooltipTrigger>
+          {shortcut && (
+            <TooltipContent side="top" className="flex items-center gap-2">
+              <span>{label} Mode</span>
+              <kbd className="bg-muted/20 rounded px-1.5 py-0.5 font-mono text-[10px]">
+                {shortcut}
+              </kbd>
+            </TooltipContent>
+          )}
+        </Tooltip>
+      ))}
+    </div>
   );
 }
 
-export function EditorToolbar() {
-  const devMode = useEditorStore((s) => s.devMode);
-
-  if (devMode) {
-    return (
-      <div className="bg-background flex items-center gap-1 rounded-lg border p-1 shadow-sm">
-        <ToolButton
-          tool="move"
-          icon={<MousePointer2 className="h-4 w-4" />}
-          label="Move"
-          shortcut="V"
-        />
-        <ToolButton
-          tool="comment"
-          icon={<MessageCircle className="h-4 w-4" />}
-          label="Comment"
-          shortcut="C"
-        />
-        <Separator orientation="vertical" className="mx-1 h-full" />
-        <DevModeToggle />
-      </div>
-    );
-  }
-
+function DesignTools() {
   return (
-    <div className="bg-background flex items-center gap-1 rounded-lg border p-1 shadow-sm">
+    <>
       <ToolButton
         tool="move"
         icon={<MousePointer2 className="h-4 w-4" />}
@@ -243,8 +249,94 @@ export function EditorToolbar() {
       <Separator orientation="vertical" className="mx-1 h-full" />
       <ToolButton tool="text" icon={<Type className="h-4 w-4" />} label="Text" shortcut="T" />
       <ToolGroup options={PEN_TOOLS} />
+    </>
+  );
+}
+
+function DrawTools() {
+  return (
+    <>
+      <ToolButton
+        tool="move"
+        icon={<MousePointer2 className="h-4 w-4" />}
+        label="Move"
+        shortcut="V"
+      />
+      <ToolButton tool="hand" icon={<Hand className="h-4 w-4" />} label="Hand" shortcut="H" />
       <Separator orientation="vertical" className="mx-1 h-full" />
-      <DevModeToggle />
+      <ToolGroup options={PEN_TOOLS} />
+      <ToolGroup options={SHAPE_TOOLS} />
+      <Separator orientation="vertical" className="mx-1 h-full" />
+      <ToolButton tool="text" icon={<Type className="h-4 w-4" />} label="Text" shortcut="T" />
+    </>
+  );
+}
+
+function DevTools() {
+  return (
+    <>
+      <ToolButton
+        tool="move"
+        icon={<MousePointer2 className="h-4 w-4" />}
+        label="Move"
+        shortcut="V"
+      />
+      <ToolButton
+        tool="comment"
+        icon={<MessageCircle className="h-4 w-4" />}
+        label="Comment"
+        shortcut="C"
+      />
+    </>
+  );
+}
+
+const TOOLS_BY_MODE: Record<EditorMode, React.FC> = {
+  design: DesignTools,
+  draw: DrawTools,
+  dev: DevTools,
+};
+
+function BrushSecondaryToolbar() {
+  const activeTool = useEditorStore((s) => s.activeTool);
+  const [size, setSize] = useState(() => getBrushTool().brushSettings.size);
+
+  const handleSizeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = Number(e.target.value);
+    setSize(value);
+    getBrushTool().brushSettings.size = value;
+  }, []);
+
+  if (activeTool !== 'brush') return null;
+
+  return (
+    <div className="bg-background mb-1 flex items-center gap-2 rounded-lg border px-3 py-1.5 shadow-sm">
+      <span className="text-muted-foreground text-[11px] font-medium">Size</span>
+      <input
+        type="range"
+        min={1}
+        max={100}
+        value={size}
+        onChange={handleSizeChange}
+        className="h-1 w-24 accent-current"
+      />
+      <span className="text-muted-foreground w-6 text-right text-[11px]">{size}</span>
+    </div>
+  );
+}
+
+export function EditorToolbar() {
+  const editorMode = useEditorStore((s) => s.editorMode);
+  const Tools = TOOLS_BY_MODE[editorMode];
+
+  return (
+    <div className="flex flex-col items-center">
+      <BrushSecondaryToolbar />
+      <div className="bg-background flex items-center gap-1 rounded-lg border p-1 shadow-sm">
+        <Tools />
+        <Separator orientation="vertical" className="mx-1 h-full" />
+        <ModeToggle />
+      </div>
     </div>
   );
 }

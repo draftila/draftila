@@ -3,6 +3,8 @@ import type { ToolType } from '@draftila/shared';
 import { getNodeTool, getPenTool } from '@draftila/engine/tools/tool-manager';
 import { useEditorStore } from '@/stores/editor-store';
 
+import type { EditorMode } from '@draftila/shared';
+
 const TOOL_SHORTCUTS: Record<string, ToolType> = {
   v: 'move',
   h: 'hand',
@@ -16,7 +18,10 @@ const TOOL_SHORTCUTS: Record<string, ToolType> = {
   s: 'star',
   a: 'arrow',
   n: 'node',
+  b: 'brush',
 };
+
+const DRAW_MODE_DISABLED_TOOLS: Set<ToolType> = new Set(['frame', 'comment']);
 
 export function handleToolKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
   const isMod = e.metaKey || e.ctrlKey;
@@ -89,11 +94,18 @@ export function handleToolKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
   if (!isMod && e.shiftKey && key === 'd') {
     e.preventDefault();
     const store = useEditorStore.getState();
-    store.setDevMode(!store.devMode);
+    store.setEditorMode(store.editorMode === 'dev' ? 'design' : 'dev');
     return true;
   }
 
-  if (useEditorStore.getState().devMode) {
+  if (!isMod && e.shiftKey && key === 'w') {
+    e.preventDefault();
+    const store = useEditorStore.getState();
+    store.setEditorMode(store.editorMode === 'draw' ? 'design' : 'draw');
+    return true;
+  }
+
+  if (useEditorStore.getState().editorMode === 'dev') {
     if (!isMod && key === 'c') {
       e.preventDefault();
       useEditorStore.getState().setActiveTool('comment');
@@ -118,8 +130,11 @@ export function handleToolKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
   }
 
   if (!isMod && TOOL_SHORTCUTS[key]) {
+    const tool = TOOL_SHORTCUTS[key]!;
+    const mode: EditorMode = useEditorStore.getState().editorMode;
+    if (mode === 'draw' && DRAW_MODE_DISABLED_TOOLS.has(tool)) return false;
     e.preventDefault();
-    useEditorStore.getState().setActiveTool(TOOL_SHORTCUTS[key]!);
+    useEditorStore.getState().setActiveTool(tool);
     return true;
   }
 

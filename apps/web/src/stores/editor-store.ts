@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type * as Y from 'yjs';
-import type { Camera, CanvasGuide, Point, ToolType } from '@draftila/shared';
+import type { Camera, CanvasGuide, EditorMode, Point, ToolType } from '@draftila/shared';
 import type { GuideSnapTarget } from '@draftila/engine';
 import { DEFAULT_CAMERA, clampZoom, configureToolStore } from '@draftila/engine';
 
@@ -25,7 +25,7 @@ interface EditorState {
   commentsVisible: boolean;
   activeCommentId: string | null;
   aiActiveFrameIds: Set<string>;
-  devMode: boolean;
+  editorMode: EditorMode;
   inspectTab: 'list' | 'code';
   versionHistoryOpen: boolean;
   previewSnapshotId: string | null;
@@ -59,7 +59,7 @@ interface EditorState {
   setCommentsVisible: (visible: boolean) => void;
   setActiveCommentId: (id: string | null) => void;
   setAiActiveFrameIds: (ids: Set<string>) => void;
-  setDevMode: (on: boolean) => void;
+  setEditorMode: (mode: EditorMode) => void;
   setInspectTab: (tab: 'list' | 'code') => void;
   setVersionHistoryOpen: (open: boolean) => void;
   enterPreviewMode: (snapshotId: string, ydoc: Y.Doc) => void;
@@ -89,7 +89,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   commentsVisible: localStorage.getItem('draftila:commentsVisible') !== 'false',
   activeCommentId: null,
   aiActiveFrameIds: new Set(),
-  devMode: false,
+  editorMode: 'design',
   inspectTab: 'list',
   versionHistoryOpen: false,
   previewSnapshotId: null,
@@ -182,11 +182,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setAiActiveFrameIds: (ids) => set({ aiActiveFrameIds: ids }),
 
-  setDevMode: (on) =>
+  setEditorMode: (mode) =>
     set((state) => ({
-      devMode: on,
-      ...(on ? { activeTool: 'move' as const, editingTextId: null } : {}),
-      ...(on && state.versionHistoryOpen ? { versionHistoryOpen: false } : {}),
+      editorMode: mode,
+      ...(mode === 'dev' ? { activeTool: 'move' as const, editingTextId: null } : {}),
+      ...(mode !== 'design' && state.versionHistoryOpen ? { versionHistoryOpen: false } : {}),
     })),
 
   setInspectTab: (tab) => set({ inspectTab: tab }),
@@ -194,7 +194,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setVersionHistoryOpen: (open) =>
     set((state) => ({
       versionHistoryOpen: open,
-      ...(open && state.devMode ? { devMode: false } : {}),
+      ...(open && state.editorMode !== 'design' ? { editorMode: 'design' as const } : {}),
     })),
 
   enterPreviewMode: (snapshotId, ydoc) =>

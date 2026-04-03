@@ -1,4 +1,4 @@
-import type { Camera, PressurePoint } from '@draftila/shared';
+import type { BrushSettings, Camera, PressurePoint } from '@draftila/shared';
 import type { Renderer } from '@draftila/engine/renderer';
 import { simpleStyle } from '@draftila/engine/renderer';
 import {
@@ -12,6 +12,7 @@ import {
   getTextTool,
   getPenTool,
   getPencilTool,
+  getBrushTool,
 } from '@draftila/engine/tools/tool-manager';
 import {
   computeArrowheadGeometry,
@@ -20,16 +21,20 @@ import {
 } from '@draftila/engine/shape-renderer';
 import getStroke from 'perfect-freehand';
 
-function renderFreehandPreview(renderer: Renderer, points: PressurePoint[]) {
+function renderFreehandPreview(
+  renderer: Renderer,
+  points: PressurePoint[],
+  brushSettings?: BrushSettings,
+) {
   if (points.length < 2) return;
 
   const inputPoints = points.map((p) => [p.x, p.y, p.pressure] as [number, number, number]);
   const strokePoints = getStroke(inputPoints, {
-    size: 4,
-    thinning: 0.5,
-    smoothing: 0.5,
-    streamline: 0.5,
-    simulatePressure: true,
+    size: brushSettings?.size ?? 4,
+    thinning: brushSettings?.thinning ?? 0.5,
+    smoothing: brushSettings?.smoothing ?? 0.5,
+    streamline: brushSettings?.streamline ?? 0.5,
+    simulatePressure: brushSettings?.simulatePressure ?? true,
   });
 
   if (strokePoints.length > 0) {
@@ -171,6 +176,11 @@ export function renderToolPreviews(renderer: Renderer, activeTool: string, camer
 
   const penTool = getPenTool();
   const pencilTool = getPencilTool();
+  const brushTool = getBrushTool();
+
+  if (activeTool === 'brush') {
+    renderFreehandPreview(renderer, brushTool.currentPoints, brushTool.brushSettings);
+  }
 
   if (activeTool === 'pencil') {
     renderFreehandPreview(renderer, pencilTool.currentPoints);
