@@ -29,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useEditorStore } from '@/stores/editor-store';
 import { CodeHighlight } from './code-highlight';
 import { useExpandedShapes } from './use-expanded-shapes';
@@ -219,32 +220,42 @@ export function InspectCode({ ydoc, shapes }: InspectCodeProps) {
             ))}
           </SelectContent>
         </Select>
-        <div className="flex items-center gap-0.5">
-          {isHtmlMode && (
-            <button
-              onClick={handleOpenPreview}
-              className="text-muted-foreground hover:text-foreground flex h-7 items-center gap-1 px-1.5 text-[11px] transition-colors"
-            >
-              <ExternalLink size={12} />
-              <span>Preview</span>
-            </button>
-          )}
-          <button
-            onClick={handleCopy}
-            className="text-muted-foreground hover:text-foreground flex h-7 items-center gap-1 px-1.5 text-[11px] transition-colors"
-          >
-            {copied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
-            <span>{copied ? 'Copied' : 'Copy'}</span>
-          </button>
-          {isHtmlMode && (
-            <HtmlDownloadMenu
-              language={language}
-              onDownloadCombined={handleDownloadCombined}
-              onDownloadHtml={handleDownloadHtmlOnly}
-              onDownloadCss={handleDownloadCssOnly}
-            />
-          )}
-        </div>
+        <TooltipProvider>
+          <div className="flex items-center gap-0.5">
+            {isHtmlMode && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={handleOpenPreview}
+                    className="text-muted-foreground hover:text-foreground flex h-7 items-center px-1.5 transition-colors"
+                  >
+                    <ExternalLink size={12} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Preview</TooltipContent>
+              </Tooltip>
+            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={handleCopy}
+                  className="text-muted-foreground hover:text-foreground flex h-7 items-center px-1.5 transition-colors"
+                >
+                  {copied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">{copied ? 'Copied' : 'Copy'}</TooltipContent>
+            </Tooltip>
+            {isHtmlMode && (
+              <HtmlDownloadMenu
+                language={language}
+                onDownloadCombined={handleDownloadCombined}
+                onDownloadHtml={handleDownloadHtmlOnly}
+                onDownloadCss={handleDownloadCssOnly}
+              />
+            )}
+          </div>
+        </TooltipProvider>
       </div>
       <div className="min-h-0 flex-1">
         <CodeHighlight code={code} language={SHIKI_LANG_MAP[language]} className="h-full" />
@@ -266,25 +277,33 @@ function HtmlDownloadMenu({
 }) {
   if (language === 'html-tailwind') {
     return (
-      <button
-        onClick={onDownloadCombined}
-        className="text-muted-foreground hover:text-foreground flex h-7 items-center gap-1 px-1.5 text-[11px] transition-colors"
-      >
-        <Download size={12} />
-        <span>Download</span>
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={onDownloadCombined}
+            className="text-muted-foreground hover:text-foreground flex h-7 items-center px-1.5 transition-colors"
+          >
+            <Download size={12} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">Download</TooltipContent>
+      </Tooltip>
     );
   }
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="text-muted-foreground hover:text-foreground flex h-7 items-center gap-1 px-1.5 text-[11px] transition-colors">
-          <Download size={12} />
-          <span>Download</span>
-          <ChevronDown size={10} />
-        </button>
-      </DropdownMenuTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <button className="text-muted-foreground hover:text-foreground flex h-7 items-center gap-0.5 px-1.5 transition-colors">
+              <Download size={12} />
+              <ChevronDown size={10} />
+            </button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">Download</TooltipContent>
+      </Tooltip>
       <DropdownMenuContent align="end" className="text-[11px]">
         <DropdownMenuItem onClick={onDownloadCombined}>Combined (.html)</DropdownMenuItem>
         <DropdownMenuItem onClick={onDownloadHtml}>HTML only (.html)</DropdownMenuItem>
