@@ -47,7 +47,7 @@ export function handleShapeKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
   const key = e.key.toLowerCase();
   const code = e.code;
 
-  if (useEditorStore.getState().devMode) {
+  if (useEditorStore.getState().editorMode === 'dev') {
     if (key === 'escape') {
       e.preventDefault();
       const { enteredGroupId, setEnteredGroupId, setSelectedIds } = useEditorStore.getState();

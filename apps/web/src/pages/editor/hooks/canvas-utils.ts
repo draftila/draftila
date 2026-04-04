@@ -11,6 +11,7 @@ export function getCursorForTool(tool: string, isPanning: boolean): string {
     case 'frame':
     case 'pen':
     case 'pencil':
+    case 'brush':
     case 'node':
     case 'line':
     case 'polygon':

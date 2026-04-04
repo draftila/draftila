@@ -2,6 +2,7 @@ import type { z } from 'zod';
 import type {
   shapeTypeSchema,
   toolTypeSchema,
+  editorModeSchema,
   pointSchema,
   pressurePointSchema,
   vectorNodeSchema,
@@ -29,6 +30,7 @@ import type {
   strokeDashPatternSchema,
   strokeSidesSchema,
   arrowheadTypeSchema,
+  brushSettingsSchema,
   shadowSchema,
   blurSchema,
   textSegmentSchema,
@@ -44,6 +46,7 @@ import type {
 
 export type ShapeType = z.infer<typeof shapeTypeSchema>;
 export type ToolType = z.infer<typeof toolTypeSchema>;
+export type EditorMode = z.infer<typeof editorModeSchema>;
 export type Point = z.infer<typeof pointSchema>;
 export type PressurePoint = z.infer<typeof pressurePointSchema>;
 export type VectorNode = z.infer<typeof vectorNodeSchema>;
@@ -71,6 +74,7 @@ export type StrokeAlign = z.infer<typeof strokeAlignSchema>;
 export type StrokeDashPattern = z.infer<typeof strokeDashPatternSchema>;
 export type StrokeSides = z.infer<typeof strokeSidesSchema>;
 export type ArrowheadType = z.infer<typeof arrowheadTypeSchema>;
+export type BrushSettings = z.infer<typeof brushSettingsSchema>;
 export type Shadow = z.infer<typeof shadowSchema>;
 export type Blur = z.infer<typeof blurSchema>;
 export type TextSegment = z.infer<typeof textSegmentSchema>;
