@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { CommentResponse } from '@draftila/shared';
-import { formatRelativeTime } from '@/lib/format-time';
+import { formatRelativeTime } from '@/lib/format';
 
 interface CommentBubbleProps {
   x: number;

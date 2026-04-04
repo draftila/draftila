@@ -5,7 +5,7 @@ import {
   updateCommentSchema,
 } from '@draftila/shared';
 import { Hono } from 'hono';
-import { ValidationError } from '../../common/errors';
+import { validateOrThrow } from '../../common/lib/validation';
 import { requireAuth, type AuthEnv } from '../../common/middleware/auth';
 import * as commentsService from './comments.service';
 
@@ -18,16 +18,11 @@ draftCommentsRoutes.get('/', requireAuth, async (c) => {
   const user = c.get('user');
   const draftId = c.req.param('draftId') as string;
 
-  const parsed = listCommentsQuerySchema.safeParse({
+  const parsed = validateOrThrow(listCommentsQuerySchema, {
     pageId: c.req.query('pageId'),
   });
 
-  if (!parsed.success) {
-    const flattened = parsed.error.flatten();
-    throw new ValidationError(flattened.fieldErrors as Record<string, string[]>);
-  }
-
-  const comments = await commentsService.listByDraft(draftId, parsed.data.pageId, user.id);
+  const comments = await commentsService.listByDraft(draftId, parsed.pageId, user.id);
   return c.json(comments);
 });
 
@@ -36,14 +31,9 @@ draftCommentsRoutes.post('/', requireAuth, async (c) => {
   const draftId = c.req.param('draftId') as string;
 
   const body = await c.req.json();
-  const parsed = createCommentSchema.safeParse(body);
+  const parsed = validateOrThrow(createCommentSchema, body);
 
-  if (!parsed.success) {
-    const flattened = parsed.error.flatten();
-    throw new ValidationError(flattened.fieldErrors as Record<string, string[]>);
-  }
-
-  const created = await commentsService.create(draftId, user.id, parsed.data);
+  const created = await commentsService.create(draftId, user.id, parsed);
   return c.json(created, 201);
 });
 
@@ -52,14 +42,9 @@ draftCommentsRoutes.post('/read-all', requireAuth, async (c) => {
   const draftId = c.req.param('draftId') as string;
 
   const body = await c.req.json();
-  const parsed = markAllCommentsReadSchema.safeParse(body);
+  const parsed = validateOrThrow(markAllCommentsReadSchema, body);
 
-  if (!parsed.success) {
-    const flattened = parsed.error.flatten();
-    throw new ValidationError(flattened.fieldErrors as Record<string, string[]>);
-  }
-
-  const result = await commentsService.markAllRead(draftId, parsed.data.pageId, user.id);
+  const result = await commentsService.markAllRead(draftId, parsed.pageId, user.id);
   return c.json(result);
 });
 
@@ -68,14 +53,9 @@ commentRoutes.patch('/:id', requireAuth, async (c) => {
   const commentId = c.req.param('id');
 
   const body = await c.req.json();
-  const parsed = updateCommentSchema.safeParse(body);
+  const parsed = validateOrThrow(updateCommentSchema, body);
 
-  if (!parsed.success) {
-    const flattened = parsed.error.flatten();
-    throw new ValidationError(flattened.fieldErrors as Record<string, string[]>);
-  }
-
-  const updated = await commentsService.update(commentId, user.id, parsed.data);
+  const updated = await commentsService.update(commentId, user.id, parsed);
   return c.json(updated);
 });
 

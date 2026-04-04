@@ -1,6 +1,7 @@
 import { createSnapshotSchema, updateSnapshotSchema } from '@draftila/shared';
 import { Hono } from 'hono';
-import { NotFoundError, ValidationError } from '../../common/errors';
+import { NotFoundError } from '../../common/errors';
+import { validateOrThrow } from '../../common/lib/validation';
 import { requireAuth, type AuthEnv } from '../../common/middleware/auth';
 import * as draftsService from '../drafts/drafts.service';
 import * as snapshotsService from './snapshots.service';
@@ -43,14 +44,9 @@ draftSnapshotRoutes.post('/', requireAuth, async (c) => {
   await ensureDraftAccess(draftId, user.id);
 
   const body = await c.req.json();
-  const parsed = createSnapshotSchema.safeParse(body);
+  const parsed = validateOrThrow(createSnapshotSchema, body);
 
-  if (!parsed.success) {
-    const flattened = parsed.error.flatten();
-    throw new ValidationError(flattened.fieldErrors as Record<string, string[]>);
-  }
-
-  const snapshot = await snapshotsService.createNamedVersion(draftId, user.id, parsed.data.name);
+  const snapshot = await snapshotsService.createNamedVersion(draftId, user.id, parsed.name);
   return c.json(snapshot, 201);
 });
 
@@ -73,14 +69,9 @@ snapshotRoutes.patch('/:snapshotId', requireAuth, async (c) => {
   await ensureSnapshotAccess(snapshotId, user.id);
 
   const body = await c.req.json();
-  const parsed = updateSnapshotSchema.safeParse(body);
+  const parsed = validateOrThrow(updateSnapshotSchema, body);
 
-  if (!parsed.success) {
-    const flattened = parsed.error.flatten();
-    throw new ValidationError(flattened.fieldErrors as Record<string, string[]>);
-  }
-
-  const updated = await snapshotsService.updateName(snapshotId, parsed.data.name);
+  const updated = await snapshotsService.updateName(snapshotId, parsed.name);
   return c.json(updated);
 });
 

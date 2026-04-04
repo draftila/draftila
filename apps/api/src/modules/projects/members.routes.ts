@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { inviteMemberSchema, updateMemberRoleSchema } from '@draftila/shared';
-import { NotFoundError, ValidationError } from '../../common/errors';
+import { NotFoundError } from '../../common/errors';
+import { validateOrThrow } from '../../common/lib/validation';
 import { requireAuth, type AuthEnv } from '../../common/middleware/auth';
 import * as membersService from './members.service';
 
@@ -24,19 +25,9 @@ memberRoutes.post('/', requireAuth, async (c) => {
   const projectId = c.req.param('projectId') as string;
 
   const body = await c.req.json();
-  const parsed = inviteMemberSchema.safeParse(body);
+  const parsed = validateOrThrow(inviteMemberSchema, body);
 
-  if (!parsed.success) {
-    const flattened = parsed.error.flatten();
-    throw new ValidationError(flattened.fieldErrors as Record<string, string[]>);
-  }
-
-  const member = await membersService.invite(
-    projectId,
-    parsed.data.email,
-    parsed.data.role,
-    user.id,
-  );
+  const member = await membersService.invite(projectId, parsed.email, parsed.role, user.id);
   return c.json(member, 201);
 });
 
@@ -46,14 +37,9 @@ memberRoutes.patch('/:memberId', requireAuth, async (c) => {
   const memberId = c.req.param('memberId');
 
   const body = await c.req.json();
-  const parsed = updateMemberRoleSchema.safeParse(body);
+  const parsed = validateOrThrow(updateMemberRoleSchema, body);
 
-  if (!parsed.success) {
-    const flattened = parsed.error.flatten();
-    throw new ValidationError(flattened.fieldErrors as Record<string, string[]>);
-  }
-
-  const member = await membersService.updateRole(projectId, memberId, parsed.data.role, user.id);
+  const member = await membersService.updateRole(projectId, memberId, parsed.role, user.id);
   return c.json(member);
 });
 

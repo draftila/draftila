@@ -62,19 +62,8 @@ export function useUpdateProject() {
 export function useUploadProjectLogo() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, file }: { id: string; file: File }) => {
-      const res = await fetch(`/api/projects/${id}/logo`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': file.type },
-        body: file,
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({ error: 'Upload failed' }));
-        throw new Error(body.error);
-      }
-      return res.json() as Promise<{ url: string }>;
-    },
+    mutationFn: ({ id, file }: { id: string; file: File }) =>
+      api.upload<{ url: string }>(`/api/projects/${id}/logo`, file),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: PROJECTS_KEY }),
   });
 }
