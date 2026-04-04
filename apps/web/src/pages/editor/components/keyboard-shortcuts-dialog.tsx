@@ -74,7 +74,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { label: 'Pan', keys: 'Space + Drag' },
       { label: 'Toggle Rulers', keys: '\u21E7R' },
       { label: 'Toggle Comments', keys: '\u21E7C' },
-      { label: 'Toggle Dev Mode', keys: '\u21E7D' },
+      { label: 'Toggle Inspect Panel', keys: '\u21E7D' },
     ],
   },
   {

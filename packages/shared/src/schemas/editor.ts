@@ -36,10 +36,6 @@ export const TOOL_TYPES = [
 
 export const toolTypeSchema = z.enum(TOOL_TYPES);
 
-export const EDITOR_MODES = ['design', 'draw', 'dev'] as const;
-
-export const editorModeSchema = z.enum(EDITOR_MODES);
-
 export const pointSchema = z.object({
   x: z.number(),
   y: z.number(),

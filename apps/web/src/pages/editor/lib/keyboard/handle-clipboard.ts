@@ -11,16 +11,6 @@ export function handleClipboardKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
   const key = e.key.toLowerCase();
   const code = e.code;
 
-  if (useEditorStore.getState().editorMode === 'dev') {
-    if (isMod && key === 'c') {
-      e.preventDefault();
-      const { selectedIds } = useEditorStore.getState();
-      if (selectedIds.length > 0) copyShapes(ydoc, selectedIds);
-      return true;
-    }
-    return false;
-  }
-
   if (isMod && e.altKey && code === 'KeyC') {
     e.preventDefault();
     const { selectedIds } = useEditorStore.getState();
