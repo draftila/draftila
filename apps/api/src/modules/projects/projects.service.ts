@@ -2,7 +2,7 @@ import type { Prisma } from '../../generated/prisma/postgresql-client';
 import type { SortOrder } from '@draftila/shared';
 import { ForbiddenError } from '../../common/errors';
 import { getSortConfig, nextTimestamp, paginateResults } from '../../common/lib/pagination';
-import { generateStorageKey, getStorage } from '../../common/lib/storage';
+import { extractStorageKey, getStorage, replaceStorageFile } from '../../common/lib/storage';
 import { nanoid } from '../../common/lib/utils';
 import { db } from '../../db';
 
@@ -78,25 +78,13 @@ export async function update(id: string, data: { name?: string }) {
 }
 
 export async function saveLogo(id: string, data: Buffer) {
-  const storage = getStorage();
-
   const existing = await db.project.findUnique({
     where: { id },
     select: { logo: true },
   });
-  if (existing?.logo) {
-    const oldKey = existing.logo.replace(/^\/storage\//, '');
-    await storage.delete(oldKey).catch(() => {});
-  }
 
-  const key = generateStorageKey('logos', 'jpg');
-  const url = await storage.put(key, data);
-
-  await db.project.updateMany({
-    where: { id },
-    data: { logo: url },
-  });
-
+  const url = await replaceStorageFile('logos', 'jpg', data, existing?.logo);
+  await db.project.updateMany({ where: { id }, data: { logo: url } });
   return url;
 }
 
@@ -109,9 +97,8 @@ export async function remove(id: string, ownerId: string) {
   }
 
   if (existing.logo) {
-    const key = existing.logo.replace(/^\/storage\//, '');
     await getStorage()
-      .delete(key)
+      .delete(extractStorageKey(existing.logo))
       .catch(() => {});
   }
 

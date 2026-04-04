@@ -4,7 +4,7 @@ import type { SortOrder, DraftExport, ExportDraftData } from '@draftila/shared';
 import { sanitizeFilename } from '@draftila/shared';
 import { ymapToObject, valueToYjs, DEFAULT_PAGE_BACKGROUND } from '@draftila/engine';
 import { getSortConfig, nextTimestamp, paginateResults } from '../../common/lib/pagination';
-import { generateStorageKey, getStorage } from '../../common/lib/storage';
+import { extractStorageKey, getStorage, replaceStorageFile } from '../../common/lib/storage';
 import { nanoid } from '../../common/lib/utils';
 import { db } from '../../db';
 import { userAccessFilter } from '../projects/projects.service';
@@ -139,9 +139,8 @@ export async function remove(id: string) {
   if (!existing) return null;
 
   if (existing.thumbnail) {
-    const key = existing.thumbnail.replace(/^\/storage\//, '');
     await getStorage()
-      .delete(key)
+      .delete(extractStorageKey(existing.thumbnail))
       .catch(() => {});
   }
 
@@ -150,25 +149,13 @@ export async function remove(id: string) {
 }
 
 export async function saveThumbnail(id: string, data: Buffer) {
-  const storage = getStorage();
-
   const existing = await db.draft.findUnique({
     where: { id },
     select: { thumbnail: true },
   });
-  if (existing?.thumbnail) {
-    const oldKey = existing.thumbnail.replace(/^\/storage\//, '');
-    await storage.delete(oldKey).catch(() => {});
-  }
 
-  const key = generateStorageKey('thumbnails', 'jpg');
-  const url = await storage.put(key, data);
-
-  await db.draft.updateMany({
-    where: { id },
-    data: { thumbnail: url },
-  });
-
+  const url = await replaceStorageFile('thumbnails', 'jpg', data, existing?.thumbnail);
+  await db.draft.updateMany({ where: { id }, data: { thumbnail: url } });
   return url;
 }
 

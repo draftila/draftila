@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { ValidationError } from '../../common/errors';
+import { validateOrThrow } from '../../common/lib/validation';
 import { requireAuth, type AuthEnv } from '../../common/middleware/auth';
 import * as apiKeysService from './api-keys.service';
 
@@ -13,15 +13,10 @@ const apiKeyRoutes = new Hono<AuthEnv>();
 apiKeyRoutes.post('/', requireAuth, async (c) => {
   const user = c.get('user');
   const body = await c.req.json();
-  const parsed = createApiKeySchema.safeParse(body);
-
-  if (!parsed.success) {
-    const flattened = parsed.error.flatten();
-    throw new ValidationError(flattened.fieldErrors as Record<string, string[]>);
-  }
+  const parsed = validateOrThrow(createApiKeySchema, body);
 
   try {
-    const result = await apiKeysService.create(user.id, parsed.data.name);
+    const result = await apiKeysService.create(user.id, parsed.name);
     return c.json(result, 201);
   } catch (err) {
     if (err instanceof Error && err.message.startsWith('Maximum of')) {

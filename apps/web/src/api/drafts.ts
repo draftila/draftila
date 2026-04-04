@@ -90,19 +90,12 @@ export function useUpdateDraft(projectId: string) {
 }
 
 export async function saveThumbnail(draftId: string, blob: Blob) {
-  const res = await fetch(`/api/drafts/${draftId}/thumbnail`, {
-    method: 'PUT',
-    credentials: 'include',
-    headers: { 'Content-Type': blob.type },
-    body: blob,
-  });
-  if (!res.ok) throw new Error('Failed to save thumbnail');
-  const json = (await res.json()) as { url: string };
+  const result = await api.upload<{ url: string }>(`/api/drafts/${draftId}/thumbnail`, blob);
   queryClient.invalidateQueries({
     queryKey: DRAFTS_KEY,
     predicate: (query) => !query.queryKey.includes('detail'),
   });
-  return json;
+  return result;
 }
 
 export function useDeleteDraft(projectId: string) {

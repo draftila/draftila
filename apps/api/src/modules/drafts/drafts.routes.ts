@@ -6,6 +6,7 @@ import {
   updateDraftSchema,
 } from '@draftila/shared';
 import { ForbiddenError, NotFoundError, ValidationError } from '../../common/errors';
+import { validateImageUpload, validateOrThrow } from '../../common/lib/validation';
 import { requireAuth, type AuthEnv } from '../../common/middleware/auth';
 import { canDelete, canEdit, getEffectiveMembership } from '../projects/members.service';
 import * as draftsService from './drafts.service';
@@ -23,22 +24,17 @@ draftRoutes.get('/', requireAuth, async (c) => {
     throw new NotFoundError('Project');
   }
 
-  const parsed = sortablePaginationSchema.safeParse({
+  const parsed = validateOrThrow(sortablePaginationSchema, {
     cursor: c.req.query('cursor'),
     limit: c.req.query('limit'),
     sort: c.req.query('sort'),
   });
 
-  if (!parsed.success) {
-    const flattened = parsed.error.flatten();
-    throw new ValidationError(flattened.fieldErrors as Record<string, string[]>);
-  }
-
   const result = await draftsService.listByProject(
     projectId,
-    parsed.data.cursor,
-    parsed.data.limit,
-    parsed.data.sort,
+    parsed.cursor,
+    parsed.limit,
+    parsed.sort,
   );
   return c.json(result);
 });
@@ -53,15 +49,10 @@ draftRoutes.post('/', requireAuth, async (c) => {
   }
 
   const body = await c.req.json();
-  const parsed = createDraftSchema.safeParse(body);
-
-  if (!parsed.success) {
-    const flattened = parsed.error.flatten();
-    throw new ValidationError(flattened.fieldErrors as Record<string, string[]>);
-  }
+  const parsed = validateOrThrow(createDraftSchema, body);
 
   const draftRecord = await draftsService.create({
-    name: parsed.data.name,
+    name: parsed.name,
     projectId,
   });
 
@@ -198,14 +189,9 @@ draftRoutes.patch('/:draftId', requireAuth, async (c) => {
   }
 
   const body = await c.req.json();
-  const parsed = updateDraftSchema.safeParse(body);
+  const parsed = validateOrThrow(updateDraftSchema, body);
 
-  if (!parsed.success) {
-    const flattened = parsed.error.flatten();
-    throw new ValidationError(flattened.fieldErrors as Record<string, string[]>);
-  }
-
-  const updated = await draftsService.update(existing.id, { name: parsed.data.name });
+  const updated = await draftsService.update(existing.id, { name: parsed.name });
   return c.json(updated);
 });
 
@@ -251,43 +237,21 @@ allDraftsRoutes.put('/:draftId/thumbnail', requireAuth, async (c) => {
     throw new NotFoundError('Draft');
   }
 
-  const contentType = c.req.header('content-type') ?? '';
-  if (!contentType.startsWith('image/')) {
-    throw new ValidationError({ thumbnail: ['Body must be an image'] });
-  }
-
-  const arrayBuffer = await c.req.arrayBuffer();
-  if (arrayBuffer.byteLength === 0) {
-    throw new ValidationError({ thumbnail: ['Body must not be empty'] });
-  }
-  if (arrayBuffer.byteLength > 512 * 1024) {
-    throw new ValidationError({ thumbnail: ['Thumbnail must be under 512KB'] });
-  }
-
-  const url = await draftsService.saveThumbnail(draftId, Buffer.from(arrayBuffer));
+  const imageData = await validateImageUpload(c.req, 'thumbnail');
+  const url = await draftsService.saveThumbnail(draftId, imageData);
   return c.json({ url });
 });
 
 allDraftsRoutes.get('/', requireAuth, async (c) => {
   const user = c.get('user');
 
-  const parsed = sortablePaginationSchema.safeParse({
+  const parsed = validateOrThrow(sortablePaginationSchema, {
     cursor: c.req.query('cursor'),
     limit: c.req.query('limit'),
     sort: c.req.query('sort'),
   });
 
-  if (!parsed.success) {
-    const flattened = parsed.error.flatten();
-    throw new ValidationError(flattened.fieldErrors as Record<string, string[]>);
-  }
-
-  const result = await draftsService.listByUser(
-    user.id,
-    parsed.data.cursor,
-    parsed.data.limit,
-    parsed.data.sort,
-  );
+  const result = await draftsService.listByUser(user.id, parsed.cursor, parsed.limit, parsed.sort);
   return c.json(result);
 });
 
