@@ -97,7 +97,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   selectedGuideId: null,
   draggingGuide: null,
   rulersVisible: localStorage.getItem('draftila:rulersVisible') !== 'false',
-  guidesVisible: localStorage.getItem('draftila:rulersVisible') !== 'false',
+  guidesVisible: localStorage.getItem('draftila:guidesVisible') !== 'false',
   commentsVisible: localStorage.getItem('draftila:commentsVisible') !== 'false',
   activeCommentId: null,
   aiActiveFrameIds: new Set(),
@@ -184,7 +184,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set({ rulersVisible: visible });
   },
 
-  setGuidesVisible: (visible) => set({ guidesVisible: visible }),
+  setGuidesVisible: (visible) => {
+    localStorage.setItem('draftila:guidesVisible', String(visible));
+    set({ guidesVisible: visible });
+  },
 
   setCommentsVisible: (visible) => {
     localStorage.setItem('draftila:commentsVisible', String(visible));

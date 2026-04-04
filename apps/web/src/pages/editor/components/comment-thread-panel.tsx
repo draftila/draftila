@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowUp, Check, Trash2, X } from 'lucide-react';
 import type { CommentResponse } from '@draftila/shared';
-import { formatRelativeTime } from '@/lib/format-time';
+import { formatRelativeTime } from '@/lib/format';
 
 interface CommentThreadPanelProps {
   x: number;

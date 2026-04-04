@@ -46,3 +46,21 @@ export function getStoragePath(): string {
 export function generateStorageKey(prefix: string, ext: string): string {
   return `${prefix}/${nanoid()}.${ext}`;
 }
+
+export function extractStorageKey(url: string): string {
+  return url.replace(/^\/storage\//, '');
+}
+
+export async function replaceStorageFile(
+  prefix: string,
+  ext: string,
+  data: Buffer,
+  existingUrl?: string | null,
+): Promise<string> {
+  const storage = getStorage();
+  if (existingUrl) {
+    await storage.delete(extractStorageKey(existingUrl)).catch(() => {});
+  }
+  const key = generateStorageKey(prefix, ext);
+  return storage.put(key, data);
+}
