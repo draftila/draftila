@@ -114,7 +114,7 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
 
       const activeTool = useEditorStore.getState().activeTool;
 
-      if (useEditorStore.getState().devMode && activeTool !== 'comment') {
+      if (useEditorStore.getState().editorMode === 'dev' && activeTool !== 'comment') {
         const targetId = devModeHitTest(
           ctx,
           cachedShapesRef.current,
@@ -163,7 +163,7 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
 
       const activeTool = useEditorStore.getState().activeTool;
 
-      if (useEditorStore.getState().devMode && activeTool !== 'comment') {
+      if (useEditorStore.getState().editorMode === 'dev' && activeTool !== 'comment') {
         const targetId = devModeHitTest(
           ctx,
           cachedShapesRef.current,
@@ -213,7 +213,7 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
 
       const activeTool = useEditorStore.getState().activeTool;
 
-      if (useEditorStore.getState().devMode && activeTool !== 'comment') {
+      if (useEditorStore.getState().editorMode === 'dev' && activeTool !== 'comment') {
         return;
       }
 

@@ -1,8 +1,24 @@
 import { create } from 'zustand';
 import type * as Y from 'yjs';
-import type { Camera, CanvasGuide, Point, ToolType } from '@draftila/shared';
+import type {
+  BrushSettings,
+  Camera,
+  CanvasGuide,
+  EditorMode,
+  Point,
+  ToolType,
+} from '@draftila/shared';
 import type { GuideSnapTarget } from '@draftila/engine';
 import { DEFAULT_CAMERA, clampZoom, configureToolStore } from '@draftila/engine';
+import { normalizeToolForMode } from '@/lib/editor-modes';
+
+const DEFAULT_BRUSH_SETTINGS: BrushSettings = {
+  size: 8,
+  thinning: 0.5,
+  smoothing: 0.5,
+  streamline: 0.5,
+  simulatePressure: true,
+};
 
 interface EditorState {
   activeTool: ToolType;
@@ -25,7 +41,8 @@ interface EditorState {
   commentsVisible: boolean;
   activeCommentId: string | null;
   aiActiveFrameIds: Set<string>;
-  devMode: boolean;
+  brushSettings: BrushSettings;
+  editorMode: EditorMode;
   inspectTab: 'list' | 'code';
   versionHistoryOpen: boolean;
   previewSnapshotId: string | null;
@@ -59,7 +76,8 @@ interface EditorState {
   setCommentsVisible: (visible: boolean) => void;
   setActiveCommentId: (id: string | null) => void;
   setAiActiveFrameIds: (ids: Set<string>) => void;
-  setDevMode: (on: boolean) => void;
+  setBrushSettings: (settings: Partial<BrushSettings>) => void;
+  setEditorMode: (mode: EditorMode) => void;
   setInspectTab: (tab: 'list' | 'code') => void;
   setVersionHistoryOpen: (open: boolean) => void;
   enterPreviewMode: (snapshotId: string, ydoc: Y.Doc) => void;
@@ -89,7 +107,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   commentsVisible: localStorage.getItem('draftila:commentsVisible') !== 'false',
   activeCommentId: null,
   aiActiveFrameIds: new Set(),
-  devMode: false,
+  brushSettings: DEFAULT_BRUSH_SETTINGS,
+  editorMode: 'design',
   inspectTab: 'list',
   versionHistoryOpen: false,
   previewSnapshotId: null,
@@ -182,11 +201,20 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setAiActiveFrameIds: (ids) => set({ aiActiveFrameIds: ids }),
 
-  setDevMode: (on) =>
+  setBrushSettings: (settings) =>
     set((state) => ({
-      devMode: on,
-      ...(on ? { activeTool: 'move' as const, editingTextId: null } : {}),
-      ...(on && state.versionHistoryOpen ? { versionHistoryOpen: false } : {}),
+      brushSettings: {
+        ...state.brushSettings,
+        ...settings,
+      },
+    })),
+
+  setEditorMode: (mode) =>
+    set((state) => ({
+      editorMode: mode,
+      activeTool: mode === 'dev' ? ('move' as const) : normalizeToolForMode(state.activeTool, mode),
+      ...(mode === 'dev' ? { editingTextId: null } : {}),
+      ...(mode !== 'design' && state.versionHistoryOpen ? { versionHistoryOpen: false } : {}),
     })),
 
   setInspectTab: (tab) => set({ inspectTab: tab }),
@@ -194,7 +222,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setVersionHistoryOpen: (open) =>
     set((state) => ({
       versionHistoryOpen: open,
-      ...(open && state.devMode ? { devMode: false } : {}),
+      ...(open && state.editorMode !== 'design' ? { editorMode: 'design' as const } : {}),
     })),
 
   enterPreviewMode: (snapshotId, ydoc) =>
@@ -249,4 +277,6 @@ configureToolStore({
   getCanvasGuides: () => useEditorStore.getState().guides,
   setSelectedGuideId: (id) => useEditorStore.getState().setSelectedGuideId(id),
   getActivePageId: () => useEditorStore.getState().activePageId,
+  getBrushSettings: () => useEditorStore.getState().brushSettings,
+  setBrushSettings: (settings) => useEditorStore.getState().setBrushSettings(settings),
 });

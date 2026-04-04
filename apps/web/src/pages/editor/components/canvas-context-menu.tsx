@@ -109,7 +109,7 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
     const [subSubMenu, setSubSubMenu] = useState<SubMenuState | null>(null);
 
     const selectedIds = useEditorStore((s) => s.selectedIds);
-    const devMode = useEditorStore((s) => s.devMode);
+    const editorMode = useEditorStore((s) => s.editorMode);
     const selectedGuideId = useEditorStore((s) => s.selectedGuideId);
     const guides = useEditorStore((s) => s.guides);
     const activePageId = useEditorStore((s) => s.activePageId);
@@ -377,7 +377,7 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
     const isMac = navigator.platform.includes('Mac');
     const mod = isMac ? '\u2318' : 'Ctrl+';
 
-    if (devMode) {
+    if (editorMode === 'dev') {
       return (
         <div ref={ref}>
           <div

@@ -39,7 +39,7 @@ export function RightPanel({ ydoc, draftId }: RightPanelProps) {
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const activePageId = useEditorStore((s) => s.activePageId);
   const rightPanelOpen = useEditorStore((s) => s.rightPanelOpen);
-  const devMode = useEditorStore((s) => s.devMode);
+  const editorMode = useEditorStore((s) => s.editorMode);
   const versionHistoryOpen = useEditorStore((s) => s.versionHistoryOpen);
   const [selectedShape, setSelectedShape] = useState<Shape | null>(null);
   const [instanceLabel, setInstanceLabel] = useState<string | null>(null);
@@ -177,11 +177,11 @@ export function RightPanel({ ydoc, draftId }: RightPanelProps) {
     );
   }
 
-  if (devMode) {
+  if (editorMode === 'dev') {
     return <DevModePanel ydoc={ydoc} />;
   }
 
-  const sections = selectedShape ? getSectionsForShape(selectedShape.type) : [];
+  const sections = selectedShape ? getSectionsForShape(selectedShape.type, editorMode) : [];
 
   return (
     <div className="flex h-full w-60 shrink-0 flex-col border-l">
