@@ -109,7 +109,6 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
     const [subSubMenu, setSubSubMenu] = useState<SubMenuState | null>(null);
 
     const selectedIds = useEditorStore((s) => s.selectedIds);
-    const editorMode = useEditorStore((s) => s.editorMode);
     const selectedGuideId = useEditorStore((s) => s.selectedGuideId);
     const guides = useEditorStore((s) => s.guides);
     const activePageId = useEditorStore((s) => s.activePageId);
@@ -376,61 +375,6 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
 
     const isMac = navigator.platform.includes('Mac');
     const mod = isMac ? '\u2318' : 'Ctrl+';
-
-    if (editorMode === 'dev') {
-      return (
-        <div ref={ref}>
-          <div
-            className="bg-popover text-popover-foreground fixed z-50 min-w-52 rounded-md border p-1 shadow-lg"
-            style={{ left: position.x, top: position.y }}
-          >
-            <MenuItem onClick={handleCopy} disabled={!hasSelection} shortcut={`${mod}C`}>
-              Copy
-            </MenuItem>
-            <MenuSeparator />
-            <MenuItem onClick={handleCopyAsSvg} disabled={!hasSelection}>
-              Copy as SVG
-            </MenuItem>
-            <MenuItem onClick={handleCopyAsPng} disabled={!hasSelection}>
-              Copy as PNG
-            </MenuItem>
-            <MenuSeparator />
-            <MenuItem onClick={() => handleCopyAsCode('css')} disabled={!hasSelection}>
-              Copy CSS
-            </MenuItem>
-            <MenuItem onClick={() => handleCopyAsCode('css-all-layers')} disabled={!hasSelection}>
-              Copy CSS (all layers)
-            </MenuItem>
-            <MenuItem onClick={() => handleCopyAsCode('tailwind')} disabled={!hasSelection}>
-              Copy Tailwind
-            </MenuItem>
-            <MenuItem
-              onClick={() => handleCopyAsCode('tailwind-all-layers')}
-              disabled={!hasSelection}
-            >
-              Copy Tailwind (all layers)
-            </MenuItem>
-            <MenuItem onClick={() => handleCopyAsCode('swiftui')} disabled={!hasSelection}>
-              Copy SwiftUI
-            </MenuItem>
-            <MenuItem onClick={() => handleCopyAsCode('compose')} disabled={!hasSelection}>
-              Copy Compose
-            </MenuItem>
-            <MenuSeparator />
-            <MenuItem
-              onClick={() => {
-                const allShapes = getAllShapes(ydoc);
-                useEditorStore.getState().setSelectedIds(allShapes.map((s) => s.id));
-                onClose();
-              }}
-              shortcut={`${mod}A`}
-            >
-              Select all
-            </MenuItem>
-          </div>
-        </div>
-      );
-    }
 
     return (
       <div ref={ref}>

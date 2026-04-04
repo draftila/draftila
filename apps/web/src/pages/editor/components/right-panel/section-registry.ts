@@ -1,4 +1,4 @@
-import type { EditorMode, ShapeType } from '@draftila/shared';
+import type { ShapeType } from '@draftila/shared';
 import type { PropertySection } from './types';
 import { TransformSection } from './sections/transform-section';
 import { AppearanceSection } from './sections/appearance-section';
@@ -132,17 +132,8 @@ const sectionRegistry: Record<ShapeType, PropertySection[]> = {
   ],
 };
 
-const DRAW_MODE_EXCLUDED: PropertySection[] = [AutoLayoutSection, ConstraintsSection];
-
-export function getSectionsForShape(
-  shapeType: ShapeType,
-  editorMode: EditorMode = 'design',
-): PropertySection[] {
-  const sections = sectionRegistry[shapeType] ?? [TransformSection];
-  if (editorMode === 'draw') {
-    return sections.filter((s) => !DRAW_MODE_EXCLUDED.includes(s));
-  }
-  return sections;
+export function getSectionsForShape(shapeType: ShapeType): PropertySection[] {
+  return sectionRegistry[shapeType] ?? [TransformSection];
 }
 
 const MULTI_SELECT_EXCLUDED: PropertySection[] = [

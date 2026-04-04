@@ -55,8 +55,7 @@ export function InspectPanel({ ydoc }: InspectPanelProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b px-3 py-1.5">
-        <span className="text-muted-foreground text-[11px] font-medium">Dev Mode</span>
+      <div className="flex items-center justify-end border-b px-3 py-1.5">
         <div className="flex items-center gap-1">
           <TabButton active={activeTab === 'list'} onClick={() => setActiveTab('list')}>
             List

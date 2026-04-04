@@ -2,7 +2,6 @@ import type { z } from 'zod';
 import type {
   shapeTypeSchema,
   toolTypeSchema,
-  editorModeSchema,
   pointSchema,
   pressurePointSchema,
   vectorNodeSchema,
@@ -46,7 +45,6 @@ import type {
 
 export type ShapeType = z.infer<typeof shapeTypeSchema>;
 export type ToolType = z.infer<typeof toolTypeSchema>;
-export type EditorMode = z.infer<typeof editorModeSchema>;
 export type Point = z.infer<typeof pointSchema>;
 export type PressurePoint = z.infer<typeof pressurePointSchema>;
 export type VectorNode = z.infer<typeof vectorNodeSchema>;

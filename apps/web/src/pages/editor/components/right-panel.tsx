@@ -39,7 +39,8 @@ export function RightPanel({ ydoc, draftId }: RightPanelProps) {
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const activePageId = useEditorStore((s) => s.activePageId);
   const rightPanelOpen = useEditorStore((s) => s.rightPanelOpen);
-  const editorMode = useEditorStore((s) => s.editorMode);
+  const rightPanelView = useEditorStore((s) => s.rightPanelView);
+  const setRightPanelView = useEditorStore((s) => s.setRightPanelView);
   const versionHistoryOpen = useEditorStore((s) => s.versionHistoryOpen);
   const [selectedShape, setSelectedShape] = useState<Shape | null>(null);
   const [instanceLabel, setInstanceLabel] = useState<string | null>(null);
@@ -177,69 +178,96 @@ export function RightPanel({ ydoc, draftId }: RightPanelProps) {
     );
   }
 
-  if (editorMode === 'dev') {
-    return <DevModePanel ydoc={ydoc} />;
-  }
-
-  const sections = selectedShape ? getSectionsForShape(selectedShape.type, editorMode) : [];
+  const sections = selectedShape ? getSectionsForShape(selectedShape.type) : [];
 
   return (
-    <div className="flex h-full w-60 shrink-0 flex-col border-l">
+    <div className="flex h-full w-72 shrink-0 flex-col border-l">
       <ZoomControls ydoc={ydoc} />
-      <div className="flex-1 overflow-auto">
-        {!selectedShape && !multiSelected && (
-          <RightPanelCanvas
-            ydoc={ydoc}
-            pageBgColor={pageBgColor}
-            canvasShape={canvasShape}
-            shapeScope={shapeScope}
-            onPageBgColorChange={handlePageBgColorChange}
-          />
-        )}
-        {!selectedShape && multiSelected && (
-          <RightPanelMultiSelect
-            ydoc={ydoc}
-            selectedShapes={selectedShapes}
-            shapeScope={shapeScope}
-            onAlign={handleAlign}
-            onDistribute={handleDistribute}
-            onBatchUpdate={handleBatchUpdate}
-          />
-        )}
-        {selectedShape && (
-          <div>
-            {instanceLabel && (
-              <div className="border-b px-3 py-2">
-                <p className="text-muted-foreground text-[11px] uppercase tracking-wide">
-                  Instance
-                </p>
-                <p className="text-xs font-medium">of {instanceLabel}</p>
-              </div>
-            )}
-            {sections.map((Section, index) => (
-              <div key={Section.name || index} className="border-b px-3 py-3">
-                <Section
-                  ydoc={ydoc}
-                  shape={selectedShape}
-                  shapeScope={shapeScope}
-                  onUpdate={handleUpdate}
-                />
-              </div>
-            ))}
-          </div>
-        )}
+      <div className="flex items-center gap-1 border-b px-3 py-1.5">
+        <PanelViewTab
+          active={rightPanelView === 'properties'}
+          onClick={() => setRightPanelView('properties')}
+        >
+          Properties
+        </PanelViewTab>
+        <PanelViewTab
+          active={rightPanelView === 'inspect'}
+          onClick={() => setRightPanelView('inspect')}
+        >
+          Inspect
+        </PanelViewTab>
       </div>
+      {rightPanelView === 'inspect' ? (
+        <div className="min-h-0 flex-1">
+          <InspectPanel ydoc={ydoc} />
+        </div>
+      ) : (
+        <div className="flex-1 overflow-auto">
+          {!selectedShape && !multiSelected && (
+            <RightPanelCanvas
+              ydoc={ydoc}
+              pageBgColor={pageBgColor}
+              canvasShape={canvasShape}
+              shapeScope={shapeScope}
+              onPageBgColorChange={handlePageBgColorChange}
+            />
+          )}
+          {!selectedShape && multiSelected && (
+            <RightPanelMultiSelect
+              ydoc={ydoc}
+              selectedShapes={selectedShapes}
+              shapeScope={shapeScope}
+              onAlign={handleAlign}
+              onDistribute={handleDistribute}
+              onBatchUpdate={handleBatchUpdate}
+            />
+          )}
+          {selectedShape && (
+            <div>
+              {instanceLabel && (
+                <div className="border-b px-3 py-2">
+                  <p className="text-muted-foreground text-[11px] uppercase tracking-wide">
+                    Instance
+                  </p>
+                  <p className="text-xs font-medium">of {instanceLabel}</p>
+                </div>
+              )}
+              {sections.map((Section, index) => (
+                <div key={Section.name || index} className="border-b px-3 py-3">
+                  <Section
+                    ydoc={ydoc}
+                    shape={selectedShape}
+                    shapeScope={shapeScope}
+                    onUpdate={handleUpdate}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-function DevModePanel({ ydoc }: { ydoc: Y.Doc }) {
+function PanelViewTab({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex h-full w-72 shrink-0 flex-col border-l">
-      <ZoomControls ydoc={ydoc} />
-      <div className="min-h-0 flex-1">
-        <InspectPanel ydoc={ydoc} />
-      </div>
-    </div>
+    <button
+      type="button"
+      className={`rounded px-2 py-1 text-[11px] font-medium transition-colors ${
+        active ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground'
+      }`}
+      onClick={onClick}
+    >
+      {children}
+    </button>
   );
 }
