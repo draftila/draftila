@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import type { ToolType, EditorMode } from '@draftila/shared';
+import type { ToolType } from '@draftila/shared';
 import {
   MousePointer2,
   Hand,
@@ -15,8 +15,6 @@ import {
   MoveRight,
   MessageCircle,
   ChevronDown,
-  Code2,
-  Spline,
   Brush,
 } from 'lucide-react';
 import { Toggle } from '@/components/ui/toggle';
@@ -173,60 +171,7 @@ const PEN_TOOLS: ToolOption[] = [
   { tool: 'brush', icon: <Brush className="h-4 w-4" />, label: 'Brush', shortcut: 'B' },
 ];
 
-const MODE_CONFIG: { mode: EditorMode; icon: React.ReactNode; label: string; shortcut: string }[] =
-  [
-    {
-      mode: 'design',
-      icon: <MousePointer2 className="h-3.5 w-3.5" />,
-      label: 'Design',
-      shortcut: '',
-    },
-    { mode: 'draw', icon: <Spline className="h-3.5 w-3.5" />, label: 'Draw', shortcut: '\u21E7W' },
-    { mode: 'dev', icon: <Code2 className="h-3.5 w-3.5" />, label: 'Dev', shortcut: '\u21E7D' },
-  ];
-
-function ModeToggle() {
-  const editorMode = useEditorStore((s) => s.editorMode);
-
-  return (
-    <div className="bg-muted/50 flex items-center gap-0.5 rounded-md p-0.5">
-      {MODE_CONFIG.map(({ mode, icon, label, shortcut }) => (
-        <Tooltip key={mode}>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              className={`flex h-7 items-center gap-1.5 rounded px-2 text-xs font-medium transition-colors ${
-                editorMode === mode
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-              onClick={() => {
-                const store = useEditorStore.getState();
-                store.setEditorMode(mode);
-                if (mode === 'dev') {
-                  store.setRightPanelOpen(true);
-                }
-              }}
-            >
-              {icon}
-              <span>{label}</span>
-            </button>
-          </TooltipTrigger>
-          {shortcut && (
-            <TooltipContent side="top" className="flex items-center gap-2">
-              <span>{label} Mode</span>
-              <kbd className="bg-muted/20 rounded px-1.5 py-0.5 font-mono text-[10px]">
-                {shortcut}
-              </kbd>
-            </TooltipContent>
-          )}
-        </Tooltip>
-      ))}
-    </div>
-  );
-}
-
-function DesignTools() {
+function Tools() {
   return (
     <>
       <ToolButton
@@ -252,50 +197,6 @@ function DesignTools() {
   );
 }
 
-function DrawTools() {
-  return (
-    <>
-      <ToolButton
-        tool="move"
-        icon={<MousePointer2 className="h-4 w-4" />}
-        label="Move"
-        shortcut="V"
-      />
-      <ToolButton tool="hand" icon={<Hand className="h-4 w-4" />} label="Hand" shortcut="H" />
-      <Separator orientation="vertical" className="mx-1 h-full" />
-      <ToolGroup options={PEN_TOOLS} />
-      <ToolGroup options={SHAPE_TOOLS} />
-      <Separator orientation="vertical" className="mx-1 h-full" />
-      <ToolButton tool="text" icon={<Type className="h-4 w-4" />} label="Text" shortcut="T" />
-    </>
-  );
-}
-
-function DevTools() {
-  return (
-    <>
-      <ToolButton
-        tool="move"
-        icon={<MousePointer2 className="h-4 w-4" />}
-        label="Move"
-        shortcut="V"
-      />
-      <ToolButton
-        tool="comment"
-        icon={<MessageCircle className="h-4 w-4" />}
-        label="Comment"
-        shortcut="C"
-      />
-    </>
-  );
-}
-
-const TOOLS_BY_MODE: Record<EditorMode, React.FC> = {
-  design: DesignTools,
-  draw: DrawTools,
-  dev: DevTools,
-};
-
 function BrushSecondaryToolbar() {
   const activeTool = useEditorStore((s) => s.activeTool);
   const size = useEditorStore((s) => s.brushSettings.size);
@@ -320,16 +221,11 @@ function BrushSecondaryToolbar() {
 }
 
 export function EditorToolbar() {
-  const editorMode = useEditorStore((s) => s.editorMode);
-  const Tools = TOOLS_BY_MODE[editorMode];
-
   return (
     <div className="flex flex-col items-center">
       <BrushSecondaryToolbar />
       <div className="bg-background flex items-center gap-1 rounded-lg border p-1 shadow-sm">
         <Tools />
-        <Separator orientation="vertical" className="mx-1 h-full" />
-        <ModeToggle />
       </div>
     </div>
   );

@@ -1,16 +1,10 @@
 import { create } from 'zustand';
 import type * as Y from 'yjs';
-import type {
-  BrushSettings,
-  Camera,
-  CanvasGuide,
-  EditorMode,
-  Point,
-  ToolType,
-} from '@draftila/shared';
+import type { BrushSettings, Camera, CanvasGuide, Point, ToolType } from '@draftila/shared';
 import type { GuideSnapTarget } from '@draftila/engine';
 import { DEFAULT_CAMERA, clampZoom, configureToolStore } from '@draftila/engine';
-import { normalizeToolForMode } from '@/lib/editor-modes';
+
+export type RightPanelView = 'properties' | 'inspect';
 
 const DEFAULT_BRUSH_SETTINGS: BrushSettings = {
   size: 8,
@@ -42,7 +36,7 @@ interface EditorState {
   activeCommentId: string | null;
   aiActiveFrameIds: Set<string>;
   brushSettings: BrushSettings;
-  editorMode: EditorMode;
+  rightPanelView: RightPanelView;
   inspectTab: 'list' | 'code';
   versionHistoryOpen: boolean;
   previewSnapshotId: string | null;
@@ -77,7 +71,7 @@ interface EditorState {
   setActiveCommentId: (id: string | null) => void;
   setAiActiveFrameIds: (ids: Set<string>) => void;
   setBrushSettings: (settings: Partial<BrushSettings>) => void;
-  setEditorMode: (mode: EditorMode) => void;
+  setRightPanelView: (view: RightPanelView) => void;
   setInspectTab: (tab: 'list' | 'code') => void;
   setVersionHistoryOpen: (open: boolean) => void;
   enterPreviewMode: (snapshotId: string, ydoc: Y.Doc) => void;
@@ -108,7 +102,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   activeCommentId: null,
   aiActiveFrameIds: new Set(),
   brushSettings: DEFAULT_BRUSH_SETTINGS,
-  editorMode: 'design',
+  rightPanelView: 'properties',
   inspectTab: 'list',
   versionHistoryOpen: false,
   previewSnapshotId: null,
@@ -209,21 +203,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       },
     })),
 
-  setEditorMode: (mode) =>
-    set((state) => ({
-      editorMode: mode,
-      activeTool: mode === 'dev' ? ('move' as const) : normalizeToolForMode(state.activeTool, mode),
-      ...(mode === 'dev' ? { editingTextId: null } : {}),
-      ...(mode !== 'design' && state.versionHistoryOpen ? { versionHistoryOpen: false } : {}),
-    })),
+  setRightPanelView: (view) => set({ rightPanelView: view }),
 
   setInspectTab: (tab) => set({ inspectTab: tab }),
 
-  setVersionHistoryOpen: (open) =>
-    set((state) => ({
-      versionHistoryOpen: open,
-      ...(open && state.editorMode !== 'design' ? { editorMode: 'design' as const } : {}),
-    })),
+  setVersionHistoryOpen: (open) => set({ versionHistoryOpen: open }),
 
   enterPreviewMode: (snapshotId, ydoc) =>
     set({
