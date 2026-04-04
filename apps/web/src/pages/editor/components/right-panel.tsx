@@ -180,10 +180,8 @@ export function RightPanel({ ydoc, draftId }: RightPanelProps) {
 
   const sections = selectedShape ? getSectionsForShape(selectedShape.type) : [];
 
-  const panelWidth = rightPanelView === 'inspect' ? 'w-72' : 'w-60';
-
   return (
-    <div className={`flex h-full ${panelWidth} shrink-0 flex-col border-l`}>
+    <div className="flex h-full w-72 shrink-0 flex-col border-l">
       <ZoomControls ydoc={ydoc} />
       <div className="flex items-center gap-1 border-b px-3 py-1.5">
         <PanelViewTab
