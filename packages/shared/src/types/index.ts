@@ -3,11 +3,6 @@ export * from './editor';
 import type { z } from 'zod';
 import type {
   loginSchema,
-  userSchema,
-  createUserSchema,
-  adminUserSchema,
-  createAdminUserSchema,
-  updateAdminUserSchema,
   projectSchema,
   createProjectSchema,
   updateProjectSchema,
@@ -19,31 +14,20 @@ import type {
   createDraftSchema,
   updateDraftSchema,
   commentSchema,
-  commentAuthorSchema,
   commentResponseSchema,
   createCommentSchema,
   updateCommentSchema,
-  listCommentsQuerySchema,
   markAllCommentsReadSchema,
-  paginationSchema,
   sortSchema,
-  exportPageSchema,
-  exportVariableSchema,
-  exportComponentSchema,
   exportDraftDataSchema,
   draftExportSchema,
-  snapshotSchema,
   snapshotWithAuthorSchema,
   createSnapshotSchema,
   updateSnapshotSchema,
+  createApiKeySchema,
 } from '../schemas';
 
 export type Login = z.infer<typeof loginSchema>;
-export type User = z.infer<typeof userSchema>;
-export type CreateUser = z.infer<typeof createUserSchema>;
-export type AdminUser = z.infer<typeof adminUserSchema>;
-export type CreateAdminUser = z.infer<typeof createAdminUserSchema>;
-export type UpdateAdminUser = z.infer<typeof updateAdminUserSchema>;
 export type Project = z.infer<typeof projectSchema>;
 export type CreateProject = z.infer<typeof createProjectSchema>;
 export type UpdateProject = z.infer<typeof updateProjectSchema>;
@@ -55,23 +39,17 @@ export type Draft = z.infer<typeof draftSchema>;
 export type CreateDraft = z.infer<typeof createDraftSchema>;
 export type UpdateDraft = z.infer<typeof updateDraftSchema>;
 export type Comment = z.infer<typeof commentSchema>;
-export type CommentAuthor = z.infer<typeof commentAuthorSchema>;
 export type CommentResponse = z.infer<typeof commentResponseSchema>;
 export type CreateComment = z.infer<typeof createCommentSchema>;
 export type UpdateComment = z.infer<typeof updateCommentSchema>;
-export type ListCommentsQuery = z.infer<typeof listCommentsQuerySchema>;
 export type MarkAllCommentsRead = z.infer<typeof markAllCommentsReadSchema>;
-export type Pagination = z.infer<typeof paginationSchema>;
 export type SortOrder = z.infer<typeof sortSchema>;
-export type ExportPage = z.infer<typeof exportPageSchema>;
-export type ExportVariable = z.infer<typeof exportVariableSchema>;
-export type ExportComponent = z.infer<typeof exportComponentSchema>;
 export type ExportDraftData = z.infer<typeof exportDraftDataSchema>;
 export type DraftExport = z.infer<typeof draftExportSchema>;
-export type Snapshot = z.infer<typeof snapshotSchema>;
 export type SnapshotWithAuthor = z.infer<typeof snapshotWithAuthorSchema>;
 export type CreateSnapshot = z.infer<typeof createSnapshotSchema>;
 export type UpdateSnapshot = z.infer<typeof updateSnapshotSchema>;
+export type CreateApiKey = z.infer<typeof createApiKeySchema>;
 
 export interface PaginatedResponse<T> {
   data: T[];

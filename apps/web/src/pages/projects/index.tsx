@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
 import { UserMenu } from '@/components/user-menu';
+import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
 import { ProjectCard } from './components/project-card';
 import { ProjectListItem } from './components/project-list-item';
@@ -50,7 +51,12 @@ export function ProjectsPage() {
         {isError ? (
           <ErrorState error={error} />
         ) : isLoading ? null : projects.length === 0 ? (
-          <EmptyState onCreateProject={() => setCreateDialogOpen(true)} />
+          <EmptyState
+            title="No projects yet"
+            description="Create your first project to get started."
+            actionLabel="New Project"
+            onAction={() => setCreateDialogOpen(true)}
+          />
         ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {projects.map((project) => (
@@ -70,21 +76,6 @@ export function ProjectsPage() {
         onOpenChange={setCreateDialogOpen}
         onSuccess={handleProjectCreated}
       />
-    </div>
-  );
-}
-
-function EmptyState({ onCreateProject }: { onCreateProject: () => void }) {
-  return (
-    <div className="flex h-full flex-col items-center justify-center gap-4">
-      <div className="text-muted-foreground text-center">
-        <p className="text-lg font-medium">No projects yet</p>
-        <p className="text-sm">Create your first project to get started.</p>
-      </div>
-      <Button onClick={onCreateProject}>
-        <PlusIcon />
-        New Project
-      </Button>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const SHAPE_TYPES = [
+const SHAPE_TYPES = [
   'rectangle',
   'ellipse',
   'frame',
@@ -16,7 +16,7 @@ export const SHAPE_TYPES = [
 
 export const shapeTypeSchema = z.enum(SHAPE_TYPES);
 
-export const TOOL_TYPES = [
+const TOOL_TYPES = [
   'move',
   'hand',
   'comment',
@@ -101,7 +101,7 @@ export const strokeJoinSchema = z.enum(['miter', 'round', 'bevel']);
 export const strokeAlignSchema = z.enum(['center', 'inside', 'outside']);
 export const strokeDashPatternSchema = z.enum(['solid', 'dash', 'dot', 'dash-dot']);
 
-export const ARROWHEAD_TYPES = [
+const ARROWHEAD_TYPES = [
   'none',
   'line_arrow',
   'triangle_arrow',

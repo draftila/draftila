@@ -1,12 +1,9 @@
+import { createApiKeySchema } from '@draftila/shared';
 import { Hono } from 'hono';
-import { z } from 'zod';
+import { QuotaExceededError } from '../../common/errors';
 import { validateOrThrow } from '../../common/lib/validation';
 import { requireAuth, type AuthEnv } from '../../common/middleware/auth';
 import * as apiKeysService from './api-keys.service';
-
-const createApiKeySchema = z.object({
-  name: z.string().trim().min(1).max(100),
-});
 
 const apiKeyRoutes = new Hono<AuthEnv>();
 
@@ -19,7 +16,7 @@ apiKeyRoutes.post('/', requireAuth, async (c) => {
     const result = await apiKeysService.create(user.id, parsed.name);
     return c.json(result, 201);
   } catch (err) {
-    if (err instanceof Error && err.message.startsWith('Maximum of')) {
+    if (err instanceof QuotaExceededError) {
       return c.json({ error: err.message }, 400);
     }
     throw err;

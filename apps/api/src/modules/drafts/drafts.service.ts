@@ -3,6 +3,7 @@ import type { Prisma } from '../../generated/prisma/postgresql-client';
 import type { SortOrder, DraftExport, ExportDraftData } from '@draftila/shared';
 import { sanitizeFilename } from '@draftila/shared';
 import { ymapToObject, valueToYjs, DEFAULT_PAGE_BACKGROUND } from '@draftila/engine';
+import { NotFoundError } from '../../common/errors';
 import { getSortConfig, nextTimestamp, paginateResults } from '../../common/lib/pagination';
 import { extractStorageKey, getStorage, replaceStorageFile } from '../../common/lib/storage';
 import { nanoid } from '../../common/lib/utils';
@@ -103,6 +104,14 @@ export function getByIdForUser(draftId: string, userId: string) {
     where: { id: draftId, project: userAccessFilter(userId) },
     select: draftListSelect,
   });
+}
+
+export async function ensureDraftAccess(draftId: string, userId: string) {
+  const draft = await getByIdForUser(draftId, userId);
+  if (!draft) {
+    throw new NotFoundError('Draft');
+  }
+  return draft;
 }
 
 export async function create(data: { name: string; projectId: string }) {

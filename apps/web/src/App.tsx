@@ -6,7 +6,6 @@ import { AuthGuard, GuestGuard } from '@/components/auth-guard';
 import { AdminGuard } from '@/components/admin-guard';
 import { queryClient } from './lib/query-client';
 import { DashboardLayout } from './layouts/dashboard-layout';
-import { AdminLayout } from './layouts/admin-layout';
 import { EditorLayout } from './layouts/editor-layout';
 import { DraftsPage } from './pages/drafts/index';
 import { ProjectsPage } from './pages/projects/index';
@@ -38,7 +37,7 @@ export function App() {
                 <Route path="/drafts/:draftId" element={<EditorPage />} />
               </Route>
               <Route element={<AdminGuard />}>
-                <Route element={<AdminLayout />}>
+                <Route element={<DashboardLayout />}>
                   <Route path="/admin/users" element={<AdminUsersPage />} />
                 </Route>
               </Route>

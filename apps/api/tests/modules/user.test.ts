@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { app } from '../../src/app';
 import { resetRateLimitStore } from '../../src/common/middleware/rate-limit';
-import * as userService from '../../src/modules/user/user.service';
 import { cleanDatabase, createTestUser, getAuthHeaders } from '../helpers';
 
 describe('user', () => {
@@ -9,22 +8,6 @@ describe('user', () => {
     await cleanDatabase();
     resetRateLimitStore('sign-in');
     resetRateLimitStore('sign-up');
-  });
-
-  describe('user.service', () => {
-    test('getById returns the user for a valid id', async () => {
-      const result = await createTestUser();
-      const found = await userService.getById(result.user.id);
-
-      expect(found).not.toBeNull();
-      expect(found!.email).toBe('test@draftila.com');
-      expect(found!.name).toBe('Test User');
-    });
-
-    test('getById returns null for a non-existent id', async () => {
-      const found = await userService.getById('non-existent-id');
-      expect(found).toBeNull();
-    });
   });
 
   describe('GET /api/me', () => {

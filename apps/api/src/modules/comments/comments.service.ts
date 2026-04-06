@@ -40,12 +40,7 @@ const commentSelect = {
   },
 } as const;
 
-async function ensureDraftAccess(draftId: string, userId: string) {
-  const draft = await draftsService.getByIdForUser(draftId, userId);
-  if (!draft) {
-    throw new NotFoundError('Draft');
-  }
-}
+const { ensureDraftAccess } = draftsService;
 
 function mapComment(comment: CommentWithMeta, currentUserId: string): CommentResponse {
   return {

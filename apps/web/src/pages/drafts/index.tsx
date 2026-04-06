@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
 import { UserMenu } from '@/components/user-menu';
+import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
 import { DraftCard } from './components/draft-card';
 import { DraftListItem } from './components/draft-list-item';
@@ -79,7 +80,13 @@ export function DraftsPage() {
         {isError ? (
           <ErrorState error={error} />
         ) : isLoading ? null : drafts.length === 0 ? (
-          <EmptyState onCreateDraft={handleCreateDraft} disabled={!createProjectId} />
+          <EmptyState
+            title="No drafts yet"
+            description="Create your first draft to get started."
+            actionLabel="New Draft"
+            onAction={handleCreateDraft}
+            disabled={!createProjectId}
+          />
         ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {drafts.map((draft) => (
@@ -94,21 +101,6 @@ export function DraftsPage() {
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function EmptyState({ onCreateDraft, disabled }: { onCreateDraft: () => void; disabled: boolean }) {
-  return (
-    <div className="flex h-full flex-col items-center justify-center gap-4">
-      <div className="text-muted-foreground text-center">
-        <p className="text-lg font-medium">No drafts yet</p>
-        <p className="text-sm">Create your first draft to get started.</p>
-      </div>
-      <Button onClick={onCreateDraft} disabled={disabled}>
-        <PlusIcon />
-        New Draft
-      </Button>
     </div>
   );
 }
