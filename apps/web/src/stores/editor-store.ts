@@ -25,7 +25,7 @@ interface EditorState {
   commentsVisible: boolean;
   activeCommentId: string | null;
   aiActiveFrameIds: Set<string>;
-  devMode: boolean;
+  rightPanelView: 'properties' | 'inspect';
   inspectTab: 'list' | 'code';
   versionHistoryOpen: boolean;
   previewSnapshotId: string | null;
@@ -59,7 +59,7 @@ interface EditorState {
   setCommentsVisible: (visible: boolean) => void;
   setActiveCommentId: (id: string | null) => void;
   setAiActiveFrameIds: (ids: Set<string>) => void;
-  setDevMode: (on: boolean) => void;
+  setRightPanelView: (view: 'properties' | 'inspect') => void;
   setInspectTab: (tab: 'list' | 'code') => void;
   setVersionHistoryOpen: (open: boolean) => void;
   enterPreviewMode: (snapshotId: string, ydoc: Y.Doc) => void;
@@ -89,7 +89,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   commentsVisible: localStorage.getItem('draftila:commentsVisible') !== 'false',
   activeCommentId: null,
   aiActiveFrameIds: new Set(),
-  devMode: false,
+  rightPanelView: 'properties',
   inspectTab: 'list',
   versionHistoryOpen: false,
   previewSnapshotId: null,
@@ -185,20 +185,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setAiActiveFrameIds: (ids) => set({ aiActiveFrameIds: ids }),
 
-  setDevMode: (on) =>
-    set((state) => ({
-      devMode: on,
-      ...(on ? { activeTool: 'move' as const, editingTextId: null } : {}),
-      ...(on && state.versionHistoryOpen ? { versionHistoryOpen: false } : {}),
-    })),
+  setRightPanelView: (view) => set({ rightPanelView: view }),
 
   setInspectTab: (tab) => set({ inspectTab: tab }),
 
-  setVersionHistoryOpen: (open) =>
-    set((state) => ({
-      versionHistoryOpen: open,
-      ...(open && state.devMode ? { devMode: false } : {}),
-    })),
+  setVersionHistoryOpen: (open) => set({ versionHistoryOpen: open }),
 
   enterPreviewMode: (snapshotId, ydoc) =>
     set({
