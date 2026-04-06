@@ -40,3 +40,8 @@ storage/
 .plans/
 .mcp.json
 .cache/
+
+# Claude
+AGENTS.md
+CLAUDE.md
+.claude/
