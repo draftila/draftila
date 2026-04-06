@@ -13,7 +13,6 @@ import { AutoLayoutSection } from './sections/auto-layout-section';
 import { ImageSection } from './sections/image-section';
 import { PathDataSection } from './sections/path-data-section';
 import { ConstraintsSection } from './sections/constraints-section';
-import { BrushSettingsSection } from './sections/brush-settings-section';
 import { ExportSection } from './sections/export-section';
 import { PreviewSection } from './sections/preview-section';
 
@@ -65,7 +64,6 @@ const sectionRegistry: Record<ShapeType, PropertySection[]> = {
     AppearanceSection,
     ConstraintsSection,
     PathDataSection,
-    BrushSettingsSection,
     FillSection,
     StrokeSection,
     EffectsSection,
@@ -146,7 +144,6 @@ const MULTI_SELECT_EXCLUDED: PropertySection[] = [
   TypographySection,
   ImageSection,
   PathDataSection,
-  BrushSettingsSection,
   ExportSection,
   PreviewSection,
 ];

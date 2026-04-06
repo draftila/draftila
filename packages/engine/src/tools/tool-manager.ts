@@ -9,7 +9,6 @@ import { FrameTool } from './frame-tool';
 import { TextTool, setTextToolCallback } from './text-tool';
 import { PenTool } from './pen-tool';
 import { PencilTool } from './pencil-tool';
-import { BrushTool } from './brush-tool';
 import { NodeTool } from './node-tool';
 import { LineTool } from './line-tool';
 import { PolygonTool } from './polygon-tool';
@@ -26,7 +25,6 @@ const toolInstances: Record<ToolType, BaseTool> = {
   text: new TextTool(),
   pen: new PenTool(),
   pencil: new PencilTool(),
-  brush: new BrushTool(),
   node: new NodeTool(),
   line: new LineTool(),
   polygon: new PolygonTool(),
@@ -84,10 +82,6 @@ export function getStarTool(): StarTool {
 
 export function getTextTool(): TextTool {
   return toolInstances.text as TextTool;
-}
-
-export function getBrushTool(): BrushTool {
-  return toolInstances.brush as BrushTool;
 }
 
 export function getNodeTool(): NodeTool {

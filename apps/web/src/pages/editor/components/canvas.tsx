@@ -136,6 +136,7 @@ export function Canvas({
   });
   const { isDragging } = useFileDrop({ ydoc, canvasRef });
   const activeTool = useEditorStore((s) => s.activeTool);
+  const devMode = useEditorStore((s) => s.devMode);
   const activePageId = useEditorStore((s) => s.activePageId);
   const commentsVisible = useEditorStore((s) => s.commentsVisible);
   const activeCommentId = useEditorStore((s) => s.activeCommentId);
@@ -320,6 +321,8 @@ export function Canvas({
         state.setSelectedIds([deeperTargetId]);
         return;
       }
+
+      if (state.devMode) return;
 
       if (targetShape.type === 'text') {
         state.setSelectedIds([targetShape.id]);
@@ -620,7 +623,7 @@ export function Canvas({
     };
   }, [hasOpenCommentPanel, canvasRef]);
 
-  const cursor = getCursorForTool(activeTool, isPanning);
+  const cursor = devMode && !isPanning ? 'default' : getCursorForTool(activeTool, isPanning);
 
   return (
     <div

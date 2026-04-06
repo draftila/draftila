@@ -29,7 +29,6 @@ import type {
   strokeDashPatternSchema,
   strokeSidesSchema,
   arrowheadTypeSchema,
-  brushSettingsSchema,
   shadowSchema,
   blurSchema,
   textSegmentSchema,
@@ -72,7 +71,6 @@ export type StrokeAlign = z.infer<typeof strokeAlignSchema>;
 export type StrokeDashPattern = z.infer<typeof strokeDashPatternSchema>;
 export type StrokeSides = z.infer<typeof strokeSidesSchema>;
 export type ArrowheadType = z.infer<typeof arrowheadTypeSchema>;
-export type BrushSettings = z.infer<typeof brushSettingsSchema>;
 export type Shadow = z.infer<typeof shadowSchema>;
 export type Blur = z.infer<typeof blurSchema>;
 export type TextSegment = z.infer<typeof textSegmentSchema>;
