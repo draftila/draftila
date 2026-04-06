@@ -15,7 +15,7 @@ import {
   MoveRight,
   MessageCircle,
   ChevronDown,
-  Brush,
+  Code2,
 } from 'lucide-react';
 import { Toggle } from '@/components/ui/toggle';
 import { Separator } from '@/components/ui/separator';
@@ -168,12 +168,62 @@ const PEN_TOOLS: ToolOption[] = [
     label: 'Pencil',
     shortcut: '\u21E7P',
   },
-  { tool: 'brush', icon: <Brush className="h-4 w-4" />, label: 'Brush', shortcut: 'B' },
 ];
 
-function Tools() {
+function DevModeToggle() {
+  const devMode = useEditorStore((s) => s.devMode);
+
   return (
-    <>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Toggle
+          size="sm"
+          pressed={devMode}
+          onPressedChange={() => {
+            const store = useEditorStore.getState();
+            store.setDevMode(!store.devMode);
+            store.setRightPanelOpen(true);
+          }}
+          aria-label="Dev Mode"
+          className="h-8 w-8 p-0"
+        >
+          <Code2 className="h-4 w-4" />
+        </Toggle>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="flex items-center gap-2">
+        <span>Dev Mode</span>
+        <kbd className="bg-muted/20 rounded px-1.5 py-0.5 font-mono text-[10px]">⇧D</kbd>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+export function EditorToolbar() {
+  const devMode = useEditorStore((s) => s.devMode);
+
+  if (devMode) {
+    return (
+      <div className="bg-background flex items-center gap-1 rounded-lg border p-1 shadow-sm">
+        <ToolButton
+          tool="move"
+          icon={<MousePointer2 className="h-4 w-4" />}
+          label="Move"
+          shortcut="V"
+        />
+        <ToolButton
+          tool="comment"
+          icon={<MessageCircle className="h-4 w-4" />}
+          label="Comment"
+          shortcut="C"
+        />
+        <Separator orientation="vertical" className="mx-1 h-full" />
+        <DevModeToggle />
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-background flex items-center gap-1 rounded-lg border p-1 shadow-sm">
       <ToolButton
         tool="move"
         icon={<MousePointer2 className="h-4 w-4" />}
@@ -193,40 +243,8 @@ function Tools() {
       <Separator orientation="vertical" className="mx-1 h-full" />
       <ToolButton tool="text" icon={<Type className="h-4 w-4" />} label="Text" shortcut="T" />
       <ToolGroup options={PEN_TOOLS} />
-    </>
-  );
-}
-
-function BrushSecondaryToolbar() {
-  const activeTool = useEditorStore((s) => s.activeTool);
-  const size = useEditorStore((s) => s.brushSettings.size);
-  const setBrushSettings = useEditorStore((s) => s.setBrushSettings);
-
-  if (activeTool !== 'brush') return null;
-
-  return (
-    <div className="bg-background mb-1 flex items-center gap-2 rounded-lg border px-3 py-1.5 shadow-sm">
-      <span className="text-muted-foreground text-[11px] font-medium">Size</span>
-      <input
-        type="range"
-        min={1}
-        max={200}
-        value={size}
-        onChange={(e) => setBrushSettings({ size: Number(e.target.value) })}
-        className="h-1 w-24 accent-current"
-      />
-      <span className="text-muted-foreground w-6 text-right text-[11px]">{size}</span>
-    </div>
-  );
-}
-
-export function EditorToolbar() {
-  return (
-    <div className="flex flex-col items-center">
-      <BrushSecondaryToolbar />
-      <div className="bg-background flex items-center gap-1 rounded-lg border p-1 shadow-sm">
-        <Tools />
-      </div>
+      <Separator orientation="vertical" className="mx-1 h-full" />
+      <DevModeToggle />
     </div>
   );
 }

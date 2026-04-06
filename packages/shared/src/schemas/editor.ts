@@ -26,7 +26,6 @@ export const TOOL_TYPES = [
   'text',
   'pen',
   'pencil',
-  'brush',
   'node',
   'line',
   'polygon',
@@ -295,21 +294,12 @@ export const textShapeSchema = baseShapeSchema.extend({
   blurs: z.array(blurSchema).default([]),
 });
 
-export const brushSettingsSchema = z.object({
-  size: z.number().min(1).max(200).default(4),
-  thinning: z.number().min(-1).max(1).default(0.5),
-  smoothing: z.number().min(0).max(1).default(0.5),
-  streamline: z.number().min(0).max(1).default(0.5),
-  simulatePressure: z.boolean().default(true),
-});
-
 export const pathShapeSchema = baseShapeSchema.extend({
   type: z.literal('path'),
   points: z.array(pressurePointSchema).default([]),
   svgPathData: z.string().optional(),
   vectorNodes: z.array(subpathSchema).optional(),
   fillRule: z.enum(['nonzero', 'evenodd']).default('nonzero'),
-  brushSettings: brushSettingsSchema.optional(),
   fills: z.array(fillSchema).default([{ color: '#000000', opacity: 1, visible: true }]),
   strokes: z.array(strokeSchema).default([]),
   shadows: z.array(shadowSchema).default([]),

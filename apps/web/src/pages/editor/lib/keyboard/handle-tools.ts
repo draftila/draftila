@@ -16,7 +16,6 @@ const TOOL_SHORTCUTS: Record<string, ToolType> = {
   s: 'star',
   a: 'arrow',
   n: 'node',
-  b: 'brush',
 };
 
 export function handleToolKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
@@ -90,10 +89,22 @@ export function handleToolKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
   if (!isMod && e.shiftKey && key === 'd') {
     e.preventDefault();
     const store = useEditorStore.getState();
-    const nextView = store.rightPanelView === 'inspect' ? 'properties' : 'inspect';
-    store.setRightPanelView(nextView);
-    store.setRightPanelOpen(true);
+    store.setDevMode(!store.devMode);
     return true;
+  }
+
+  if (useEditorStore.getState().devMode) {
+    if (!isMod && key === 'c') {
+      e.preventDefault();
+      useEditorStore.getState().setActiveTool('comment');
+      return true;
+    }
+    if (!isMod && key === 'v') {
+      e.preventDefault();
+      useEditorStore.getState().setActiveTool('move');
+      return true;
+    }
+    return false;
   }
 
   if (!isMod && key === 'p') {
@@ -107,9 +118,8 @@ export function handleToolKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
   }
 
   if (!isMod && TOOL_SHORTCUTS[key]) {
-    const tool = TOOL_SHORTCUTS[key]!;
     e.preventDefault();
-    useEditorStore.getState().setActiveTool(tool);
+    useEditorStore.getState().setActiveTool(TOOL_SHORTCUTS[key]!);
     return true;
   }
 

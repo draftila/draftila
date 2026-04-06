@@ -47,6 +47,36 @@ export function handleShapeKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
   const key = e.key.toLowerCase();
   const code = e.code;
 
+  if (useEditorStore.getState().devMode) {
+    if (key === 'escape') {
+      e.preventDefault();
+      const { enteredGroupId, setEnteredGroupId, setSelectedIds } = useEditorStore.getState();
+      if (enteredGroupId) {
+        const groupShape = getShape(ydoc, enteredGroupId);
+        const parentGroupId = groupShape?.parentId ?? null;
+        const parentShape = parentGroupId ? getShape(ydoc, parentGroupId) : null;
+        const nextEnteredId = parentShape?.type === 'group' ? parentGroupId : null;
+        setEnteredGroupId(nextEnteredId);
+        setSelectedIds([enteredGroupId]);
+        return true;
+      }
+      useEditorStore.getState().clearSelection();
+      return true;
+    }
+    if (isMod && key === 'a') {
+      e.preventDefault();
+      const allShapes = getAllShapes(ydoc);
+      useEditorStore.getState().setSelectedIds(allShapes.map((s) => s.id));
+      return true;
+    }
+    if (!isMod && code === 'Tab') {
+      e.preventDefault();
+      cycleSelection(ydoc, e.shiftKey);
+      return true;
+    }
+    return false;
+  }
+
   if (!isMod && e.shiftKey && code === 'KeyR') {
     e.preventDefault();
     const { rulersVisible, setRulersVisible, setGuidesVisible } = useEditorStore.getState();

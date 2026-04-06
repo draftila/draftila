@@ -131,13 +131,12 @@ export function renderShape(renderer: Renderer, shape: Shape) {
         (p) => [p.x, p.y, p.pressure] as [number, number, number],
       );
       const strokeWidth = primaryStrokeWidth(shape.strokes);
-      const bs = shape.brushSettings;
       const strokePoints = getStroke(inputPoints, {
-        size: bs?.size ?? (strokeWidth > 0 ? strokeWidth : 4),
-        thinning: bs?.thinning ?? 0.5,
-        smoothing: bs?.smoothing ?? 0.5,
-        streamline: bs?.streamline ?? 0.5,
-        simulatePressure: bs?.simulatePressure ?? true,
+        size: strokeWidth > 0 ? strokeWidth : 4,
+        thinning: 0.5,
+        smoothing: 0.5,
+        streamline: 0.5,
+        simulatePressure: true,
       });
       const outlinePoints = getSvgPathFromStroke(strokePoints);
       if (outlinePoints.length > 0) {

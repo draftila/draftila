@@ -1,18 +1,8 @@
 import { create } from 'zustand';
 import type * as Y from 'yjs';
-import type { BrushSettings, Camera, CanvasGuide, Point, ToolType } from '@draftila/shared';
+import type { Camera, CanvasGuide, Point, ToolType } from '@draftila/shared';
 import type { GuideSnapTarget } from '@draftila/engine';
 import { DEFAULT_CAMERA, clampZoom, configureToolStore } from '@draftila/engine';
-
-export type RightPanelView = 'properties' | 'inspect';
-
-const DEFAULT_BRUSH_SETTINGS: BrushSettings = {
-  size: 8,
-  thinning: 0.5,
-  smoothing: 0.5,
-  streamline: 0.5,
-  simulatePressure: true,
-};
 
 interface EditorState {
   activeTool: ToolType;
@@ -35,8 +25,7 @@ interface EditorState {
   commentsVisible: boolean;
   activeCommentId: string | null;
   aiActiveFrameIds: Set<string>;
-  brushSettings: BrushSettings;
-  rightPanelView: RightPanelView;
+  devMode: boolean;
   inspectTab: 'list' | 'code';
   versionHistoryOpen: boolean;
   previewSnapshotId: string | null;
@@ -70,8 +59,7 @@ interface EditorState {
   setCommentsVisible: (visible: boolean) => void;
   setActiveCommentId: (id: string | null) => void;
   setAiActiveFrameIds: (ids: Set<string>) => void;
-  setBrushSettings: (settings: Partial<BrushSettings>) => void;
-  setRightPanelView: (view: RightPanelView) => void;
+  setDevMode: (on: boolean) => void;
   setInspectTab: (tab: 'list' | 'code') => void;
   setVersionHistoryOpen: (open: boolean) => void;
   enterPreviewMode: (snapshotId: string, ydoc: Y.Doc) => void;
@@ -101,8 +89,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   commentsVisible: localStorage.getItem('draftila:commentsVisible') !== 'false',
   activeCommentId: null,
   aiActiveFrameIds: new Set(),
-  brushSettings: DEFAULT_BRUSH_SETTINGS,
-  rightPanelView: 'properties',
+  devMode: false,
   inspectTab: 'list',
   versionHistoryOpen: false,
   previewSnapshotId: null,
@@ -198,19 +185,20 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setAiActiveFrameIds: (ids) => set({ aiActiveFrameIds: ids }),
 
-  setBrushSettings: (settings) =>
+  setDevMode: (on) =>
     set((state) => ({
-      brushSettings: {
-        ...state.brushSettings,
-        ...settings,
-      },
+      devMode: on,
+      ...(on ? { activeTool: 'move' as const, editingTextId: null } : {}),
+      ...(on && state.versionHistoryOpen ? { versionHistoryOpen: false } : {}),
     })),
-
-  setRightPanelView: (view) => set({ rightPanelView: view }),
 
   setInspectTab: (tab) => set({ inspectTab: tab }),
 
-  setVersionHistoryOpen: (open) => set({ versionHistoryOpen: open }),
+  setVersionHistoryOpen: (open) =>
+    set((state) => ({
+      versionHistoryOpen: open,
+      ...(open && state.devMode ? { devMode: false } : {}),
+    })),
 
   enterPreviewMode: (snapshotId, ydoc) =>
     set({
@@ -264,6 +252,4 @@ configureToolStore({
   getCanvasGuides: () => useEditorStore.getState().guides,
   setSelectedGuideId: (id) => useEditorStore.getState().setSelectedGuideId(id),
   getActivePageId: () => useEditorStore.getState().activePageId,
-  getBrushSettings: () => useEditorStore.getState().brushSettings,
-  setBrushSettings: (settings) => useEditorStore.getState().setBrushSettings(settings),
 });
