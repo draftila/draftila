@@ -9,20 +9,12 @@ import * as snapshotsService from './snapshots.service';
 const draftSnapshotRoutes = new Hono<AuthEnv>();
 const snapshotRoutes = new Hono<AuthEnv>();
 
-async function ensureDraftAccess(draftId: string, userId: string) {
-  const draft = await draftsService.getByIdForUser(draftId, userId);
-  if (!draft) {
-    throw new NotFoundError('Draft');
-  }
-  return draft;
-}
-
 async function ensureSnapshotAccess(snapshotId: string, userId: string) {
   const draftId = await snapshotsService.getDraftIdForSnapshot(snapshotId);
   if (!draftId) {
     throw new NotFoundError('Snapshot');
   }
-  await ensureDraftAccess(draftId, userId);
+  await draftsService.ensureDraftAccess(draftId, userId);
   return draftId;
 }
 
@@ -30,7 +22,7 @@ draftSnapshotRoutes.get('/', requireAuth, async (c) => {
   const user = c.get('user');
   const draftId = c.req.param('draftId') as string;
 
-  await ensureDraftAccess(draftId, user.id);
+  await draftsService.ensureDraftAccess(draftId, user.id);
 
   const autoSaves = c.req.query('autoSaves') !== 'false';
   const snapshots = await snapshotsService.listByDraft(draftId, autoSaves);
@@ -41,7 +33,7 @@ draftSnapshotRoutes.post('/', requireAuth, async (c) => {
   const user = c.get('user');
   const draftId = c.req.param('draftId') as string;
 
-  await ensureDraftAccess(draftId, user.id);
+  await draftsService.ensureDraftAccess(draftId, user.id);
 
   const body = await c.req.json();
   const parsed = validateOrThrow(createSnapshotSchema, body);
