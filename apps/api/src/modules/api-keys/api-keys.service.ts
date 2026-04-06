@@ -1,5 +1,6 @@
-import { db } from '../../db';
+import { QuotaExceededError } from '../../common/errors';
 import { nanoid } from '../../common/lib/utils';
+import { db } from '../../db';
 
 const API_KEY_PREFIX = 'dk_';
 const MAX_KEYS_PER_USER = 20;
@@ -16,7 +17,7 @@ async function sha256Hex(input: string): Promise<string> {
 export async function create(userId: string, name: string) {
   const existingCount = await db.apiKey.count({ where: { userId } });
   if (existingCount >= MAX_KEYS_PER_USER) {
-    throw new Error(`Maximum of ${MAX_KEYS_PER_USER} API keys per user`);
+    throw new QuotaExceededError(`Maximum of ${MAX_KEYS_PER_USER} API keys per user`);
   }
 
   const rawKey = `${API_KEY_PREFIX}${nanoid(40)}`;

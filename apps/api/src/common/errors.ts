@@ -36,3 +36,9 @@ export class ValidationError extends AppError {
     super(400, 'Validation failed');
   }
 }
+
+export class QuotaExceededError extends AppError {
+  constructor(message: string) {
+    super(400, message);
+  }
+}
