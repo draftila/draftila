@@ -96,7 +96,7 @@ function escapeKotlinStringLiteral(value: string): string {
     .replace(/\t/g, '\\t');
 }
 
-function fillToComposeBrush(fill: Fill): string | null {
+function fillToComposeBrush(fill: Fill, width = 0, height = 0): string | null {
   if (!fill.gradient) return null;
 
   const gradient = fill.gradient;
@@ -114,7 +114,7 @@ function fillToComposeBrush(fill: Fill): string | null {
 
   const cx = roundTo(gradient.cx ?? 0.5, 3);
   const cy = roundTo(gradient.cy ?? 0.5, 3);
-  const r = roundTo((gradient.r ?? 0.5) * 100, 1);
+  const r = roundTo((gradient.r ?? 0.5) * Math.max(width, height), 1);
   return `Brush.radialGradient(colors = listOf(${colors}), center = Offset(${cx}f, ${cy}f), radius = ${r}f)`;
 }
 
@@ -177,7 +177,7 @@ function buildModifierChain(shape: Shape, extraParts: string[]): string {
 
   const fills = 'fills' in shape ? getVisibleFills(shape.fills as Fill[]) : [];
   for (const fill of fills) {
-    const brush = fillToComposeBrush(fill);
+    const brush = fillToComposeBrush(fill, shape.width, shape.height);
     if (brush) {
       parts.push(`background(${brush})`);
     } else {
@@ -266,7 +266,7 @@ function ellipseToCompose(shape: EllipseShape): string {
   const fills = getVisibleFills(shape.fills);
   if (fills.length > 0) {
     const fill = fills[0]!;
-    const brush = fillToComposeBrush(fill);
+    const brush = fillToComposeBrush(fill, shape.width, shape.height);
     if (brush) {
       parts.push(`background(${brush})`);
     } else {
@@ -326,7 +326,7 @@ function frameToCompose(shape: FrameShape, children: ShapeTreeNode[]): string {
 
   const fills = getVisibleFills(shape.fills);
   for (const fill of fills) {
-    const brush = fillToComposeBrush(fill);
+    const brush = fillToComposeBrush(fill, shape.width, shape.height);
     if (brush) {
       modifierParts.push(`background(${brush})`);
     } else {

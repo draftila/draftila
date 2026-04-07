@@ -116,15 +116,20 @@ function escapeSwiftStringLiteral(value: string): string {
     .replace(/\t/g, '\\t');
 }
 
-function fillToSwiftUI(fill: Fill): string {
+function fillToSwiftUI(fill: Fill, width = 0, height = 0): string {
   if (fill.gradient) {
-    return gradientToSwiftUI(fill.gradient, fill.opacity);
+    return gradientToSwiftUI(fill.gradient, fill.opacity, width, height);
   }
   const rgba = hexToRgba(fill.color, fill.opacity);
   return rgbaToSwiftUIColor(rgba.r, rgba.g, rgba.b, rgba.a);
 }
 
-function gradientToSwiftUI(gradient: NonNullable<Fill['gradient']>, opacity: number): string {
+function gradientToSwiftUI(
+  gradient: NonNullable<Fill['gradient']>,
+  opacity: number,
+  width = 0,
+  height = 0,
+): string {
   const colors = gradient.stops
     .map((s) => {
       const rgba = hexToRgba(s.color, opacity);
@@ -138,7 +143,8 @@ function gradientToSwiftUI(gradient: NonNullable<Fill['gradient']>, opacity: num
     return `LinearGradient(colors: [${colors}], startPoint: ${start}, endPoint: ${end})`;
   }
 
-  return `RadialGradient(colors: [${colors}], center: .center, startRadius: 0, endRadius: ${roundTo((gradient.r ?? 0.5) * 100, 1)})`;
+  const endRadius = (gradient.r ?? 0.5) * Math.max(width, height);
+  return `RadialGradient(colors: [${colors}], center: .center, startRadius: 0, endRadius: ${roundTo(endRadius, 1)})`;
 }
 
 function angleToSwiftUIPoints(angle: number): { start: string; end: string } {
@@ -175,7 +181,7 @@ function buildModifiers(shape: Shape, extras: string[]): string[] {
 
   const fills = 'fills' in shape ? getVisibleFills(shape.fills as Fill[]) : [];
   for (const fill of fills) {
-    modifiers.push(`.background(${fillToSwiftUI(fill)})`);
+    modifiers.push(`.background(${fillToSwiftUI(fill, shape.width, shape.height)})`);
   }
 
   const path = shapePath(shape);
@@ -284,9 +290,9 @@ function buildModifiersWithoutClipShape(shape: Shape): string[] {
 
   const fills = 'fills' in shape ? getVisibleFills(shape.fills as Fill[]) : [];
   if (fills.length > 0) {
-    modifiers.push(`.fill(${fillToSwiftUI(fills[0]!)})`);
+    modifiers.push(`.fill(${fillToSwiftUI(fills[0]!, shape.width, shape.height)})`);
     for (let i = 1; i < fills.length; i++) {
-      modifiers.push(`.background(${fillToSwiftUI(fills[i]!)})`);
+      modifiers.push(`.background(${fillToSwiftUI(fills[i]!, shape.width, shape.height)})`);
     }
   }
 
@@ -366,7 +372,7 @@ function frameToSwiftUI(shape: FrameShape, children: ShapeTreeNode[]): string {
 
   const fills = getVisibleFills(shape.fills);
   for (const fill of fills) {
-    modifiers.push(`.background(${fillToSwiftUI(fill)})`);
+    modifiers.push(`.background(${fillToSwiftUI(fill, shape.width, shape.height)})`);
   }
 
   const path = shapePath(shape);
@@ -508,7 +514,9 @@ function textToSwiftUI(shape: TextShape): string {
   if (fills.length > 0) {
     const fill = fills[0]!;
     if (fill.gradient) {
-      modifiers.push(`.foregroundStyle(${gradientToSwiftUI(fill.gradient, fill.opacity)})`);
+      modifiers.push(
+        `.foregroundStyle(${gradientToSwiftUI(fill.gradient, fill.opacity, shape.width, shape.height)})`,
+      );
     } else {
       const rgba = hexToRgba(fill.color, fill.opacity);
       modifiers.push(`.foregroundColor(${rgbaToSwiftUIColor(rgba.r, rgba.g, rgba.b, rgba.a)})`);

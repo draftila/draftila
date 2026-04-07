@@ -170,7 +170,7 @@ export class StyleEngine {
 
       const align = stroke.align ?? 'inside';
 
-      if ((align === 'inside' || (align === 'center' && closed)) && closed) {
+      if (align === 'inside' && closed) {
         ctx.save();
         ctx.clip(path);
         ctx.lineWidth = stroke.width * 2;
@@ -243,13 +243,9 @@ export class StyleEngine {
           ctx.restore();
         } else {
           ctx.fillStyle = this.getFillStyle(fill, width, height);
-          if (!fill.gradient) {
-            ctx.globalAlpha *= fill.opacity;
-          }
+          ctx.globalAlpha *= fill.opacity;
           ctx.fill();
-          if (!fill.gradient) {
-            ctx.globalAlpha = style.opacity;
-          }
+          ctx.globalAlpha = style.opacity;
         }
         continue;
       }
