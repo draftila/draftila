@@ -393,38 +393,33 @@ export function snapPosition(
   }
 
   const snappedMovingEdges = getEdges(snappedX, snappedY, width, height);
-  const snapLines: SnapLine[] = [];
-  const seenLines = new Set<string>();
+  const snapLineMap = new Map<string, SnapLine>();
 
   for (const candidate of bestXCandidates) {
     const extent = computeSnapLineExtent('x', snappedMovingEdges, candidate.otherEdges);
     const key = `x:${candidate.position}`;
-    if (seenLines.has(key)) {
-      const existing = snapLines.find((l) => l.axis === 'x' && l.position === candidate.position);
-      if (existing) {
-        existing.start = Math.min(existing.start, extent.start);
-        existing.end = Math.max(existing.end, extent.end);
-      }
+    const existing = snapLineMap.get(key);
+    if (existing) {
+      existing.start = Math.min(existing.start, extent.start);
+      existing.end = Math.max(existing.end, extent.end);
     } else {
-      seenLines.add(key);
-      snapLines.push({ axis: 'x', position: candidate.position, ...extent });
+      snapLineMap.set(key, { axis: 'x', position: candidate.position, ...extent });
     }
   }
 
   for (const candidate of bestYCandidates) {
     const extent = computeSnapLineExtent('y', snappedMovingEdges, candidate.otherEdges);
     const key = `y:${candidate.position}`;
-    if (seenLines.has(key)) {
-      const existing = snapLines.find((l) => l.axis === 'y' && l.position === candidate.position);
-      if (existing) {
-        existing.start = Math.min(existing.start, extent.start);
-        existing.end = Math.max(existing.end, extent.end);
-      }
+    const existing = snapLineMap.get(key);
+    if (existing) {
+      existing.start = Math.min(existing.start, extent.start);
+      existing.end = Math.max(existing.end, extent.end);
     } else {
-      seenLines.add(key);
-      snapLines.push({ axis: 'y', position: candidate.position, ...extent });
+      snapLineMap.set(key, { axis: 'y', position: candidate.position, ...extent });
     }
   }
+
+  const snapLines = Array.from(snapLineMap.values());
 
   const snappedOnX = bestDx < threshold;
   const snappedOnY = bestDy < threshold;

@@ -20,6 +20,7 @@ import {
   commitResize,
   commitEndpoint,
   commitRotation,
+  exceedsDragThreshold,
 } from './move-tool-handlers';
 
 export type { ResizePreviewEntry } from './move-tool-utils';
@@ -249,6 +250,11 @@ export class MoveTool extends BaseTool {
 
   onPointerMove(ctx: ToolContext): ToolResult | void {
     if (this.state.type === 'dragging') {
+      const rawDx = ctx.canvasPoint.x - this.state.startCanvas.x;
+      const rawDy = ctx.canvasPoint.y - this.state.startCanvas.y;
+      if (!this.dragOffset && !exceedsDragThreshold(rawDx, rawDy)) {
+        return;
+      }
       const result = handleDragMove(
         this.state,
         ctx,
@@ -296,6 +302,11 @@ export class MoveTool extends BaseTool {
     }
 
     if (this.state.type === 'marquee') {
+      const rawDx = ctx.canvasPoint.x - this.state.startCanvas.x;
+      const rawDy = ctx.canvasPoint.y - this.state.startCanvas.y;
+      if (!this.marqueeRect && !exceedsDragThreshold(rawDx, rawDy)) {
+        return;
+      }
       const result = handleMarqueeMove(this.state, ctx);
       this.marqueeRect = result.marqueeRect;
 

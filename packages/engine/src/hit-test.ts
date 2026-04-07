@@ -6,6 +6,7 @@ const LINE_HIT_TOLERANCE = 8;
 const FRAME_BORDER_TOLERANCE = 6;
 const FRAME_LABEL_FONT_SIZE = 11;
 const FRAME_LABEL_OFFSET_Y = 4;
+const MIN_HIT_TOLERANCE = 1;
 
 let _hitCtx: CanvasRenderingContext2D | null = null;
 function getHitTestContext(): CanvasRenderingContext2D | null {
@@ -136,9 +137,9 @@ function pointNearSvgPathData(
   const hasFill = fills.some((f) => f.visible && f.opacity > 0);
   if (hasFill && ctx.isPointInPath(path, localX, localY)) return true;
 
-  const hasStroke = strokes.some((s) => s.visible && s.width > 0);
+  const hasStroke = strokes.some((s) => s.visible && s.opacity > 0 && s.width > 0);
   if (hasStroke) {
-    const strokeWidth = strokes.find((s) => s.visible && s.width > 0)?.width ?? 1;
+    const strokeWidth = strokes.find((s) => s.visible && s.opacity > 0 && s.width > 0)?.width ?? 1;
     ctx.lineWidth = strokeWidth + tolerance * 2;
     if (ctx.isPointInStroke(path, localX, localY)) return true;
   }
@@ -187,14 +188,24 @@ function pointNearPath(
 }
 
 function pointOnFrameBorder(px: number, py: number, shape: Shape, zoom: number): boolean {
-  const tolerance = FRAME_BORDER_TOLERANCE / zoom;
+  const tolerance = Math.max(MIN_HIT_TOLERANCE, FRAME_BORDER_TOLERANCE / zoom);
   const inside = pointInRect(px, py, shape);
   if (!inside) return false;
 
-  const distLeft = Math.abs(px - shape.x);
-  const distRight = Math.abs(px - (shape.x + shape.width));
-  const distTop = Math.abs(py - shape.y);
-  const distBottom = Math.abs(py - (shape.y + shape.height));
+  let testX = px;
+  let testY = py;
+  if (shape.rotation !== 0) {
+    const cx = shape.x + shape.width / 2;
+    const cy = shape.y + shape.height / 2;
+    const rotated = rotatePointAroundCenter(px, py, cx, cy, shape.rotation);
+    testX = rotated.x;
+    testY = rotated.y;
+  }
+
+  const distLeft = Math.abs(testX - shape.x);
+  const distRight = Math.abs(testX - (shape.x + shape.width));
+  const distTop = Math.abs(testY - shape.y);
+  const distBottom = Math.abs(testY - (shape.y + shape.height));
 
   return (
     distLeft <= tolerance ||
@@ -260,7 +271,7 @@ function shapeHasSvgPath(
 }
 
 function narrowPhaseHitTest(px: number, py: number, shape: Shape, zoom: number): boolean {
-  const tolerance = LINE_HIT_TOLERANCE / zoom;
+  const tolerance = Math.max(MIN_HIT_TOLERANCE, LINE_HIT_TOLERANCE / zoom);
 
   switch (shape.type) {
     case 'rectangle': {
@@ -295,6 +306,13 @@ function narrowPhaseHitTest(px: number, py: number, shape: Shape, zoom: number):
       }
       const cx = shape.x + shape.width / 2;
       const cy = shape.y + shape.height / 2;
+      let testPx = px;
+      let testPy = py;
+      if (shape.rotation !== 0) {
+        const rotated = rotatePointAroundCenter(px, py, cx, cy, shape.rotation);
+        testPx = rotated.x;
+        testPy = rotated.y;
+      }
       const vertices = generatePolygonPoints(
         cx,
         cy,
@@ -302,7 +320,7 @@ function narrowPhaseHitTest(px: number, py: number, shape: Shape, zoom: number):
         shape.height / 2,
         shape.sides,
       );
-      return pointInPolygonRayCast(px, py, vertices);
+      return pointInPolygonRayCast(testPx, testPy, vertices);
     }
 
     case 'star': {
@@ -311,6 +329,13 @@ function narrowPhaseHitTest(px: number, py: number, shape: Shape, zoom: number):
       }
       const cx = shape.x + shape.width / 2;
       const cy = shape.y + shape.height / 2;
+      let testPx = px;
+      let testPy = py;
+      if (shape.rotation !== 0) {
+        const rotated = rotatePointAroundCenter(px, py, cx, cy, shape.rotation);
+        testPx = rotated.x;
+        testPy = rotated.y;
+      }
       const vertices = generateStarPoints(
         cx,
         cy,
@@ -319,12 +344,21 @@ function narrowPhaseHitTest(px: number, py: number, shape: Shape, zoom: number):
         shape.points as number,
         shape.innerRadius,
       );
-      return pointInPolygonRayCast(px, py, vertices);
+      return pointInPolygonRayCast(testPx, testPy, vertices);
     }
 
     case 'line': {
       if (shapeHasSvgPath(shape)) {
         return pointNearSvgPathData(px, py, shape, [], shape.strokes, tolerance);
+      }
+      if (shape.rotation !== 0) {
+        const cx = shape.x + shape.width / 2;
+        const cy = shape.y + shape.height / 2;
+        const rotated = rotatePointAroundCenter(px, py, cx, cy, shape.rotation);
+        return (
+          distanceToLineSegment(rotated.x, rotated.y, shape.x1, shape.y1, shape.x2, shape.y2) <=
+          tolerance
+        );
       }
       return distanceToLineSegment(px, py, shape.x1, shape.y1, shape.x2, shape.y2) <= tolerance;
     }

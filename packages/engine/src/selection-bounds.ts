@@ -253,15 +253,17 @@ export function computeResize(
     if (!isVerticalOnly && !isHorizontalOnly) {
       const absW = Math.abs(rawWidth);
       const absH = Math.abs(rawHeight);
+      const signW = rawWidth >= 0 ? 1 : -1;
+      const signH = rawHeight >= 0 ? 1 : -1;
       if (absW / aspect > absH) {
-        rawHeight = (Math.abs(rawWidth) / aspect) * Math.sign(rawHeight || 1);
+        rawHeight = (absW / aspect) * signH;
       } else {
-        rawWidth = Math.abs(rawHeight) * aspect * Math.sign(rawWidth || 1);
+        rawWidth = absH * aspect * signW;
       }
     } else if (isVerticalOnly) {
-      rawWidth = Math.abs(rawHeight) * aspect * Math.sign(startBounds.width || 1);
+      rawWidth = Math.abs(rawHeight) * aspect * (rawHeight >= 0 ? 1 : -1);
     } else {
-      rawHeight = (Math.abs(rawWidth) / aspect) * Math.sign(startBounds.height || 1);
+      rawHeight = (Math.abs(rawWidth) / aspect) * (rawWidth >= 0 ? 1 : -1);
     }
   }
 
