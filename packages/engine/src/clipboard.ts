@@ -137,7 +137,9 @@ export function pasteShapes(ydoc: Y.Doc, options: PasteOptions = {}): string[] {
 
   for (const shape of clipboardShapes) {
     const isTopLevel = !shape.parentId || !clipboardById.has(shape.parentId);
-    const parentId = isTopLevel ? targetParentId : (oldToNewIds.get(shape.parentId!) ?? null);
+    const parentId = isTopLevel
+      ? (targetParentId ?? shape.parentId ?? null)
+      : (oldToNewIds.get(shape.parentId!) ?? null);
     const { id: _id, ...rest } = shape;
     const newId = addShape(ydoc, shape.type, {
       ...rest,

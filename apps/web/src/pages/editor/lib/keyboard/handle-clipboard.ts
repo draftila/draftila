@@ -129,7 +129,7 @@ export function handleClipboardKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
     const { selectedIds } = useEditorStore.getState();
     if (selectedIds.length > 0) {
       copyShapes(ydoc, selectedIds);
-      const newIds = opPasteShapes(ydoc, { selectedIds });
+      const newIds = opPasteShapes(ydoc, {});
       useEditorStore.getState().setSelectedIds(newIds);
     }
     return true;

@@ -189,7 +189,7 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
     const handleDuplicate = useCallback(() => {
       if (hasSelection) {
         copyShapes(ydoc, selectedIds);
-        const newIds = opPasteShapes(ydoc, { selectedIds });
+        const newIds = opPasteShapes(ydoc, {});
         useEditorStore.getState().setSelectedIds(newIds);
       }
       onClose();
