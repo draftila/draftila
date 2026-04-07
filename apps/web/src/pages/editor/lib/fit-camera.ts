@@ -1,6 +1,9 @@
 import type * as Y from 'yjs';
 import { getAllShapes } from '@draftila/engine/scene-graph';
+import { MIN_ZOOM } from '@draftila/engine/camera';
 import { useEditorStore } from '@/stores/editor-store';
+
+const FIT_MAX_ZOOM = 64;
 
 interface Bounds {
   minX: number;
@@ -40,8 +43,8 @@ export function fitCameraToBounds(bounds: Bounds, viewport: DOMRect, padding: nu
   const availableWidth = Math.max(1, viewport.width - padding * 2);
   const availableHeight = Math.max(1, viewport.height - padding * 2);
   const zoom = Math.min(
-    64,
-    Math.max(0.02, Math.min(availableWidth / contentWidth, availableHeight / contentHeight)),
+    FIT_MAX_ZOOM,
+    Math.max(MIN_ZOOM, Math.min(availableWidth / contentWidth, availableHeight / contentHeight)),
   );
 
   const centerX = (bounds.minX + bounds.maxX) / 2;

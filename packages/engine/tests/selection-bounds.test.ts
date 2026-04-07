@@ -129,7 +129,22 @@ describe('getSelectionBounds', () => {
     ];
     const bounds = getSelectionBounds(shapes)!;
     expect(bounds.rotation).toBe(0);
-    expect(bounds.x).toBe(0);
-    expect(bounds.width).toBe(150);
+    expect(bounds.width).toBeGreaterThan(150);
+  });
+
+  test('multi-selection accounts for rotated shape corners', () => {
+    const unrotated = [
+      makeShape({ id: 'a', x: 0, y: 0, width: 100, height: 10, rotation: 0 }),
+      makeShape({ id: 'b', x: 200, y: 200, width: 20, height: 20, rotation: 0 }),
+    ];
+    const boundsUnrotated = getSelectionBounds(unrotated)!;
+
+    const rotated = [
+      makeShape({ id: 'a', x: 0, y: 0, width: 100, height: 10, rotation: 45 }),
+      makeShape({ id: 'b', x: 200, y: 200, width: 20, height: 20, rotation: 0 }),
+    ];
+    const boundsRotated = getSelectionBounds(rotated)!;
+
+    expect(boundsRotated.height).toBeGreaterThan(boundsUnrotated.height);
   });
 });
