@@ -19,7 +19,6 @@ import {
   opBooleanOperation,
   opCutShapes,
   opPasteShapes,
-  opDuplicateShapesInPlace,
   opPasteStyle,
 } from '@draftila/engine/operations';
 import { exportToSvg, exportToPng } from '@draftila/engine/export';
@@ -189,8 +188,8 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
 
     const handleDuplicate = useCallback(() => {
       if (hasSelection) {
-        const idMap = opDuplicateShapesInPlace(ydoc, selectedIds);
-        const newIds = [...idMap.values()];
+        copyShapes(ydoc, selectedIds);
+        const newIds = opPasteShapes(ydoc, { selectedIds });
         useEditorStore.getState().setSelectedIds(newIds);
       }
       onClose();

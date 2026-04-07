@@ -10,7 +10,7 @@ export function initUndoManager(ydoc: Y.Doc): Y.UndoManager {
   const guides = getActivePageGuidesArray(ydoc);
 
   undoManager = new Y.UndoManager([shapes, zOrder, guides], {
-    captureTimeout: 300,
+    captureTimeout: 500,
   });
 
   return undoManager;

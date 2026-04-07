@@ -120,10 +120,27 @@ export function getSelectionBounds(shapes: Shape[]): SelectionBounds | null {
   let maxY = -Infinity;
 
   for (const shape of shapes) {
-    minX = Math.min(minX, shape.x);
-    minY = Math.min(minY, shape.y);
-    maxX = Math.max(maxX, shape.x + shape.width);
-    maxY = Math.max(maxY, shape.y + shape.height);
+    if (shape.rotation !== 0) {
+      const cx = shape.x + shape.width / 2;
+      const cy = shape.y + shape.height / 2;
+      const corners = [
+        rotatePoint(shape.x, shape.y, cx, cy, shape.rotation),
+        rotatePoint(shape.x + shape.width, shape.y, cx, cy, shape.rotation),
+        rotatePoint(shape.x + shape.width, shape.y + shape.height, cx, cy, shape.rotation),
+        rotatePoint(shape.x, shape.y + shape.height, cx, cy, shape.rotation),
+      ];
+      for (const c of corners) {
+        minX = Math.min(minX, c.x);
+        minY = Math.min(minY, c.y);
+        maxX = Math.max(maxX, c.x);
+        maxY = Math.max(maxY, c.y);
+      }
+    } else {
+      minX = Math.min(minX, shape.x);
+      minY = Math.min(minY, shape.y);
+      maxX = Math.max(maxX, shape.x + shape.width);
+      maxY = Math.max(maxY, shape.y + shape.height);
+    }
   }
 
   const x = minX;
