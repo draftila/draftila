@@ -200,7 +200,20 @@ export function opMoveByDrop(
   targetId: string,
   placement: LayerDropPlacement,
 ): string[] {
+  const oldParentIds = shapeIds
+    .map((id) => getShape(ydoc, id)?.parentId)
+    .filter((id): id is string => !!id);
+  const uniqueOldParents = [...new Set(oldParentIds)];
+
   const movedIds = moveShapesByDrop(ydoc, shapeIds, targetId, placement);
+
+  for (const parentId of uniqueOldParents) {
+    const parent = getShape(ydoc, parentId);
+    if (parent && isAutoLayoutFrame(parent)) {
+      applyAutoLayout(ydoc, parentId);
+    }
+  }
+
   for (const id of movedIds) {
     applyAutoLayoutForAncestors(ydoc, id);
   }

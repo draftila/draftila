@@ -11,6 +11,7 @@ import {
   captureShapeData,
   handleToMovingEdges,
 } from './move-tool-utils';
+import { applyConstraints, DEFAULT_CONSTRAINTS, type Constraints } from '../constraints';
 import {
   getAllShapes,
   getShape,
@@ -204,14 +205,36 @@ export function handleResizeMove(
       const framePreview = preview.get(id);
       if (!framePreview) continue;
 
-      const scaleX = frameInitial.width > 0 ? framePreview.width / frameInitial.width : 1;
-      const scaleY = frameInitial.height > 0 ? framePreview.height / frameInitial.height : 1;
+      const parentOld = { width: frameInitial.width, height: frameInitial.height };
+      const parentNew = { width: framePreview.width, height: framePreview.height };
 
       for (const child of allShapes) {
         if (child.parentId !== id) continue;
         if (preview.has(child.id)) continue;
 
         const childInitial = captureShapeData(child);
+        const childShape = child as Shape & ConstraintShapeData;
+        const constraints: Constraints = {
+          horizontal: childShape.constraintHorizontal ?? DEFAULT_CONSTRAINTS.horizontal,
+          vertical: childShape.constraintVertical ?? DEFAULT_CONSTRAINTS.vertical,
+        };
+
+        const relChild = {
+          x: childInitial.x - frameInitial.x,
+          y: childInitial.y - frameInitial.y,
+          width: childInitial.width,
+          height: childInitial.height,
+        };
+        const originalRelChild = { ...relChild };
+
+        const constrained = applyConstraints(
+          relChild,
+          constraints,
+          parentOld,
+          parentNew,
+          originalRelChild,
+        );
+
         const childOldBounds = {
           x: childInitial.x,
           y: childInitial.y,
@@ -219,10 +242,10 @@ export function handleResizeMove(
           height: childInitial.height,
         };
         const childNewBounds = {
-          x: framePreview.x + (childInitial.x - frameInitial.x) * scaleX,
-          y: framePreview.y + (childInitial.y - frameInitial.y) * scaleY,
-          width: Math.max(1, childInitial.width * scaleX),
-          height: Math.max(1, childInitial.height * scaleY),
+          x: framePreview.x + constrained.x,
+          y: framePreview.y + constrained.y,
+          width: constrained.width,
+          height: constrained.height,
         };
 
         preview.set(child.id, buildResizeEntry(childInitial, childOldBounds, childNewBounds));
@@ -378,13 +401,19 @@ export function handleMarqueeMove(
   };
 }
 
+const DRAG_THRESHOLD = 3;
+
+export function exceedsDragThreshold(dx: number, dy: number): boolean {
+  return Math.abs(dx) >= DRAG_THRESHOLD || Math.abs(dy) >= DRAG_THRESHOLD;
+}
+
 export function commitDrag(
   ydoc: Y.Doc,
   initialData: Map<string, InitialShapeData>,
   dragOffset: { dx: number; dy: number },
 ): void {
   const { dx, dy } = dragOffset;
-  if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+  if (exceedsDragThreshold(dx, dy)) {
     const movedIds = Array.from(initialData.keys());
     reorderAutoLayoutChildren(ydoc, movedIds, dragOffset);
     for (const [id, initial] of initialData) {
