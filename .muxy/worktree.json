@@ -1,5 +1,3 @@
 {
-  "setup": [
-    "bun install"
-  ]
+  "setup": ["bun install"]
 }
