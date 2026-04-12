@@ -168,23 +168,62 @@ export function addNodeToSubpath(
   subpaths: Subpath[],
   subpathIndex: number,
   afterNodeIndex: number,
-  position: { x: number; y: number },
+  _position: { x: number; y: number },
 ): Subpath[] {
+  ensurePaper();
+
   return subpaths.map((sp, si) => {
     if (si !== subpathIndex) return sp;
-    const newNode: VectorNode = {
-      x: position.x,
-      y: position.y,
-      handleInX: 0,
-      handleInY: 0,
-      handleOutX: 0,
-      handleOutY: 0,
-      type: 'corner',
-    };
-    const nodes = [...sp.nodes];
-    nodes.splice(afterNodeIndex + 1, 0, newNode);
-    return { ...sp, nodes };
+
+    const path = subpathToPaperPath(sp);
+    const curves = path.curves;
+    const curveIndex = afterNodeIndex;
+    const curve = curves[curveIndex];
+
+    if (!curve) {
+      path.remove();
+      const newNode: VectorNode = {
+        x: _position.x,
+        y: _position.y,
+        handleInX: 0,
+        handleInY: 0,
+        handleOutX: 0,
+        handleOutY: 0,
+        type: 'corner',
+      };
+      const nodes = [...sp.nodes];
+      nodes.splice(afterNodeIndex + 1, 0, newNode);
+      return { ...sp, nodes };
+    }
+
+    const location = curve.getLocationAtTime(0.5);
+    path.divideAt(location);
+
+    const result = paperPathToSubpath(path);
+    path.remove();
+    return result;
   });
+}
+
+export function getSubpathMidpoints(
+  subpath: Subpath,
+): Array<{ afterNodeIndex: number; x: number; y: number }> {
+  ensurePaper();
+
+  if (subpath.nodes.length < 2) return [];
+
+  const path = subpathToPaperPath(subpath);
+  const results: Array<{ afterNodeIndex: number; x: number; y: number }> = [];
+
+  for (let i = 0; i < path.curves.length; i++) {
+    const curve = path.curves[i];
+    if (!curve) continue;
+    const midpoint = curve.getPointAtTime(0.5);
+    results.push({ afterNodeIndex: i, x: midpoint.x, y: midpoint.y });
+  }
+
+  path.remove();
+  return results;
 }
 
 export function deleteNodeFromSubpath(

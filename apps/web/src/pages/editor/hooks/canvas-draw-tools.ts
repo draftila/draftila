@@ -173,7 +173,7 @@ export function renderToolPreviews(renderer: Renderer, activeTool: string, camer
   const pencilTool = getPencilTool();
 
   if (activeTool === 'pencil') {
-    renderFreehandPreview(renderer, pencilTool.currentPoints);
+    renderFreehandPreview(renderer, pencilTool.getCurrentPoints());
   }
 
   if (activeTool === 'pen') {
@@ -189,8 +189,11 @@ export function renderToolPreviews(renderer: Renderer, activeTool: string, camer
       );
     }
 
-    for (const node of penTool.getPlacedNodes()) {
-      renderer.drawPathNode(node.x, node.y, camera.zoom, false);
+    const placedNodes = penTool.getPlacedNodes();
+    const nearFirst = penTool.isNearFirstNode();
+    for (let i = 0; i < placedNodes.length; i++) {
+      const node = placedNodes[i]!;
+      renderer.drawPathNode(node.x, node.y, camera.zoom, i === 0 && nearFirst);
     }
   }
 }

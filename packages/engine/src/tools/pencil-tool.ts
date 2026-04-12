@@ -2,6 +2,7 @@ import type { PressurePoint } from '@draftila/shared';
 import { BaseTool, getToolStore, type ToolContext, type ToolResult } from './base-tool';
 import { findContainerAtPoint } from '../scene-graph';
 import { opCreateShape } from '../operations';
+const MIN_DISTANCE_SQ = 4;
 
 export class PencilTool extends BaseTool {
   readonly name = 'pencil';
@@ -10,24 +11,25 @@ export class PencilTool extends BaseTool {
   private points: PressurePoint[] = [];
   private isDrawing = false;
   private containerId: string | null = null;
+  private pointsDirty = false;
   currentPoints: PressurePoint[] = [];
 
   onPointerDown(ctx: ToolContext): ToolResult | void {
     this.isDrawing = true;
     this.points = [];
     this.containerId = findContainerAtPoint(ctx.ydoc, ctx.canvasPoint.x, ctx.canvasPoint.y);
-    this.addPoint(ctx);
+    this.addPoint(ctx, true);
     getToolStore().setIsDrawing(true);
   }
 
   onPointerMove(ctx: ToolContext): ToolResult | void {
     if (!this.isDrawing) return;
-    this.addPoint(ctx);
+    this.addPoint(ctx, false);
   }
 
   onPointerUp(ctx: ToolContext): ToolResult | void {
     if (!this.isDrawing) return;
-    this.addPoint(ctx);
+    this.addPoint(ctx, true);
 
     if (this.points.length < 2) {
       this.reset();
@@ -35,23 +37,16 @@ export class PencilTool extends BaseTool {
     }
 
     const bounds = this.getBounds();
-    const normalizedPoints = this.points.map((p) => ({
-      x: p.x,
-      y: p.y,
-      pressure: p.pressure,
-    }));
 
     const id = opCreateShape(ctx.ydoc, 'path', {
       x: bounds.x,
       y: bounds.y,
       width: Math.max(bounds.width, 1),
       height: Math.max(bounds.height, 1),
-      points: normalizedPoints,
+      points: this.points,
       parentId: this.containerId,
     });
 
-    const store = getToolStore();
-    store.setSelectedIds([id]);
     this.reset();
   }
 
@@ -59,15 +54,30 @@ export class PencilTool extends BaseTool {
     this.reset();
   }
 
-  private addPoint(ctx: ToolContext) {
+  getCurrentPoints(): PressurePoint[] {
+    if (this.pointsDirty) {
+      this.currentPoints = this.points;
+      this.pointsDirty = false;
+    }
+    return this.currentPoints;
+  }
+
+  private addPoint(ctx: ToolContext, force: boolean) {
     const pressure = (ctx as ToolContext & { pressure?: number }).pressure ?? 0.5;
-    const point: PressurePoint = {
+
+    if (!force && this.points.length > 0) {
+      const last = this.points[this.points.length - 1]!;
+      const dx = ctx.canvasPoint.x - last.x;
+      const dy = ctx.canvasPoint.y - last.y;
+      if (dx * dx + dy * dy < MIN_DISTANCE_SQ) return;
+    }
+
+    this.points.push({
       x: ctx.canvasPoint.x,
       y: ctx.canvasPoint.y,
       pressure,
-    };
-    this.points.push(point);
-    this.currentPoints = [...this.points];
+    });
+    this.pointsDirty = true;
   }
 
   private getBounds() {
@@ -89,6 +99,7 @@ export class PencilTool extends BaseTool {
     this.points = [];
     this.containerId = null;
     this.currentPoints = [];
+    this.pointsDirty = false;
     getToolStore().setIsDrawing(false);
   }
 }
