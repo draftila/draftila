@@ -1,12 +1,13 @@
 import type { Shape, Subpath, VectorNode } from '@draftila/shared';
 import { BaseTool, getToolStore, type ToolContext, type ToolResult } from './base-tool';
-import { getShape, updateShape, getAllShapes } from '../scene-graph';
+import { getShape, updateShape } from '../scene-graph';
 import {
   svgPathToVectorNodes,
   vectorNodesToSvgPath,
   updateVectorNode,
   deleteNodeFromSubpath,
   addNodeToSubpath,
+  getSubpathMidpoints,
 } from '../vector-nodes';
 
 export interface SelectedNode {
@@ -118,30 +119,14 @@ export class NodeTool extends BaseTool {
       const subpath = this.cachedSubpaths[subpathIndex];
       if (!subpath || subpath.nodes.length < 2) continue;
 
-      for (let nodeIndex = 0; nodeIndex < subpath.nodes.length - 1; nodeIndex++) {
-        const a = subpath.nodes[nodeIndex];
-        const b = subpath.nodes[nodeIndex + 1];
-        if (!a || !b) continue;
+      const midpoints = getSubpathMidpoints(subpath);
+      for (const mp of midpoints) {
         handles.push({
           subpathIndex,
-          afterNodeIndex: nodeIndex,
-          x: (a.x + b.x) / 2,
-          y: (a.y + b.y) / 2,
+          afterNodeIndex: mp.afterNodeIndex,
+          x: mp.x,
+          y: mp.y,
         });
-      }
-
-      if (subpath.closed) {
-        const lastIndex = subpath.nodes.length - 1;
-        const a = subpath.nodes[lastIndex];
-        const b = subpath.nodes[0];
-        if (a && b) {
-          handles.push({
-            subpathIndex,
-            afterNodeIndex: lastIndex,
-            x: (a.x + b.x) / 2,
-            y: (a.y + b.y) / 2,
-          });
-        }
       }
     }
     return handles;
@@ -149,8 +134,7 @@ export class NodeTool extends BaseTool {
 
   getEditingShape(ctx: ToolContext): Shape | null {
     if (!this.editingShapeId) return null;
-    const shapes = getAllShapes(ctx.ydoc);
-    return shapes.find((s) => s.id === this.editingShapeId) ?? null;
+    return getShape(ctx.ydoc, this.editingShapeId);
   }
 
   onPointerDown(ctx: ToolContext): ToolResult | void {

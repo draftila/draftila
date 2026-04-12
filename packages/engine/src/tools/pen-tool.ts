@@ -4,10 +4,10 @@ import { findContainerAtPoint } from '../scene-graph';
 import { opCreateShape } from '../operations';
 import { vectorNodesToSvgPath } from '../vector-nodes';
 import { normalizePathToOrigin } from '../path-gen';
-
 const CLOSE_DISTANCE = 10;
 const DOUBLE_CLICK_MS = 300;
 const HANDLE_THRESHOLD = 2;
+const FREEHAND_MIN_DISTANCE_SQ = 4;
 
 export class PenTool extends BaseTool {
   readonly name = 'pen';
@@ -24,9 +24,16 @@ export class PenTool extends BaseTool {
   private containerId: string | null = null;
   private lastPointerDownAt = 0;
   private lastPointerDownPoint: { x: number; y: number } | null = null;
+  private cachedPreviewPath: string | null = null;
+  private previewDirty = true;
+  private nearFirstNode = false;
 
   getPreviewPathData(): string | null {
     if (this.nodes.length === 0) return null;
+
+    if (!this.previewDirty && this.cachedPreviewPath !== undefined) {
+      return this.cachedPreviewPath;
+    }
 
     const previewNodes = this.nodes.map((node) => ({ ...node }));
     if (this.hoverPoint && !this.isDraggingHandle) {
@@ -49,8 +56,17 @@ export class PenTool extends BaseTool {
       }
     }
 
-    if (previewNodes.length < 2) return null;
-    return vectorNodesToSvgPath([{ nodes: previewNodes, closed: false }]);
+    if (previewNodes.length < 2) {
+      this.cachedPreviewPath = null;
+    } else {
+      this.cachedPreviewPath = vectorNodesToSvgPath([{ nodes: previewNodes, closed: false }]);
+    }
+    this.previewDirty = false;
+    return this.cachedPreviewPath;
+  }
+
+  isNearFirstNode(): boolean {
+    return this.nearFirstNode;
   }
 
   getPlacedNodes(): VectorNode[] {
@@ -81,6 +97,7 @@ export class PenTool extends BaseTool {
     this.lastPointerDownAt = now;
     this.lastPointerDownPoint = currentPoint;
     this.hoverPoint = currentPoint;
+    this.previewDirty = true;
 
     if (!this.isBuilding) {
       this.isBuilding = true;
@@ -94,7 +111,7 @@ export class PenTool extends BaseTool {
       return;
     }
 
-    if (this.nodes.length >= 3 && this.isNearFirstNode(ctx)) {
+    if (this.nodes.length >= 3 && this.checkNearFirstNode(ctx)) {
       this.commit(ctx, true);
       return;
     }
@@ -122,6 +139,10 @@ export class PenTool extends BaseTool {
     }
 
     this.hoverPoint = { x: ctx.canvasPoint.x, y: ctx.canvasPoint.y };
+    this.previewDirty = true;
+
+    this.nearFirstNode = this.isBuilding && this.nodes.length >= 3 && this.checkNearFirstNode(ctx);
+
     if (!this.isDraggingHandle || this.draggedNodeIndex < 0) return;
 
     const node = this.nodes[this.draggedNodeIndex];
@@ -196,7 +217,7 @@ export class PenTool extends BaseTool {
     this.reset();
   }
 
-  private isNearFirstNode(ctx: ToolContext): boolean {
+  private checkNearFirstNode(ctx: ToolContext): boolean {
     const first = this.nodes[0];
     if (!first) return false;
     const distance = Math.hypot(ctx.canvasPoint.x - first.x, ctx.canvasPoint.y - first.y);
@@ -237,6 +258,9 @@ export class PenTool extends BaseTool {
     this.containerId = null;
     this.lastPointerDownAt = 0;
     this.lastPointerDownPoint = null;
+    this.cachedPreviewPath = null;
+    this.previewDirty = true;
+    this.nearFirstNode = false;
     getToolStore().setIsDrawing(false);
   }
 
@@ -246,11 +270,19 @@ export class PenTool extends BaseTool {
     this.isBuilding = false;
     this.containerId = findContainerAtPoint(ctx.ydoc, ctx.canvasPoint.x, ctx.canvasPoint.y);
     getToolStore().setIsDrawing(true);
-    this.addFreehandPoint(ctx);
+    this.addFreehandPoint(ctx, true);
   }
 
-  private addFreehandPoint(ctx: ToolContext) {
+  private addFreehandPoint(ctx: ToolContext, force = false) {
     const pressure = (ctx as ToolContext & { pressure?: number }).pressure ?? 0.5;
+
+    if (!force && this.freehandPoints.length > 0) {
+      const last = this.freehandPoints[this.freehandPoints.length - 1]!;
+      const dx = ctx.canvasPoint.x - last.x;
+      const dy = ctx.canvasPoint.y - last.y;
+      if (dx * dx + dy * dy < FREEHAND_MIN_DISTANCE_SQ) return;
+    }
+
     this.freehandPoints.push({
       x: ctx.canvasPoint.x,
       y: ctx.canvasPoint.y,
@@ -259,7 +291,7 @@ export class PenTool extends BaseTool {
   }
 
   private finishFreehand(ctx: ToolContext) {
-    this.addFreehandPoint(ctx);
+    this.addFreehandPoint(ctx, true);
 
     if (this.freehandPoints.length < 2) {
       this.reset();
@@ -282,7 +314,7 @@ export class PenTool extends BaseTool {
       y: minY,
       width: Math.max(1, maxX - minX),
       height: Math.max(1, maxY - minY),
-      points: this.freehandPoints.map((p) => ({ x: p.x, y: p.y, pressure: p.pressure })),
+      points: this.freehandPoints,
       parentId: this.containerId,
     });
 
