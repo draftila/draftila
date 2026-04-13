@@ -278,7 +278,9 @@ describe('SVG Parser', () => {
       </svg>`;
       const doc = parseSvg(svg);
       expect(doc.nodes[0]!.strokes).toHaveLength(1);
-      expect(doc.nodes[0]!.gradients.length).toBeGreaterThan(0);
+      expect(doc.nodes[0]!.strokes[0]!.color).toBe('#FF0000');
+      expect(doc.nodes[0]!.gradients).toHaveLength(0);
+      expect(doc.nodes[0]!.fills).toHaveLength(0);
     });
   });
 
