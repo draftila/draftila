@@ -55,8 +55,8 @@ function parseVectorElement(el: Element, ctx: ParseCtx): InterchangeNode | null 
     });
   }
 
-  const { strokes, strokeGradients } = buildStrokes(el, ctx.gradients);
-  const allGradients = [...fillGradients, ...strokeGradients];
+  const { strokes } = buildStrokes(el, ctx.gradients);
+  const allGradients = [...fillGradients];
 
   const fillRule =
     el.getAttribute('fill-rule') === 'evenodd' ? ('evenodd' as const) : ('nonzero' as const);

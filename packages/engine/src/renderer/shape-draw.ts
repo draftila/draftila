@@ -190,6 +190,7 @@ export function drawSvgPath(
   se.applyLayerBlur(style);
 
   const path = new Path2D(pathData);
+  const closed = /[Zz]\s*$/.test(pathData.trim());
   const dropShadows = style.shadows.filter((s) => s.type === 'drop' && s.visible !== false);
 
   for (const fill of style.fills) {
@@ -215,7 +216,7 @@ export function drawSvgPath(
     se.clearShadow();
   }
 
-  se.applyAlignedStrokes(style.strokes, path);
+  se.applyAlignedStrokes(style.strokes, path, closed);
 
   const innerShadows = style.shadows.filter((s) => s.type === 'inner' && s.visible !== false);
   if (innerShadows.length > 0) {
