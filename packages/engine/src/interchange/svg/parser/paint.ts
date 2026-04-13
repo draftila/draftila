@@ -103,12 +103,16 @@ export function buildStrokes(
 
   const strokeGradients: InterchangeGradient[] = [];
   const refId = resolveUrlRef(strokeAttr);
+  let gradientFallbackColor: string | null = null;
   if (refId) {
     const gradient = gradients.get(refId);
-    if (gradient) strokeGradients.push(gradient);
+    if (gradient) {
+      strokeGradients.push(gradient);
+      gradientFallbackColor = gradient.stops[0]?.color ?? null;
+    }
   }
 
-  const color = normalizeColor(strokeAttr) ?? '#000000';
+  const color = normalizeColor(strokeAttr) ?? gradientFallbackColor ?? '#000000';
   const { hex, opacity: colorOpacity } = colorToOpacity(color);
   const strokeOpacity = el.getAttribute('stroke-opacity');
   const finalOpacity = strokeOpacity ? colorOpacity * parseFloat(strokeOpacity) : colorOpacity;
