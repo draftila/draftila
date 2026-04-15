@@ -80,6 +80,16 @@ export function renderHandlesAndSizeLabel(
     const bounds = getSelectionBounds([...selectedShapes]);
     if (bounds) {
       for (const handle of bounds.handles) {
+        // Skip middle handles - only show corner handles
+        if (
+          handle.position === 'top-center' ||
+          handle.position === 'bottom-center' ||
+          handle.position === 'middle-left' ||
+          handle.position === 'middle-right'
+        ) {
+          continue;
+        }
+
         if (handle.position === 'rotation') {
           renderer.drawRotationHandle(handle.x, handle.y, zoom);
         } else if (handle.position === 'line-start' || handle.position === 'line-end') {

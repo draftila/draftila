@@ -5,7 +5,7 @@ import { hitTestPoint } from '../hit-test';
 import { hitTestGuide } from '../guides';
 import { getAllShapes, getExpandedShapeIds, resolveGroupTarget } from '../scene-graph';
 import { SpatialIndex } from '../spatial-index';
-import { getSelectionBounds, hitTestHandle, getResizeCursor } from '../selection';
+import { getSelectionBounds, hitTestHandle, hitTestEdge, getResizeCursor } from '../selection';
 import { type SnapLine, type DistanceIndicator, type ParentFrameRect } from '../snap';
 import { duplicateShapesInPlace } from '../clipboard';
 import { type MoveState, type InitialShapeData, captureShapeData } from './move-tool-utils';
@@ -128,6 +128,33 @@ export class MoveTool extends BaseTool {
               },
             };
             return { cursor: getResizeCursor(handle) };
+          }
+
+          // Check if clicking on edge (for resizing by edge)
+          const edge = hitTestEdge(ctx.canvasPoint.x, ctx.canvasPoint.y, bounds, ctx.camera.zoom);
+          if (edge) {
+            const initialData = new Map<string, InitialShapeData>();
+            for (const shape of selectedShapes) {
+              initialData.set(shape.id, captureShapeData(shape));
+            }
+            const selectedIdSet = new Set(store.selectedIds);
+            this.dragShapesCache = shapes.filter(
+              (s) => !selectedIdSet.has(s.id) && s.visible && !s.locked,
+            );
+            this.parentFrameCache = this.resolveParentFrame(shapes, store.selectedIds);
+            this.state = {
+              type: 'resizing',
+              handle: edge,
+              startCanvas: { x: ctx.canvasPoint.x, y: ctx.canvasPoint.y },
+              initialData,
+              selectionBounds: {
+                x: bounds.x,
+                y: bounds.y,
+                width: bounds.width,
+                height: bounds.height,
+              },
+            };
+            return { cursor: getResizeCursor(edge) };
           }
         }
       }
@@ -332,6 +359,12 @@ export class MoveTool extends BaseTool {
         const handle = hitTestHandle(ctx.canvasPoint.x, ctx.canvasPoint.y, bounds, ctx.camera.zoom);
         if (handle) {
           return { cursor: getResizeCursor(handle) };
+        }
+
+        // Check edge for cursor
+        const edge = hitTestEdge(ctx.canvasPoint.x, ctx.canvasPoint.y, bounds, ctx.camera.zoom);
+        if (edge) {
+          return { cursor: getResizeCursor(edge) };
         }
       }
     }

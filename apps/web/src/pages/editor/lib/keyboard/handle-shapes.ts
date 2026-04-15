@@ -47,15 +47,6 @@ export function handleShapeKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
   const key = e.key.toLowerCase();
   const code = e.code;
 
-  if (!isMod && e.shiftKey && code === 'KeyR') {
-    e.preventDefault();
-    const { rulersVisible, setRulersVisible, setGuidesVisible } = useEditorStore.getState();
-    const next = !rulersVisible;
-    setRulersVisible(next);
-    setGuidesVisible(next);
-    return true;
-  }
-
   if (!isMod && e.shiftKey && code === 'KeyC') {
     e.preventDefault();
     const { commentsVisible, setCommentsVisible } = useEditorStore.getState();

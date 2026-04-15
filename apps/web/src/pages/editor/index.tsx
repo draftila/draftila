@@ -46,21 +46,10 @@ import { VersionPreviewBanner } from './components/version-preview-banner';
 import { useSnapshots } from '@/api/snapshots';
 
 function ViewMenuItems() {
-  const rulersVisible = useEditorStore((s) => s.rulersVisible);
   const commentsVisible = useEditorStore((s) => s.commentsVisible);
 
   return (
     <>
-      <DropdownMenuCheckboxItem
-        checked={rulersVisible}
-        onCheckedChange={(checked) => {
-          useEditorStore.getState().setRulersVisible(checked);
-          useEditorStore.getState().setGuidesVisible(checked);
-        }}
-      >
-        Rulers & Guides
-        <span className="text-muted-foreground ml-auto pl-4 text-[11px]">{'\u21E7R'}</span>
-      </DropdownMenuCheckboxItem>
       <DropdownMenuCheckboxItem
         checked={commentsVisible}
         onCheckedChange={(checked) => {

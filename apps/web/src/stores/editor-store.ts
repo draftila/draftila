@@ -20,7 +20,6 @@ interface EditorState {
   guides: CanvasGuide[];
   selectedGuideId: string | null;
   draggingGuide: { axis: 'x' | 'y'; position: number } | null;
-  rulersVisible: boolean;
   guidesVisible: boolean;
   commentsVisible: boolean;
   activeCommentId: string | null;
@@ -54,7 +53,6 @@ interface EditorState {
   setGuides: (guides: CanvasGuide[]) => void;
   setSelectedGuideId: (id: string | null) => void;
   setDraggingGuide: (guide: { axis: 'x' | 'y'; position: number } | null) => void;
-  setRulersVisible: (visible: boolean) => void;
   setGuidesVisible: (visible: boolean) => void;
   setCommentsVisible: (visible: boolean) => void;
   setActiveCommentId: (id: string | null) => void;
@@ -84,7 +82,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   guides: [],
   selectedGuideId: null,
   draggingGuide: null,
-  rulersVisible: localStorage.getItem('draftila:rulersVisible') !== 'false',
   guidesVisible: localStorage.getItem('draftila:guidesVisible') !== 'false',
   commentsVisible: localStorage.getItem('draftila:commentsVisible') !== 'false',
   activeCommentId: null,
@@ -165,11 +162,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     })),
 
   setDraggingGuide: (guide) => set({ draggingGuide: guide }),
-
-  setRulersVisible: (visible) => {
-    localStorage.setItem('draftila:rulersVisible', String(visible));
-    set({ rulersVisible: visible });
-  },
 
   setGuidesVisible: (visible) => {
     localStorage.setItem('draftila:guidesVisible', String(visible));

@@ -39,7 +39,6 @@ import { EditorToolbar } from './editor-toolbar';
 import { CursorOverlay } from './cursor-overlay';
 import { TextEditOverlay } from './text-edit-overlay';
 import { CanvasContextMenu } from './canvas-context-menu';
-import { Ruler, RulerCorner } from './rulers';
 import type { RemoteUser } from '../hooks/use-awareness';
 import type { CommentPin } from '@draftila/engine';
 import type { CommentResponse } from '@draftila/shared';
@@ -142,7 +141,6 @@ export function Canvas({
   const isPanning = useEditorStore((s) => s.isPanning);
   const camera = useEditorStore((s) => s.camera);
   const editingTextId = useEditorStore((s) => s.editingTextId);
-  const rulersVisible = useEditorStore((s) => s.rulersVisible);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
   const commentPanelRef = useRef<HTMLDivElement | null>(null);
@@ -715,13 +713,6 @@ export function Canvas({
             currentUserName={userName}
           />
         </div>
-      )}
-      {rulersVisible && (
-        <>
-          <RulerCorner />
-          <Ruler orientation="horizontal" ydoc={ydoc} />
-          <Ruler orientation="vertical" ydoc={ydoc} />
-        </>
       )}
       <div className="absolute inset-x-0 bottom-3 flex justify-center">
         <EditorToolbar />

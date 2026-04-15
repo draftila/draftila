@@ -162,6 +162,16 @@ export function hitTestHandle(
   const half = size / 2;
 
   for (const handle of bounds.handles) {
+    // Skip middle handles - they are not visible
+    if (
+      handle.position === 'top-center' ||
+      handle.position === 'bottom-center' ||
+      handle.position === 'middle-left' ||
+      handle.position === 'middle-right'
+    ) {
+      continue;
+    }
+
     if (handle.position === 'line-start' || handle.position === 'line-end') {
       const dx = px - handle.x;
       const dy = py - handle.y;
@@ -177,6 +187,42 @@ export function hitTestHandle(
       return handle.position;
     }
   }
+
+  return null;
+}
+
+const EDGE_HIT_THRESHOLD = 8;
+
+export function hitTestEdge(
+  px: number,
+  py: number,
+  bounds: SelectionBounds,
+  zoom: number,
+): HandlePosition | null {
+  // Only work with non-rotated shapes for simplicity
+  if (bounds.rotation !== 0) {
+    return null;
+  }
+
+  const threshold = EDGE_HIT_THRESHOLD / zoom;
+  const { x, y, width, height } = bounds;
+
+  const isNearTop = Math.abs(py - y) <= threshold && px >= x && px <= x + width;
+  const isNearBottom = Math.abs(py - (y + height)) <= threshold && px >= x && px <= x + width;
+  const isNearLeft = Math.abs(px - x) <= threshold && py >= y && py <= y + height;
+  const isNearRight = Math.abs(px - (x + width)) <= threshold && py >= y && py <= y + height;
+
+  // Check corners first (priority)
+  if (isNearTop && isNearLeft) return 'top-left';
+  if (isNearTop && isNearRight) return 'top-right';
+  if (isNearBottom && isNearLeft) return 'bottom-left';
+  if (isNearBottom && isNearRight) return 'bottom-right';
+
+  // Then check edges
+  if (isNearTop) return 'top-center';
+  if (isNearBottom) return 'bottom-center';
+  if (isNearLeft) return 'middle-left';
+  if (isNearRight) return 'middle-right';
 
   return null;
 }

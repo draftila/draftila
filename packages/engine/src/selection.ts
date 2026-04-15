@@ -7,6 +7,7 @@ export {
   isEndpointShape,
   getSelectionBounds,
   hitTestHandle,
+  hitTestEdge,
   getResizeCursor,
   normalizeRect,
   getAnchorAndDrag,
