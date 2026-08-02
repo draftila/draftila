@@ -2,7 +2,7 @@ import { lookup } from 'node:dns/promises';
 import { request as httpRequest } from 'node:http';
 import type { IncomingMessage, RequestOptions } from 'node:http';
 import { request as httpsRequest } from 'node:https';
-import { loadImage } from '@napi-rs/canvas';
+import { Image } from '@napi-rs/canvas';
 import { imageSize } from 'image-size';
 
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
@@ -210,6 +210,17 @@ export async function fetchImageBytes(src: string): Promise<Buffer> {
 export async function loadServerImage(src: string): Promise<HTMLImageElement> {
   const bytes = src.startsWith('data:') ? decodeDataUri(src) : await fetchImageBytes(src);
   assertDecodableSize(bytes);
-  const image = await loadImage(bytes);
+
+  const image = new Image();
+  try {
+    image.src = bytes;
+  } catch {
+    throw new Error('Unsupported or unreadable image format');
+  }
+
+  if (!image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0) {
+    throw new Error('Unsupported or unreadable image format');
+  }
+
   return image as unknown as HTMLImageElement;
 }
