@@ -293,10 +293,37 @@ export { StarTool } from './tools/star-tool';
 
 export {
   ensureFontsLoaded,
+  ensureFontsLoadedAsync,
   onFontsLoaded,
   collectFontFamilies,
   resolveCanvasFontFamily,
+  requiresCustomFontRegistry,
+  isFontLoaded,
+  loadCustomFontPreview,
 } from './font-manager';
+
+export {
+  type CustomFontVariant,
+  type CustomFontFamily,
+  type RegistryChange,
+  toNameKey,
+  canonicalVariantKey,
+  markCustomFontsReady,
+  registerCustomFonts,
+  isCustomFontsReady,
+  whenCustomFontsReady,
+  onCustomFontsChange,
+  getCustomFontFamilies,
+  getCustomFontFamilyRecord,
+  isCustomFontFamily,
+  getAvailableVariants,
+  nearestAvailableVariant,
+  setCustomFontDataProvider,
+  getCustomFontData,
+  quoteCssFamily,
+  mapDtoToEngine,
+  buildEmbeddedFontCss,
+} from './custom-fonts';
 
 export {
   type GoogleFont,
@@ -304,6 +331,7 @@ export {
   loadFontPreviews,
   isFontPreviewReady,
   subscribePreviewLoads,
+  isGoogleFontFamily,
 } from './google-fonts';
 
 export {

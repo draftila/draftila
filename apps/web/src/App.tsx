@@ -12,6 +12,7 @@ import { ProjectsPage } from './pages/projects/index';
 import { ProjectSettingsPage } from './pages/projects/settings';
 import { EditorPage } from './pages/editor/index';
 import { AdminUsersPage } from './pages/admin/index';
+import { AdminFontsPage } from './pages/admin/fonts';
 import { ApiKeysPage } from './pages/settings/api-keys';
 import { LoginPage } from './pages/auth/login';
 import { NotFoundPage } from './pages/not-found';
@@ -39,6 +40,7 @@ export function App() {
               <Route element={<AdminGuard />}>
                 <Route element={<DashboardLayout />}>
                   <Route path="/admin/users" element={<AdminUsersPage />} />
+                  <Route path="/admin/fonts" element={<AdminFontsPage />} />
                 </Route>
               </Route>
             </Route>

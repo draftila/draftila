@@ -7,12 +7,20 @@ import {
   ensureFontsLoaded,
   isFontPreviewReady,
   subscribePreviewLoads,
+  getCustomFontFamilies,
+  onCustomFontsChange,
+  loadCustomFontPreview,
 } from '@draftila/engine';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 const ITEM_HEIGHT = 32;
 const VISIBLE_HEIGHT = 280;
 const CACHE_KEY = 'draftila:loaded-font-previews';
+
+type PickerItem =
+  | { kind: 'header'; label: string }
+  | { kind: 'custom'; family: string }
+  | { kind: 'google'; family: string; category: string };
 
 function persistLoadedFonts(): void {
   try {
@@ -49,6 +57,9 @@ export function FontPicker({
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(value);
   const [, setPreviewTick] = useState(0);
+  const [customFamilies, setCustomFamilies] = useState(() =>
+    getCustomFontFamilies().map((f) => f.name),
+  );
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [scrollNode, setScrollNode] = useState<HTMLDivElement | null>(null);
 
@@ -56,6 +67,12 @@ export function FontPicker({
     return subscribePreviewLoads(() => {
       setPreviewTick((t) => t + 1);
       persistLoadedFonts();
+    });
+  }, []);
+
+  useEffect(() => {
+    return onCustomFontsChange(() => {
+      setCustomFamilies(getCustomFontFamilies().map((f) => f.name));
     });
   }, []);
 
@@ -70,14 +87,28 @@ export function FontPicker({
     setSelected(value);
   }, [value]);
 
-  const filtered = useMemo(() => {
-    if (!search) return ALL_FONTS;
+  const items = useMemo<PickerItem[]>(() => {
     const lower = search.toLowerCase();
-    return ALL_FONTS.filter((f) => f.family.toLowerCase().includes(lower));
-  }, [search]);
+    const custom = customFamilies.filter((name) => !search || name.toLowerCase().includes(lower));
+    const google = search
+      ? ALL_FONTS.filter((f) => f.family.toLowerCase().includes(lower))
+      : ALL_FONTS;
+
+    const result: PickerItem[] = [];
+    if (custom.length > 0) {
+      result.push({ kind: 'header', label: 'Custom' });
+      for (const family of custom) result.push({ kind: 'custom', family });
+    }
+    if (google.length > 0) {
+      if (custom.length > 0) result.push({ kind: 'header', label: 'Google Fonts' });
+      for (const f of google)
+        result.push({ kind: 'google', family: f.family, category: f.category });
+    }
+    return result;
+  }, [search, customFamilies]);
 
   const virtualizer = useVirtualizer({
-    count: filtered.length,
+    count: items.length,
     getScrollElement: () => scrollNode,
     estimateSize: () => ITEM_HEIGHT,
     overscan: 5,
@@ -87,9 +118,17 @@ export function FontPicker({
 
   useEffect(() => {
     if (!open || virtualItems.length === 0) return;
-    const families = virtualItems.map((item) => filtered[item.index]!.family);
-    loadFontPreviews(families);
-  }, [virtualItems, filtered, open]);
+    const googleFamilies: string[] = [];
+    for (const item of virtualItems) {
+      const entry = items[item.index];
+      if (!entry) continue;
+      // Custom previews load exactly ONE variant — the preview effect fires per virtualized row, so
+      // `ensureFontsLoaded` here would build a FontFace per variant of every family scrolled past.
+      if (entry.kind === 'custom') loadCustomFontPreview(entry.family);
+      else if (entry.kind === 'google') googleFamilies.push(entry.family);
+    }
+    if (googleFamilies.length > 0) loadFontPreviews(googleFamilies);
+  }, [virtualItems, items, open]);
 
   const scrollRefCallback = useCallback((node: HTMLDivElement | null) => {
     setScrollNode(node);
@@ -143,9 +182,34 @@ export function FontPicker({
         <div ref={scrollRefCallback} className="overflow-auto" style={{ height: VISIBLE_HEIGHT }}>
           <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
             {virtualItems.map((virtualItem) => {
-              const font = filtered[virtualItem.index]!;
-              const isActive = selected === font.family;
-              const ready = isFontPreviewReady(font.family);
+              const item = items[virtualItem.index]!;
+              const style = {
+                height: ITEM_HEIGHT,
+                transform: `translateY(${virtualItem.start}px)`,
+              };
+
+              if (item.kind === 'header') {
+                return (
+                  <div
+                    key={virtualItem.key}
+                    className="text-muted-foreground absolute left-0 flex w-full items-center px-2 text-[10px] font-medium uppercase"
+                    style={style}
+                  >
+                    {item.label}
+                  </div>
+                );
+              }
+
+              const isActive = selected === item.family;
+              // Custom faces are registered in `document.fonts`, so the DOM restyles itself the
+              // moment the preview face resolves — no readiness flag needed.
+              const fontFamily =
+                item.kind === 'custom'
+                  ? `"${item.family}"`
+                  : isFontPreviewReady(item.family)
+                    ? `"${item.family}", ${item.category}`
+                    : undefined;
+
               return (
                 <button
                   key={virtualItem.key}
@@ -153,20 +217,16 @@ export function FontPicker({
                   className={`absolute left-0 flex w-full items-center px-2 text-[12px] transition-colors ${
                     isActive ? 'bg-accent text-accent-foreground' : 'hover:bg-muted/50'
                   }`}
-                  style={{
-                    height: ITEM_HEIGHT,
-                    transform: `translateY(${virtualItem.start}px)`,
-                    fontFamily: ready ? `"${font.family}", ${font.category}` : undefined,
-                  }}
-                  onClick={() => handleClick(font.family)}
+                  style={{ ...style, fontFamily }}
+                  onClick={() => handleClick(item.family)}
                 >
-                  <span className="truncate">{font.family}</span>
+                  <span className="truncate">{item.family}</span>
                 </button>
               );
             })}
           </div>
         </div>
-        {filtered.length === 0 && (
+        {items.length === 0 && (
           <div className="text-muted-foreground py-4 text-center text-[11px]">No fonts found</div>
         )}
       </PopoverContent>

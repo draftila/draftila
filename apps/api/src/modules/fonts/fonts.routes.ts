@@ -50,9 +50,9 @@ fontRoutes.post('/', requireAuth, requireAdmin, async (c) => {
     name: override ?? parsed.familyName,
   });
 
-  const family = await fontsService.createVariant({ name, parsed, bytes });
+  const { family, variant } = await fontsService.createVariant({ name, parsed, bytes });
 
-  return c.json({ data: family, warnings: parsed.warnings }, 201);
+  return c.json({ data: family, variant, warnings: parsed.warnings }, 201);
 });
 
 fontRoutes.delete('/:familyId', requireAuth, requireAdmin, async (c) => {

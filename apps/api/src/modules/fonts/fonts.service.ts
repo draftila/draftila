@@ -1,12 +1,9 @@
-import { ALL_FONTS } from '@draftila/engine';
+import { ALL_FONTS, toNameKey } from '@draftila/engine';
 import { ConflictError } from '../../common/errors';
 import { extractStorageKey, generateStorageKey, getStorage } from '../../common/lib/storage';
 import { nanoid } from '../../common/lib/utils';
 import { db } from '../../db';
 import type { ParsedFont } from './font-parse';
-
-// moves to @draftila/engine in PR 2
-export const toNameKey = (name: string) => name.normalize('NFC').toLowerCase();
 
 const GOOGLE_FONT_NAME_KEYS = new Set(ALL_FONTS.map((f) => toNameKey(f.family)));
 
@@ -87,6 +84,7 @@ export async function createVariant(params: { name: string; parsed: ParsedFont; 
 
   const key = generateStorageKey('fonts', parsed.format);
   const fileUrl = await getStorage().put(key, bytes);
+  const variantId = nanoid();
 
   try {
     await db.$transaction(async (tx) => {
@@ -99,7 +97,7 @@ export async function createVariant(params: { name: string; parsed: ParsedFont; 
       }
       await tx.fontVariant.create({
         data: {
-          id: nanoid(),
+          id: variantId,
           familyId,
           weight: parsed.weight,
           style: parsed.style,
@@ -118,8 +116,11 @@ export async function createVariant(params: { name: string; parsed: ParsedFont; 
   }
 
   const created = await getFamilyByNameKey(name);
-  if (!created) throw new Error('Failed to create font family');
-  return created;
+  const variant = created?.variants.find((v) => v.id === variantId);
+  // The variant is returned explicitly: `familySelect` orders variants by weight, so the caller
+  // cannot identify the one it just uploaded by position.
+  if (!created || !variant) throw new Error('Failed to create font family');
+  return { family: created, variant };
 }
 
 export async function removeFamily(familyId: string) {

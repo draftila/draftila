@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import type { TextShape, TextSegment, Shape } from '@draftila/shared';
 import { Bold, Italic, Minus, Plus, SplitSquareHorizontal } from 'lucide-react';
+import { getAvailableVariants } from '@draftila/engine';
 import { Button } from '@/components/ui/button';
 import { ColorPicker } from '../../color-picker';
 import { NumberInput } from '../number-input';
@@ -76,6 +77,7 @@ export function SegmentsEditor({
             <SegmentRow
               key={index}
               segment={segment}
+              family={segment.fontFamily ?? shape.fontFamily}
               onUpdate={(patch) => updateSegment(index, patch)}
               onRemove={() => removeSegment(index)}
               canRemove={segments.length > 1}
@@ -96,16 +98,21 @@ export function SegmentsEditor({
 
 function SegmentRow({
   segment,
+  family,
   onUpdate,
   onRemove,
   canRemove,
 }: {
   segment: TextSegment;
+  family: string;
   onUpdate: (patch: Partial<TextSegment>) => void;
   onRemove: () => void;
   canRemove: boolean;
 }) {
   const color = segment.color ?? '#000000';
+  const variants = getAvailableVariants(family); // null => not a custom family
+  const boldAvailable = !variants || variants.some((v) => v.weight >= 700);
+  const italicAvailable = !variants || variants.some((v) => v.style === 'italic');
 
   return (
     <div className="border-border space-y-1 rounded border p-1.5">
@@ -141,6 +148,8 @@ function SegmentRow({
           variant={segment.fontWeight === 700 ? 'default' : 'outline'}
           size="icon"
           className="h-5 w-5"
+          disabled={!boldAvailable}
+          title={boldAvailable ? undefined : 'This family has no bold variant'}
           onClick={() => onUpdate({ fontWeight: segment.fontWeight === 700 ? undefined : 700 })}
         >
           <Bold className="h-2.5 w-2.5" />
@@ -149,6 +158,8 @@ function SegmentRow({
           variant={segment.fontStyle === 'italic' ? 'default' : 'outline'}
           size="icon"
           className="h-5 w-5"
+          disabled={!italicAvailable}
+          title={italicAvailable ? undefined : 'This family has no italic variant'}
           onClick={() =>
             onUpdate({ fontStyle: segment.fontStyle === 'italic' ? undefined : 'italic' })
           }

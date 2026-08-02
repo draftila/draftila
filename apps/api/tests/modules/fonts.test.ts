@@ -192,18 +192,35 @@ describe('fonts', () => {
   });
 
   describe('upload', () => {
-    test('POST /api/fonts creates a family and returns { data, warnings }', async () => {
+    test('POST /api/fonts creates a family and returns { data, variant, warnings }', async () => {
       const res = await upload('JetBrainsMono-Regular.ttf', { name: 'Acme Mono' });
 
       expect(res.status).toBe(201);
-      const body = (await res.json()) as { data: FamilyBody; warnings: string[] };
+      const body = (await res.json()) as {
+        data: FamilyBody;
+        variant: VariantBody;
+        warnings: string[];
+      };
       expect(body.data.name).toBe('Acme Mono');
       expect(body.data.variants).toHaveLength(1);
       expect(body.data.variants[0]!.weight).toBe(400);
       expect(body.data.variants[0]!.style).toBe('normal');
       expect(body.data.variants[0]!.format).toBe('ttf');
       expect(body.data.variants[0]!.postscriptName).toBe('JetBrainsMono-Regular');
+      expect(body.variant).toEqual(body.data.variants[0]!);
       expect(body.warnings).toBeArray();
+    });
+
+    test('`variant` is the face just created, not the heaviest in the family', async () => {
+      await upload('JetBrainsMono-BoldItalic.woff2', { name: 'Acme Mono' });
+      const res = await upload('JetBrainsMono-Regular.ttf', { name: 'Acme Mono' });
+
+      expect(res.status).toBe(201);
+      const body = (await res.json()) as { data: FamilyBody; variant: VariantBody };
+      // `familySelect` orders variants by ascending weight, so the last row is the 700 italic.
+      expect(body.data.variants.at(-1)!.weight).toBe(700);
+      expect(body.variant.weight).toBe(400);
+      expect(body.variant.style).toBe('normal');
     });
 
     test('GET /api/fonts returns { data } with nested variants', async () => {
