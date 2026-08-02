@@ -5,6 +5,7 @@ import { renderShape, getCornerRadii } from './shape-renderer';
 import { shapesToInterchange } from './interchange/converter';
 import { generateSvg } from './interchange/svg/svg-generator';
 import { collectFontFamilies, ensureFontsLoadedAsync } from './font-manager';
+import { collectImageSources, preloadImages } from './image-cache';
 
 function getShapesBounds(shapes: Shape[]): {
   minX: number;
@@ -80,6 +81,8 @@ export async function exportToPng(
     await ensureFontsLoadedAsync(families);
   }
 
+  await preloadImages(collectImageSources(shapes));
+
   const { minX, minY, maxX, maxY } = getShapesBounds(shapes);
 
   const width = maxX - minX;
@@ -148,6 +151,8 @@ export async function exportToJpg(
   if (families.length > 0) {
     await ensureFontsLoadedAsync(families);
   }
+
+  await preloadImages(collectImageSources(shapes));
 
   const { minX, minY, maxX, maxY } = getShapesBounds(shapes);
 

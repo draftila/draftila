@@ -1,23 +1,17 @@
 import type { Fill, Gradient, Shadow, Stroke } from '@draftila/shared';
 import type { RenderStyle, RenderTransform } from './types';
 import { colorWithOpacity, resolveDashArray, shadowColorToRgba } from './style-utils';
+import { resolveImage } from '../image-cache';
 
 export class StyleEngine {
   private ctx: CanvasRenderingContext2D;
   private canvas: HTMLCanvasElement;
   private dpr: number;
-  private imageCache: Map<string, HTMLImageElement>;
 
-  constructor(
-    ctx: CanvasRenderingContext2D,
-    canvas: HTMLCanvasElement,
-    dpr: number,
-    imageCache: Map<string, HTMLImageElement>,
-  ) {
+  constructor(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, dpr: number) {
     this.ctx = ctx;
     this.canvas = canvas;
     this.dpr = dpr;
-    this.imageCache = imageCache;
   }
 
   updateDpr(dpr: number) {
@@ -40,15 +34,8 @@ export class StyleEngine {
   getLoadedImage(src: string): HTMLImageElement | null {
     if (!src) return null;
 
-    let image = this.imageCache.get(src);
-    if (!image) {
-      image = new Image();
-      image.crossOrigin = 'anonymous';
-      image.src = src;
-      this.imageCache.set(src, image);
-    }
-
-    if (!image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0) {
+    const image = resolveImage(src);
+    if (!image || image.naturalWidth <= 0 || image.naturalHeight <= 0) {
       return null;
     }
 
@@ -86,9 +73,45 @@ export class StyleEngine {
     return canvasGradient;
   }
 
-  getFillStyle(fill: Fill, width: number, height: number): string | CanvasGradient {
+  drawImageFill(fill: Fill, width: number, height: number): boolean {
+    if (!fill.imageSrc) return false;
+
+    const image = this.getLoadedImage(fill.imageSrc);
+    if (!image) return false;
+
+    const { ctx } = this;
+    ctx.globalAlpha *= fill.opacity ?? 1;
+    const fit = fill.imageFit ?? 'fill';
+
+    if (fit === 'tile') {
+      const pattern = ctx.createPattern(image, 'repeat');
+      if (pattern) {
+        ctx.fillStyle = pattern;
+        ctx.fillRect(0, 0, width, height);
+      }
+      return true;
+    }
+
+    if (fit === 'fill') {
+      ctx.drawImage(image, 0, 0, width, height);
+      return true;
+    }
+
+    const scaleX = width / image.naturalWidth;
+    const scaleY = height / image.naturalHeight;
+    const scale = fit === 'fit' ? Math.min(scaleX, scaleY) : Math.max(scaleX, scaleY);
+    const drawWidth = image.naturalWidth * scale;
+    const drawHeight = image.naturalHeight * scale;
+    ctx.drawImage(image, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
+    return true;
+  }
+
+  getFillStyle(fill: Fill, width: number, height: number): string | CanvasGradient | null {
     if (fill.gradient) {
       return this.createGradient(fill.gradient, width, height);
+    }
+    if (!fill.color) {
+      return null;
     }
     return colorWithOpacity(fill.color, fill.opacity);
   }
@@ -199,9 +222,10 @@ export class StyleEngine {
 
     if (dropShadows.length > 0) {
       const firstVisibleFill = style.fills.find((f) => f.visible);
-      ctx.fillStyle = firstVisibleFill
+      const shadowFillStyle = firstVisibleFill
         ? this.getFillStyle(firstVisibleFill, width, height)
-        : 'rgba(0,0,0,0)';
+        : null;
+      ctx.fillStyle = shadowFillStyle ?? 'rgba(0,0,0,0)';
       for (const shadow of dropShadows) {
         this.applyDropShadow(shadow);
         ctx.fill();
@@ -211,47 +235,28 @@ export class StyleEngine {
 
     for (const fill of style.fills) {
       if (!fill.visible) continue;
+      const fillAlpha = fill.opacity ?? 1;
       if (fill.imageSrc) {
-        const img = this.getLoadedImage(fill.imageSrc);
-        if (img) {
-          ctx.save();
-          ctx.clip();
-          ctx.globalAlpha *= fill.opacity;
-          const fit = fill.imageFit ?? 'fill';
-          if (fit === 'fill') {
-            ctx.drawImage(img, 0, 0, width, height);
-          } else if (fit === 'fit') {
-            const scale = Math.min(width / img.naturalWidth, height / img.naturalHeight);
-            const dw = img.naturalWidth * scale;
-            const dh = img.naturalHeight * scale;
-            ctx.drawImage(img, (width - dw) / 2, (height - dh) / 2, dw, dh);
-          } else if (fit === 'crop') {
-            const scale = Math.max(width / img.naturalWidth, height / img.naturalHeight);
-            const dw = img.naturalWidth * scale;
-            const dh = img.naturalHeight * scale;
-            ctx.drawImage(img, (width - dw) / 2, (height - dh) / 2, dw, dh);
-          } else if (fit === 'tile') {
-            const pattern = ctx.createPattern(img, 'repeat');
-            if (pattern) {
-              const previousFillStyle = ctx.fillStyle;
-              ctx.fillStyle = pattern;
-              ctx.fillRect(0, 0, width, height);
-              ctx.fillStyle = previousFillStyle;
-            }
-          }
-          ctx.globalAlpha = style.opacity;
-          ctx.restore();
-        } else {
-          ctx.fillStyle = this.getFillStyle(fill, width, height);
-          ctx.globalAlpha *= fill.opacity;
+        ctx.save();
+        ctx.clip();
+        const painted = this.drawImageFill(fill, width, height);
+        ctx.restore();
+        if (painted) continue;
+
+        const placeholderStyle = this.getFillStyle(fill, width, height);
+        if (placeholderStyle) {
+          ctx.fillStyle = placeholderStyle;
+          ctx.globalAlpha *= fillAlpha;
           ctx.fill();
           ctx.globalAlpha = style.opacity;
         }
         continue;
       }
-      ctx.fillStyle = this.getFillStyle(fill, width, height);
+      const fillStyle = this.getFillStyle(fill, width, height);
+      if (!fillStyle) continue;
+      ctx.fillStyle = fillStyle;
       if (!fill.gradient) {
-        ctx.globalAlpha *= fill.opacity;
+        ctx.globalAlpha *= fillAlpha;
       }
       ctx.fill();
       if (!fill.gradient) {

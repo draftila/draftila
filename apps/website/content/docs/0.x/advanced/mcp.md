@@ -121,6 +121,18 @@ The MCP server exposes 30+ tools organized into categories.
 | `list_icons`            | List available Lucide icons                              |
 | `insert_icon`           | Insert a Lucide icon as SVG                              |
 
+#### Images in PNG exports
+
+`export_png` renders on the server, so every image it needs is fetched before drawing:
+
+- Data URIs (including icons and imported SVG) are decoded locally
+- `http(s)` URLs are downloaded, following up to 3 redirects, with a 10 second timeout and a 20 MB limit per image
+- The host is resolved once and the connection is pinned to that address, so a hostname cannot resolve to a public address during the check and a private one during the request
+- Requests to loopback, link-local, and private network addresses are rejected, so images hosted on an internal network will not render
+- Images that decode to more than 30 megapixels are rejected, as are formats whose dimensions cannot be read, so a small file cannot expand into a very large bitmap
+- A single export loads at most 200 distinct images and spends at most 30 seconds loading them; anything beyond that is left unloaded
+- An image that cannot be loaded degrades gracefully: image layers show a grey placeholder and image fills are skipped, the rest of the export still renders
+
 ### Guides and Variables
 
 | Tool              | Description                    |

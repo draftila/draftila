@@ -2,6 +2,7 @@ import type { ArrowheadType, Blur, Fill, Shadow, Shape, Stroke } from '@draftila
 import type { Renderer, RenderStyle, RenderTransform } from './renderer/types';
 import { simpleStyle } from './renderer/types';
 import getStroke from 'perfect-freehand';
+import { svgToDataUri } from './image-cache';
 import {
   computeArrowheadGeometry,
   generatePolygonPoints,
@@ -16,10 +17,6 @@ export {
   generateStarPoints,
   getCornerRadii,
 } from './shape-geometry';
-
-function svgToDataUri(svgContent: string): string {
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgContent)}`;
-}
 
 function preserveAspectRatioToFit(value: string | undefined): 'fill' | 'fit' | 'crop' {
   const normalized = (value ?? 'xMidYMid meet').trim().toLowerCase();

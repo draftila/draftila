@@ -156,13 +156,21 @@ export {
 } from './boolean-ops';
 
 export {
+  type ImageLoader,
+  type PreloadImagesOptions,
+  type PreloadImagesResult,
   getCachedImage,
   preloadImage,
+  preloadImages,
+  registerImage,
   clearImageCache,
-  addImageFromFile,
-  addImageFromUrl,
-  handleFileDrop,
-} from './image-manager';
+  collectImageSources,
+  setImageLoader,
+  setImageCacheLimit,
+  svgToDataUri,
+} from './image-cache';
+
+export { addImageFromFile, addImageFromUrl, handleFileDrop } from './image-manager';
 
 export {
   type LayoutChild,

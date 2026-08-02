@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 const CHECKERBOARD = 'repeating-conic-gradient(#808080 0% 25%, transparent 0% 50%) 0 0 / 8px 8px';
+const DEFAULT_FILL_COLOR = '#D9D9D9';
 
 type FillType = 'solid' | 'linear' | 'radial';
 
@@ -81,7 +82,7 @@ export function FillSection({ shape, onUpdate }: PropertySectionProps) {
 
   const addFill = useCallback(() => {
     if (!fills) return;
-    const newFill: Fill = { color: '#D9D9D9', opacity: 1, visible: true };
+    const newFill: Fill = { color: DEFAULT_FILL_COLOR, opacity: 1, visible: true };
     onUpdate({ fills: [...fills, newFill] } as Partial<Shape>);
   }, [fills, onUpdate]);
 
@@ -148,15 +149,16 @@ function FillRow({
 }) {
   const opacityPercent = Math.round(fill.opacity * 100);
   const fillType = getFillType(fill);
+  const solidColor = fill.color ?? DEFAULT_FILL_COLOR;
 
   const handleTypeChange = (newType: FillType) => {
     if (newType === fillType) return;
     if (newType === 'solid') {
-      const baseColor = fill.gradient?.stops[0]?.color ?? fill.color;
+      const baseColor = fill.gradient?.stops[0]?.color ?? solidColor;
       onReplace({ color: baseColor, opacity: fill.opacity, visible: fill.visible });
       return;
     }
-    const gradient = defaultGradient(newType, fill.color);
+    const gradient = defaultGradient(newType, solidColor);
     onReplace({ ...fill, gradient });
   };
 
@@ -165,8 +167,8 @@ function FillRow({
   };
 
   const displayLabel = fill.gradient
-    ? (fill.gradient.stops[0]?.color ?? fill.color).replace('#', '').toUpperCase()
-    : fill.color.replace('#', '').toUpperCase();
+    ? (fill.gradient.stops[0]?.color ?? solidColor).replace('#', '').toUpperCase()
+    : solidColor.replace('#', '').toUpperCase();
 
   const editorContent = (
     <button
@@ -187,14 +189,14 @@ function FillRow({
             <div
               className="absolute inset-0"
               style={{
-                backgroundColor: fill.color,
+                backgroundColor: solidColor,
                 opacity: fill.opacity,
               }}
             />
             <div
               className="absolute inset-0"
               style={{
-                backgroundColor: fill.color,
+                backgroundColor: solidColor,
                 clipPath: 'polygon(0 0, 50% 0, 50% 100%, 0 100%)',
               }}
             />
@@ -218,7 +220,7 @@ function FillRow({
         </GradientEditor>
       ) : (
         <ColorPicker
-          color={fill.color}
+          color={solidColor}
           opacity={fill.opacity}
           onChange={(color) => onUpdate({ color })}
           onOpacityChange={(opacity) => onUpdate({ opacity })}

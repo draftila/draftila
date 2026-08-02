@@ -125,12 +125,22 @@ export function drawPath(
 
   for (const fill of style.fills) {
     if (!fill.visible) continue;
+    if (fill.imageSrc) {
+      ctx.save();
+      ctx.clip(path);
+      ctx.translate(pathMinX, pathMinY);
+      const painted = se.drawImageFill(fill, pathWidth, pathHeight);
+      ctx.restore();
+      if (painted) continue;
+    }
     if (fill.gradient) {
       ctx.save();
       ctx.translate(pathMinX, pathMinY);
-      ctx.fillStyle = se.getFillStyle(fill, pathWidth, pathHeight);
+      const gradientStyle = se.getFillStyle(fill, pathWidth, pathHeight);
+      if (gradientStyle) ctx.fillStyle = gradientStyle;
       ctx.translate(-pathMinX, -pathMinY);
     } else {
+      if (!fill.color) continue;
       ctx.fillStyle = colorWithOpacity(fill.color, fill.opacity);
     }
     if (dropShadows.length > 0) {
@@ -195,7 +205,16 @@ export function drawSvgPath(
 
   for (const fill of style.fills) {
     if (!fill.visible) continue;
-    ctx.fillStyle = se.getFillStyle(fill, transform.width, transform.height);
+    if (fill.imageSrc) {
+      ctx.save();
+      ctx.clip(path, fillRule);
+      const painted = se.drawImageFill(fill, transform.width, transform.height);
+      ctx.restore();
+      if (painted) continue;
+    }
+    const fillStyle = se.getFillStyle(fill, transform.width, transform.height);
+    if (!fillStyle) continue;
+    ctx.fillStyle = fillStyle;
     if (dropShadows.length > 0) {
       for (const shadow of dropShadows) {
         se.applyDropShadow(shadow);

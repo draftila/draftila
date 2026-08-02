@@ -20,6 +20,7 @@
     "./clipboard": "./src/clipboard.ts",
     "./shape-import": "./src/shape-import.ts",
     "./boolean-ops": "./src/boolean-ops.ts",
+    "./image-cache": "./src/image-cache.ts",
     "./image-manager": "./src/image-manager.ts",
     "./auto-layout": "./src/auto-layout.ts",
     "./font-manager": "./src/font-manager.ts",

@@ -178,6 +178,7 @@ function fillToCssValue(fill: Fill): string {
   if (fill.imageSrc) {
     return `url("${escapeCssDoubleQuotedString(fill.imageSrc)}")`;
   }
+  if (!fill.color) return 'transparent';
   const rgba = hexToRgba(fill.color, fill.opacity);
   return rgbaToCssColor(rgba);
 }
@@ -448,7 +449,7 @@ function textProperties(shape: TextShape, ctx?: ShapeContext): string[] {
       props.push(`background: ${gradientValue};`);
       props.push('-webkit-background-clip: text;');
       props.push('-webkit-text-fill-color: transparent;');
-    } else {
+    } else if (fill.color) {
       const rgba = hexToRgba(fill.color, fill.opacity);
       props.push(`color: ${rgbaToCssColor(rgba)};`);
     }

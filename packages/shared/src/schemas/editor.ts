@@ -87,14 +87,18 @@ export const gradientSchema = z.discriminatedUnion('type', [
   radialGradientSchema,
 ]);
 
-export const fillSchema = z.object({
-  color: colorSchema,
-  opacity: z.number().min(0).max(1).default(1),
-  visible: z.boolean().default(true),
-  gradient: gradientSchema.optional(),
-  imageSrc: z.string().optional(),
-  imageFit: z.enum(['fill', 'fit', 'crop', 'tile']).optional(),
-});
+export const fillSchema = z
+  .object({
+    color: colorSchema.optional(),
+    opacity: z.number().min(0).max(1).default(1),
+    visible: z.boolean().default(true),
+    gradient: gradientSchema.optional(),
+    imageSrc: z.string().optional(),
+    imageFit: z.enum(['fill', 'fit', 'crop', 'tile']).optional(),
+  })
+  .refine((fill) => fill.color !== undefined || fill.gradient !== undefined || !!fill.imageSrc, {
+    message: 'A fill must define a color, a gradient, or an image source',
+  });
 
 export const strokeCapSchema = z.enum(['butt', 'round', 'square']);
 export const strokeJoinSchema = z.enum(['miter', 'round', 'bevel']);
