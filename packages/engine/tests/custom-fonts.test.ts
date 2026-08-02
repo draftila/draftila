@@ -180,6 +180,29 @@ describe('terminal Google failure is remembered and correctly scoped', () => {
     expect(fakes.linkHrefs).toHaveLength(2);
   });
 
+  test('an all-curated batch that fails is terminal, so a re-entrant callback cannot loop', async () => {
+    markCustomFontsReady();
+
+    // `reconcileTextShapes` (use-yjs.ts) is subscribed via `onFontsLoaded` and itself calls
+    // `ensureFontsLoadedAsync`. The failure path notifies, so it re-enters here. Without the
+    // all-curated batch being memoized as failed, each notify appended another <link> forever.
+    let reentries = 0;
+    const unsubscribe = onFontsLoaded(() => {
+      if (reentries++ > 20) return; // guard so a regression fails the assertion, not the runner
+      void ensureFontsLoadedAsync(['Inter']);
+    });
+
+    const p = ensureFontsLoadedAsync(['Inter']);
+    for (let i = 0; i < 10; i++) {
+      fakes.flushLinks('error');
+      await flush();
+    }
+    await p;
+    unsubscribe();
+
+    expect(fakes.linkHrefs).toHaveLength(1);
+  });
+
   test('a family that becomes custom stops being a dead Google name', async () => {
     markCustomFontsReady();
     ensureFontsLoaded(['AcmeBrand']);

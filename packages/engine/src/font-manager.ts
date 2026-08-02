@@ -223,11 +223,17 @@ async function loadGoogleFonts(families: string[]): Promise<void> {
 
     notifyFontCallbacks();
   } catch {
+    // Google's CSS2 endpoint 400s the WHOLE batch if any single `family=` is unknown, so a curated
+    // name is only worth retrying when an unknown name could have poisoned the request. An
+    // all-curated batch that failed is a transport failure and will fail identically forever —
+    // leaving those names unmemoized loops without bound, because the notify below re-enters
+    // `ensureFontsLoaded*` through subscribers like `reconcileTextShapes`, which finds the name
+    // neither loaded, pending, nor failed and appends another <link>. Bounded at two attempts:
+    // the retry batch is all-curated, so its failure is terminal.
+    const poisoned = families.some((family) => !isGoogleFontFamily(family));
     for (const family of families) {
       pendingFonts.delete(family);
-      // Only non-curated names are memoized: Google's CSS2 endpoint 400s the WHOLE batch if any
-      // single `family=` is unknown, so memoizing curated names would let one bad name kill them.
-      if (!isGoogleFontFamily(family)) failedGoogleFonts.add(family);
+      if (!poisoned || !isGoogleFontFamily(family)) failedGoogleFonts.add(family);
     }
     // Settles every parked `stillPending` waiter in `ensureFontsLoadedAsync`.
     notifyFontCallbacks();
