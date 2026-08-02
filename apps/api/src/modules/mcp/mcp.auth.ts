@@ -2,6 +2,7 @@ import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import * as apiKeysService from '../api-keys/api-keys.service';
 import * as draftsService from '../drafts/drafts.service';
 import * as collaborationService from '../collaboration/collaboration.service';
+import { localizeMcpToolImageSources, storeMcpImageAsset } from './image-assets';
 
 export async function resolveApiKeyUser(headers: Headers): Promise<{ userId: string } | null> {
   const authHeader = headers.get('authorization');
@@ -35,5 +36,8 @@ export async function sendToolRpc(
 ): Promise<unknown> {
   await assertDraftAccess(draftId, userId);
   requireBrowser(draftId);
-  return collaborationService.sendRpc(draftId, tool, args);
+  const localizedArgs = await localizeMcpToolImageSources(tool, args, (source) =>
+    storeMcpImageAsset(draftId, source),
+  );
+  return collaborationService.sendRpc(draftId, tool, localizedArgs);
 }

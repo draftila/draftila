@@ -77,6 +77,14 @@ The MCP server exposes 30+ tools organized into categories.
 | `list_shapes`         | List all shapes or children of a shape                |
 | `duplicate_shapes`    | Duplicate shapes                                      |
 
+#### Images created through MCP
+
+For image shapes, pass an HTTP(S) URL in `src`. For an image fill, pass an HTTP(S) URL or data URI in `imageSrc`. This works with `create_shape`, `update_shape`, and their batch variants.
+
+Draftila downloads and validates the image on the server, stores it with the draft, and writes an app-owned `/storage/...` URL into the document. The editor therefore does not request the original host and is not affected by that host's browser CORS policy. Reusing the same image within one tool call imports it only once.
+
+Remote imports use the same 20 MB file limit, 30 megapixel decode limit, 10 second timeout, redirect limit, and private-network protections described below. If an import fails validation, the shape operation fails without writing the external URL to the document.
+
 ### Grouping and Layout
 
 | Tool                | Description                                             |
