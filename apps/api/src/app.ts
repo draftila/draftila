@@ -18,6 +18,7 @@ import { memberRoutes } from './modules/projects/members.routes';
 import { projectRoutes } from './modules/projects/projects.routes';
 import { userRoutes } from './modules/user/user.routes';
 import { apiKeyRoutes } from './modules/api-keys/api-keys.routes';
+import { fontRoutes } from './modules/fonts/fonts.routes';
 import { mcpRoutes } from './modules/mcp/mcp.routes';
 import { draftSnapshotRoutes, snapshotRoutes } from './modules/snapshots/snapshots.routes';
 
@@ -80,7 +81,16 @@ app.route('/api/drafts/:draftId/snapshots', draftSnapshotRoutes);
 app.route('/api/snapshots', snapshotRoutes);
 app.route('/api/api-keys', apiKeyRoutes);
 app.route('/api/mcp', mcpRoutes);
+app.route('/api/fonts', fontRoutes);
 app.route('/api', userRoutes);
+
+// Font files are referenced from exported SVG/HTML artifacts, which are opened from `file://` or
+// third-party origins. Registered after the global cors so its post-`next()` writes win.
+app.use('/storage/fonts/*', async (c, next) => {
+  await next();
+  c.res.headers.set('Access-Control-Allow-Origin', '*');
+  c.res.headers.delete('Access-Control-Allow-Credentials');
+});
 
 app.get('/storage/*', (c) => {
   const key = c.req.path.slice('/storage/'.length);

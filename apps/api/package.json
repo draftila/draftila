@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun run db:studio & bun run --hot src/index.ts",
-    "build": "bun build src/index.ts --outdir dist --target bun --external paper --external css-tree --external mdn-data --external csso",
+    "build": "bun build src/index.ts --outdir dist --target bun --external paper --external css-tree --external mdn-data --external csso --external fontkit",
     "start": "bun run dist/index.js",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
@@ -29,6 +29,7 @@
     "@napi-rs/canvas": "^0.1.97",
     "@prisma/client": "^6.7.0",
     "better-auth": "^1.1.14",
+    "fontkit": "^2.0.4",
     "hono": "^4.6.14",
     "jszip": "^3.10.1",
     "lib0": "^0.2.117",
@@ -41,6 +42,7 @@
     "@draftila/eslint-config": "workspace:*",
     "@draftila/typescript-config": "workspace:*",
     "@types/bun": "^1.1.14",
+    "@types/fontkit": "^2.0.9",
     "eslint": "^9.16.0",
     "prisma": "^6.7.0",
     "typescript": "^5.7.2"

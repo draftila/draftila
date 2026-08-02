@@ -189,3 +189,32 @@ model CommentRead {
   @@index([userId], map: "comment_read_user_id_idx")
   @@map("comment_read")
 }
+
+model FontFamily {
+  id        String        @id
+  name      String        @unique
+  nameKey   String        @unique @map("name_key")
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+  variants  FontVariant[]
+
+  @@map("font_family")
+}
+
+model FontVariant {
+  id             String     @id
+  familyId       String     @map("family_id")
+  weight         Int        @default(400)
+  style          String     @default("normal")
+  format         String
+  fileUrl        String     @map("file_url")
+  fileSize       Int        @map("file_size")
+  postscriptName String?    @map("postscript_name")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+  family         FontFamily @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@unique([familyId, weight, style], map: "font_variant_family_weight_style_idx")
+  @@index([familyId], map: "font_variant_family_id_idx")
+  @@map("font_variant")
+}
