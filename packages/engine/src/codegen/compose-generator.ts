@@ -85,6 +85,7 @@ function hexToComposeColor(hex: string, opacity: number): string {
 }
 
 function fillToComposeColor(fill: Fill): string {
+  if (!fill.color) return 'Color.Transparent';
   return hexToComposeColor(fill.color, fill.opacity);
 }
 

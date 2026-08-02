@@ -122,6 +122,7 @@ function fillToSwiftUI(fill: Fill, width = 0, height = 0): string {
   if (fill.gradient) {
     return gradientToSwiftUI(fill.gradient, fill.opacity, width, height);
   }
+  if (!fill.color) return 'Color.clear';
   const rgba = hexToRgba(fill.color, fill.opacity);
   return rgbaToSwiftUIColor(rgba.r, rgba.g, rgba.b, rgba.a);
 }
@@ -519,7 +520,7 @@ function textToSwiftUI(shape: TextShape): string {
       modifiers.push(
         `.foregroundStyle(${gradientToSwiftUI(fill.gradient, fill.opacity, shape.width, shape.height)})`,
       );
-    } else {
+    } else if (fill.color) {
       const rgba = hexToRgba(fill.color, fill.opacity);
       modifiers.push(`.foregroundColor(${rgbaToSwiftUIColor(rgba.r, rgba.g, rgba.b, rgba.a)})`);
     }

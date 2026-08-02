@@ -14,7 +14,6 @@ import * as uiDraw from './ui-draw';
 import * as guidesDraw from './guides-draw';
 
 export class Canvas2DRenderer implements Renderer {
-  private static imageCache = new Map<string, HTMLImageElement>();
   private ctx: CanvasRenderingContext2D;
   private canvas: HTMLCanvasElement;
   private dpr = 1;
@@ -35,7 +34,7 @@ export class Canvas2DRenderer implements Renderer {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Failed to get 2d context');
     this.ctx = ctx;
-    this.se = new StyleEngine(ctx, canvas, this.dpr, Canvas2DRenderer.imageCache);
+    this.se = new StyleEngine(ctx, canvas, this.dpr);
   }
 
   resize(width: number, height: number, dpr: number) {

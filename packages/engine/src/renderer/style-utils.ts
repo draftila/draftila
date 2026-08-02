@@ -83,7 +83,7 @@ export function dashPatternToArray(pattern: StrokeDashPattern, strokeWidth: numb
   }
 }
 
-export function colorWithOpacity(hex: string, opacity: number): string {
+export function colorWithOpacity(hex: string, opacity = 1): string {
   if (opacity >= 1) return hex;
   if (opacity <= 0) return 'transparent';
   const r = parseInt(hex.slice(1, 3), 16);
