@@ -102,6 +102,23 @@ export async function remove(id: string, ownerId: string) {
       .catch(() => {});
   }
 
+  const drafts = await db.draft.findMany({
+    where: { projectId: existing.id },
+    select: { id: true, thumbnail: true },
+  });
+  await Promise.all(
+    drafts.flatMap((draft) => [
+      draft.thumbnail
+        ? getStorage()
+            .delete(extractStorageKey(draft.thumbnail))
+            .catch(() => {})
+        : Promise.resolve(),
+      getStorage()
+        .deletePrefix(`draft-assets/${draft.id}`)
+        .catch(() => {}),
+    ]),
+  );
+
   await db.project.delete({ where: { id: existing.id } });
   return existing;
 }

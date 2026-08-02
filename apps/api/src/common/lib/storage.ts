@@ -1,24 +1,42 @@
-import { mkdir, unlink } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { mkdir, readFile, rm, unlink } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
 import { nanoid } from './utils';
 
 export interface StorageDriver {
   put(key: string, data: Buffer): Promise<string>;
+  get(key: string): Promise<Buffer>;
   delete(key: string): Promise<void>;
+  deletePrefix(prefix: string): Promise<void>;
   getUrl(key: string): string;
 }
 
 function createLocalDriver(basePath: string): StorageDriver {
+  const resolvedBasePath = resolve(basePath);
+  const storagePrefix = `${resolvedBasePath}/`;
+
+  function resolveKey(key: string): string {
+    const filePath = resolve(resolvedBasePath, key);
+    if (filePath === resolvedBasePath || !filePath.startsWith(storagePrefix)) {
+      throw new Error('Invalid storage key');
+    }
+    return filePath;
+  }
+
   return {
     async put(key, data) {
-      const filePath = join(basePath, key);
+      const filePath = resolveKey(key);
       await mkdir(dirname(filePath), { recursive: true });
       await Bun.write(filePath, data);
       return `/storage/${key}`;
     },
+    async get(key) {
+      return readFile(resolveKey(key));
+    },
     async delete(key) {
-      const filePath = join(basePath, key);
-      await unlink(filePath).catch(() => {});
+      await unlink(resolveKey(key)).catch(() => {});
+    },
+    async deletePrefix(prefix) {
+      await rm(resolveKey(prefix), { recursive: true, force: true });
     },
     getUrl(key) {
       return `/storage/${key}`;

@@ -2,14 +2,28 @@ import { lookup } from 'node:dns/promises';
 import { request as httpRequest } from 'node:http';
 import type { IncomingMessage, RequestOptions } from 'node:http';
 import { request as httpsRequest } from 'node:https';
-import { Image } from '@napi-rs/canvas';
+import { createCanvas, Image } from '@napi-rs/canvas';
 import { imageSize } from 'image-size';
+import { extractStorageKey, getStorage } from '../../common/lib/storage';
 
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const MAX_IMAGE_PIXELS = 30_000_000;
 const REQUEST_TIMEOUT_MS = 10_000;
 const MAX_REDIRECTS = 3;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+const BROWSER_IMAGE_EXTENSIONS: Record<string, string> = {
+  bmp: 'bmp',
+  gif: 'gif',
+  ico: 'ico',
+  jpg: 'jpg',
+  png: 'png',
+  webp: 'webp',
+};
+
+export interface ServerImageAsset {
+  bytes: Buffer;
+  extension: string;
+}
 
 export interface PinnedAddress {
   address: string;
@@ -150,7 +164,7 @@ function largestFramePixels(dimensions: ReturnType<typeof imageSize>): number {
   );
 }
 
-function assertDecodableSize(bytes: Buffer): void {
+function getImageDimensions(bytes: Buffer): ReturnType<typeof imageSize> {
   let dimensions: ReturnType<typeof imageSize>;
   try {
     dimensions = imageSize(bytes);
@@ -161,6 +175,39 @@ function assertDecodableSize(bytes: Buffer): void {
   if (largestFramePixels(dimensions) > MAX_IMAGE_PIXELS) {
     throw new Error('Image exceeds the maximum allowed pixel count');
   }
+
+  return dimensions;
+}
+
+function decodeImage(bytes: Buffer): Image {
+  const image = new Image();
+  try {
+    image.src = bytes;
+  } catch {
+    throw new Error('Unsupported or unreadable image format');
+  }
+
+  if (!image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0) {
+    throw new Error('Unsupported or unreadable image format');
+  }
+
+  return image;
+}
+
+function rasterizeToPng(image: Image): Buffer {
+  let bytes: Buffer;
+  try {
+    const canvas = createCanvas(image.naturalWidth, image.naturalHeight);
+    const context = canvas.getContext('2d');
+    context.drawImage(image, 0, 0);
+    bytes = canvas.toBuffer('image/png');
+  } catch {
+    throw new Error('Unsupported or unreadable image format');
+  }
+  if (bytes.byteLength > MAX_IMAGE_BYTES) {
+    throw new Error('Image exceeds the maximum allowed size');
+  }
+  return bytes;
 }
 
 export function decodeDataUri(src: string): Buffer {
@@ -207,20 +254,30 @@ export async function fetchImageBytes(src: string): Promise<Buffer> {
   throw new Error('Too many redirects while loading image');
 }
 
+async function readImageBytes(src: string): Promise<Buffer> {
+  if (src.startsWith('data:')) return decodeDataUri(src);
+  if (src.startsWith('/storage/')) {
+    return getStorage().get(extractStorageKey(src));
+  }
+  return fetchImageBytes(src);
+}
+
+export async function loadServerImageAsset(src: string): Promise<ServerImageAsset> {
+  const bytes = await readImageBytes(src);
+  const dimensions = getImageDimensions(bytes);
+  const image = decodeImage(bytes);
+  const extension = dimensions.type ? BROWSER_IMAGE_EXTENSIONS[dimensions.type] : undefined;
+
+  if (extension) {
+    return { bytes, extension };
+  }
+
+  return { bytes: rasterizeToPng(image), extension: 'png' };
+}
+
 export async function loadServerImage(src: string): Promise<HTMLImageElement> {
-  const bytes = src.startsWith('data:') ? decodeDataUri(src) : await fetchImageBytes(src);
-  assertDecodableSize(bytes);
-
-  const image = new Image();
-  try {
-    image.src = bytes;
-  } catch {
-    throw new Error('Unsupported or unreadable image format');
-  }
-
-  if (!image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0) {
-    throw new Error('Unsupported or unreadable image format');
-  }
-
+  const bytes = await readImageBytes(src);
+  getImageDimensions(bytes);
+  const image = decodeImage(bytes);
   return image as unknown as HTMLImageElement;
 }

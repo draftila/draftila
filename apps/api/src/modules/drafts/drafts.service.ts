@@ -152,6 +152,9 @@ export async function remove(id: string) {
       .delete(extractStorageKey(existing.thumbnail))
       .catch(() => {});
   }
+  await getStorage()
+    .deletePrefix(`draft-assets/${existing.id}`)
+    .catch(() => {});
 
   await db.draft.delete({ where: { id } });
   return existing;

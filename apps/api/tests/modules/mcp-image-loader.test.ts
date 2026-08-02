@@ -1,12 +1,17 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { deflateSync, crc32 } from 'node:zlib';
+import { getStorage, initStorage } from '../../src/common/lib/storage';
 import {
   decodeDataUri,
   fetchImageBytes,
   loadServerImage,
+  loadServerImageAsset,
   requestPinnedImage,
   setImageRequestSender,
   type ImageRequestSender,
@@ -95,6 +100,30 @@ describe('mcp image loader', () => {
       const image = await loadServerImage(uri);
       expect(image.naturalWidth).toBe(24);
       expect(image.naturalHeight).toBe(24);
+    });
+
+    test('rasterizes svg assets before storing them', async () => {
+      const uri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(SVG)}`;
+      const asset = await loadServerImageAsset(uri);
+
+      expect(asset.extension).toBe('png');
+      expect(asset.bytes.subarray(0, 8)).toEqual(
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      );
+    });
+
+    test('loads app-owned storage URLs for server exports', async () => {
+      const storageDirectory = await mkdtemp(join(tmpdir(), 'draftila-mcp-images-'));
+      initStorage({ driver: 'local', path: storageDirectory });
+
+      try {
+        await getStorage().put('draft-assets/draft-1/image.png', PNG_BYTES);
+        const image = await loadServerImage('/storage/draft-assets/draft-1/image.png');
+        expect(image.naturalWidth).toBe(1);
+        expect(image.naturalHeight).toBe(1);
+      } finally {
+        await rm(storageDirectory, { recursive: true, force: true });
+      }
     });
   });
 
