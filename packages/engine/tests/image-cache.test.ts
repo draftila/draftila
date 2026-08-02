@@ -131,11 +131,41 @@ describe('image-cache', () => {
       return src === 'bad.png' ? Promise.reject(new Error('boom')) : Promise.resolve(fakeImage());
     });
 
-    await preloadImages(['a.png', 'b.png', 'bad.png', 'a.png'], 2);
+    const result = await preloadImages(['a.png', 'b.png', 'bad.png', 'a.png'], { concurrency: 2 });
 
     expect(loaded.toSorted()).toEqual(['a.png', 'b.png', 'bad.png']);
     expect(getCachedImage('b.png')).not.toBeNull();
     expect(getCachedImage('bad.png')).toBeNull();
+    expect(result).toEqual({ requested: 3, loaded: 2, failed: 1, skipped: 0 });
+  });
+
+  test('preloadImages stops at the source limit and reports the remainder as skipped', async () => {
+    const loaded: string[] = [];
+    setImageLoader((src) => {
+      loaded.push(src);
+      return Promise.resolve(fakeImage());
+    });
+
+    const result = await preloadImages(['a.png', 'b.png', 'c.png'], { concurrency: 1, limit: 2 });
+
+    expect(loaded).toEqual(['a.png', 'b.png']);
+    expect(result).toEqual({ requested: 3, loaded: 2, failed: 0, skipped: 1 });
+  });
+
+  test('preloadImages abandons remaining sources once the deadline passes', async () => {
+    const loaded: string[] = [];
+    setImageLoader((src) => {
+      loaded.push(src);
+      return new Promise((resolve) => setTimeout(() => resolve(fakeImage()), 20));
+    });
+
+    const result = await preloadImages(['a.png', 'b.png', 'c.png'], {
+      concurrency: 1,
+      timeoutMs: 10,
+    });
+
+    expect(loaded).toEqual(['a.png']);
+    expect(result).toEqual({ requested: 3, loaded: 1, failed: 0, skipped: 2 });
   });
 
   test('collects image sources from image shapes, svg shapes and image fills', () => {

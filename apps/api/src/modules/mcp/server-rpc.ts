@@ -22,6 +22,8 @@ import * as collaborationService from '../collaboration/collaboration.service';
 import { loadServerImage } from './image-loader';
 
 const IMAGE_CACHE_LIMIT_BYTES = 128 * 1024 * 1024;
+const IMAGE_PRELOAD_LIMIT = 200;
+const IMAGE_PRELOAD_TIMEOUT_MS = 30_000;
 
 setTextMeasureEnabled(false);
 setImageLoader(loadServerImage);
@@ -131,7 +133,15 @@ async function serverExportToPng(
   if (shapes.length === 0) throw new Error('No shapes to export');
 
   await ensureServerFontsLoaded(shapes);
-  await preloadImages(collectImageSources(shapes));
+  const preloaded = await preloadImages(collectImageSources(shapes), {
+    limit: IMAGE_PRELOAD_LIMIT,
+    timeoutMs: IMAGE_PRELOAD_TIMEOUT_MS,
+  });
+  if (preloaded.skipped > 0) {
+    console.warn(
+      `export_png skipped ${preloaded.skipped} of ${preloaded.requested} images (limit ${IMAGE_PRELOAD_LIMIT}, timeout ${IMAGE_PRELOAD_TIMEOUT_MS}ms)`,
+    );
+  }
 
   let minX = Infinity,
     minY = Infinity,

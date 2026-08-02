@@ -34,4 +34,3 @@ Compare both coverage reports with the inventory. If anything is missing, review
 - Recommend `FIX BEFORE PROCEEDING`, `CONSIDER FIXING`, or `PROCEED` from the evidenced severity, confidence, and risk, and name the findings that drive the recommendation. The review is read-only: the user decides whether to fix. Ask for that decision and do not edit or dispatch a fixer without explicit approval.
 - Do not report advisories unless user asks for them.
 - Provide a TL;DR section in the end in short in a table
-

@@ -8,6 +8,21 @@ interface CacheEntry {
 }
 
 const DEFAULT_PRELOAD_CONCURRENCY = 8;
+const DEFAULT_PRELOAD_LIMIT = 500;
+const DEFAULT_PRELOAD_TIMEOUT_MS = 60_000;
+
+export interface PreloadImagesOptions {
+  concurrency?: number;
+  limit?: number;
+  timeoutMs?: number;
+}
+
+export interface PreloadImagesResult {
+  requested: number;
+  loaded: number;
+  failed: number;
+  skipped: number;
+}
 
 const cache = new Map<string, CacheEntry>();
 const pendingLoads = new Map<string, Promise<HTMLImageElement>>();
@@ -101,15 +116,30 @@ export function resolveImage(src: string): HTMLImageElement | null {
 
 export async function preloadImages(
   sources: string[],
-  concurrency = DEFAULT_PRELOAD_CONCURRENCY,
-): Promise<void> {
-  const queue = [...new Set(sources)];
+  options: PreloadImagesOptions = {},
+): Promise<PreloadImagesResult> {
+  const concurrency = options.concurrency ?? DEFAULT_PRELOAD_CONCURRENCY;
+  const limit = options.limit ?? DEFAULT_PRELOAD_LIMIT;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_PRELOAD_TIMEOUT_MS;
+
+  const unique = [...new Set(sources)];
+  const queue = unique.slice(0, limit);
+  const expiresAt = Date.now() + timeoutMs;
+
+  let loaded = 0;
+  let failed = 0;
+
   const workers = Array.from({ length: Math.min(concurrency, queue.length) }, async () => {
     for (let src = queue.shift(); src !== undefined; src = queue.shift()) {
-      await preloadImage(src).catch(() => null);
+      if (Date.now() >= expiresAt) return;
+      const image = await preloadImage(src).catch(() => null);
+      if (image) loaded++;
+      else failed++;
     }
   });
   await Promise.all(workers);
+
+  return { requested: unique.length, loaded, failed, skipped: unique.length - loaded - failed };
 }
 
 export function clearImageCache() {

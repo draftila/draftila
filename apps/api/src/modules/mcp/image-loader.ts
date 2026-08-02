@@ -1,10 +1,26 @@
 import { lookup } from 'node:dns/promises';
+import { request as httpRequest } from 'node:http';
+import type { IncomingMessage, RequestOptions } from 'node:http';
+import { request as httpsRequest } from 'node:https';
 import { loadImage } from '@napi-rs/canvas';
+import { imageSize } from 'image-size';
 
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+const MAX_IMAGE_PIXELS = 30_000_000;
 const REQUEST_TIMEOUT_MS = 10_000;
 const MAX_REDIRECTS = 3;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+
+export interface PinnedAddress {
+  address: string;
+  family: number;
+}
+
+export type ImageRequestSender = (
+  url: URL,
+  address: PinnedAddress,
+  signal: AbortSignal,
+) => Promise<IncomingMessage>;
 
 function toIpv4Octets(address: string): number[] | null {
   const mapped = address.startsWith('::ffff:') ? address.slice('::ffff:'.length) : address;
@@ -37,43 +53,114 @@ function isBlockedAddress(address: string): boolean {
   return false;
 }
 
-async function assertPublicUrl(url: URL): Promise<void> {
+function stripBrackets(hostname: string): string {
+  return hostname.replace(/^\[|\]$/g, '');
+}
+
+async function resolvePublicAddress(url: URL): Promise<PinnedAddress> {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     throw new Error(`Unsupported image protocol: ${url.protocol}`);
   }
 
-  const hostname = url.hostname.replace(/^\[|\]$/g, '');
+  const hostname = stripBrackets(url.hostname);
   const addresses = await lookup(hostname, { all: true });
-  if (addresses.some(({ address }) => isBlockedAddress(address))) {
+  const [resolved] = addresses;
+  if (!resolved || addresses.some(({ address }) => isBlockedAddress(address))) {
     throw new Error(`Blocked image host: ${hostname}`);
   }
+
+  return { address: resolved.address, family: resolved.family };
 }
 
-async function readCappedBody(response: Response): Promise<Buffer> {
-  const declaredLength = Number(response.headers.get('content-length'));
+export function requestPinnedImage(
+  url: URL,
+  address: PinnedAddress,
+  signal: AbortSignal,
+): Promise<IncomingMessage> {
+  const send = url.protocol === 'https:' ? httpsRequest : httpRequest;
+  const options: RequestOptions = {
+    protocol: url.protocol,
+    hostname: stripBrackets(url.hostname),
+    port: url.port || undefined,
+    path: `${url.pathname}${url.search}`,
+    headers: { Accept: 'image/*' },
+    signal,
+    agent: false,
+    lookup: (_hostname, lookupOptions, callback) => {
+      if (lookupOptions.all) callback(null, [address]);
+      else callback(null, address.address, address.family);
+    },
+  };
+
+  return new Promise((resolve, reject) => {
+    const abort = () => reject(new Error('Image request aborted'));
+    if (signal.aborted) {
+      abort();
+      return;
+    }
+
+    signal.addEventListener('abort', abort, { once: true });
+    const request = send(options, (response) => {
+      signal.removeEventListener('abort', abort);
+      resolve(response);
+    });
+    request.on('error', (error) => {
+      signal.removeEventListener('abort', abort);
+      reject(error);
+    });
+    request.end();
+  });
+}
+
+let sendImageRequest: ImageRequestSender = requestPinnedImage;
+
+export function setImageRequestSender(sender: ImageRequestSender) {
+  sendImageRequest = sender;
+}
+
+async function readCappedBody(response: IncomingMessage): Promise<Buffer> {
+  const declaredLength = Number(response.headers['content-length']);
   if (Number.isFinite(declaredLength) && declaredLength > MAX_IMAGE_BYTES) {
+    response.destroy();
     throw new Error('Image exceeds the maximum allowed size');
   }
 
-  const body = response.body;
-  if (!body) throw new Error('Image response has no body');
-
-  const reader = body.getReader();
-  const chunks: Uint8Array[] = [];
+  const chunks: Buffer[] = [];
   let total = 0;
 
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
+  for await (const chunk of response) {
+    const bytes = chunk as Buffer;
+    total += bytes.byteLength;
     if (total > MAX_IMAGE_BYTES) {
-      await reader.cancel();
+      response.destroy();
       throw new Error('Image exceeds the maximum allowed size');
     }
-    chunks.push(value);
+    chunks.push(bytes);
   }
 
+  if (total === 0) throw new Error('Image response has no body');
+
   return Buffer.concat(chunks);
+}
+
+function largestFramePixels(dimensions: ReturnType<typeof imageSize>): number {
+  return (dimensions.images ?? []).reduce(
+    (largest, frame) => Math.max(largest, frame.width * frame.height),
+    dimensions.width * dimensions.height,
+  );
+}
+
+function assertDecodableSize(bytes: Buffer): void {
+  let dimensions: ReturnType<typeof imageSize>;
+  try {
+    dimensions = imageSize(bytes);
+  } catch {
+    throw new Error('Unsupported or unreadable image format');
+  }
+
+  if (largestFramePixels(dimensions) > MAX_IMAGE_PIXELS) {
+    throw new Error('Image exceeds the maximum allowed pixel count');
+  }
 }
 
 export function decodeDataUri(src: string): Buffer {
@@ -82,31 +169,36 @@ export function decodeDataUri(src: string): Buffer {
 
   const meta = src.slice('data:'.length, commaIndex);
   const payload = src.slice(commaIndex + 1);
-  if (meta.endsWith(';base64')) return Buffer.from(payload, 'base64');
-  return Buffer.from(decodeURIComponent(payload), 'utf-8');
+  const bytes = meta.endsWith(';base64')
+    ? Buffer.from(payload, 'base64')
+    : Buffer.from(decodeURIComponent(payload), 'utf-8');
+
+  if (bytes.byteLength > MAX_IMAGE_BYTES) {
+    throw new Error('Image exceeds the maximum allowed size');
+  }
+
+  return bytes;
 }
 
 export async function fetchImageBytes(src: string): Promise<Buffer> {
+  const signal = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
   let url = new URL(src);
 
   for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects++) {
-    await assertPublicUrl(url);
+    const address = await resolvePublicAddress(url);
+    const response = await sendImageRequest(url, address, signal);
+    const status = response.statusCode ?? 0;
+    const location = response.headers.location;
 
-    const response = await fetch(url, {
-      redirect: 'manual',
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      headers: { Accept: 'image/*' },
-    });
-
-    const location = response.headers.get('location');
-    if (REDIRECT_STATUSES.has(response.status) && location) {
-      await response.body?.cancel();
+    if (REDIRECT_STATUSES.has(status) && location) {
+      response.resume();
       url = new URL(location, url);
       continue;
     }
 
-    if (!response.ok) {
-      throw new Error(`Image request failed with status ${response.status}`);
+    if (status < 200 || status > 299) {
+      response.destroy();
+      throw new Error(`Image request failed with status ${status}`);
     }
 
     return readCappedBody(response);
@@ -117,6 +209,7 @@ export async function fetchImageBytes(src: string): Promise<Buffer> {
 
 export async function loadServerImage(src: string): Promise<HTMLImageElement> {
   const bytes = src.startsWith('data:') ? decodeDataUri(src) : await fetchImageBytes(src);
+  assertDecodableSize(bytes);
   const image = await loadImage(bytes);
   return image as unknown as HTMLImageElement;
 }

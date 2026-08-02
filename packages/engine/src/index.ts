@@ -157,6 +157,8 @@ export {
 
 export {
   type ImageLoader,
+  type PreloadImagesOptions,
+  type PreloadImagesResult,
   getCachedImage,
   preloadImage,
   preloadImages,
