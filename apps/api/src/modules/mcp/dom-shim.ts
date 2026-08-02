@@ -18,6 +18,10 @@ const fontsReady = Promise.resolve();
   ready: fontsReady,
   check: () => true,
   load: () => fontsReady,
+  // No-ops: the engine's custom-font paths are inert server-side (`FontFace` is undefined here,
+  // so `canUseFontFace()` is false), but nothing should throw if one is reached anyway.
+  add: () => {},
+  delete: () => false,
   addEventListener: () => {},
   removeEventListener: () => {},
 };

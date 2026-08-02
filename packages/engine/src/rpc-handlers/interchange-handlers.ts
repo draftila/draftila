@@ -1,7 +1,7 @@
 import { getAllShapes, getShape } from '../scene-graph';
 import { isAutoLayoutFrame } from '../auto-layout';
 import { applyAutoLayout, applyAutoLayoutForAncestors } from '../scene-graph/layout-ops';
-import { exportToSvg } from '../export';
+import { exportToSvgAsync } from '../export';
 import {
   generateCss,
   generateCssAllLayers,
@@ -19,10 +19,11 @@ export function interchangeHandlers(): Record<string, RpcHandler> {
     export_svg(ydoc, args) {
       const allShapes = getAllShapes(ydoc);
       const ids = args['shapeIds'] as string[] | undefined;
-      if (ids && ids.length > 0) {
-        return exportToSvg(collectShapesWithDescendants(allShapes, ids));
-      }
-      return exportToSvg(allShapes);
+      const shapes =
+        ids && ids.length > 0 ? collectShapesWithDescendants(allShapes, ids) : allShapes;
+      // No `assetBaseUrl`: over budget this degrades to a comment rather than megabytes of
+      // base64 in a JSON-RPC response.
+      return exportToSvgAsync(shapes, { maxEmbedBytes: 3 * 1024 * 1024 });
     },
 
     export_css(ydoc, args) {

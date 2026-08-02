@@ -25,6 +25,7 @@ import {
   buildShapeTree,
   gradientToCssValue,
   childContextForShape,
+  cssCustomFontHeader,
 } from './helpers';
 
 function spacingClass(prefix: string, px: number): string {
@@ -135,7 +136,10 @@ function leadingClass(value: number): string {
 export function generateTailwind(shapes: Shape[]): string {
   if (shapes.length === 0) return '';
   const tree = buildShapeTree(shapes);
-  return tree.map((node) => shapeToClasses(node.shape).join(' ')).join('\n\n');
+  return (
+    cssCustomFontHeader(shapes) +
+    tree.map((node) => shapeToClasses(node.shape).join(' ')).join('\n\n')
+  );
 }
 
 export function generateTailwindAllLayers(shapes: Shape[]): string {
@@ -168,7 +172,7 @@ export function generateTailwindAllLayers(shapes: Shape[]): string {
     walkTree(node, '');
   }
 
-  return blocks.join('\n\n');
+  return cssCustomFontHeader(shapes) + blocks.join('\n\n');
 }
 
 export function shapeToClasses(shape: Shape, ctx?: ShapeContext): string[] {

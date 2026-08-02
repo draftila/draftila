@@ -1,6 +1,7 @@
 import type { Fill, Stroke, Shadow, Blur, Shape, FrameShape } from '@draftila/shared';
 import type { ShapeTreeNode, ShapeContext } from './types';
 import { shapesToInterchange, generateSvg } from '../interchange';
+import { collectUsedCustomVariants, escapeCssComment, quoteCssFamily } from '../custom-fonts';
 
 export interface Rgba {
   r: number;
@@ -238,4 +239,34 @@ export function shapeToInlineSvg(shape: Shape, idPrefix = ''): string {
   const normalized: Shape = { ...shape, x: 0, y: 0, rotation: 0, opacity: 1 };
   const doc = shapesToInterchange([normalized]);
   return generateSvg(doc, idPrefix);
+}
+
+/**
+ * One line per custom font family a document uses, naming the files that have to be served
+ * alongside the generated code. Codegen targets that cannot embed fonts prepend these as comments
+ * in their own comment syntax. URLs are RELATIVE — engine code cannot know the instance origin.
+ */
+function customFontNoticeLines(shapes: Shape[]): string[] {
+  const byFamily = new Map<string, string[]>();
+  for (const { family, variant } of collectUsedCustomVariants(shapes)) {
+    const urls = byFamily.get(family) ?? [];
+    urls.push(variant.url);
+    byFamily.set(family, urls);
+  }
+  return [...byFamily.entries()].map(
+    ([family, urls]) =>
+      `Custom fonts required: ${escapeCssComment(quoteCssFamily(family))} — ${urls.join(', ')}`,
+  );
+}
+
+/** Block-comment header for CSS-flavoured targets. Empty string when no custom fonts are used. */
+export function cssCustomFontHeader(shapes: Shape[]): string {
+  const lines = customFontNoticeLines(shapes);
+  return lines.length === 0 ? '' : `${lines.map((l) => `/* ${l} */`).join('\n')}\n\n`;
+}
+
+/** Line-comment header for SwiftUI/Compose. Empty string when no custom fonts are used. */
+export function slashCustomFontHeader(shapes: Shape[]): string {
+  const lines = customFontNoticeLines(shapes);
+  return lines.length === 0 ? '' : `${lines.map((l) => `// ${l}`).join('\n')}\n\n`;
 }

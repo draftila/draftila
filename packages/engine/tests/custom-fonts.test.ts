@@ -1,7 +1,11 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import type { Shape } from '@draftila/shared';
 import {
   __resetCustomFontState,
+  buildEmbeddedFontCss,
   canonicalVariantKey,
+  escapeCssComment,
+  setCustomFontDataProvider,
   getAvailableVariants,
   getCustomFontFamilies,
   isCustomFontFamily,
@@ -27,6 +31,11 @@ import {
   requiresCustomFontRegistry,
 } from '../src/font-manager';
 import { installFontFakes, flush, type FontFakes } from './font-fakes';
+import { generateSvg } from '../src/interchange/svg/svg-generator';
+import {
+  createInterchangeDocument,
+  createInterchangeNode,
+} from '../src/interchange/interchange-format';
 
 type VariantSpec = [number, 'normal' | 'italic', string];
 
@@ -438,8 +447,234 @@ describe('helpers', () => {
     expect(quoteCssFamily('Ac"me\\;{}[]<>,')).toBe('"Acme"');
   });
 
+  test('escapeCssComment cannot re-create the terminator it strips', () => {
+    // `*` and `/` are not banned by `fontFamilyNameSchema`, so these are real family names.
+    expect(escapeCssComment('A**//B')).toBe('AB');
+    expect(escapeCssComment('A*/B')).toBe('AB');
+    expect(escapeCssComment('A*/*/B')).toBe('AB');
+    expect(escapeCssComment('A/*B')).toBe('A/*B');
+    expect(escapeCssComment('Acme Sans')).toBe('Acme Sans');
+  });
+
   test('canonicalVariantKey is spelling-insensitive', () => {
     const v = { weight: 400, style: 'normal' as const, url: '/u.woff2', format: 'woff2' };
     expect(canonicalVariantKey('Café', v)).toBe(canonicalVariantKey('CAFÉ', v));
+  });
+});
+
+describe('buildEmbeddedFontCss', () => {
+  function textShape(over: Partial<Shape> & Record<string, unknown> = {}): Shape {
+    return {
+      id: 'text-1',
+      type: 'text',
+      x: 0,
+      y: 0,
+      width: 200,
+      height: 24,
+      rotation: 0,
+      parentId: null,
+      opacity: 1,
+      locked: false,
+      visible: true,
+      name: 'Heading',
+      blendMode: 'normal',
+      content: 'Hello',
+      textAutoResize: 'none',
+      fontSize: 16,
+      fontFamily: 'Draftila Sans',
+      fontWeight: 400,
+      fontStyle: 'normal',
+      textAlign: 'left',
+      verticalAlign: 'top',
+      lineHeight: 1.2,
+      letterSpacing: 0,
+      textDecoration: 'none',
+      textTransform: 'none',
+      textTruncation: 'none',
+      fills: [{ color: '#111111', opacity: 1, visible: true }],
+      shadows: [],
+      blurs: [],
+      ...over,
+    } as Shape;
+  }
+
+  /** In-memory provider: `n` bytes of 0x41 per variant, no network and no DOM. */
+  function provideBytes(bytesPerVariant = 4): string[] {
+    const requested: string[] = [];
+    setCustomFontDataProvider((v) => {
+      requested.push(v.url);
+      return Promise.resolve(new Uint8Array(bytesPerVariant).fill(0x41));
+    });
+    return requested;
+  }
+
+  test('emits one rule per used variant, with base64 bytes', async () => {
+    registerCustomFonts([DRAFTILA_SANS]);
+    const requested = provideBytes();
+
+    const css = await buildEmbeddedFontCss([
+      textShape(),
+      textShape({ id: 'text-2', fontWeight: 700 }),
+      textShape({ id: 'text-3', fontWeight: 400 }),
+    ]);
+
+    const rules = css.split('\n');
+    expect(rules).toHaveLength(2);
+    expect(requested).toEqual(['/storage/fonts/acme-400.woff2', '/storage/fonts/acme-700.woff2']);
+    expect(rules[0]).toBe(
+      `@font-face { font-family: "Draftila Sans"; font-weight: 400; font-style: normal; src: url(data:font/woff2;base64,${btoa('AAAA')}) format('woff2'); }`,
+    );
+    expect(rules[1]).toContain('font-weight: 700');
+  });
+
+  test('returns empty string when no custom family is used', async () => {
+    registerCustomFonts([DRAFTILA_SANS]);
+    provideBytes();
+    expect(await buildEmbeddedFontCss([textShape({ fontFamily: 'Roboto' })])).toBe('');
+    expect(await buildEmbeddedFontCss([])).toBe('');
+  });
+
+  test('unavailable pairs resolve to the nearest variant that will actually render', async () => {
+    registerCustomFonts([DRAFTILA_SANS]);
+    provideBytes();
+
+    // 500 normal and 900 italic both fall back onto real files, and 500 dedupes against 400.
+    const css = await buildEmbeddedFontCss([
+      textShape({ fontWeight: 500 }),
+      textShape({ id: 'text-2', fontWeight: 900, fontStyle: 'italic' }),
+    ]);
+
+    const rules = css.split('\n');
+    expect(rules).toHaveLength(2);
+    expect(rules[0]).toContain('font-weight: 400');
+    expect(rules[1]).toContain('font-weight: 700');
+    expect(css).not.toContain('font-style: italic');
+  });
+
+  test('includes segment-level family, weight and style overrides', async () => {
+    registerCustomFonts([
+      DRAFTILA_SANS,
+      fam('Draftila Serif', [[400, 'italic', '/storage/fonts/serif-400i.woff2']]),
+    ]);
+    const requested = provideBytes();
+
+    const css = await buildEmbeddedFontCss([
+      textShape({
+        fontFamily: 'Roboto',
+        segments: [
+          { text: 'a', fontFamily: 'Draftila Sans', fontWeight: 700 },
+          { text: 'b', fontFamily: 'Draftila Serif', fontStyle: 'italic' },
+        ],
+      }),
+    ]);
+
+    expect(requested).toEqual(['/storage/fonts/acme-700.woff2', '/storage/fonts/serif-400i.woff2']);
+    expect(css).toContain('font-family: "Draftila Sans"; font-weight: 700');
+    expect(css).toContain('font-family: "Draftila Serif"; font-weight: 400; font-style: italic');
+  });
+
+  test('mime and format() hint derive from the original upload format', async () => {
+    registerCustomFonts([
+      {
+        name: 'Mixed',
+        variants: [
+          { weight: 400, style: 'normal', url: '/storage/fonts/m-400.ttf', format: 'ttf' },
+          { weight: 700, style: 'normal', url: '/storage/fonts/m-700.otf', format: 'otf' },
+          { weight: 900, style: 'normal', url: '/storage/fonts/m-900.woff', format: 'woff' },
+        ],
+      },
+    ]);
+    provideBytes();
+
+    const css = await buildEmbeddedFontCss([
+      textShape({ fontFamily: 'Mixed', fontWeight: 400 }),
+      textShape({ id: 'b', fontFamily: 'Mixed', fontWeight: 700 }),
+      textShape({ id: 'c', fontFamily: 'Mixed', fontWeight: 900 }),
+    ]);
+
+    expect(css).toContain(`src: url(data:font/ttf;base64,${btoa('AAAA')}) format('truetype')`);
+    expect(css).toContain('data:font/otf;base64,');
+    expect(css).toContain("format('opentype')");
+    expect(css).toContain('data:font/woff;base64,');
+    expect(css).toContain("format('woff')");
+  });
+
+  test('above maxEmbedBytes with assetBaseUrl it switches to absolute url() sources', async () => {
+    registerCustomFonts([DRAFTILA_SANS]);
+    provideBytes(1024);
+
+    const css = await buildEmbeddedFontCss(
+      [textShape(), textShape({ id: 'text-2', fontWeight: 700 })],
+      { assetBaseUrl: 'https://draftila.test', maxEmbedBytes: 2047 },
+    );
+
+    expect(css).not.toContain('base64');
+    expect(css).toContain(
+      `src: url("https://draftila.test/storage/fonts/acme-400.woff2") format('woff2')`,
+    );
+    expect(css).toContain(
+      `src: url("https://draftila.test/storage/fonts/acme-700.woff2") format('woff2')`,
+    );
+  });
+
+  test('above maxEmbedBytes without assetBaseUrl it degrades to one comment per family', async () => {
+    registerCustomFonts([
+      DRAFTILA_SANS,
+      fam('Draftila Serif', [[400, 'normal', '/storage/fonts/serif-400.woff2']]),
+    ]);
+    provideBytes(1024);
+
+    const css = await buildEmbeddedFontCss(
+      [
+        textShape(),
+        textShape({ id: 'text-2', fontWeight: 700 }),
+        textShape({ id: 'text-3', fontFamily: 'Draftila Serif' }),
+      ],
+      { maxEmbedBytes: 2047 },
+    );
+
+    expect(css).not.toContain('@font-face');
+    expect(css).not.toContain('base64');
+    expect(css.split('\n')).toEqual([
+      '/* Custom font "Draftila Sans" omitted: exceeds embed size limit — serve from <instance>/storage/fonts */',
+      '/* Custom font "Draftila Serif" omitted: exceeds embed size limit — serve from <instance>/storage/fonts */',
+    ]);
+  });
+
+  test('a variant whose bytes cannot be fetched is skipped, never fatal', async () => {
+    registerCustomFonts([DRAFTILA_SANS]);
+    setCustomFontDataProvider((v) =>
+      v.weight === 700 ? Promise.reject(new Error('404')) : Promise.resolve(new Uint8Array([0x41])),
+    );
+
+    const css = await buildEmbeddedFontCss([
+      textShape(),
+      textShape({ id: 'text-2', fontWeight: 700 }),
+    ]);
+
+    expect(css.split('\n')).toHaveLength(1);
+    expect(css).toContain('font-weight: 400');
+  });
+});
+
+describe('generateSvg fontFaceCss', () => {
+  const doc = createInterchangeDocument(
+    [createInterchangeNode('rectangle', { x: 0, y: 0, width: 10, height: 10 })],
+    { source: 'test' },
+  );
+
+  test('emits the css inside a CDATA style element in defs', () => {
+    const svg = generateSvg(doc, '', { fontFaceCss: '@font-face { font-family: "A"; }' });
+    expect(svg).toContain(
+      '<defs><style type="text/css"><![CDATA[@font-face { font-family: "A"; }]]></style>',
+    );
+  });
+
+  test('is byte-identical to the unembedded output when no fontFaceCss is passed', () => {
+    const baseline = generateSvg(doc);
+    expect(generateSvg(doc, '', undefined)).toBe(baseline);
+    expect(generateSvg(doc, '', {})).toBe(baseline);
+    expect(generateSvg(doc, '', { fontFaceCss: '' })).toBe(baseline);
+    expect(baseline).not.toContain('<style');
   });
 });

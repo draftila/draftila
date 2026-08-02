@@ -25,12 +25,13 @@ import {
   buildShapeTree,
   gradientToCssValue,
   childContextForShape,
+  cssCustomFontHeader,
 } from './helpers';
 
 export function generateCss(shapes: Shape[]): string {
   if (shapes.length === 0) return '';
   const tree = buildShapeTree(shapes);
-  return tree.map((node) => generateNodeCss(node.shape)).join('\n\n');
+  return cssCustomFontHeader(shapes) + tree.map((node) => generateNodeCss(node.shape)).join('\n\n');
 }
 
 export function generateCssAllLayers(shapes: Shape[]): string {
@@ -63,7 +64,7 @@ export function generateCssAllLayers(shapes: Shape[]): string {
     walkTree(node, '');
   }
 
-  return blocks.join('\n\n');
+  return cssCustomFontHeader(shapes) + blocks.join('\n\n');
 }
 
 function generateNodeCss(shape: Shape): string {
@@ -182,7 +183,7 @@ function fillToCssValue(fill: Fill): string {
   return rgbaToCssColor(rgba);
 }
 
-function escapeCssSingleQuotedString(value: string): string {
+export function escapeCssSingleQuotedString(value: string): string {
   return value
     .replace(/\\/g, '\\\\')
     .replace(/'/g, "\\'")

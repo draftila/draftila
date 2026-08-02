@@ -400,7 +400,11 @@ function nodeToSvg(
   return `<g${gAttrs}>${content}</g>`;
 }
 
-export function generateSvg(doc: InterchangeDocument, idPrefix = ''): string {
+export function generateSvg(
+  doc: InterchangeDocument,
+  idPrefix = '',
+  options?: { fontFaceCss?: string },
+): string {
   if (doc.nodes.length === 0) {
     return '<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0"></svg>';
   }
@@ -431,6 +435,10 @@ export function generateSvg(doc: InterchangeDocument, idPrefix = ''): string {
     elements.push(nodeToSvg(node, minX, minY, rctx));
   }
 
-  const defsBlock = rctx.defs.length > 0 ? `<defs>${rctx.defs.join('')}</defs>` : '';
+  const styleDef = options?.fontFaceCss
+    ? `<style type="text/css"><![CDATA[${options.fontFaceCss}]]></style>`
+    : '';
+  const defsContent = `${styleDef}${rctx.defs.join('')}`;
+  const defsBlock = defsContent.length > 0 ? `<defs>${defsContent}</defs>` : '';
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${defsBlock}${elements.join('')}</svg>`;
 }

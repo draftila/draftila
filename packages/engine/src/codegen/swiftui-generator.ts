@@ -22,6 +22,7 @@ import {
   getEffectiveCornerRadii,
   buildShapeTree,
   indent,
+  slashCustomFontHeader,
 } from './helpers';
 
 function frameModifier(shape: Shape): string {
@@ -58,13 +59,14 @@ function frameModifier(shape: Shape): string {
 export function generateSwiftUI(shapes: Shape[]): string {
   if (shapes.length === 0) return '';
   const tree = buildShapeTree(shapes);
+  const header = slashCustomFontHeader(shapes);
 
   if (tree.length === 1) {
-    return nodeToSwiftUI(tree[0]!, 0);
+    return header + nodeToSwiftUI(tree[0]!, 0);
   }
 
   const children = tree.map((node) => nodeToSwiftUI(node, 1)).join('\n');
-  return `ZStack {\n${children}\n}`;
+  return `${header}ZStack {\n${children}\n}`;
 }
 
 function nodeToSwiftUI(node: ShapeTreeNode, level: number): string {

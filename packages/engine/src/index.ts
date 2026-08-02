@@ -243,10 +243,12 @@ export {
   renderWithClipping,
   exportToPng,
   exportToSvg,
+  exportToSvgAsync,
   downloadBlob,
   downloadSvg,
   exportAndDownloadPng,
   exportAndDownloadSvg,
+  exportAndDownloadSvgAsync,
 } from './export';
 
 export {

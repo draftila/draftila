@@ -4,13 +4,15 @@
 // It must NEVER import `font-manager.ts` (which imports this module) — a cross-import would make
 // module-evaluation order bundler-dependent and can crash at boot with a TDZ `ReferenceError`.
 
-import type { FontFamilyDto, Shape } from '@draftila/shared';
+import type { FontFamilyDto, Shape, TextShape } from '@draftila/shared';
 
 export interface CustomFontVariant {
   weight: number;
   style: 'normal' | 'italic';
   url: string;
   format: string;
+  /** Declared byte size when known — lets the embed budget be decided before any bytes are read. */
+  fileSize?: number;
 }
 
 export interface CustomFontFamily {
@@ -207,7 +209,11 @@ export function setCustomFontDataProvider(
 export function getCustomFontData(v: CustomFontVariant & { family: string }): Promise<Uint8Array> {
   if (dataProvider) return dataProvider(v);
   return fetch(v.url)
-    .then((res) => res.arrayBuffer())
+    .then((res) => {
+      // Without this an error page's body would be base64-embedded as font data.
+      if (!res.ok) throw new Error(`Font fetch failed (${res.status}): ${v.url}`);
+      return res.arrayBuffer();
+    })
     .then((buf) => new Uint8Array(buf));
 }
 
@@ -224,16 +230,164 @@ export function mapDtoToEngine(dtos: FontFamilyDto[]): CustomFontFamily[] {
       style: v.style,
       url: v.fileUrl,
       format: v.format,
+      fileSize: v.fileSize,
     })),
   }));
 }
 
-export function buildEmbeddedFontCss(
-  _shapes: Shape[],
-  _opts?: { assetBaseUrl?: string; maxEmbedBytes?: number },
+/**
+ * The mime type and `format()` hint MUST derive from the ORIGINAL upload's format: hardcoding
+ * woff2 makes browsers skip the source entirely for ttf/otf/woff uploads.
+ */
+const FONT_FORMATS: Record<string, { mime: string; hint: string }> = {
+  ttf: { mime: 'font/ttf', hint: 'truetype' },
+  otf: { mime: 'font/otf', hint: 'opentype' },
+  woff: { mime: 'font/woff', hint: 'woff' },
+  woff2: { mime: 'font/woff2', hint: 'woff2' },
+};
+
+const DEFAULT_MAX_EMBED_BYTES = 3 * 1024 * 1024;
+
+/**
+ * Strips the CSS comment terminator so an interpolated name cannot break out of a comment. The
+ * whole `star+slash+` run is stripped, not one terminator at a time: `A`, two stars, two slashes,
+ * `B` would otherwise collapse back into a live terminator. (`*` and `/` are not in the banned
+ * character class of `fontFamilyNameSchema`, so family names really can contain them.)
+ */
+export function escapeCssComment(value: string): string {
+  return value.replace(/\*+\/+/g, '');
+}
+
+export interface UsedCustomVariant {
+  /** The literal document spelling — the rendering identity (§2.1). */
+  family: string;
+  variant: CustomFontVariant;
+}
+
+/**
+ * Every custom `(family, weight, style)` a document actually uses, including `segments[]`
+ * overrides, each resolved through `nearestAvailableVariant` so callers name what will really
+ * render. Document order, deduplicated.
+ */
+export function collectUsedCustomVariants(shapes: Shape[]): UsedCustomVariant[] {
+  const seen = new Set<string>();
+  const used: UsedCustomVariant[] = [];
+
+  const add = (family: string | undefined, weight: number, style: 'normal' | 'italic') => {
+    if (!family || !isCustomFontFamily(family)) return;
+    const near = nearestAvailableVariant(family, weight, style);
+    const key = `${family}|${near.weight}|${near.style}`;
+    if (seen.has(key)) return;
+    const variant = getCustomFontFamilyRecord(family)?.variants.find(
+      (v) => v.weight === near.weight && v.style === near.style,
+    );
+    if (!variant) return;
+    seen.add(key);
+    used.push({ family, variant });
+  };
+
+  for (const shape of shapes) {
+    if (shape.type !== 'text') continue;
+    const text = shape as TextShape;
+    const baseWeight = text.fontWeight ?? 400;
+    const baseStyle = text.fontStyle === 'italic' ? 'italic' : 'normal';
+    add(text.fontFamily, baseWeight, baseStyle);
+    for (const segment of text.segments ?? []) {
+      const style = segment.fontStyle ?? baseStyle;
+      add(
+        segment.fontFamily ?? text.fontFamily,
+        segment.fontWeight ?? baseWeight,
+        style === 'italic' ? 'italic' : 'normal',
+      );
+    }
+  }
+
+  return used;
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function fontFaceRule(family: string, v: CustomFontVariant, src: string): string {
+  return `@font-face { font-family: ${quoteCssFamily(family)}; font-weight: ${v.weight}; font-style: ${v.style}; src: ${src}; }`;
+}
+
+/**
+ * `@font-face` rules for every custom variant a document uses, with the bytes inlined as data
+ * URLs. Above `maxEmbedBytes` it degrades: to `assetBaseUrl`-prefixed `url()` sources when a base
+ * URL is available, and otherwise (the MCP case) to one comment per family and NO rules — a
+ * JSON-RPC response must never carry megabytes of base64.
+ */
+export async function buildEmbeddedFontCss(
+  shapes: Shape[],
+  opts?: { assetBaseUrl?: string; maxEmbedBytes?: number },
 ): Promise<string> {
-  // implemented in PR 3
-  return Promise.resolve('');
+  const used = collectUsedCustomVariants(shapes);
+  if (used.length === 0) return '';
+
+  const maxEmbedBytes = opts?.maxEmbedBytes ?? DEFAULT_MAX_EMBED_BYTES;
+  const assetBaseUrl = opts?.assetBaseUrl;
+  const formatOf = (v: CustomFontVariant) => FONT_FORMATS[v.format] ?? FONT_FORMATS['woff2']!;
+
+  const overBudgetCss = (list: UsedCustomVariant[]): string => {
+    if (assetBaseUrl) {
+      return list
+        .map(({ family, variant }) =>
+          fontFaceRule(
+            family,
+            variant,
+            `url("${assetBaseUrl}${variant.url}") format('${formatOf(variant).hint}')`,
+          ),
+        )
+        .join('\n');
+    }
+    return [...new Set(list.map((f) => f.family))]
+      .map(
+        (name) =>
+          `/* Custom font ${escapeCssComment(quoteCssFamily(name))} omitted: exceeds embed size limit — serve from <instance>/storage/fonts */`,
+      )
+      .join('\n');
+  };
+
+  // When every variant declares its size, decide the budget BEFORE fetching: neither degraded mode
+  // uses the bytes, so reading a whole family off disk (MCP) or over the network (url mode) to then
+  // discard it is pure waste. Falls back to fetch-then-measure when a size is missing.
+  if (used.every((u) => u.variant.fileSize !== undefined)) {
+    const declared = used.reduce((n, u) => n + (u.variant.fileSize ?? 0), 0);
+    if (declared > maxEmbedBytes) return overBudgetCss(used);
+  }
+
+  const fetched: Array<UsedCustomVariant & { bytes: Uint8Array }> = [];
+  let totalBytes = 0;
+  for (const u of used) {
+    try {
+      const bytes = await getCustomFontData({ ...u.variant, family: u.family });
+      totalBytes += bytes.byteLength;
+      fetched.push({ ...u, bytes });
+    } catch {
+      // A missing or unreachable font file skips that variant; it never fails the export.
+    }
+  }
+  if (fetched.length === 0) return '';
+
+  if (totalBytes > maxEmbedBytes) return overBudgetCss(fetched);
+
+  return fetched
+    .map(({ family, variant, bytes }) => {
+      const { mime, hint } = formatOf(variant);
+      return fontFaceRule(
+        family,
+        variant,
+        `url(data:${mime};base64,${toBase64(bytes)}) format('${hint}')`,
+      );
+    })
+    .join('\n');
 }
 
 /** Test-only: reinitialize all module state. */
