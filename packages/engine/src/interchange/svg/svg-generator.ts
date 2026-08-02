@@ -157,7 +157,7 @@ function renderFillsAndStrokes(
     parts.push(`<${geom.tag} ${geom.attrs} fill="url(#${gradientIds[0]})" stroke="none"/>`);
   } else if (visibleFills.length > 0) {
     for (const fill of visibleFills) {
-      const color = svgColor(fill.color, fill.opacity);
+      const color = fill.color ? svgColor(fill.color, fill.opacity) : 'none';
       parts.push(`<${geom.tag} ${geom.attrs} fill="${color}" stroke="none"/>`);
     }
   } else if (visibleStrokes.length === 0) {
@@ -317,7 +317,7 @@ function nodeToSvg(
       else if (node.textTransform === 'lowercase') textContent = textContent.toLowerCase();
 
       const visibleFill = node.fills.find((f) => f.visible);
-      const fillAttr = visibleFill
+      const fillAttr = visibleFill?.color
         ? ` fill="${svgColor(visibleFill.color, visibleFill.opacity)}"`
         : ' fill="#000000"';
 

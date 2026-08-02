@@ -6,7 +6,11 @@ import {
   getAllShapes,
   Canvas2DRenderer,
   collectFontFamilies,
+  collectImageSources,
+  preloadImages,
   renderWithClipping,
+  setImageCacheLimit,
+  setImageLoader,
   setTextMeasureEnabled,
 } from '@draftila/engine';
 import type { RpcHandler } from '@draftila/engine/rpc-handlers';
@@ -15,8 +19,13 @@ import { createCanvas, GlobalFonts } from '@napi-rs/canvas';
 import { existsSync, mkdirSync, writeFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import * as collaborationService from '../collaboration/collaboration.service';
+import { loadServerImage } from './image-loader';
+
+const IMAGE_CACHE_LIMIT_BYTES = 128 * 1024 * 1024;
 
 setTextMeasureEnabled(false);
+setImageLoader(loadServerImage);
+setImageCacheLimit(IMAGE_CACHE_LIMIT_BYTES);
 
 const FONT_CACHE_DIR = join(process.cwd(), '.cache', 'fonts');
 const registeredFontVariants = new Set<string>();
@@ -122,6 +131,7 @@ async function serverExportToPng(
   if (shapes.length === 0) throw new Error('No shapes to export');
 
   await ensureServerFontsLoaded(shapes);
+  await preloadImages(collectImageSources(shapes));
 
   let minX = Infinity,
     minY = Infinity,

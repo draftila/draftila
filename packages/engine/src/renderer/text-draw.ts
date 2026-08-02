@@ -45,7 +45,7 @@ function drawPlainText(
 
   const visibleFill = options.fills.find((f) => f.visible);
   const fillStyle: string | CanvasGradient | null = visibleFill
-    ? se.getFillStyle(visibleFill, transform.width, transform.height)
+    ? (se.getFillStyle(visibleFill, transform.width, transform.height) ?? '#000000')
     : null;
 
   if (fillStyle) {
@@ -112,7 +112,7 @@ function drawPlainText(
           : lineTopY + options.fontSize * 0.95;
       ctx.beginPath();
       ctx.strokeStyle =
-        typeof fillStyle === 'string' ? fillStyle : visibleFill ? visibleFill.color : '#000000';
+        typeof fillStyle === 'string' ? fillStyle : (visibleFill?.color ?? '#000000');
       ctx.lineWidth = Math.max(1, options.fontSize / 16);
       ctx.moveTo(lineStartX, decoY);
       ctx.lineTo(lineStartX + metrics.width, decoY);
@@ -136,7 +136,7 @@ function drawSegmentedText(
   const baseLetterSpacing = options.letterSpacing;
 
   const visibleFill = options.fills.find((f) => f.visible);
-  const baseColor = visibleFill
+  const baseColor = visibleFill?.color
     ? colorWithOpacity(visibleFill.color, visibleFill.opacity)
     : '#000000';
 

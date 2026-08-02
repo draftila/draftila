@@ -1,31 +1,6 @@
 import type * as Y from 'yjs';
 import { addShape } from './scene-graph';
-
-const imageCache = new Map<string, HTMLImageElement>();
-
-export function getCachedImage(src: string): HTMLImageElement | null {
-  return imageCache.get(src) ?? null;
-}
-
-export function preloadImage(src: string): Promise<HTMLImageElement> {
-  const cached = imageCache.get(src);
-  if (cached) return Promise.resolve(cached);
-
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      imageCache.set(src, img);
-      resolve(img);
-    };
-    img.onerror = reject;
-    img.src = src;
-  });
-}
-
-export function clearImageCache() {
-  imageCache.clear();
-}
+import { preloadImage, registerImage } from './image-cache';
 
 export async function addImageFromFile(
   ydoc: Y.Doc,
@@ -60,7 +35,7 @@ export async function addImageFromFile(
           parentId: parentId ?? null,
         });
 
-        imageCache.set(dataUrl, img);
+        registerImage(dataUrl, img);
         resolve(id);
       };
       img.onerror = reject;

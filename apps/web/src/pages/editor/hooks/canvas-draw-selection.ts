@@ -121,7 +121,7 @@ export function renderAiShimmerOverlays(
     let isLightBackground = true;
     if ('fills' in shape && Array.isArray(shape.fills)) {
       const visibleFill = shape.fills.find((f) => f.visible);
-      if (visibleFill) {
+      if (visibleFill?.color) {
         const hex = visibleFill.color.replace('#', '');
         const r = parseInt(hex.substring(0, 2), 16);
         const g = parseInt(hex.substring(2, 4), 16);

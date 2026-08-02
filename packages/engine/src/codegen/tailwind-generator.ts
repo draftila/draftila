@@ -289,6 +289,7 @@ function singleFillToTailwind(fill: Fill, prefix: string): string[] {
   if (fill.imageSrc) {
     return [`${prefix}-[url('${fill.imageSrc}')]`];
   }
+  if (!fill.color) return [];
   return [`${prefix}-[${colorToTailwind(fill.color, fill.opacity)}]`];
 }
 
@@ -299,6 +300,7 @@ function fillToCssValue(fill: Fill): string {
   if (fill.imageSrc) {
     return `url('${fill.imageSrc}')`;
   }
+  if (!fill.color) return 'transparent';
   const rgba = hexToRgba(fill.color, fill.opacity);
   return rgbaToCssColor(rgba);
 }
@@ -653,7 +655,7 @@ function textClasses(shape: TextShape, ctx?: ShapeContext): string[] {
     if (fill.gradient) {
       classes.push(...gradientToTailwind(fill.gradient, fill.opacity));
       classes.push('bg-clip-text', 'text-transparent');
-    } else {
+    } else if (fill.color) {
       classes.push(`text-[${colorToTailwind(fill.color, fill.opacity)}]`);
     }
   }

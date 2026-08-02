@@ -12,7 +12,7 @@ export type InterchangeNodeType =
   | 'group';
 
 export interface InterchangeFill {
-  color: string;
+  color?: string;
   opacity: number;
   visible: boolean;
 }
