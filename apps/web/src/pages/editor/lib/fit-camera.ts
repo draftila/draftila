@@ -1,4 +1,5 @@
 import type * as Y from 'yjs';
+import type { Camera } from '@draftila/shared';
 import { getAllShapes } from '@draftila/engine/scene-graph';
 import { MIN_ZOOM } from '@draftila/engine/camera';
 import { useEditorStore } from '@/stores/editor-store';
@@ -10,6 +11,12 @@ interface Bounds {
   minY: number;
   maxX: number;
   maxY: number;
+}
+
+/** Structural subset of DOMRect, so callers can pass a plain size. */
+interface ViewportRect {
+  width: number;
+  height: number;
 }
 
 export function getBounds(
@@ -35,7 +42,12 @@ export function getCanvasViewportRect(): DOMRect | null {
   return canvas.getBoundingClientRect();
 }
 
-export function fitCameraToBounds(bounds: Bounds, viewport: DOMRect, padding: number) {
+export function fitCameraToBounds(
+  bounds: Bounds,
+  viewport: ViewportRect,
+  padding: number,
+  maxZoom = FIT_MAX_ZOOM,
+) {
   const contentWidth = bounds.maxX - bounds.minX;
   const contentHeight = bounds.maxY - bounds.minY;
   if (contentWidth <= 0 || contentHeight <= 0) return null;
@@ -43,7 +55,7 @@ export function fitCameraToBounds(bounds: Bounds, viewport: DOMRect, padding: nu
   const availableWidth = Math.max(1, viewport.width - padding * 2);
   const availableHeight = Math.max(1, viewport.height - padding * 2);
   const zoom = Math.min(
-    FIT_MAX_ZOOM,
+    maxZoom,
     Math.max(MIN_ZOOM, Math.min(availableWidth / contentWidth, availableHeight / contentHeight)),
   );
 
@@ -57,13 +69,24 @@ export function fitCameraToBounds(bounds: Bounds, viewport: DOMRect, padding: nu
   };
 }
 
-export function fitCameraToAllShapes(ydoc: Y.Doc, padding = 80) {
+/**
+ * Pure compute: the camera that would fit all visible shapes, or null when there
+ * is nothing to fit (no shapes, no laid-out canvas, or degenerate bounds).
+ * Callers must handle null rather than leaving the camera untouched — the editor
+ * store is a module singleton, so "do nothing" silently keeps the previous
+ * draft's camera.
+ */
+export function computeFitCamera(ydoc: Y.Doc, padding = 80): Camera | null {
   const shapes = getAllShapes(ydoc).filter((shape) => shape.visible);
   const bounds = getBounds(shapes);
-  if (!bounds) return;
+  if (!bounds) return null;
   const viewport = getCanvasViewportRect();
-  if (!viewport) return;
-  const next = fitCameraToBounds(bounds, viewport, padding);
+  if (!viewport) return null;
+  return fitCameraToBounds(bounds, viewport, padding);
+}
+
+export function fitCameraToAllShapes(ydoc: Y.Doc, padding = 80) {
+  const next = computeFitCamera(ydoc, padding);
   if (!next) return;
   useEditorStore.getState().setCamera(next);
 }
