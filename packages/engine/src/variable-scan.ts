@@ -1,8 +1,10 @@
 import * as Y from 'yjs';
 import type { Fill, Gradient, Shape, TextSegment } from '@draftila/shared';
 import { ymapToObject, valueToYjs } from './scene-graph/yjs-utils';
+import { getShapesMap } from './scene-graph/hierarchy';
 import {
   buildVariableTable,
+  getVariable,
   resolveColorRef,
   collectShapeVariableRefs,
   type VariableTable,
@@ -193,4 +195,170 @@ export function deleteVariable(ydoc: Y.Doc, variableId: string): boolean {
     map.delete(variableId);
   });
   return true;
+}
+
+export type BindTarget = 'fill' | 'stroke';
+
+const TARGET_KEYS: Record<BindTarget, ColorArrayKey> = {
+  fill: 'fills',
+  stroke: 'strokes',
+};
+
+export interface BindResult {
+  ok: boolean;
+  error?: string;
+  resolvedColor?: string;
+}
+
+function getItemMap(
+  ydoc: Y.Doc,
+  shapeId: string,
+  target: BindTarget,
+  index: number,
+): { item: Y.Map<unknown> } | { error: string } {
+  const shapeData = getShapesMap(ydoc).get(shapeId);
+  if (!shapeData) return { error: `Shape "${shapeId}" not found on the active page` };
+
+  const key = TARGET_KEYS[target];
+  const arr = shapeData.get(key) as Y.Array<Y.Map<unknown>> | undefined;
+  if (!arr || arr.length === 0) return { error: `Shape "${shapeId}" has no ${key}` };
+  if (index < 0 || index >= arr.length) {
+    return { error: `${key}[${index}] is out of range — the shape has ${arr.length}` };
+  }
+
+  const item = arr.get(index);
+  if (!(item instanceof Y.Map)) return { error: `${key}[${index}] is not an object` };
+  return { item };
+}
+
+/**
+ * Writes the binding directly onto the addressed item's Y.Map.
+ *
+ * Deliberately not routed through `updateShape`, which rebuilds the whole
+ * Y.Array for the key: that resolves last-writer-wins against a collaborator
+ * editing the same array — the array a user in the colour picker is most likely
+ * touching right now — and re-runs `normalizeArrayItem` over untouched
+ * siblings, adding defaults and stripping unknown keys from items this call
+ * never addressed. A single-key write merges cleanly instead.
+ */
+export function bindShapeColorVar(
+  ydoc: Y.Doc,
+  shapeId: string,
+  target: BindTarget,
+  index: number,
+  variableId: string,
+): BindResult {
+  const variable = getVariable(ydoc, variableId);
+  if (!variable) {
+    const available = getVariablesSummary(ydoc);
+    return {
+      ok: false,
+      error: `No global with id "${variableId}". Available: ${available || '(none)'}`,
+    };
+  }
+
+  const found = getItemMap(ydoc, shapeId, target, index);
+  if ('error' in found) return { ok: false, error: found.error };
+  const { item } = found;
+
+  if (target === 'fill') {
+    if (typeof item.get('imageSrc') === 'string' && item.get('imageSrc')) {
+      return {
+        ok: false,
+        error: `fills[${index}] is an image fill; a colour binding would only show if the image fails to load`,
+      };
+    }
+    if (item.get('gradient') !== undefined) {
+      return {
+        ok: false,
+        error: `fills[${index}] is a gradient; a fill-level colorVar is ignored. Bind a stop instead with update_shape: fills[${index}].gradient.stops[i].colorVar`,
+      };
+    }
+  }
+
+  ydoc.transact(() => item.set('colorVar', variableId));
+
+  const literal = item.get('color') as string | undefined;
+  return {
+    ok: true,
+    resolvedColor: resolveColorRef(literal, variableId, buildVariableTable(ydoc)),
+  };
+}
+
+/**
+ * Inlines the currently-resolved colour, then drops the binding — matching the
+ * editor's Detach, so the shape does not change colour.
+ */
+export function unbindShapeColorVar(
+  ydoc: Y.Doc,
+  shapeId: string,
+  target: BindTarget,
+  index: number,
+): BindResult {
+  const found = getItemMap(ydoc, shapeId, target, index);
+  if ('error' in found) return { ok: false, error: found.error };
+  const { item } = found;
+
+  const variableId = item.get('colorVar') as string | undefined;
+  if (!variableId) return { ok: true, resolvedColor: item.get('color') as string | undefined };
+
+  const literal = item.get('color') as string | undefined;
+  const resolved = resolveColorRef(literal, variableId, buildVariableTable(ydoc));
+
+  ydoc.transact(() => {
+    // A fill may legally carry only a colorVar. Dropping the binding without a
+    // literal would leave it with neither, which renders nothing — so fall back
+    // to the schema default rather than producing an unpaintable fill.
+    item.set('color', resolved ?? literal ?? '#000000');
+    item.delete('colorVar');
+  });
+
+  return { ok: true, resolvedColor: resolved ?? literal ?? '#000000' };
+}
+
+function getVariablesSummary(ydoc: Y.Doc): string {
+  const map = ydoc.getMap('variables') as Y.Map<Y.Map<unknown>>;
+  const parts: string[] = [];
+  map.forEach((data, id) => parts.push(`${id} (${(data.get('name') as string) ?? ''})`));
+  return parts.join(', ');
+}
+
+/**
+ * Every variable's usage in one walk, with the shape ids that reference it.
+ *
+ * Kept separate from `countVariableUsage`: that counts a shape once per visit,
+ * and `forEachShapeAcrossPages` visits component blobs, which snapshot canvas
+ * shapes under their original ids — so the count double-counts where a deduped
+ * id set would not. Redefining one over the other would silently change the
+ * number the Globals panel shows.
+ */
+export function collectVariableUsage(
+  ydoc: Y.Doc,
+): Map<string, { shapeIds: string[]; pageIds: string[] }> {
+  const usage = new Map<string, { shapeIds: Set<string>; pageIds: Set<string> }>();
+  const entry = (id: string) => {
+    let e = usage.get(id);
+    if (!e) {
+      e = { shapeIds: new Set(), pageIds: new Set() };
+      usage.set(id, e);
+    }
+    return e;
+  };
+
+  forEachShapeAcrossPages(ydoc, (shape) => {
+    for (const variableId of collectShapeVariableRefs(shape)) {
+      entry(variableId).shapeIds.add(shape.id);
+    }
+    return null;
+  });
+
+  const pages = ydoc.getMap('pages') as Y.Map<Y.Map<unknown>>;
+  pages.forEach((page, pageId) => {
+    const variableId = page.get('backgroundColorVar');
+    if (typeof variableId === 'string') entry(variableId).pageIds.add(pageId);
+  });
+
+  return new Map(
+    [...usage].map(([id, e]) => [id, { shapeIds: [...e.shapeIds], pageIds: [...e.pageIds] }]),
+  );
 }

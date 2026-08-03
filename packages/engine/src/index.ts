@@ -397,6 +397,11 @@ export {
 export { getDocId, setDocId, stripStyleColorVars } from './clipboard-vars';
 
 export {
+  type BindTarget,
+  type BindResult,
+  bindShapeColorVar,
+  unbindShapeColorVar,
+  collectVariableUsage,
   forEachShapeAcrossPages,
   detachVariableFromShape,
   countVariableUsage,
