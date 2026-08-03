@@ -3,6 +3,7 @@ import type { TextShape, TextSegment, Shape } from '@draftila/shared';
 import { Bold, Italic, Minus, Plus, SplitSquareHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ColorPicker } from '../../color-picker';
+import { useVariables } from '../../../hooks/use-variables';
 import { NumberInput } from '../number-input';
 
 export function SegmentsEditor({
@@ -31,6 +32,17 @@ export function SegmentsEditor({
     (index: number, patch: Partial<TextSegment>) => {
       if (!segments) return;
       const next = segments.map((s, i) => (i === index ? { ...s, ...patch } : s));
+      const content = next.map((s) => s.text).join('');
+      onUpdate({ segments: next, content } as Partial<Shape>);
+    },
+    [segments, onUpdate],
+  );
+
+  /** Whole-item replace — the merge above cannot express dropping `colorVar`. */
+  const replaceSegment = useCallback(
+    (index: number, segment: TextSegment) => {
+      if (!segments) return;
+      const next = segments.map((s, i) => (i === index ? segment : s));
       const content = next.map((s) => s.text).join('');
       onUpdate({ segments: next, content } as Partial<Shape>);
     },
@@ -76,7 +88,11 @@ export function SegmentsEditor({
             <SegmentRow
               key={index}
               segment={segment}
+              // TypographySection is in MULTI_SELECT_EXCLUDED, so this only
+              // ever renders for a single shape.
+              showGlobals
               onUpdate={(patch) => updateSegment(index, patch)}
+              onReplace={(next) => replaceSegment(index, next)}
               onRemove={() => removeSegment(index)}
               canRemove={segments.length > 1}
             />
@@ -96,16 +112,22 @@ export function SegmentsEditor({
 
 function SegmentRow({
   segment,
+  showGlobals,
   onUpdate,
+  onReplace,
   onRemove,
   canRemove,
 }: {
   segment: TextSegment;
+  showGlobals: boolean;
   onUpdate: (patch: Partial<TextSegment>) => void;
+  onReplace: (segment: TextSegment) => void;
   onRemove: () => void;
   canRemove: boolean;
 }) {
-  const color = segment.color ?? '#000000';
+  const { resolve } = useVariables();
+  const literalColor = segment.color ?? '#000000';
+  const color = resolve(literalColor, segment.colorVar) ?? literalColor;
 
   return (
     <div className="border-border space-y-1 rounded border p-1.5">
@@ -129,7 +151,12 @@ function SegmentRow({
         <ColorPicker
           color={color}
           opacity={1}
-          onChange={(c) => onUpdate({ color: c })}
+          colorVar={segment.colorVar}
+          showGlobals={showGlobals}
+          onChange={(c, meta) => {
+            const { colorVar: _drop, ...rest } = segment;
+            onReplace(meta?.colorVar ? { ...rest, color: c, colorVar: meta.colorVar } : { ...rest, color: c });
+          }}
           onOpacityChange={() => {}}
         >
           <button

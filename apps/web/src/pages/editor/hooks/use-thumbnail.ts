@@ -1,13 +1,13 @@
 import { useEffect, useRef } from 'react';
 import type * as Y from 'yjs';
-import { getAllShapes } from '@draftila/engine/scene-graph';
+import { getResolvedShapes } from '@draftila/engine';
 import { exportToPng } from '@draftila/engine/export';
 import { saveThumbnail } from '@/api/drafts';
 
 const MAX_THUMBNAIL_SIZE = 400;
 
 async function generateThumbnail(ydoc: Y.Doc): Promise<Blob | null> {
-  const shapes = getAllShapes(ydoc);
+  const shapes = getResolvedShapes(ydoc);
   if (shapes.length === 0) return null;
 
   const blob = await exportToPng(shapes, 1);

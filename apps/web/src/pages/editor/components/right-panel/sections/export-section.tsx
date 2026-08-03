@@ -5,7 +5,7 @@ import {
   exportAndDownloadPng,
   exportAndDownloadSvg,
 } from '@draftila/engine/export';
-import { getPageBackgroundColor } from '@draftila/engine';
+import { getResolvedPageBackgroundColor } from '@draftila/engine';
 import { useEditorStore } from '@/stores/editor-store';
 import type { PropertySectionProps } from '../types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -75,7 +75,7 @@ export function ExportSection({ ydoc, shape, shapeScope }: PropertySectionProps)
       }
 
       const currentPageId = useEditorStore.getState().activePageId;
-      const pageBg = currentPageId ? getPageBackgroundColor(ydoc, currentPageId) : null;
+      const pageBg = currentPageId ? getResolvedPageBackgroundColor(ydoc, currentPageId) : null;
       const isCanvasExport = shape.id === 'canvas-scope';
 
       if (config.format === 'PNG') {

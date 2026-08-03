@@ -1,5 +1,6 @@
 import type { Shape } from '@draftila/shared';
-import { getVariables, setVariable, deleteVariable } from '../variables';
+import { getVariables, getVariable, setVariable } from '../variables';
+import { deleteVariable, countVariableUsage } from '../variable-scan';
 import { getIconNames, searchIcons, getIconSvg } from '../icons';
 import { opCreateShape } from '../operations';
 import type { RpcHandler } from './types';
@@ -8,14 +9,27 @@ import { toAbsoluteProps } from './utils';
 export function variableIconHandlers(): Record<string, RpcHandler> {
   return {
     list_variables(ydoc) {
-      return { variables: getVariables(ydoc) };
+      return {
+        variables: getVariables(ydoc).map((variable) => ({
+          ...variable,
+          usageCount: countVariableUsage(ydoc, variable.id),
+        })),
+      };
     },
 
     set_variable(ydoc, args) {
       const id = args['id'] as string;
       const name = args['name'] as string;
       const value = args['value'] as string;
-      return { variable: setVariable(ydoc, id, name, value) };
+      // Reusing an existing id is the documented contract, but it is no longer
+      // inert: it repaints every shape bound to the variable, and the overwrite
+      // does not land in any user's undo stack. Report it so the caller can tell.
+      const previous = getVariable(ydoc, id);
+      const usageCount = previous ? countVariableUsage(ydoc, id) : 0;
+      const variable = setVariable(ydoc, id, name, value);
+      return previous
+        ? { variable, overwrote: true, usageCount, previousValue: previous.value }
+        : { variable, overwrote: false, usageCount: 0 };
     },
 
     delete_variable(ydoc, args) {

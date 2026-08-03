@@ -11,11 +11,15 @@ import {
   updateShape,
 } from './scene-graph';
 import { shapesToSvg } from './shape-import';
+import { buildVariableTable, resolveShapesColors, stripShapeColorVars } from './variables';
+import { getDocId, stripStyleColorVars } from './clipboard-vars';
 
 const DUPLICATE_OFFSET = 20;
 
 let clipboardShapes: Shape[] = [];
+let clipboardSourceDocId: string | null = null;
 let clipboardStyle: Record<string, unknown> | null = null;
+let clipboardStyleSourceDocId: string | null = null;
 
 const STYLE_KEYS: string[] = [
   'fills',
@@ -82,10 +86,18 @@ export function copyShapes(ydoc: Y.Doc, ids: string[]): Shape[] {
   const expandedIds = new Set(getExpandedShapeIds(ydoc, topLevelIds));
   const shapes = getAllShapes(ydoc).filter((shape) => expandedIds.has(shape.id));
   clipboardShapes = shapes;
+  clipboardSourceDocId = getDocId(ydoc);
 
   try {
-    const json = JSON.stringify({ type: 'draftila/shapes', shapes });
-    const svg = shapesToSvg(shapes);
+    // The JSON payload stays raw so bindings survive a same-draft paste; only
+    // the SVG flavour — what Figma/Illustrator/Slack actually receive — is
+    // resolved. Resolving `shapes` itself would bake literals into both.
+    const json = JSON.stringify({
+      type: 'draftila/shapes',
+      sourceDocId: clipboardSourceDocId,
+      shapes,
+    });
+    const svg = shapesToSvg(resolveShapesColors(buildVariableTable(ydoc), shapes));
     const htmlContent = `${svg}\n<!-- draftila:${btoa(json)} -->`;
 
     navigator.clipboard.write([
@@ -96,7 +108,11 @@ export function copyShapes(ydoc: Y.Doc, ids: string[]): Shape[] {
     ]);
   } catch {
     try {
-      const json = JSON.stringify({ type: 'draftila/shapes', shapes });
+      const json = JSON.stringify({
+        type: 'draftila/shapes',
+        sourceDocId: clipboardSourceDocId,
+        shapes,
+      });
       navigator.clipboard.writeText(json);
     } catch {
       // Clipboard API may not be available
@@ -109,11 +125,18 @@ export function copyShapes(ydoc: Y.Doc, ids: string[]): Shape[] {
 export function pasteShapes(ydoc: Y.Doc, options: PasteOptions = {}): string[] {
   if (clipboardShapes.length === 0) return [];
 
+  // A colour binding is only meaningful inside the document that defines it.
+  // Variable ids are caller-chosen slugs ("primary", "bg-surface"), so pasting
+  // into a different draft that happens to define the same id would silently
+  // repaint the shape. Drop the binding and keep the literal instead.
+  const foreign = clipboardSourceDocId === null || clipboardSourceDocId !== getDocId(ydoc);
+  const sourceShapes = foreign ? clipboardShapes.map(stripShapeColorVars) : clipboardShapes;
+
   const { selectedIds, cursorPosition, inPlace } = options;
   const targetParentId = selectedIds ? getSelectedContainer(ydoc, selectedIds) : null;
 
-  const clipboardById = new Map<string, Shape>(clipboardShapes.map((shape) => [shape.id, shape]));
-  const topLevelShapes = clipboardShapes.filter(
+  const clipboardById = new Map<string, Shape>(sourceShapes.map((shape) => [shape.id, shape]));
+  const topLevelShapes = sourceShapes.filter(
     (shape) => !shape.parentId || !clipboardById.has(shape.parentId),
   );
 
@@ -124,7 +147,7 @@ export function pasteShapes(ydoc: Y.Doc, options: PasteOptions = {}): string[] {
     offsetX = 0;
     offsetY = 0;
   } else if (cursorPosition) {
-    const bounds = getClipboardBounds(clipboardShapes, clipboardById);
+    const bounds = getClipboardBounds(sourceShapes, clipboardById);
     offsetX = cursorPosition.x - bounds.centerX;
     offsetY = cursorPosition.y - bounds.centerY;
   } else {
@@ -135,7 +158,7 @@ export function pasteShapes(ydoc: Y.Doc, options: PasteOptions = {}): string[] {
   const oldToNewIds = new Map<string, string>();
   const newIds: string[] = [];
 
-  for (const shape of clipboardShapes) {
+  for (const shape of sourceShapes) {
     const isTopLevel = !shape.parentId || !clipboardById.has(shape.parentId);
     const parentId = isTopLevel
       ? (targetParentId ?? shape.parentId ?? null)
@@ -215,11 +238,19 @@ export function copyStyle(ydoc: Y.Doc, shapeId: string): Record<string, unknown>
   }
 
   clipboardStyle = style;
+  clipboardStyleSourceDocId = getDocId(ydoc);
   return style;
 }
 
 export function pasteStyle(ydoc: Y.Doc, ids: string[]): string[] {
   if (!clipboardStyle || ids.length === 0) return [];
+
+  // Same reasoning as pasteShapes: `clipboardStyle` is module state and survives
+  // navigation between drafts, so bindings must not cross documents.
+  const style =
+    clipboardStyleSourceDocId !== null && clipboardStyleSourceDocId === getDocId(ydoc)
+      ? clipboardStyle
+      : stripStyleColorVars(clipboardStyle);
 
   const updatedIds: string[] = [];
 
@@ -230,9 +261,9 @@ export function pasteStyle(ydoc: Y.Doc, ids: string[]): string[] {
 
     const patch: Record<string, unknown> = {};
     for (const key of STYLE_KEYS) {
-      if (!(key in clipboardStyle)) continue;
+      if (!(key in style)) continue;
       if (!(key in target)) continue;
-      const value = clipboardStyle[key];
+      const value = style[key];
       if (value === undefined) continue;
       patch[key] = cloneStyleValue(value);
     }

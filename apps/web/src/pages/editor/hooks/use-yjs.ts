@@ -7,7 +7,7 @@ import {
   updateShape,
   applyAutoLayoutForAncestors,
 } from '@draftila/engine/scene-graph';
-import { ensureDefaultPage } from '@draftila/engine';
+import { ensureDefaultPage, setDocId } from '@draftila/engine';
 import { applyTextAutoResize } from '@draftila/engine/text-measure';
 import {
   ensureFontsLoadedAsync,
@@ -160,6 +160,9 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
     wsProvider.on('sync', (isSynced: boolean) => {
       setSynced(isSynced);
       if (isSynced) {
+        // Identifies the document for cross-draft paste detection. `ydoc.guid`
+        // can't serve: a fresh Y.Doc is minted on every mount.
+        setDocId(ydoc, draftId);
         ensureDefaultPage(ydoc);
         const fonts = collectFontFamilies(getAllShapes(ydoc));
         if (fonts.length > 0) {

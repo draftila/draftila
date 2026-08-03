@@ -3,6 +3,7 @@ import { ChevronDown, Eye, EyeOff, Minus, Plus, Settings2 } from 'lucide-react';
 import type { ArrowheadType, Stroke, Shape } from '@draftila/shared';
 import type { PropertySectionProps } from '../types';
 import { ColorPicker } from '../../color-picker';
+import { useVariables } from '../../../hooks/use-variables';
 import { NumberInput } from '../number-input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -18,7 +19,7 @@ import {
 } from './stroke-constants';
 import { EndpointDropdown, StrokeSettingsPopover } from './stroke-detail-popover';
 
-export function StrokeSection({ shape, onUpdate }: PropertySectionProps) {
+export function StrokeSection({ shape, onUpdate, multiSelect }: PropertySectionProps) {
   const strokes = 'strokes' in shape ? (shape as Shape & { strokes: Stroke[] }).strokes : null;
   const isLine = shape.type === 'line';
   const startArrowhead =
@@ -30,6 +31,20 @@ export function StrokeSection({ shape, onUpdate }: PropertySectionProps) {
     (index: number, patch: Partial<Stroke>) => {
       if (!strokes) return;
       const next = strokes.map((s, i) => (i === index ? { ...s, ...patch } : s));
+      onUpdate({ strokes: next } as Partial<Shape>);
+    },
+    [strokes, onUpdate],
+  );
+
+  /**
+   * Whole-item replace. `updateStroke` merges, which cannot express a detach:
+   * omitting `colorVar` from the patch would just leave the original's value in
+   * place. Every colour emission goes through here instead.
+   */
+  const replaceStroke = useCallback(
+    (index: number, stroke: Stroke) => {
+      if (!strokes) return;
+      const next = strokes.map((s, i) => (i === index ? stroke : s));
       onUpdate({ strokes: next } as Partial<Shape>);
     },
     [strokes, onUpdate],
@@ -94,7 +109,9 @@ export function StrokeSection({ shape, onUpdate }: PropertySectionProps) {
               key={index}
               stroke={stroke}
               isLine={isLine}
+              showGlobals={!multiSelect}
               onUpdate={(patch) => updateStroke(index, patch)}
+              onReplace={(next) => replaceStroke(index, next)}
               onRemove={() => removeStroke(index)}
             />
           );
@@ -121,17 +138,24 @@ export function StrokeSection({ shape, onUpdate }: PropertySectionProps) {
 function StrokeEntry({
   stroke,
   isLine,
+  showGlobals,
   onUpdate,
+  onReplace,
   onRemove,
 }: {
   stroke: Stroke;
   isLine: boolean;
+  showGlobals: boolean;
   onUpdate: (patch: Partial<Stroke>) => void;
+  onReplace: (stroke: Stroke) => void;
   onRemove: () => void;
 }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [dashOpen, setDashOpen] = useState(false);
+  const { resolve, byId, isDangling } = useVariables();
 
+  const displayColor = resolve(stroke.color, stroke.colorVar) ?? stroke.color;
+  const boundName = stroke.colorVar ? byId.get(stroke.colorVar)?.name : undefined;
   const opacityPercent = Math.round(stroke.opacity * 100);
   const visible = stroke.visible !== false;
   const cap = stroke.cap ?? 'butt';
@@ -143,9 +167,16 @@ function StrokeEntry({
     <div className="space-y-1.5">
       <div className="flex items-center gap-1.5">
         <ColorPicker
-          color={stroke.color}
+          color={displayColor}
           opacity={stroke.opacity}
-          onChange={(color) => onUpdate({ color })}
+          colorVar={stroke.colorVar}
+          showGlobals={showGlobals}
+          onChange={(color, meta) => {
+            const { colorVar: _drop, ...rest } = stroke;
+            onReplace(
+              meta?.colorVar ? { ...rest, color, colorVar: meta.colorVar } : { ...rest, color },
+            );
+          }}
           onOpacityChange={(opacity) => onUpdate({ opacity })}
         >
           <button
@@ -156,23 +187,26 @@ function StrokeEntry({
               <div
                 className="absolute inset-0"
                 style={{
-                  backgroundColor: stroke.color,
+                  backgroundColor: displayColor,
                   opacity: stroke.opacity,
                 }}
               />
               <div
                 className="absolute inset-0"
                 style={{
-                  backgroundColor: stroke.color,
+                  backgroundColor: displayColor,
                   clipPath: 'polygon(0 0, 50% 0, 50% 100%, 0 100%)',
                 }}
               />
             </div>
             <div className="flex min-w-0 flex-1 flex-col justify-center text-left">
-              <span className="truncate font-mono text-[11px] leading-snug">
-                {stroke.color.replace('#', '').toUpperCase()}
+              <span
+                className={`truncate text-[11px] leading-snug ${boundName ? 'font-medium' : 'font-mono'}`}
+              >
+                {boundName ?? displayColor.replace('#', '').toUpperCase()}
               </span>
               <span className="text-muted-foreground truncate text-[10px] leading-snug">
+                {isDangling(stroke.colorVar) && 'Missing global · '}
                 {opacityPercent}% &middot; Solid
               </span>
             </div>

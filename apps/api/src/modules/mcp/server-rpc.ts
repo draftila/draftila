@@ -3,7 +3,7 @@ import './dom-shim';
 import type * as Y from 'yjs';
 import type { Shape } from '@draftila/shared';
 import {
-  getAllShapes,
+  getResolvedShapes,
   Canvas2DRenderer,
   collectFontFamilies,
   collectImageSources,
@@ -174,7 +174,7 @@ async function serverExportToPng(
 }
 
 const exportPngHandler: RpcHandler = async (ydoc: Y.Doc, args) => {
-  const allShapes = getAllShapes(ydoc);
+  const allShapes = getResolvedShapes(ydoc);
   const ids = args['shapeIds'] as string[] | undefined;
   const shapes = ids && ids.length > 0 ? collectShapesWithDescendants(allShapes, ids) : allShapes;
   if (shapes.length === 0) return { error: 'No shapes to export' };

@@ -7,7 +7,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Pipette } from 'lucide-react';
+import { Pipette, Unlink } from 'lucide-react';
+import { useVariables } from '../hooks/use-variables';
 import { type Hsv, hexToHsv, hsvToHex, hueToHex } from './color-conversions';
 import {
   type ColorMode,
@@ -18,11 +19,32 @@ import {
   parseColorInput,
 } from './color-parsing';
 
+/**
+ * Extra intent attached to a colour change.
+ *
+ * Bind and detach travel on the SAME callback as a plain edit, deliberately.
+ * Every call site turns one emission into one whole-item write; splitting them
+ * into two callbacks would mean two writes from the same stale closure, and
+ * since `updateShape` replaces the entire array the second would revert the
+ * first.
+ *
+ * - `undefined`  — plain edit; the call site drops any existing `colorVar`
+ * - `{ colorVar }` — bind to that variable
+ */
+export interface ColorChangeMeta {
+  colorVar?: string;
+}
+
 interface ColorPickerProps {
+  /** The RESOLVED colour (6-digit). Seeds the picker's HSV state. */
   color: string;
   opacity: number;
-  onChange: (color: string) => void;
+  /** Present when this colour is bound to a global. */
+  colorVar?: string;
+  onChange: (color: string, meta?: ColorChangeMeta) => void;
   onOpacityChange: (opacity: number) => void;
+  /** Hidden when false — e.g. multi-select, or an image fill. */
+  showGlobals?: boolean;
   children: React.ReactNode;
 }
 
@@ -62,8 +84,10 @@ function useDrag(onDrag: (x: number, y: number) => void): {
 export function ColorPicker({
   color,
   opacity,
+  colorVar,
   onChange,
   onOpacityChange,
+  showGlobals = true,
   children,
 }: ColorPickerProps) {
   const [hsv, setHsv] = useState<Hsv>(() => hexToHsv(color));
@@ -318,7 +342,92 @@ export function ColorPicker({
             <span className="text-muted-foreground ml-0.5 text-[10px]">%</span>
           </div>
         </div>
+
+        {showGlobals && (
+          <GlobalsStrip
+            colorVar={colorVar}
+            currentHex={currentHex}
+            onBind={(id) => onChange(color, { colorVar: id })}
+            onDetach={() => onChange(currentHex)}
+          />
+        )}
       </PopoverContent>
     </Popover>
+  );
+}
+
+function GlobalsStrip({
+  colorVar,
+  currentHex,
+  onBind,
+  onDetach,
+}: {
+  colorVar: string | undefined;
+  currentHex: string;
+  onBind: (variableId: string) => void;
+  onDetach: () => void;
+}) {
+  const { variables, byId, isDangling } = useVariables();
+  const bound = colorVar ? byId.get(colorVar) : undefined;
+  const dangling = isDangling(colorVar);
+
+  return (
+    <div className="mt-2.5 border-t pt-2.5">
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-muted-foreground text-[10px] font-medium uppercase tracking-wide">
+          Globals
+        </span>
+        {colorVar && (
+          <button
+            type="button"
+            onClick={onDetach}
+            className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-[10px] transition-colors"
+            title="Detach from global"
+          >
+            <Unlink className="h-2.5 w-2.5" />
+            Detach
+          </button>
+        )}
+      </div>
+
+      {colorVar && (
+        <div className="text-muted-foreground mb-1.5 truncate text-[11px]">
+          {dangling ? (
+            <span className="text-amber-600 dark:text-amber-500">Missing global</span>
+          ) : (
+            <span className="text-foreground font-medium">{bound?.name}</span>
+          )}
+        </div>
+      )}
+
+      {variables.length === 0 ? (
+        <p className="text-muted-foreground text-[10px] leading-snug">
+          No globals yet. Create them from the Globals panel.
+        </p>
+      ) : (
+        <div className="flex flex-wrap gap-1">
+          {variables.map((variable) => (
+            <button
+              key={variable.id}
+              type="button"
+              onClick={() => onBind(variable.id)}
+              title={`${variable.name} · ${variable.value}`}
+              className={`h-5 w-5 rounded border transition-shadow ${
+                variable.id === colorVar
+                  ? 'ring-primary border-transparent ring-2 ring-offset-1'
+                  : 'border-border hover:ring-1 hover:ring-offset-1'
+              }`}
+              style={{ backgroundColor: variable.value }}
+            />
+          ))}
+        </div>
+      )}
+
+      <p className="text-muted-foreground mt-1.5 text-[10px] leading-snug">
+        {colorVar
+          ? 'Editing the colour above detaches it.'
+          : `Bind ${currentHex} to a global to update it everywhere.`}
+      </p>
+    </div>
   );
 }

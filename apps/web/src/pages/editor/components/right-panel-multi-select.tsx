@@ -178,6 +178,7 @@ export function RightPanelMultiSelect({
             shape={selectedShapes[0]!}
             shapeScope={shapeScope}
             onUpdate={onBatchUpdate}
+            multiSelect
           />
         </div>
       ))}

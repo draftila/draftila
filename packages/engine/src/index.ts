@@ -218,6 +218,8 @@ export {
   observePages,
   setPageBackgroundColor,
   getPageBackgroundColor,
+  setPageBackgroundColorVar,
+  getPageBackgroundColorVar,
   DEFAULT_PAGE_BACKGROUND,
 } from './pages';
 
@@ -342,12 +344,35 @@ export {
 
 export {
   type Variable,
+  type VariableTable,
   getVariables,
   getVariable,
+  createVariable,
   setVariable,
-  deleteVariable,
-  resolveVariableColor,
+  setVariableValue,
+  renameVariable,
+  normalizeVariableValue,
+  observeVariables,
+  buildVariableTable,
+  resolveColorRef,
+  resolveShapeColors,
+  resolveShapesColors,
+  stripShapeColorVars,
+  collectShapeVariableRefs,
+  collectVariableRefs,
+  getResolvedShapes,
+  getResolvedPageBackgroundColor,
 } from './variables';
+
+export { getDocId, setDocId, stripStyleColorVars } from './clipboard-vars';
+
+export {
+  forEachShapeAcrossPages,
+  detachVariableFromShape,
+  countVariableUsage,
+  detachVariable,
+  deleteVariable,
+} from './variable-scan';
 
 export { getIconNames, searchIcons, getIconSvg } from './icons';
 

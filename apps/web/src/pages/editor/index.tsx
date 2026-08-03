@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { PanelLeft, Upload, Eye, Keyboard, History } from 'lucide-react';
+import { PanelLeft, Upload, Eye, Keyboard, History, Palette } from 'lucide-react';
 import logoSvg from '@/assets/logo.svg';
 import { useDraftById, useUpdateDraft } from '@/api/drafts';
 import { useSession } from '@/lib/auth-client';
@@ -40,6 +40,8 @@ import { fitCameraToAllShapes } from './lib/fit-camera';
 import { useAwareness } from './hooks/use-awareness';
 import { useThumbnail } from './hooks/use-thumbnail';
 import { useRpc } from './hooks/use-rpc';
+import { GlobalsPanel } from './components/globals-panel';
+import { VariablesProvider } from './hooks/use-variables';
 import { KeyboardShortcutsDialog } from './components/keyboard-shortcuts-dialog';
 import { SaveVersionDialog } from './components/save-version-dialog';
 import { VersionPreviewBanner } from './components/version-preview-banner';
@@ -296,6 +298,13 @@ export function EditorPage() {
               </DropdownMenuSub>
               <DropdownMenuSeparator />
               <DropdownMenuItem
+                onClick={() => useEditorStore.getState().setGlobalsOpen(true)}
+              >
+                <Palette className="mr-2 h-4 w-4" />
+                Globals
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
                 onClick={() => {
                   const store = useEditorStore.getState();
                   store.setVersionHistoryOpen(!store.versionHistoryOpen);
@@ -405,19 +414,22 @@ export function EditorPage() {
           <UserMenu />
         </div>
       </header>
-      <div className="relative flex flex-1 overflow-hidden">
-        <LeftPanel ydoc={activeYdoc} />
-        {isPreview && <VersionPreviewBanner draftId={draftId ?? ''} snapshot={previewSnapshot} />}
-        <Canvas
-          ydoc={activeYdoc}
-          draftId={draftId ?? ''}
-          userId={userId}
-          userName={userName}
-          remoteUsers={isPreview ? [] : remoteUsers}
-          onActiveInteraction={isPreview ? undefined : handleActiveInteraction}
-        />
-        <RightPanel ydoc={activeYdoc} draftId={draftId ?? ''} />
-      </div>
+      <VariablesProvider ydoc={activeYdoc}>
+        <div className="relative flex flex-1 overflow-hidden">
+          <LeftPanel ydoc={activeYdoc} />
+          {isPreview && <VersionPreviewBanner draftId={draftId ?? ''} snapshot={previewSnapshot} />}
+          <Canvas
+            ydoc={activeYdoc}
+            draftId={draftId ?? ''}
+            userId={userId}
+            userName={userName}
+            remoteUsers={isPreview ? [] : remoteUsers}
+            onActiveInteraction={isPreview ? undefined : handleActiveInteraction}
+          />
+          <RightPanel ydoc={activeYdoc} draftId={draftId ?? ''} />
+          <GlobalsPanel ydoc={activeYdoc} />
+        </div>
+      </VariablesProvider>
       <SaveVersionDialog draftId={draftId ?? ''} />
       <KeyboardShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </div>

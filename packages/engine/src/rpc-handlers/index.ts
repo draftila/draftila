@@ -5,6 +5,7 @@ export {
   toAbsoluteProps,
   applyTextDefaults,
   toRelativeShape,
+  sanitizeColorVars,
 } from './utils';
 
 import type { RpcHandler } from './types';

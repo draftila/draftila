@@ -4,6 +4,7 @@ import type { Fill, Gradient, Shape } from '@draftila/shared';
 import type { PropertySectionProps } from '../types';
 import { ColorPicker } from '../../color-picker';
 import { GradientEditor, gradientPreviewCss } from '../../gradient-editor';
+import { useVariables } from '../../../hooks/use-variables';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,7 +51,7 @@ function defaultGradient(type: 'linear' | 'radial', baseColor: string): Gradient
   };
 }
 
-export function FillSection({ shape, onUpdate }: PropertySectionProps) {
+export function FillSection({ shape, onUpdate, multiSelect }: PropertySectionProps) {
   const fills = 'fills' in shape ? (shape as Shape & { fills: Fill[] }).fills : null;
 
   const updateFill = useCallback(
@@ -122,6 +123,9 @@ export function FillSection({ shape, onUpdate }: PropertySectionProps) {
             <FillRow
               key={index}
               fill={fill}
+              // Binding is per-shape; a batch update would push this shape's
+              // whole fills array onto every selection.
+              showGlobals={!multiSelect}
               onUpdate={(patch) => updateFill(index, patch)}
               onReplace={(f) => replaceFill(index, f)}
               onVisibleChange={(visible) => updateFill(index, { visible })}
@@ -136,39 +140,56 @@ export function FillSection({ shape, onUpdate }: PropertySectionProps) {
 
 function FillRow({
   fill,
+  showGlobals,
   onUpdate,
   onReplace,
   onVisibleChange,
   onRemove,
 }: {
   fill: Fill;
+  showGlobals: boolean;
   onUpdate: (patch: Partial<Fill>) => void;
   onReplace: (fill: Fill) => void;
   onVisibleChange: (visible: boolean) => void;
   onRemove: () => void;
 }) {
+  const { resolve, byId, isDangling } = useVariables();
   const opacityPercent = Math.round(fill.opacity * 100);
   const fillType = getFillType(fill);
   const solidColor = fill.color ?? DEFAULT_FILL_COLOR;
+  // What the swatch, label and picker show — the literal is only the fallback.
+  const displayColor = resolve(solidColor, fill.colorVar) ?? solidColor;
+  const boundName = fill.colorVar ? byId.get(fill.colorVar)?.name : undefined;
 
   const handleTypeChange = (newType: FillType) => {
     if (newType === fillType) return;
     if (newType === 'solid') {
-      const baseColor = fill.gradient?.stops[0]?.color ?? solidColor;
-      onReplace({ color: baseColor, opacity: fill.opacity, visible: fill.visible });
+      const stop = fill.gradient?.stops[0];
+      // Carry the first stop's binding up onto the fill.
+      onReplace({
+        color: stop?.color ?? solidColor,
+        opacity: fill.opacity,
+        visible: fill.visible,
+        ...(stop?.colorVar ? { colorVar: stop.colorVar } : {}),
+      });
       return;
     }
-    const gradient = defaultGradient(newType, solidColor);
-    onReplace({ ...fill, gradient });
+    // Drop the solid binding: left in place it would lie dormant on a gradient
+    // fill and silently reactivate if the fill ever switched back to solid.
+    const { colorVar: _drop, ...rest } = fill;
+    onReplace({ ...rest, gradient: defaultGradient(newType, displayColor) });
   };
 
   const handleGradientChange = (gradient: Gradient) => {
     onReplace({ ...fill, gradient });
   };
 
+  const gradientLabelStop = fill.gradient?.stops[0];
   const displayLabel = fill.gradient
-    ? (fill.gradient.stops[0]?.color ?? solidColor).replace('#', '').toUpperCase()
-    : solidColor.replace('#', '').toUpperCase();
+    ? (resolve(gradientLabelStop?.color, gradientLabelStop?.colorVar) ?? solidColor)
+        .replace('#', '')
+        .toUpperCase()
+    : (boundName ?? displayColor.replace('#', '').toUpperCase());
 
   const editorContent = (
     <button
@@ -180,7 +201,7 @@ function FillRow({
           <div
             className="absolute inset-0"
             style={{
-              background: gradientPreviewCss(fill.gradient),
+              background: gradientPreviewCss(fill.gradient, resolve),
               opacity: fill.opacity,
             }}
           />
@@ -189,14 +210,14 @@ function FillRow({
             <div
               className="absolute inset-0"
               style={{
-                backgroundColor: solidColor,
+                backgroundColor: displayColor,
                 opacity: fill.opacity,
               }}
             />
             <div
               className="absolute inset-0"
               style={{
-                backgroundColor: solidColor,
+                backgroundColor: displayColor,
                 clipPath: 'polygon(0 0, 50% 0, 50% 100%, 0 100%)',
               }}
             />
@@ -204,8 +225,13 @@ function FillRow({
         )}
       </div>
       <div className="flex min-w-0 flex-1 flex-col justify-center text-left">
-        <span className="truncate font-mono text-[11px] leading-snug">{displayLabel}</span>
+        <span
+          className={`truncate text-[11px] leading-snug ${boundName ? 'font-medium' : 'font-mono'}`}
+        >
+          {displayLabel}
+        </span>
         <span className="text-muted-foreground truncate text-[10px] leading-snug">
+          {isDangling(fill.colorVar) && 'Missing global · '}
           {opacityPercent}% &middot; {getFillTypeLabel(fillType)}
         </span>
       </div>
@@ -220,10 +246,17 @@ function FillRow({
         </GradientEditor>
       ) : (
         <ColorPicker
-          color={solidColor}
+          color={displayColor}
           opacity={fill.opacity}
-          onChange={(color) => onUpdate({ color })}
+          colorVar={fill.colorVar}
+          // Whole-item replace, not a merge: omitting `colorVar` is how a
+          // detach is expressed, and a merge would re-add it from `fill`.
+          onChange={(color, meta) => {
+            const { colorVar: _drop, ...rest } = fill;
+            onReplace(meta?.colorVar ? { ...rest, color, colorVar: meta.colorVar } : { ...rest, color });
+          }}
           onOpacityChange={(opacity) => onUpdate({ opacity })}
+          showGlobals={showGlobals && !fill.imageSrc}
         >
           {editorContent}
         </ColorPicker>

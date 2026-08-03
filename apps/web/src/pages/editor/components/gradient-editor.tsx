@@ -3,6 +3,9 @@ import { Plus, Trash2 } from 'lucide-react';
 import type { Gradient, GradientStop } from '@draftila/shared';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ColorPicker } from './color-picker';
+import { useVariables } from '../hooks/use-variables';
+
+const DEFAULT_NEW_STOP_COLOR = '#888888';
 
 interface GradientEditorProps {
   gradient: Gradient;
@@ -14,16 +17,27 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-function gradientToCss(gradient: Gradient): string {
-  const stopsCss = gradient.stops.map((s) => `${s.color} ${s.position * 100}%`).join(', ');
+/** Resolves a stop's colour for display; matches the engine's render-time rule. */
+type ResolveColor = (color: string | undefined, colorVar: string | undefined) => string | undefined;
+
+const identityResolve: ResolveColor = (color) => color;
+
+function stopColor(stop: GradientStop, resolve: ResolveColor): string {
+  return resolve(stop.color, stop.colorVar) ?? stop.color;
+}
+
+function gradientToCss(gradient: Gradient, resolve: ResolveColor = identityResolve): string {
+  const stopsCss = gradient.stops
+    .map((s) => `${stopColor(s, resolve)} ${s.position * 100}%`)
+    .join(', ');
   if (gradient.type === 'linear') {
     return `linear-gradient(${gradient.angle ?? 0}deg, ${stopsCss})`;
   }
   return `radial-gradient(circle at ${(gradient.cx ?? 0.5) * 100}% ${(gradient.cy ?? 0.5) * 100}%, ${stopsCss})`;
 }
 
-export function gradientPreviewCss(gradient: Gradient): string {
-  return gradientToCss(gradient);
+export function gradientPreviewCss(gradient: Gradient, resolve: ResolveColor = identityResolve): string {
+  return gradientToCss(gradient, resolve);
 }
 
 function GradientStopBar({
@@ -33,6 +47,7 @@ function GradientStopBar({
   onStopRemove: _onStopRemove,
   selectedIndex,
   onSelectStop,
+  resolve,
 }: {
   stops: GradientStop[];
   onStopChange: (index: number, stop: GradientStop) => void;
@@ -40,11 +55,12 @@ function GradientStopBar({
   onStopRemove: (index: number) => void;
   selectedIndex: number;
   onSelectStop: (index: number) => void;
+  resolve: ResolveColor;
 }) {
   const sorted = [...stops].map((s, i) => ({ ...s, originalIndex: i }));
   sorted.sort((a, b) => a.position - b.position);
 
-  const stopsCss = sorted.map((s) => `${s.color} ${s.position * 100}%`).join(', ');
+  const stopsCss = sorted.map((s) => `${stopColor(s, resolve)} ${s.position * 100}%`).join(', ');
   const barBackground = `linear-gradient(to right, ${stopsCss})`;
 
   const handleBarClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -93,7 +109,7 @@ function GradientStopBar({
           <div
             className={`h-4 w-4 rounded-full border-[2.5px] ${i === selectedIndex ? 'border-white' : 'border-white/60'}`}
             style={{
-              backgroundColor: stop.color,
+              backgroundColor: stopColor(stop, resolve),
               boxShadow:
                 i === selectedIndex
                   ? '0 0 0 1.5px #0D99FF, 0 1px 3px rgba(0,0,0,0.3)'
@@ -108,8 +124,15 @@ function GradientStopBar({
 
 export function GradientEditor({ gradient, onChange, children }: GradientEditorProps) {
   const [selectedStopIndex, setSelectedStopIndex] = useState(0);
+  // The gradient stays RAW here. Resolving it up front would be a data-loss bug:
+  // `updateStop` rewrites the whole stops array, so editing one stop would bake
+  // resolved colours into every other stop's literal.
+  const { resolve } = useVariables();
 
   const selectedStop = gradient.stops[selectedStopIndex] ?? gradient.stops[0];
+  const selectedStopColor = selectedStop
+    ? stopColor(selectedStop, resolve)
+    : DEFAULT_NEW_STOP_COLOR;
 
   const updateStop = useCallback(
     (index: number, stop: GradientStop) => {
@@ -122,7 +145,7 @@ export function GradientEditor({ gradient, onChange, children }: GradientEditorP
   const addStop = useCallback(
     (position: number) => {
       const sorted = [...gradient.stops].sort((a, b) => a.position - b.position);
-      let color = '#888888';
+      let color = DEFAULT_NEW_STOP_COLOR;
       if (sorted.length >= 2) {
         let before = sorted[0]!;
         let after = sorted[sorted.length - 1]!;
@@ -173,19 +196,29 @@ export function GradientEditor({ gradient, onChange, children }: GradientEditorP
           onStopRemove={removeStop}
           selectedIndex={selectedStopIndex}
           onSelectStop={setSelectedStopIndex}
+          resolve={resolve}
         />
 
         <div className="mt-2.5 flex items-center gap-1.5">
           {selectedStop && (
             <ColorPicker
-              color={selectedStop.color}
+              color={selectedStopColor}
               opacity={1}
-              onChange={(color) => updateStop(selectedStopIndex, { ...selectedStop, color })}
+              colorVar={selectedStop.colorVar}
+              // Rest-destructure rather than spreading `selectedStop`: a spread
+              // would carry `colorVar` back in and defeat the detach.
+              onChange={(color, meta) => {
+                const { colorVar: _drop, ...rest } = selectedStop;
+                updateStop(
+                  selectedStopIndex,
+                  meta?.colorVar ? { ...rest, color, colorVar: meta.colorVar } : { ...rest, color },
+                );
+              }}
               onOpacityChange={() => {}}
             >
               <button
                 className="border-border h-7 w-7 shrink-0 rounded border"
-                style={{ backgroundColor: selectedStop.color }}
+                style={{ backgroundColor: selectedStopColor }}
               />
             </ColorPicker>
           )}

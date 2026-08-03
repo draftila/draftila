@@ -1,25 +1,31 @@
 import type * as Y from 'yjs';
 import type { Shape } from '@draftila/shared';
 
-import { ColorPicker } from './color-picker';
+import { ColorPicker, type ColorChangeMeta } from './color-picker';
 import { ExportSection } from './right-panel/sections/export-section';
 import { PreviewSection } from './right-panel/sections/preview-section';
+import { useVariables } from '../hooks/use-variables';
 
 interface RightPanelCanvasProps {
   ydoc: Y.Doc;
+  /** Already resolved by the parent. */
   pageBgColor: string;
+  pageBgColorVar?: string;
   canvasShape: Shape;
   shapeScope: Shape[];
-  onPageBgColorChange: (color: string) => void;
+  onPageBgColorChange: (color: string, meta?: ColorChangeMeta) => void;
 }
 
 export function RightPanelCanvas({
   ydoc,
   pageBgColor,
+  pageBgColorVar,
   canvasShape,
   shapeScope,
   onPageBgColorChange,
 }: RightPanelCanvasProps) {
+  const { byId, isDangling } = useVariables();
+  const boundName = pageBgColorVar ? byId.get(pageBgColorVar)?.name : undefined;
   return (
     <div>
       <div className="border-b px-3 py-3">
@@ -28,6 +34,7 @@ export function RightPanelCanvas({
           <ColorPicker
             color={pageBgColor}
             opacity={1}
+            colorVar={pageBgColorVar}
             onChange={onPageBgColorChange}
             onOpacityChange={() => {}}
           >
@@ -35,9 +42,14 @@ export function RightPanelCanvas({
               <div className="border-border relative h-5 w-5 shrink-0 overflow-hidden rounded border">
                 <div className="absolute inset-0" style={{ backgroundColor: pageBgColor }} />
               </div>
-              <span className="truncate font-mono text-[11px] leading-snug">
-                {pageBgColor.replace('#', '').toUpperCase()}
+              <span
+                className={`truncate text-[11px] leading-snug ${boundName ? 'font-medium' : 'font-mono'}`}
+              >
+                {boundName ?? pageBgColor.replace('#', '').toUpperCase()}
               </span>
+              {isDangling(pageBgColorVar) && (
+                <span className="text-muted-foreground shrink-0 text-[10px]">Missing</span>
+              )}
             </button>
           </ColorPicker>
         </div>

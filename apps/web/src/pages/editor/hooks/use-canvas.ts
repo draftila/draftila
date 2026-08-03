@@ -2,9 +2,11 @@ import { useCallback, useEffect, useRef } from 'react';
 import type * as Y from 'yjs';
 import type { FrameShape, Shape } from '@draftila/shared';
 import { Canvas2DRenderer } from '@draftila/engine/renderer/canvas2d';
-import { getAllShapes, observeShapes } from '@draftila/engine/scene-graph';
+import { observeShapes } from '@draftila/engine/scene-graph';
 import {
-  getPageBackgroundColor,
+  getResolvedShapes,
+  getResolvedPageBackgroundColor,
+  observeVariables,
   observePages,
   DEFAULT_PAGE_BACKGROUND,
   observeGuides,
@@ -68,26 +70,38 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
   const pageBgRef = useRef(DEFAULT_PAGE_BACKGROUND);
 
   useEffect(() => {
-    pageBgRef.current = activePageId
-      ? getPageBackgroundColor(ydoc, activePageId)
-      : DEFAULT_PAGE_BACKGROUND;
-
-    return observePages(ydoc, () => {
-      const currentPageId = useEditorStore.getState().activePageId;
+    const refresh = () => {
+      const currentPageId = useEditorStore.getState().activePageId ?? activePageId;
       pageBgRef.current = currentPageId
-        ? getPageBackgroundColor(ydoc, currentPageId)
+        ? getResolvedPageBackgroundColor(ydoc, currentPageId)
         : DEFAULT_PAGE_BACKGROUND;
-    });
+    };
+
+    refresh();
+    const unobservePages = observePages(ydoc, refresh);
+    // The background may be bound to a global, which lives in a separate root
+    // map that observePages never sees.
+    const unobserveVariables = observeVariables(ydoc, refresh);
+
+    return () => {
+      unobservePages();
+      unobserveVariables();
+    };
   }, [ydoc, activePageId]);
 
   useEffect(() => {
-    shapeCacheRef.current = getAllShapes(ydoc);
-    ensureFontsLoaded(collectFontFamilies(shapeCacheRef.current));
-
-    const unobserve = observeShapes(ydoc, () => {
-      shapeCacheRef.current = getAllShapes(ydoc);
+    const refresh = () => {
+      shapeCacheRef.current = getResolvedShapes(ydoc);
       ensureFontsLoaded(collectFontFamilies(shapeCacheRef.current));
-    });
+    };
+
+    refresh();
+
+    const unobserve = observeShapes(ydoc, refresh);
+    // Colour globals live in their own root map, so observeShapes never fires
+    // for them. Refilling the cache here is all the invalidation the canvas
+    // needs — the render loop is unconditional, so the next frame repaints.
+    const unobserveVariables = observeVariables(ydoc, refresh);
 
     const unsubscribeFonts = onFontsLoaded(() => {
       needsRedrawRef.current = true;
@@ -95,6 +109,7 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
 
     return () => {
       unobserve();
+      unobserveVariables();
       unsubscribeFonts();
     };
   }, [ydoc, activePageId]);

@@ -15,7 +15,8 @@ import {
   assembleHtmlWithCssLink,
   TAILWIND_CDN_URL,
 } from '@draftila/engine/codegen';
-import { getPageBackgroundColor } from '@draftila/engine/pages';
+import { getPageBackgroundColor, getPageBackgroundColorVar } from '@draftila/engine';
+import { useVariables } from '../../hooks/use-variables';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -131,10 +132,20 @@ export function InspectCode({ ydoc, shapes }: InspectCodeProps) {
   const expandedShapes = useExpandedShapes(ydoc, shapes);
   const tailwindScript = useTailwindScript();
   const activePageId = useEditorStore((state) => state.activePageId);
+  // Resolved through `table` rather than a ydoc read, so the memo recomputes
+  // when a global changes — the page background may be bound, and nothing else
+  // here would invalidate it.
+  const { table, resolve } = useVariables();
   const pageBackgroundColor = useMemo(() => {
     if (!activePageId) return null;
-    return getPageBackgroundColor(ydoc, activePageId);
-  }, [ydoc, activePageId]);
+    void table;
+    return (
+      resolve(
+        getPageBackgroundColor(ydoc, activePageId),
+        getPageBackgroundColorVar(ydoc, activePageId),
+      ) ?? null
+    );
+  }, [ydoc, activePageId, table, resolve]);
 
   const isHtmlMode = language === 'html-css' || language === 'html-tailwind';
 

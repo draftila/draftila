@@ -40,6 +40,7 @@ import type {
   layoutAlignSchema,
   layoutJustifySchema,
   sizingModeSchema,
+  variableSchema,
 } from '../schemas/editor';
 
 export type ShapeType = z.infer<typeof shapeTypeSchema>;
@@ -82,6 +83,7 @@ export type LayoutAlign = z.infer<typeof layoutAlignSchema>;
 export type LayoutJustify = z.infer<typeof layoutJustifySchema>;
 export type SizingMode = z.infer<typeof sizingModeSchema>;
 export type TextAutoResize = z.infer<typeof textAutoResizeSchema>;
+export type Variable = z.infer<typeof variableSchema>;
 
 export interface Camera {
   x: number;

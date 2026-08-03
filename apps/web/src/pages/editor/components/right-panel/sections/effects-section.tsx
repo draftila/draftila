@@ -10,7 +10,7 @@ type EffectItem =
   | { kind: 'shadow'; index: number; value: Shadow }
   | { kind: 'blur'; index: number; value: Blur };
 
-export function EffectsSection({ shape, onUpdate }: PropertySectionProps) {
+export function EffectsSection({ shape, onUpdate, multiSelect }: PropertySectionProps) {
   const shadows: Shadow[] = useMemo(
     () => ('shadows' in shape ? (shape as Shape & { shadows: Shadow[] }).shadows : []),
     [shape],
@@ -24,6 +24,15 @@ export function EffectsSection({ shape, onUpdate }: PropertySectionProps) {
   const updateShadow = useCallback(
     (index: number, patch: Partial<Shadow>) => {
       const next = shadows.map((s, i) => (i === index ? { ...s, ...patch } : s));
+      onUpdate({ shadows: next } as Partial<Shape>);
+    },
+    [shadows, onUpdate],
+  );
+
+  /** Whole-item replace — the merge above cannot express dropping `colorVar`. */
+  const replaceShadow = useCallback(
+    (index: number, shadow: Shadow) => {
+      const next = shadows.map((s, i) => (i === index ? shadow : s));
       onUpdate({ shadows: next } as Partial<Shape>);
     },
     [shadows, onUpdate],
@@ -154,7 +163,9 @@ export function EffectsSection({ shape, onUpdate }: PropertySectionProps) {
             <ShadowEntry
               key={`shadow-${item.index}`}
               shadow={item.value}
+              showGlobals={!multiSelect}
               onUpdate={(patch) => updateShadow(item.index, patch)}
+              onReplace={(next) => replaceShadow(item.index, next)}
               onRemove={() => removeShadow(item.index)}
             />
           ) : (
