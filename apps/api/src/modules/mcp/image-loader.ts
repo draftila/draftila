@@ -2,7 +2,7 @@ import { lookup } from 'node:dns/promises';
 import { request as httpRequest } from 'node:http';
 import type { IncomingMessage, RequestOptions } from 'node:http';
 import { request as httpsRequest } from 'node:https';
-import { createCanvas, Image } from '@napi-rs/canvas';
+import { createCanvas, loadImage, type Image } from '@napi-rs/canvas';
 import { imageSize } from 'image-size';
 import { extractStorageKey, getStorage } from '../../common/lib/storage';
 
@@ -179,10 +179,13 @@ function getImageDimensions(bytes: Buffer): ReturnType<typeof imageSize> {
   return dimensions;
 }
 
-function decodeImage(bytes: Buffer): Image {
-  const image = new Image();
+// `image.src = bytes` fills in the header-derived metadata (`complete`, `naturalWidth`) straight
+// away but decodes the pixels on a later tick, so drawing the image in the same tick silently
+// paints nothing. `loadImage` resolves only once the pixels are actually there.
+async function decodeImage(bytes: Buffer): Promise<Image> {
+  let image: Image;
   try {
-    image.src = bytes;
+    image = await loadImage(bytes);
   } catch {
     throw new Error('Unsupported or unreadable image format');
   }
@@ -265,7 +268,7 @@ async function readImageBytes(src: string): Promise<Buffer> {
 export async function loadServerImageAsset(src: string): Promise<ServerImageAsset> {
   const bytes = await readImageBytes(src);
   const dimensions = getImageDimensions(bytes);
-  const image = decodeImage(bytes);
+  const image = await decodeImage(bytes);
   const extension = dimensions.type ? BROWSER_IMAGE_EXTENSIONS[dimensions.type] : undefined;
 
   if (extension) {
@@ -278,6 +281,6 @@ export async function loadServerImageAsset(src: string): Promise<ServerImageAsse
 export async function loadServerImage(src: string): Promise<HTMLImageElement> {
   const bytes = await readImageBytes(src);
   getImageDimensions(bytes);
-  const image = decodeImage(bytes);
+  const image = await decodeImage(bytes);
   return image as unknown as HTMLImageElement;
 }
