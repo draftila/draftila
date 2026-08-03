@@ -3,11 +3,17 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { sendToolRpc } from '../mcp.auth';
 import { draftId, draftAndShapes, defineTool } from './schemas';
 
+interface ComponentSummarySource {
+  id: string;
+  name: string;
+  shapes?: { type: string; name?: string }[];
+}
+
 export function registerComponentTools(server: McpServer, getUserId: () => string) {
   defineTool(
     server,
     'create_component',
-    'Create a reusable component from existing shapes. Use this to define patterns you want to reuse (e.g. icon+text row, input field, card template). After creating a component, use create_instance to stamp out copies at different positions. Instances are linked to the component definition.',
+    'Save a snapshot of existing shapes as a reusable component, so create_instance can stamp out copies of it (e.g. an icon+text row, an input field, a card template). Pass the top-level shape IDs — descendants are captured automatically, so a frame ID brings its whole subtree. The snapshot is frozen at this moment: later edits to the original shapes do not change the component, and there is no way to update a component in place — create a new one instead.',
     {
       ...draftAndShapes,
       name: z.string().describe('Component name'),
@@ -24,12 +30,16 @@ export function registerComponentTools(server: McpServer, getUserId: () => strin
   defineTool(
     server,
     'create_instance',
-    'Stamp out a copy of a component at a given position. Use this after create_component to reuse patterns (e.g. placing multiple list items, repeated cards). The instance is linked to the component — future component updates will propagate.',
+    'Stamp out a copy of a component at a given position — use this to repeat a pattern (list items, cards, buttons) instead of recreating its shapes each time. The copy is INDEPENDENT: it gets fresh shape IDs and edits to it, or to the component, do not propagate either way. A record of which component it came from is kept, but there is no live link, no overrides and no detach. Returns { rootIds } — the new IDs of the top-level shapes, which you can then update_shape to customise (e.g. change the label text).',
     {
       ...draftId,
       componentId: z.string().describe('The component ID to instantiate'),
-      x: z.number().describe('X position'),
-      y: z.number().describe('Y position'),
+      x: z
+        .number()
+        .describe(
+          "X position for the instance's top-left corner (the component's shapes are normalised to their bounding box, so this is where the whole instance starts). Relative to parentId when set.",
+        ),
+      y: z.number().describe("Y position for the instance's top-left corner"),
       parentId: z.string().optional().describe('Optional parent frame to place instance in'),
     },
     async ({ draftId, componentId, x, y, parentId }) => {
@@ -46,18 +56,36 @@ export function registerComponentTools(server: McpServer, getUserId: () => strin
   defineTool(
     server,
     'list_components',
-    'List all reusable components in a draft. Use this to discover existing components before creating new ones — you can reuse them with create_instance.',
+    'List the reusable components in a draft, as { id, name, shapeCount, shapes: [{type, name}] }. Call this before building a repeated pattern — reusing an existing component with create_instance is cheaper and more consistent than recreating its shapes.',
     draftId,
     async ({ draftId }) => {
-      const result = await sendToolRpc(draftId as string, getUserId(), 'list_components', {});
-      return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] };
+      const result = (await sendToolRpc(
+        draftId as string,
+        getUserId(),
+        'list_components',
+        {},
+      )) as { components?: ComponentSummarySource[] };
+
+      // The RPC returns each component's full shape JSON, which is far more
+      // than an agent needs to choose one and dwarfs the rest of its context.
+      const components = (result.components ?? []).map((component) => ({
+        id: component.id,
+        name: component.name,
+        shapeCount: component.shapes?.length ?? 0,
+        shapes: (component.shapes ?? []).map((shape) => ({
+          type: shape.type,
+          name: shape.name,
+        })),
+      }));
+
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ components }) }] };
     },
   );
 
   defineTool(
     server,
     'remove_component',
-    'Remove a component definition (instances remain as regular shapes)',
+    'Delete a component definition. Shapes already stamped out from it are unaffected — they stay on the canvas as ordinary shapes.',
     {
       ...draftId,
       componentId: z.string().describe('The component ID to remove'),

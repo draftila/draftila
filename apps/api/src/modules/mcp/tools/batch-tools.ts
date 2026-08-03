@@ -1,7 +1,14 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { sendToolRpc } from '../mcp.auth';
-import { draftId, defineTool } from './schemas';
+import {
+  draftId,
+  defineTool,
+  SHAPE_TYPES,
+  SHAPE_TYPE_DOC,
+  BATCH_CREATE_PROPS_DOC,
+  UPDATE_PROPS_DOC,
+} from './schemas';
 
 export function registerBatchTools(server: McpServer, getUserId: () => string) {
   defineTool(
@@ -14,19 +21,10 @@ export function registerBatchTools(server: McpServer, getUserId: () => string) {
         .array(
           z.object({
             type: z
-              .enum([
-                'rectangle',
-                'ellipse',
-                'frame',
-                'text',
-                'path',
-                'line',
-                'polygon',
-                'star',
-                'image',
-                'svg',
-              ])
-              .describe('Shape type. When iconName is set, type is ignored (auto-set to "svg").'),
+              .enum(SHAPE_TYPES)
+              .describe(
+                `${SHAPE_TYPE_DOC} When iconName is set, type is ignored (auto-set to "svg").`,
+              ),
             childIndex: z
               .number()
               .optional()
@@ -51,13 +49,7 @@ export function registerBatchTools(server: McpServer, getUserId: () => string) {
               .string()
               .optional()
               .describe('Icon color as hex (default "#000000"). Only used when iconName is set.'),
-            props: z
-              .record(z.unknown())
-              .optional()
-              .describe(
-                'IMAGE IMPORT: HTTP(S) URLs and data URIs in fills[].imageSrc, and HTTP(S) URLs in image-shape src, are saved in draft storage before creation. ' +
-                  'Same props as create_shape. Key props: x, y (relative to parent when parentId is set — e.g. x=20 means 20px from parent\'s left edge), width, height, rotation, name, opacity, parentId (use "$0", "$1" etc. to reference shapes created earlier in this batch). FILLS: [{color, colorVar?: "<id from list_variables>" to bind a draft global (keep color as the fallback), opacity?, visible?, gradient?: {type: "linear", angle, stops: [{color, position}]} or {type: "radial", cx, cy, r, stops}}]. STROKES: [{color, width}]. EFFECTS: shadows [{type?: "drop"|"inner" (default "drop"), color, x, y, blur, spread?}], blurs [{type, radius}]. CORNERS: cornerRadius, cornerRadiusTL/TR/BL/BR, cornerSmoothing. TEXT: content, fontSize, fontFamily, fontWeight, fontStyle, textAlign, verticalAlign, lineHeight, letterSpacing, textDecoration, textTransform, textAutoResize (defaults to "width" — auto-sizes horizontally to fit text; "height" wraps text in fixed width and auto-sizes height; "none" for fully manual sizing). FRAME: clip (default true), layoutMode ("horizontal"|"vertical" — enables auto-layout so children are positioned automatically, no manual x/y needed on children), layoutWrap ("nowrap"|"wrap" — enables wrapping onto multiple rows/columns), layoutGap (main-axis gap), layoutGapColumn (cross-axis gap for wrap mode), paddingTop/Right/Bottom/Left, layoutAlign, layoutJustify ("start"|"center"|"end"|"space_between"|"space_around"), layoutSizingHorizontal/layoutSizingVertical ("fixed"|"hug"|"fill")',
-              ),
+            props: z.record(z.unknown()).optional().describe(BATCH_CREATE_PROPS_DOC),
           }),
         )
         .describe('Array of shapes to create, in order'),
@@ -80,12 +72,7 @@ export function registerBatchTools(server: McpServer, getUserId: () => string) {
         .array(
           z.object({
             shapeId: z.string().describe('Shape ID to update'),
-            props: z
-              .record(z.unknown())
-              .describe(
-                'IMAGE IMPORT: HTTP(S) URLs and data URIs in fills[].imageSrc, and HTTP(S) URLs in image-shape src, are saved in draft storage before the update. ' +
-                  'Same props as create_shape (see create_shape for full format details including gradient fills, shadows, blurs). NOTE: fills/strokes/shadows REPLACE the whole array — re-send colorVar to keep a global binding, or use bind_variable/unbind_variable. Key props: x, y, width, height, rotation, name, opacity, visible, locked, parentId, fills, strokes, shadows, blurs, cornerRadius, cornerRadiusTL/TR/BL/BR, cornerSmoothing. Text: content, fontSize, fontFamily, fontWeight, fontStyle, textAlign, verticalAlign, lineHeight, letterSpacing, textDecoration, textTransform, textAutoResize. Frame: clip, layoutMode, layoutWrap, layoutGap, layoutGapColumn, paddingTop/Right/Bottom/Left, layoutAlign, layoutJustify, layoutSizingHorizontal, layoutSizingVertical',
-              ),
+            props: z.record(z.unknown()).describe(UPDATE_PROPS_DOC),
           }),
         )
         .describe('Array of shape updates'),

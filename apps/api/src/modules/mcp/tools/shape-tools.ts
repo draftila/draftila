@@ -1,7 +1,16 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { sendToolRpc } from '../mcp.auth';
-import { draftId, draftAndShape, draftAndShapes, defineTool } from './schemas';
+import {
+  draftId,
+  draftAndShape,
+  draftAndShapes,
+  defineTool,
+  SHAPE_TYPES,
+  SHAPE_TYPE_DOC,
+  CREATE_PROPS_DOC,
+  UPDATE_PROPS_DOC,
+} from './schemas';
 
 export function registerShapeTools(server: McpServer, getUserId: () => string) {
   defineTool(
@@ -10,35 +19,14 @@ export function registerShapeTools(server: McpServer, getUserId: () => string) {
     'Create a new shape on the active page. This is the RECOMMENDED way to build designs — create shapes one at a time so the user can see real-time progress. Use create_shape for each element in your design (frames, text, rectangles, etc.). For small groups of tightly related shapes (e.g. a button with an icon and label), you may use batch_create_shapes, but do NOT use batch_create_shapes for entire designs or large sections. Shapes are always created on the active page — use set_active_page first if needed. IMPORTANT: Shapes render in creation order (last created = on top). Create background shapes first, then foreground elements (e.g. background rectangle before text on top of it). Use move_in_stack to fix z-order after the fact. TIP: For containers that auto-position children (no manual x/y needed), set layoutMode on frames — see props description for details.',
     {
       ...draftId,
-      type: z
-        .enum([
-          'rectangle',
-          'ellipse',
-          'frame',
-          'text',
-          'path',
-          'line',
-          'polygon',
-          'star',
-          'image',
-          'svg',
-        ])
-        .describe(
-          'Shape type. rectangle: box with optional rounded corners. ellipse: circle/oval. frame: container for child shapes (supports auto-layout, clipping). text: text label (use fills for text color). line: line segment using x1,y1,x2,y2 (not x,y,width,height), supports startArrowhead/endArrowhead ("none"|"line_arrow"|"triangle_arrow"|"reversed_triangle"|"circle_arrow"|"diamond_arrow"). polygon: n-sided shape (set sides). star: star shape (set points, innerRadiusRatio). path: freeform vector path. image: image placeholder. svg: embedded SVG content (set svgContent prop to SVG markup string — for complex SVGs, prefer import_svg tool instead which handles parsing/conversion).',
-        ),
+      type: z.enum(SHAPE_TYPES).describe(SHAPE_TYPE_DOC),
       childIndex: z
         .number()
         .optional()
         .describe(
           'Insert position among siblings (0 = first child, 1 = second, etc.). Only applies when parentId is set. Omit to append as last child.',
         ),
-      props: z
-        .record(z.unknown())
-        .optional()
-        .describe(
-          'IMAGE IMPORT: HTTP(S) URLs and data URIs used in fills[].imageSrc are downloaded, validated, and saved in draft storage before the shape is created. For image shapes, set src to an HTTP(S) URL. ' +
-            'Shape properties: x, y (relative to parent if parentId is set, otherwise canvas coordinates — e.g. x=20,y=20 inside a frame means 20px from the frame\'s top-left corner), width, height, rotation, name, opacity, parentId (to nest inside a frame). FILLS: fills (array of fill objects). For solid/gradient fills, use {color, opacity?, visible?, gradient?}. Solid: [{color: "#6C3CE9"}]. Gradient: [{color: "#000000", gradient: {type: "linear", angle: 90, stops: [{color: "#FF0000", position: 0}, {color: "#0000FF", position: 1}]}}] or {type: "radial", cx: 0.5, cy: 0.5, r: 0.5, stops: [...]}. For image fills on any shape (rectangles, frames, text, etc.), use {imageSrc, imageFit?, opacity?, visible?} — imageSrc is a URL or data URI, imageFit controls placement: "fill" (stretch to cover), "fit" (contain), "crop" (cover + center), "tile" (repeat pattern). Image fill example: [{imageSrc: "https://example.com/image.png", imageFit: "fill"}]. Any fill or stroke may also set colorVar: "<id from list_variables>" to bind it to a draft global ("Globals" in the editor) — keep color set too, since it is the fallback if the global is missing. NOTE: frames default to white fill — pass fills=[] for transparent layout frames. STROKES: strokes (array of {color, width, opacity?, align?: "center"|"inside"|"outside"}). EFFECTS: shadows (array of {type?: "drop"|"inner" (default "drop"), color, x, y, blur, spread?} — e.g. [{color: "#00000020", x: 0, y: 4, blur: 12, spread: 0}]), blurs (array of {type: "layer"|"background", radius} — "layer" blurs the shape itself like a gaussian blur, "background" blurs everything behind the shape creating a frosted glass/glassmorphism effect — e.g. [{type: "layer", radius: 8}] or [{type: "background", radius: 12}]). CORNERS: cornerRadius (uniform), cornerRadiusTL/TR/BL/BR (per-corner overrides), cornerSmoothing (0-1, iOS-style smoothing). LINE SHAPES: use x1,y1,x2,y2 instead of x,y,width,height. startArrowhead/endArrowhead ("none"|"line_arrow"|"triangle_arrow"|"reversed_triangle"|"circle_arrow"|"diamond_arrow"). TEXT SHAPES: text width auto-sizes to fit content by default (textAutoResize defaults to "width"), so you usually only need to set content, fontSize, and position. Use fills to set text color (e.g. fills: [{color: "#ffffff"}] for white text). content (the text string), fontSize (default 16), fontFamily (default Inter; call list_fonts for admin-uploaded custom families and the weights they ship), fontWeight (default 400), fontStyle (normal|italic), textAlign (left|center|right), verticalAlign (top|middle|bottom), lineHeight (default 1.2), letterSpacing, textDecoration (none|underline|strikethrough), textTransform (none|uppercase|lowercase|capitalize), textAutoResize ("none"|"width"|"height" — defaults to "width"; "width" auto-sizes horizontally to fit text, "height" wraps text within a fixed width and auto-sizes height, "none" is fully manual), textTruncation ("none"|"ending" — when "ending", text that overflows is truncated with an ellipsis). FRAME PROPERTIES: clip (boolean, default true — clips children to frame bounds; set false to allow overflow), layoutMode ("horizontal"|"vertical" — enables auto-layout, a flex-like system that positions children automatically), layoutWrap ("nowrap"|"wrap" — enables wrapping of children onto multiple rows/columns when they exceed the main axis), layoutGap (spacing between children on main axis), layoutGapColumn (cross-axis gap between rows/columns when wrap is enabled), paddingTop/Right/Bottom/Left, layoutAlign ("start"|"center"|"end"|"stretch" — cross-axis), layoutJustify ("start"|"center"|"end"|"space_between"|"space_around" — main-axis), layoutSizingHorizontal/layoutSizingVertical ("fixed"|"hug"|"fill" — "hug" shrinks frame to fit children). AUTO-LAYOUT CHILD CONSTRAINTS: minWidth, maxWidth, minHeight, maxHeight (optional numbers — constrain child dimensions within auto-layout frames, prevents content clipping on badges/cards). When layoutMode is set, child positions are managed by the layout — you do NOT need to set x/y on children. To make a button: create a frame with layoutMode="horizontal", padding, cornerRadius, fills, and a text child.',
-        ),
+      props: z.record(z.unknown()).optional().describe(CREATE_PROPS_DOC),
     },
     async ({ draftId, type, props, childIndex }) => {
       const result = await sendToolRpc(draftId as string, getUserId(), 'create_shape', {
@@ -67,12 +55,7 @@ export function registerShapeTools(server: McpServer, getUserId: () => string) {
     'Update shape properties (position, size, fills, strokes, text, etc.)',
     {
       ...draftAndShape,
-      props: z
-        .record(z.unknown())
-        .describe(
-          'IMAGE IMPORT: HTTP(S) URLs and data URIs in fills[].imageSrc, and HTTP(S) URLs in image-shape src, are saved in draft storage before the update. ' +
-            'Properties to update (same format as create_shape props). NOTE: fills/strokes/shadows REPLACE the whole array — re-send colorVar on any item that should stay bound to a global, or use bind_variable/unbind_variable to change a binding without rewriting the array: x, y (relative to parent for child shapes), width, height, rotation, name, opacity, visible, locked, fills (with optional gradient — see create_shape for format), strokes, shadows, blurs, cornerRadius, cornerRadiusTL/TR/BL/BR, cornerSmoothing. Text: content, fontSize, fontFamily, fontWeight, fontStyle, textAlign, verticalAlign, lineHeight, letterSpacing, textDecoration, textTransform, textAutoResize, textTruncation ("none"|"ending"). Frame: clip, layoutMode, layoutWrap, layoutGap, layoutGapColumn, paddingTop/Right/Bottom/Left, layoutAlign, layoutJustify, layoutSizingHorizontal, layoutSizingVertical. Auto-layout child constraints: minWidth, maxWidth, minHeight, maxHeight',
-        ),
+      props: z.record(z.unknown()).describe(UPDATE_PROPS_DOC),
     },
     async ({ draftId, shapeId, props }) => {
       const result = await sendToolRpc(draftId as string, getUserId(), 'update_shape', {
