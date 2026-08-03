@@ -1,0 +1,9 @@
+{
+  "extends": "@draftila/typescript-config/node.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": ".",
+    "types": ["node", "bun"]
+  },
+  "include": ["src", "tests"]
+}

@@ -6,6 +6,7 @@
 - One default `docker-compose.yml` service (`app`) using SQLite.
 - Optional PostgreSQL support by adding a PostgreSQL service and changing env vars.
 - Manual GitHub Actions workflow to push images to Docker Hub by branch or version tag.
+- A version-matched npm CLI that manages the image for local installations.
 
 ## Local run with SQLite (default)
 
@@ -62,21 +63,33 @@ Run with both compose files:
 docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build
 ```
 
-## GitHub Actions Docker publish
+## GitHub Actions releases
 
-Workflow file: `.github/workflows/docker-publish.yml`
+Application releases and CLI publishing use separate manually triggered workflows.
+
+### Application release
+
+Workflow file: `.github/workflows/release.yml`
 
 It runs manually from the Actions tab with three inputs:
 
-- `target`: branch name or version tag value.
-- `target_type`: `branch` or `version`.
-- `mark_latest`: if true, also pushes `latest`.
+- `version`: GitHub release and Docker image version.
+- `prerelease`: marks the GitHub release as a pre-release.
+- `latest`: publishes the Docker `latest` tag.
 
-Tag behavior:
+The workflow builds amd64 and arm64 images and publishes their multi-architecture manifest.
 
-- Branch example: `target=main`, `target_type=branch` pushes `draftila/draftila:main`.
-- Branch with latest: same as above plus `draftila/draftila:latest` when `mark_latest=true`.
-- Version example: `target=v1.2.0`, `target_type=version` checks out `refs/tags/v1.2.0` and pushes `draftila/draftila:v1.2.0`.
+### CLI publish
+
+Workflow file: `.github/workflows/publish-cli.yml`
+
+It publishes the version currently declared in `apps/cli/package.json` without creating a Git tag,
+GitHub release, root version bump, or Docker image. Select either the `latest` or `next` npm
+distribution tag when starting the workflow.
+
+The matching `draftila/draftila:<CLI version>` Docker image must already exist. The workflow verifies
+the image, checks that the npm version has not already been published, and runs the CLI typecheck,
+tests, build, and package verification before publishing.
 
 ## GitHub secrets required
 
@@ -84,6 +97,8 @@ In GitHub repository settings, add these Actions secrets:
 
 - `DOCKERHUB_USERNAME`: your Docker Hub username.
 - `DOCKERHUB_TOKEN`: Docker Hub access token with read/write permissions.
+- `NPM_TOKEN`: granular npm access token with write access to the `draftila` package and
+  **Bypass 2FA** enabled for CI publishing.
 
 Recommended Docker Hub setup:
 

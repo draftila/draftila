@@ -8,7 +8,29 @@
 
 ## Installation
 
-Create a `docker-compose.yml`:
+Install [Docker](https://docs.docker.com/get-docker/) and run:
+
+```bash
+npx draftila start
+```
+
+The first run opens a terminal setup for the binding address, port, and initial administrator.
+Draftila uses SQLite and stores projects and uploaded files in a persistent Docker volume.
+
+Useful commands:
+
+```bash
+npx draftila stop
+npx draftila restart
+npx draftila status
+npx draftila config
+npx draftila uninstall
+```
+
+`uninstall` preserves projects and files. Use `npx draftila uninstall --purge` only when you
+intend to permanently delete all local Draftila data.
+
+For server deployments, create a `docker-compose.yml`:
 
 ```yaml
 services:
@@ -47,9 +69,9 @@ Open [http://localhost:3001](http://localhost:3001) to get started.
 To create additional admin accounts on a running container:
 
 ```bash
-docker exec <container> bun run --filter @draftila/api db:create-admin -- \
-  --email admin@example.com \
-  --password your-password \
+printf '%s' 'your-password' | docker exec -i <container> \
+  bun run --filter @draftila/api db:create-admin -- \
+  --email admin@example.com --password-stdin \
   --name "Admin Name"
 ```
 

@@ -1,17 +1,59 @@
 ---
 title: Installation
-description: Self-host Draftila on your own server in minutes using Docker.
+description: Run Draftila locally with one command or deploy it with Docker Compose.
 ---
 
 # Installation
 
-Draftila is designed to be self-hosted. The easiest way to get started is with Docker Compose. By default, Draftila uses **SQLite** — no external database required.
+Draftila can run entirely on your computer. The command-line setup uses Docker and **SQLite**, so no external database or source checkout is required.
 
 ## Requirements
 
-- Docker and Docker Compose
+- Node.js 20.17 or newer
+- Docker
 
-## Quick Start
+## Local Quick Start
+
+Run:
+
+```bash
+npx draftila start
+```
+
+The first start opens a terminal setup. Choose whether Draftila is available only on this computer or to devices on your local network, select a port, and create the first administrator. Passwords are sent directly to the running container and are not saved in the CLI configuration.
+
+Common commands:
+
+```bash
+npx draftila start
+npx draftila stop
+npx draftila restart
+npx draftila status
+npx draftila config
+npx draftila uninstall
+```
+
+`npx draftila config` changes the binding address and port and manages administrator accounts while Draftila is running.
+
+## Uninstalling
+
+The normal uninstall removes the container and image while preserving the configuration and `draftila_data` volume:
+
+```bash
+npx draftila uninstall
+```
+
+To permanently delete all projects, uploaded files, and local configuration:
+
+```bash
+npx draftila uninstall --purge
+```
+
+The purge command requires a separate destructive confirmation.
+
+## Docker Compose
+
+For a server deployment, create a `.env` file:
 
 Create a `.env` file:
 
@@ -58,16 +100,16 @@ docker compose up -d
 
 That's it. Draftila is now running at `http://localhost:3001` with SQLite, and your admin account is ready to use.
 
-## Admin Setup
+## Docker Compose Admin Setup
 
 The first admin user is created automatically when you set the `ADMIN_EMAIL` and `ADMIN_PASSWORD` environment variables. These are checked on every container start — if the admin already exists, it's a no-op.
 
 You can also create admin users manually:
 
 ```bash
-docker exec <container> bun run --filter @draftila/api db:create-admin -- \
-  --email admin@example.com \
-  --password your-password \
+printf '%s' 'your-password' | docker exec -i <container> \
+  bun run --filter @draftila/api db:create-admin -- \
+  --email admin@example.com --password-stdin \
   --name "Admin Name"
 ```
 
