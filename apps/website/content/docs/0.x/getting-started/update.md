@@ -20,7 +20,7 @@ Migrations will run automatically on startup.
 
 ## Local CLI
 
-Run the latest CLI version. Its version is matched to the same Docker image version, and existing data is preserved while the container is recreated:
+Run the latest CLI version. It downloads the matching native runtime, stops the previous runtime, and starts the new one. Existing projects, uploaded files, and configuration are preserved:
 
 ```bash
 npx draftila@latest restart

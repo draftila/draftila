@@ -7,6 +7,8 @@ export interface CommandResult {
 }
 
 export interface CommandOptions {
+  cwd?: string;
+  env?: NodeJS.ProcessEnv;
   input?: string;
 }
 
@@ -18,6 +20,8 @@ export class NodeProcessRunner implements ProcessRunner {
   run(command: string, args: string[], options: CommandOptions = {}): Promise<CommandResult> {
     return new Promise((resolve, reject) => {
       const child = spawn(command, args, {
+        cwd: options.cwd,
+        env: options.env,
         shell: false,
         stdio: ['pipe', 'pipe', 'pipe'],
         windowsHide: true,

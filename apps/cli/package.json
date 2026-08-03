@@ -1,6 +1,6 @@
 {
   "name": "draftila",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Run and manage Draftila locally",
   "type": "module",
   "license": "MIT",
@@ -22,7 +22,7 @@
     "node": ">=20.17.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "bun run clean && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -31,7 +31,8 @@
   },
   "dependencies": {
     "@inquirer/prompts": "^8.5.2",
-    "commander": "^14.0.3"
+    "commander": "^14.0.3",
+    "tar": "^7.5.22"
   },
   "devDependencies": {
     "@draftila/eslint-config": "workspace:*",

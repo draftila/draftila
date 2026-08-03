@@ -4,7 +4,9 @@ import { readFileSync } from 'node:fs';
 import { Command } from 'commander';
 import { DraftilaCli } from './app.js';
 import { ConfigStore } from './config.js';
-import { DockerClient } from './docker.js';
+import { RuntimeInstaller } from './runtime-installer.js';
+import { RuntimeManager } from './runtime-manager.js';
+import { RuntimePaths } from './paths.js';
 import { NodeProcessRunner } from './process-runner.js';
 import { InquirerPromptService } from './prompts.js';
 import { DraftilaTui } from './tui.js';
@@ -26,11 +28,14 @@ function getPackageVersion(): string {
 
 export async function main(args = process.argv): Promise<void> {
   const version = getPackageVersion();
-  const image = process.env.DRAFTILA_IMAGE ?? `draftila/draftila:${version}`;
   const configStore = new ConfigStore();
-  const docker = new DockerClient(new NodeProcessRunner(), image);
+  const paths = new RuntimePaths();
+  const installer = new RuntimeInstaller(paths, version);
+  const runtime = new RuntimeManager(paths, installer, new NodeProcessRunner(), {
+    loadConfig: () => configStore.load(),
+  });
   const tui = new DraftilaTui(new InquirerPromptService());
-  const cli = new DraftilaCli(configStore, docker, tui);
+  const cli = new DraftilaCli(configStore, runtime, tui);
   const program = new Command();
 
   program.name('draftila').description('Run and manage Draftila locally').version(version);

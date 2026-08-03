@@ -6,7 +6,6 @@
 - One default `docker-compose.yml` service (`app`) using SQLite.
 - Optional PostgreSQL support by adding a PostgreSQL service and changing env vars.
 - Manual GitHub Actions workflow to push images to Docker Hub by branch or version tag.
-- A version-matched npm CLI that manages the image for local installations.
 
 ## Local run with SQLite (default)
 
@@ -83,13 +82,11 @@ The workflow builds amd64 and arm64 images and publishes their multi-architectur
 
 Workflow file: `.github/workflows/publish-cli.yml`
 
-It publishes the version currently declared in `apps/cli/package.json` without creating a Git tag,
-GitHub release, root version bump, or Docker image. Select either the `latest` or `next` npm
+It builds and smoke-tests native production runtimes for supported macOS, Linux, and Windows
+platforms, creates a CLI-only `cli-v<version>` GitHub release with checksums, and publishes the
+version declared in `apps/cli/package.json` to npm. It does not create an application release, change
+the root version, or build or publish a Docker image. Select either the `latest` or `next` npm
 distribution tag when starting the workflow.
-
-The matching `draftila/draftila:<CLI version>` Docker image must already exist. The workflow verifies
-the image, checks that the npm version has not already been published, and runs the CLI typecheck,
-tests, build, and package verification before publishing.
 
 ## GitHub secrets required
 

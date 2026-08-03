@@ -1,5 +1,5 @@
 {
-  "name": "draftila",
+  "name": "@draftila/monorepo",
   "version": "0.6.0",
   "private": true,
   "license": "MIT",
@@ -29,6 +29,7 @@
     "api:db:refresh": "bun run --filter @draftila/api db:refresh",
     "api:routes:list": "bun run --filter @draftila/api routes:list",
     "cli:build": "bun run --filter draftila build",
+    "cli:runtime:build": "bun run --filter @draftila/api runtime:build",
     "cli:test": "bun run --filter draftila test",
     "cli:typecheck": "bun run --filter draftila typecheck",
     "cli:lint": "bun run --filter draftila lint",
@@ -44,5 +45,5 @@
     "prettier-plugin-tailwindcss": "^0.6.9",
     "turbo": "^2.3.3"
   },
-  "packageManager": "bun@1.1.38"
+  "packageManager": "bun@1.3.14"
 }

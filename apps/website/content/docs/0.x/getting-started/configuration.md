@@ -22,7 +22,7 @@ The guided terminal flow configures:
 
 The generated authentication secret is stored in the operating system's user configuration directory with owner-only permissions. Administrator passwords are never written to the configuration file.
 
-Changing network settings while Draftila is running offers to recreate the container immediately. Projects and uploaded files remain in the persistent `draftila_data` volume.
+Changing network settings while Draftila is running offers to restart the native runtime immediately. Projects and uploaded files remain in Draftila's user data directory.
 
 ## Environment Variables
 

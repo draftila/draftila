@@ -5,12 +5,12 @@ description: Run Draftila locally with one command or deploy it with Docker Comp
 
 # Installation
 
-Draftila can run entirely on your computer. The command-line setup uses Docker and **SQLite**, so no external database or source checkout is required.
+Draftila can run entirely on your computer. The command-line setup downloads a native production runtime and uses **SQLite**, so no Docker installation, external database, or source checkout is required.
 
 ## Requirements
 
 - Node.js 20.17 or newer
-- Docker
+- macOS on Apple Silicon or Intel, Linux on ARM64 or x64, or Windows on x64
 
 ## Local Quick Start
 
@@ -20,7 +20,7 @@ Run:
 npx draftila start
 ```
 
-The first start opens a terminal setup. Choose whether Draftila is available only on this computer or to devices on your local network, select a port, and create the first administrator. Passwords are sent directly to the running container and are not saved in the CLI configuration.
+The first start opens a terminal setup. Choose whether Draftila is available only on this computer or to devices on your local network, select a port, and create the first administrator. The CLI downloads and verifies the production runtime for your platform. Passwords are passed directly to that runtime and are not saved in the CLI configuration.
 
 Common commands:
 
@@ -33,11 +33,11 @@ npx draftila config
 npx draftila uninstall
 ```
 
-`npx draftila config` changes the binding address and port and manages administrator accounts while Draftila is running.
+`npx draftila config` changes the binding address and port and manages administrator accounts after the runtime has been installed. Running network settings can be applied with an automatic restart.
 
 ## Uninstalling
 
-The normal uninstall removes the container and image while preserving the configuration and `draftila_data` volume:
+The normal uninstall stops Draftila and removes its downloaded runtime while preserving configuration, projects, and uploaded files:
 
 ```bash
 npx draftila uninstall

@@ -5,7 +5,7 @@ import {
   validatePort,
   validatePublicHostname,
 } from './config.js';
-import type { DockerClient } from './docker.js';
+import type { AdminCommandRunner } from './runtime-manager.js';
 import type { PromptService } from './prompts.js';
 
 interface AdminAccount {
@@ -134,9 +134,9 @@ export class DraftilaTui {
     return save ? config : null;
   }
 
-  async manageAdministrators(docker: DockerClient): Promise<void> {
+  async manageAdministrators(adminCommands: AdminCommandRunner): Promise<void> {
     while (true) {
-      const administrators = parseAdmins(await docker.runAdminCommand(['list']));
+      const administrators = parseAdmins(await adminCommands.runAdminCommand(['list']));
       this.output.log('\nAdministrator users');
       if (administrators.length === 0) this.output.log('  No administrators configured');
       else
@@ -158,10 +158,10 @@ export class DraftilaTui {
         { name: 'Done', value: 'done' },
       ]);
       if (action === 'done') return;
-      if (action === 'add') await this.addAdministrator(docker);
+      if (action === 'add') await this.addAdministrator(adminCommands);
       if (action === 'reset-password')
-        await this.resetAdministratorPassword(docker, administrators);
-      if (action === 'demote') await this.demoteAdministrator(docker, administrators);
+        await this.resetAdministratorPassword(adminCommands, administrators);
+      if (action === 'demote') await this.demoteAdministrator(adminCommands, administrators);
     }
   }
 
@@ -174,11 +174,13 @@ export class DraftilaTui {
     return confirmation === 'DELETE';
   }
 
-  private async addAdministrator(docker: DockerClient): Promise<void> {
+  private async addAdministrator(adminCommands: AdminCommandRunner): Promise<void> {
     const email = (await this.prompts.input('Email address', { validate: validateEmail }))
       .trim()
       .toLowerCase();
-    const inspection = parseInspection(await docker.runAdminCommand(['inspect', '--email', email]));
+    const inspection = parseInspection(
+      await adminCommands.runAdminCommand(['inspect', '--email', email]),
+    );
     if (inspection?.role === 'admin') {
       this.output.log(`${email} is already an administrator.`);
       return;
@@ -186,7 +188,7 @@ export class DraftilaTui {
     if (inspection?.role === 'user') {
       const promote = await this.prompts.confirm(`Promote ${email} to administrator?`, true);
       if (!promote) return;
-      await docker.runAdminCommand(['promote', '--email', email]);
+      await adminCommands.runAdminCommand(['promote', '--email', email]);
       this.output.log(`Administrator access added for ${email}.`);
       return;
     }
@@ -196,7 +198,7 @@ export class DraftilaTui {
       })
     ).trim();
     const password = await this.askNewPassword();
-    await docker.runAdminCommand(
+    await adminCommands.runAdminCommand(
       ['create', '--email', email, '--name', name, '--password-stdin'],
       password,
     );
@@ -204,12 +206,12 @@ export class DraftilaTui {
   }
 
   private async resetAdministratorPassword(
-    docker: DockerClient,
+    adminCommands: AdminCommandRunner,
     administrators: AdminAccount[],
   ): Promise<void> {
     const email = await this.chooseAdministrator('Select an administrator', administrators);
     const password = await this.askNewPassword();
-    await docker.runAdminCommand(
+    await adminCommands.runAdminCommand(
       ['reset-password', '--email', email, '--password-stdin'],
       password,
     );
@@ -217,7 +219,7 @@ export class DraftilaTui {
   }
 
   private async demoteAdministrator(
-    docker: DockerClient,
+    adminCommands: AdminCommandRunner,
     administrators: AdminAccount[],
   ): Promise<void> {
     const email = await this.chooseAdministrator(
@@ -228,7 +230,7 @@ export class DraftilaTui {
       `Remove administrator access from ${email}? The user account and projects will be kept.`,
     );
     if (!confirmed) return;
-    await docker.runAdminCommand(['demote', '--email', email]);
+    await adminCommands.runAdminCommand(['demote', '--email', email]);
     this.output.log(`Administrator access removed from ${email}.`);
   }
 

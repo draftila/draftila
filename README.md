@@ -8,14 +8,16 @@
 
 ## Installation
 
-Install [Docker](https://docs.docker.com/get-docker/) and run:
+With Node.js 20.17 or newer installed, run:
 
 ```bash
 npx draftila start
 ```
 
 The first run opens a terminal setup for the binding address, port, and initial administrator.
-Draftila uses SQLite and stores projects and uploaded files in a persistent Docker volume.
+The CLI downloads the production runtime for your operating system and runs it directly on your
+computer. Docker and a source checkout are not required. Projects and uploaded files are stored in
+Draftila's user data directory with SQLite.
 
 Useful commands:
 

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "bun run db:studio & bun run --hot src/index.ts",
     "build": "bun build src/index.ts --outdir dist --target bun --external paper --external css-tree --external mdn-data --external csso --external fontkit",
+    "runtime:build": "bun run ../../scripts/build-cli-runtime.ts",
     "start": "bun run dist/index.js",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
