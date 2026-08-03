@@ -32,7 +32,18 @@ export function InspectFill({ shape }: { shape: Shape }) {
       {visibleFills.map((fill, i) => {
         const indexLabel = visibleFills.length > 1 ? `Fill ${i + 1}` : null;
 
-        // Matches the renderer's precedence: an image fill paints over any colour it carries.
+        // Gradient, then image, then colour — the order fillToCssValue uses, so the List and
+        // Code tabs never disagree about which layer of a fill is the one on show.
+        if (fill.gradient) {
+          return (
+            <InspectPropertyRow
+              key={i}
+              label={indexLabel ?? 'Gradient'}
+              value={formatGradient(fill.gradient)}
+            />
+          );
+        }
+
         if (fill.imageSrc) {
           return (
             <div key={i} className="flex flex-col gap-0.5">
@@ -42,16 +53,6 @@ export function InspectFill({ shape }: { shape: Shape }) {
               />
               <InspectPropertyRow label="Source" value={fill.imageSrc} />
             </div>
-          );
-        }
-
-        if (fill.gradient) {
-          return (
-            <InspectPropertyRow
-              key={i}
-              label={indexLabel ?? 'Gradient'}
-              value={formatGradient(fill.gradient)}
-            />
           );
         }
 
