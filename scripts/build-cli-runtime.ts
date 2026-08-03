@@ -28,7 +28,7 @@ if (values.target && values.target !== target) {
 }
 
 const repositoryRoot = resolve(import.meta.dir, '..');
-const outputDirectory = resolve(values.outdir);
+const outputDirectory = resolve(repositoryRoot, values.outdir);
 const executableName = process.platform === 'win32' ? 'draftila-runtime.exe' : 'draftila-runtime';
 const executablePath = join(outputDirectory, executableName);
 const embeddedDependencyDataPlugin: Bun.BunPlugin = {
