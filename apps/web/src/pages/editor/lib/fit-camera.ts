@@ -39,6 +39,17 @@ export function getBounds(
 export function getCanvasViewportRect(): DOMRect | null {
   const canvas = document.querySelector('canvas');
   if (!(canvas instanceof HTMLCanvasElement)) return null;
+
+  // Measure the container, which is what the canvas is actually sized from
+  // (see `updateSize` in use-canvas). Until that effect runs the canvas element
+  // still reports its 300x150 intrinsic default, which would silently produce a
+  // wrong zoom-to-fit and a shifted camera restore on first mount.
+  const container = canvas.parentElement;
+  if (container) {
+    const rect = container.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) return rect;
+  }
+
   return canvas.getBoundingClientRect();
 }
 
