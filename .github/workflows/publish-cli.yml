@@ -124,13 +124,17 @@ jobs:
         run: sha256sum draftila-runtime-*.tar.gz > checksums.txt
 
       - name: Typecheck CLI
-        run: bun run --filter draftila typecheck
+        run: bun run --filter @draftila/cli typecheck
 
       - name: Test CLI
-        run: bun run --filter draftila test
+        run: bun run --filter @draftila/cli test
 
       - name: Build CLI
-        run: bun run --filter draftila build
+        run: bun run --filter @draftila/cli build
+
+      - name: Prepare npm package
+        working-directory: apps/cli
+        run: npm pkg set name=draftila
 
       - name: Verify package contents
         working-directory: apps/cli

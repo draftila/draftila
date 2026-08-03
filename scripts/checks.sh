@@ -170,7 +170,7 @@ if [ "$failed" -eq 0 ]; then
 fi
 
 if [ "$failed" -eq 0 ]; then
-  run_step "Typecheck CLI" bun run --filter draftila typecheck || failed=1
+  run_step "Typecheck CLI" bun run --filter @draftila/cli typecheck || failed=1
 fi
 
 if [ "$failed" -eq 0 ]; then
@@ -190,7 +190,7 @@ if [ "$failed" -eq 0 ]; then
 fi
 
 if [ "$failed" -eq 0 ]; then
-  run_step "CLI tests" bun run --filter draftila test || failed=1
+  run_step "CLI tests" bun run --filter @draftila/cli test || failed=1
 fi
 
 if [ "$failed" -eq 0 ]; then

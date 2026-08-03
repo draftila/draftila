@@ -32,7 +32,7 @@ jobs:
         run: bun run --filter @draftila/web typecheck
 
       - name: Typecheck CLI
-        run: bun run --filter draftila typecheck
+        run: bun run --filter @draftila/cli typecheck
 
       - name: Typecheck Website
         run: bun run --filter @draftila/website typecheck
@@ -47,10 +47,14 @@ jobs:
         run: bun run --filter @draftila/engine test
 
       - name: CLI tests
-        run: bun run --filter draftila test
+        run: bun run --filter @draftila/cli test
 
       - name: Build CLI package
-        run: bun run --filter draftila build
+        run: bun run --filter @draftila/cli build
+
+      - name: Prepare CLI package
+        working-directory: apps/cli
+        run: npm pkg set name=draftila
 
       - name: Verify CLI package
         working-directory: apps/cli
