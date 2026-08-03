@@ -10,6 +10,7 @@ import type {
 import { draftExportSchema } from '@draftila/shared';
 import { api, ApiError } from '@/lib/api-client';
 import { queryClient } from '@/lib/query-client';
+import { removeDraftCameras } from '@/lib/camera-storage';
 
 const DRAFTS_KEY = ['drafts'] as const;
 
@@ -103,7 +104,8 @@ export function useDeleteDraft(projectId: string) {
   return useMutation({
     mutationFn: (draftId: string) =>
       api.delete<{ ok: true }>(`/api/projects/${projectId}/drafts/${draftId}`),
-    onSuccess: () => {
+    onSuccess: (_data, draftId) => {
+      removeDraftCameras(draftId);
       queryClient.invalidateQueries({ queryKey: [...DRAFTS_KEY, projectId] });
       queryClient.invalidateQueries({ queryKey: [...DRAFTS_KEY, 'all'] });
     },
