@@ -34,10 +34,6 @@ export const SHAPE_TYPES = [
 export const SHAPE_TYPE_DOC =
   'Shape type. rectangle: box with optional rounded corners. ellipse: circle/oval. frame: container for child shapes (supports auto-layout, clipping). text: text label (use fills for text color). line: line segment using x1,y1,x2,y2 (not x,y,width,height), supports startArrowhead/endArrowhead. polygon: n-sided shape (set sides). star: star shape (set points, innerRadiusRatio). path: freeform vector path. image: image placeholder (set src to an HTTP(S) URL). svg: embedded SVG content (set svgContent to SVG markup — for complex SVGs prefer the import_svg tool, which handles parsing/conversion).';
 
-// The prop documentation below is shared by create_shape, update_shape and
-// their batch variants. Keep it in one place — when these were four separate
-// prose blobs they drifted, and the batch path silently lost props.
-
 const IMAGE_IMPORT_DOC =
   'IMAGE IMPORT: HTTP(S) URLs and data URIs in fills[].imageSrc, and HTTP(S) URLs in an image shape\'s src, are downloaded, validated and saved to draft storage before the operation runs, then rewritten to an app-owned URL. If an import fails validation the whole operation fails rather than writing the external URL into the document. Reusing the same URL within one call imports it once.';
 

@@ -23,9 +23,6 @@ async function createShape(
   return result.shapeId;
 }
 
-// Built through the RPC layer rather than addShape, because that is the path an
-// MCP caller takes: it converts the child coordinates below from parent-relative
-// into the absolute coordinates the document actually stores.
 async function buildCard(
   ydoc: Y.Doc,
 ): Promise<{ frameId: string; titleId: string; bodyId: string }> {
@@ -66,9 +63,6 @@ describe('create_component over RPC', () => {
     };
     const component = listed.components.find((c) => c.id === created.componentId);
 
-    // Every editor entry point expands the selection to its descendants before
-    // calling createComponent. When the RPC path did not, passing a frame ID
-    // captured a lone empty frame.
     expect(component?.shapes).toHaveLength(3);
     expect(component?.shapes.map((s) => s.type).sort()).toEqual(['frame', 'text', 'text']);
   });
@@ -109,8 +103,6 @@ describe('create_component over RPC', () => {
     const ydoc = newDoc();
     const { frameId, titleId, bodyId } = await buildCard(ydoc);
 
-    // createInstance remaps parents as it walks the stored array, so children
-    // must be recorded after their parent. Expansion normalises the order.
     const created = (await handlers['create_component']!(ydoc, {
       shapeIds: [bodyId, titleId, frameId],
       name: 'Card',

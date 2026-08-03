@@ -66,8 +66,6 @@ export function registerComponentTools(server: McpServer, getUserId: () => strin
         {},
       )) as { components?: ComponentSummarySource[] };
 
-      // The RPC returns each component's full shape JSON, which is far more
-      // than an agent needs to choose one and dwarfs the rest of its context.
       const components = (result.components ?? []).map((component) => ({
         id: component.id,
         name: component.name,
