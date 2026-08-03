@@ -15,7 +15,8 @@ import {
   assembleHtmlWithCssLink,
   TAILWIND_CDN_URL,
 } from '@draftila/engine/codegen';
-import { getPageBackgroundColor, getPageBackgroundColorVar } from '@draftila/engine';
+import { buildEmbeddedFontCss, collectUsedCustomVariants } from '@draftila/engine/custom-fonts';
+import { getPageBackgroundColor, getPageBackgroundColorVar } from '@draftila/engine/pages';
 import { useVariables } from '../../hooks/use-variables';
 import {
   DropdownMenu,
@@ -115,10 +116,11 @@ function downloadFile(content: string, filename: string, type: string) {
   URL.revokeObjectURL(url);
 }
 
-function openPreviewInNewTab(html: string) {
+function openPreviewInNewTab(html: string, tab: Window | null) {
   const blob = new Blob([html], { type: 'text/html' });
   const url = URL.createObjectURL(blob);
-  window.open(url, '_blank');
+  if (tab) tab.location.href = url;
+  else window.open(url, '_blank');
 }
 
 interface InspectCodeProps {
@@ -146,8 +148,20 @@ export function InspectCode({ ydoc, shapes }: InspectCodeProps) {
 
   const isHtmlMode = language === 'html-css' || language === 'html-tailwind';
 
+  const customFontCount = useMemo(
+    () => new Set(collectUsedCustomVariants(expandedShapes).map((u) => u.family)).size,
+    [expandedShapes],
+  );
+
   const code = useMemo(() => {
     if (expandedShapes.length === 0) return '';
+    // The panel is rendered WITHOUT font CSS on purpose: shiki tokenizes this string on the main
+    // thread, and base64 font payloads would stall it. The HTML targets get a note instead; the
+    // other targets already carry the generators' `Custom fonts required:` header.
+    const note =
+      customFontCount > 0
+        ? `\n<!-- ${customFontCount} custom font(s) will be embedded in downloads -->`
+        : '';
     switch (language) {
       case 'css':
         return generateCss(expandedShapes);
@@ -162,21 +176,38 @@ export function InspectCode({ ydoc, shapes }: InspectCodeProps) {
       case 'compose':
         return generateCompose(expandedShapes);
       case 'html-css':
-        return generateHtmlCss(expandedShapes, pageBackgroundColor);
+        return generateHtmlCss(expandedShapes, pageBackgroundColor) + note;
       case 'html-tailwind':
-        return generateHtmlTailwind(
-          expandedShapes,
-          tailwindScript ?? undefined,
-          pageBackgroundColor,
+        return (
+          generateHtmlTailwind(expandedShapes, tailwindScript ?? undefined, pageBackgroundColor) +
+          note
         );
     }
-  }, [expandedShapes, language, tailwindScript, pageBackgroundColor]);
+  }, [expandedShapes, language, tailwindScript, pageBackgroundColor, customFontCount]);
 
-  const htmlCssParts = useMemo(() => {
-    if (language !== 'html-css' || expandedShapes.length === 0) return null;
-    return generateHtmlCssParts(expandedShapes);
-  }, [expandedShapes, language]);
+  const buildFontCss = useCallback(
+    () => buildEmbeddedFontCss(expandedShapes, { assetBaseUrl: window.location.origin }),
+    [expandedShapes],
+  );
 
+  /** The download/preview flavour of `code`: same generators, with the font CSS embedded. */
+  const buildEmbeddedCode = useCallback(async () => {
+    if (expandedShapes.length === 0) return '';
+    const fontCss = await buildFontCss();
+    if (language === 'html-tailwind') {
+      return generateHtmlTailwind(
+        expandedShapes,
+        tailwindScript ?? undefined,
+        pageBackgroundColor,
+        fontCss,
+      );
+    }
+    return generateHtmlCss(expandedShapes, pageBackgroundColor, fontCss);
+  }, [expandedShapes, language, tailwindScript, pageBackgroundColor, buildFontCss]);
+
+  // Deliberately SYNC and unembedded: a clipboard write cannot await network fetches without
+  // risking `NotAllowedError` from lost user activation. The note appended to `code` tells the
+  // user what the copied snippet omits.
   const handleCopy = useCallback(async () => {
     if (!code) return;
     await navigator.clipboard.writeText(code);
@@ -184,26 +215,32 @@ export function InspectCode({ ydoc, shapes }: InspectCodeProps) {
     setTimeout(() => setCopied(false), 1500);
   }, [code]);
 
-  const handleOpenPreview = useCallback(() => {
-    if (!code) return;
-    openPreviewInNewTab(code);
-  }, [code]);
+  const handleOpenPreview = useCallback(async () => {
+    // The tab MUST be opened synchronously from the click: transient user activation expires while
+    // a cold-cache family is fetched, and a later `window.open` is silently popup-blocked.
+    const tab = window.open('about:blank', '_blank');
+    const html = await buildEmbeddedCode();
+    if (html) openPreviewInNewTab(html, tab);
+    else tab?.close();
+  }, [buildEmbeddedCode]);
 
-  const handleDownloadCombined = useCallback(() => {
-    if (!code) return;
-    downloadFile(code, 'preview.html', 'text/html');
-  }, [code]);
+  const handleDownloadCombined = useCallback(async () => {
+    const html = await buildEmbeddedCode();
+    if (html) downloadFile(html, 'preview.html', 'text/html');
+  }, [buildEmbeddedCode]);
 
+  // No font CSS here: only `parts.html` is used, and the rules live in `parts.css`.
   const handleDownloadHtmlOnly = useCallback(() => {
-    if (!htmlCssParts) return;
-    const htmlWithLink = assembleHtmlWithCssLink(htmlCssParts.html, 'styles.css');
-    downloadFile(htmlWithLink, 'index.html', 'text/html');
-  }, [htmlCssParts]);
+    if (expandedShapes.length === 0) return;
+    const parts = generateHtmlCssParts(expandedShapes);
+    downloadFile(assembleHtmlWithCssLink(parts.html, 'styles.css'), 'index.html', 'text/html');
+  }, [expandedShapes]);
 
-  const handleDownloadCssOnly = useCallback(() => {
-    if (!htmlCssParts) return;
-    downloadFile(htmlCssParts.css, 'styles.css', 'text/css');
-  }, [htmlCssParts]);
+  const handleDownloadCssOnly = useCallback(async () => {
+    if (expandedShapes.length === 0) return;
+    const parts = generateHtmlCssParts(expandedShapes, await buildFontCss());
+    downloadFile(parts.css, 'styles.css', 'text/css');
+  }, [expandedShapes, buildFontCss]);
 
   if (shapes.length === 0) {
     return (

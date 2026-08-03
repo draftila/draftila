@@ -1,4 +1,5 @@
 export * from './editor';
+export * from './fonts';
 
 import type { z } from 'zod';
 import type {

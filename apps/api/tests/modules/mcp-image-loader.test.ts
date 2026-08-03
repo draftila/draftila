@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { deflateSync, crc32 } from 'node:zlib';
+import { createCanvas } from '@napi-rs/canvas';
 import { getStorage, initStorage } from '../../src/common/lib/storage';
 import {
   decodeDataUri,
@@ -150,6 +151,24 @@ describe('mcp image loader', () => {
       const uri = `data:image/png;base64,${Buffer.from('not an image').toString('base64')}`;
 
       await expect(loadServerImage(uri)).rejects.toThrow('Unsupported or unreadable image format');
+    });
+
+    test('returns an image whose pixels are drawable in the same tick', async () => {
+      const source = createCanvas(8, 8);
+      const sourceCtx = source.getContext('2d');
+      sourceCtx.fillStyle = '#ff0000';
+      sourceCtx.fillRect(0, 0, 8, 8);
+      const uri = `data:image/png;base64,${source.toBuffer('image/png').toString('base64')}`;
+
+      const image = await loadServerImage(uri);
+
+      // Setting `Image.src` resolves the metadata synchronously but decodes the pixels later, so a
+      // loader that does not await the decode hands back an image that draws as fully transparent.
+      const target = createCanvas(8, 8);
+      const targetCtx = target.getContext('2d');
+      targetCtx.drawImage(image as unknown as Parameters<typeof targetCtx.drawImage>[0], 0, 0);
+
+      expect([...targetCtx.getImageData(4, 4, 1, 1).data]).toEqual([255, 0, 0, 255]);
     });
   });
 

@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type * as Y from 'yjs';
 import { MoreHorizontal, Plus, Check, X } from 'lucide-react';
+import { useParams } from 'react-router-dom';
 import {
   addPage,
   getActivePageId,
+  getPages,
   observePages,
   removePage,
   renamePage,
@@ -20,12 +22,24 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { useEditorStore } from '@/stores/editor-store';
+import { applyCameraForPage, dropPendingCameraSave } from '@/pages/editor/lib/camera-session';
+import { removePageCamera } from '@/lib/camera-storage';
 
 interface PageListProps {
   ydoc: Y.Doc;
 }
 
-function switchToPage(ydoc: Y.Doc, pageId: string) {
+/**
+ * Stays synchronous: setActivePageId and the camera land in the same event
+ * handler batch, so the new page's first paint already has the right camera.
+ * Moving this into an effect would flash one frame of the outgoing camera.
+ */
+function switchToPage(
+  ydoc: Y.Doc,
+  pageId: string,
+  draftId: string | undefined,
+  inPreview: boolean,
+) {
   const switched = setActivePage(ydoc, pageId);
   if (!switched) return;
 
@@ -35,13 +49,21 @@ function switchToPage(ydoc: Y.Doc, pageId: string) {
   store.setEnteredGroupId(null);
   store.setHoveredId(null);
   store.setEditingTextId(null);
-  store.setCamera(DEFAULT_CAMERA);
+
+  if (draftId && !inPreview) {
+    applyCameraForPage(draftId, pageId, 'default', ydoc);
+  } else {
+    // Spread: the applied-camera identity marker must never alias the constant.
+    store.setCamera({ ...DEFAULT_CAMERA });
+  }
 }
 
 export function PageList({ ydoc }: PageListProps) {
+  const { draftId } = useParams<{ draftId: string }>();
   const [pages, setPages] = useState<PageData[]>([]);
   const activePageId = useEditorStore((s) => s.activePageId);
   const setActivePageId = useEditorStore((s) => s.setActivePageId);
+  const previewSnapshotId = useEditorStore((s) => s.previewSnapshotId);
   const [renamingPageId, setRenamingPageId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
@@ -59,17 +81,17 @@ export function PageList({ ydoc }: PageListProps) {
   const handleSwitchPage = useCallback(
     (pageId: string) => {
       if (pageId === activePageId) return;
-      switchToPage(ydoc, pageId);
+      switchToPage(ydoc, pageId, draftId, !!previewSnapshotId);
     },
-    [activePageId, ydoc],
+    [activePageId, ydoc, draftId, previewSnapshotId],
   );
 
   const handleAddPage = useCallback(() => {
     const nextId = addPage(ydoc);
-    switchToPage(ydoc, nextId);
+    switchToPage(ydoc, nextId, draftId, !!previewSnapshotId);
     setRenamingPageId(nextId);
     setRenameValue(`Page ${pages.length + 1}`);
-  }, [ydoc, pages]);
+  }, [ydoc, pages, draftId, previewSnapshotId]);
 
   const startRename = useCallback((page: PageData) => {
     setRenamingPageId(page.id);
@@ -94,16 +116,28 @@ export function PageList({ ydoc }: PageListProps) {
   const handleDeletePage = useCallback(
     (pageId: string) => {
       removePage(ydoc, pageId);
+
+      // Only the storage cleanup is preview-guarded: during preview `ydoc` is the
+      // snapshot doc while `draftId` is the real draft, and shared page ids mean
+      // unguarded cleanup would evict a still-existing live page's camera.
+      // Deletion itself must keep working in preview.
+      if (!previewSnapshotId && draftId && !getPages(ydoc).some((p) => p.id === pageId)) {
+        // Drop first: a pan on this page may still be pending, and the flush
+        // inside switchToPage's apply would otherwise resurrect the entry.
+        dropPendingCameraSave(pageId);
+        removePageCamera(draftId, pageId);
+      }
+
       const fallbackActive = getActivePageId(ydoc);
       if (!fallbackActive) {
         return;
       }
       setActivePageId(fallbackActive);
       if (activePageId === pageId || !activePageId) {
-        switchToPage(ydoc, fallbackActive);
+        switchToPage(ydoc, fallbackActive, draftId, !!previewSnapshotId);
       }
     },
-    [ydoc, activePageId, setActivePageId],
+    [ydoc, activePageId, setActivePageId, draftId, previewSnapshotId],
   );
 
   return (

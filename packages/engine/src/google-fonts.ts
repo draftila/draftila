@@ -286,6 +286,10 @@ const loadedPreviewFonts = new Set<string>();
 const pendingPreviewFonts = new Set<string>();
 const previewSubscribers = new Set<() => void>();
 
+export function isGoogleFontFamily(family: string): boolean {
+  return ALL_FONT_NAMES.has(family);
+}
+
 export function isFontPreviewReady(family: string): boolean {
   return loadedPreviewFonts.has(family);
 }

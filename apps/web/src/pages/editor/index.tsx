@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { PanelLeft, Upload, Eye, Keyboard, History, Palette } from 'lucide-react';
 import logoSvg from '@/assets/logo.svg';
@@ -21,7 +21,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { InlineEditableText } from '@/components/inline-editable-text';
 import { UserMenu } from '@/components/user-menu';
 import { getActivePageId, setActivePage } from '@draftila/engine';
-import { DEFAULT_CAMERA } from '@draftila/engine/camera';
 import { initUndoManager, destroyUndoManager } from '@draftila/engine/history';
 import { getMoveTool } from '@draftila/engine/tools/tool-manager';
 import { addShape } from '@draftila/engine/scene-graph';
@@ -36,7 +35,8 @@ import { RightPanel } from './components/right-panel';
 import { Canvas } from './components/canvas';
 import { useYjs } from './hooks/use-yjs';
 import { useKeyboard } from './hooks/use-keyboard';
-import { fitCameraToAllShapes } from './lib/fit-camera';
+import { useCameraPersistence } from './hooks/use-camera-persistence';
+import { applyCameraForPageEntry, invalidateCameraApplyKey } from './lib/camera-session';
 import { useAwareness } from './hooks/use-awareness';
 import { useThumbnail } from './hooks/use-thumbnail';
 import { useRpc } from './hooks/use-rpc';
@@ -95,6 +95,7 @@ export function EditorPage() {
   const previewSnapshotId = useEditorStore((s) => s.previewSnapshotId);
   const previewYdoc = useEditorStore((s) => s.previewYdoc);
   const lastPageIdRef = useRef<string | null>(null);
+  const prevPreviewRef = useRef<string | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -180,16 +181,31 @@ export function EditorPage() {
   useKeyboard({ ydoc });
   useThumbnail(draftId ?? '', ydoc, synced);
   useRpc({ provider, ydoc, enabled: synced });
+  useCameraPersistence({ draftId: draftId ?? '', ydoc, provider });
 
   useEffect(() => {
     useEditorStore.getState().setReinitializeYjs(reinitialize);
     return () => useEditorStore.getState().setReinitializeYjs(null);
   }, [reinitialize]);
 
-  useEffect(() => {
-    if (!synced) return;
-    requestAnimationFrame(() => fitCameraToAllShapes(ydoc));
-  }, [synced, ydoc]);
+  // Single owner of "what camera does this page get on entry". A layout effect
+  // (not rAF) so the camera is applied before first paint: the canvas is
+  // CSS-sized, and reading its rect here forces the layout we need.
+  useLayoutEffect(() => {
+    const exitedPreview = prevPreviewRef.current !== null && previewSnapshotId === null;
+    prevPreviewRef.current = previewSnapshotId;
+    // Force a re-apply on preview exit, otherwise the dedupe key would match and
+    // a camera panned to inside preview would become the live session's camera.
+    if (exitedPreview) invalidateCameraApplyKey();
+
+    if (!draftId || !synced || previewSnapshotId) return;
+    if (!provider || provider.roomname !== draftId || provider.doc !== ydoc) return;
+
+    const pageId = getActivePageId(ydoc); // engine truth; activePageId is only a trigger
+    if (!pageId) return;
+
+    applyCameraForPageEntry(draftId, pageId, ydoc);
+  }, [synced, ydoc, draftId, provider, activePageId, previewSnapshotId]);
 
   useEffect(() => {
     const pageId = activePageId ?? getActivePageId(ydoc);
@@ -206,7 +222,7 @@ export function EditorPage() {
       store.setEnteredGroupId(null);
       store.setHoveredId(null);
       store.setEditingTextId(null);
-      store.setCamera(DEFAULT_CAMERA);
+      // Camera is owned by the page-entry layout effect above.
     }
     if (pageId) {
       lastPageIdRef.current = pageId;

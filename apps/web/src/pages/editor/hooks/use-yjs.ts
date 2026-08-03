@@ -13,7 +13,9 @@ import {
   ensureFontsLoadedAsync,
   collectFontFamilies,
   onFontsLoaded,
+  requiresCustomFontRegistry,
 } from '@draftila/engine/font-manager';
+import { isCustomFontsReady } from '@draftila/engine/custom-fonts';
 
 const SYNC_DEBOUNCE_MS = 100;
 
@@ -111,6 +113,10 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
     const reconcileTextShapes = () => {
       const shapes = getAllShapes(ydoc);
       const fonts = collectFontFamilies(shapes);
+      // Ready gate: measuring before the registry settles would persist fallback auto-resize
+      // geometry to collaborators. A re-run is guaranteed — both settle paths (success and terminal
+      // error) fire exactly one `notifyFontCallbacks`, and this function is subscribed below.
+      if (requiresCustomFontRegistry(fonts) && !isCustomFontsReady()) return;
       const apply = () => {
         const changedIds: string[] = [];
         for (const shape of getAllShapes(ydoc)) {

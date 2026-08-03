@@ -10,55 +10,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useEditorStore } from '@/stores/editor-store';
+import { getBounds, getCanvasViewportRect, fitCameraToBounds } from '../../lib/fit-camera';
 
-function getBounds(shapes: Array<{ x: number; y: number; width: number; height: number }>) {
-  if (shapes.length === 0) return null;
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-
-  for (const shape of shapes) {
-    minX = Math.min(minX, shape.x);
-    minY = Math.min(minY, shape.y);
-    maxX = Math.max(maxX, shape.x + shape.width);
-    maxY = Math.max(maxY, shape.y + shape.height);
-  }
-
-  return { minX, minY, maxX, maxY };
-}
-
-function getCanvasViewportRect(): DOMRect | null {
-  const canvas = document.querySelector('canvas');
-  if (!(canvas instanceof HTMLCanvasElement)) return null;
-  return canvas.getBoundingClientRect();
-}
-
-function fitCameraToBounds(
-  bounds: { minX: number; minY: number; maxX: number; maxY: number },
-  viewport: DOMRect,
-  padding: number,
-) {
-  const contentWidth = bounds.maxX - bounds.minX;
-  const contentHeight = bounds.maxY - bounds.minY;
-  if (contentWidth <= 0 || contentHeight <= 0) return null;
-
-  const availableWidth = Math.max(1, viewport.width - padding * 2);
-  const availableHeight = Math.max(1, viewport.height - padding * 2);
-  const zoom = Math.min(
-    256,
-    Math.max(0.02, Math.min(availableWidth / contentWidth, availableHeight / contentHeight)),
-  );
-
-  const centerX = (bounds.minX + bounds.maxX) / 2;
-  const centerY = (bounds.minY + bounds.maxY) / 2;
-
-  return {
-    x: viewport.width / 2 - centerX * zoom,
-    y: viewport.height / 2 - centerY * zoom,
-    zoom,
-  };
-}
+/**
+ * These controls have always allowed zooming further in than the ⇧1 fit
+ * shortcut (256 vs the shared FIT_MAX_ZOOM of 64). Passing it explicitly keeps
+ * that behaviour byte-for-byte while sharing one implementation.
+ */
+const ZOOM_CONTROLS_MAX_ZOOM = 256;
 
 interface ZoomControlsProps {
   ydoc: Y.Doc;
@@ -76,7 +35,7 @@ export function ZoomControls({ ydoc }: ZoomControlsProps) {
     if (!bounds) return;
     const viewport = getCanvasViewportRect();
     if (!viewport) return;
-    const next = fitCameraToBounds(bounds, viewport, 80);
+    const next = fitCameraToBounds(bounds, viewport, 80, ZOOM_CONTROLS_MAX_ZOOM);
     if (!next) return;
     setCamera(next);
   };
@@ -89,7 +48,7 @@ export function ZoomControls({ ydoc }: ZoomControlsProps) {
     if (!bounds) return;
     const viewport = getCanvasViewportRect();
     if (!viewport) return;
-    const next = fitCameraToBounds(bounds, viewport, 120);
+    const next = fitCameraToBounds(bounds, viewport, 120, ZOOM_CONTROLS_MAX_ZOOM);
     if (!next) return;
     setCamera(next);
   };
