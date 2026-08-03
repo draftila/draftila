@@ -50,10 +50,25 @@ describe('colorVar persistence', () => {
         },
       ],
       strokes: [{ color: '#0000FF', colorVar: 'v3', width: 2, opacity: 1, visible: true }],
-      shadows: [{ type: 'drop', x: 0, y: 2, blur: 4, spread: 0, color: '#00000040', colorVar: 'v4', visible: true }],
+      shadows: [
+        {
+          type: 'drop',
+          x: 0,
+          y: 2,
+          blur: 4,
+          spread: 0,
+          color: '#00000040',
+          colorVar: 'v4',
+          visible: true,
+        },
+      ],
     } as Partial<Shape>);
 
-    const shape = getShape(ydoc, id) as Shape & { fills: Fill[]; strokes: unknown[]; shadows: unknown[] };
+    const shape = getShape(ydoc, id) as Shape & {
+      fills: Fill[];
+      strokes: unknown[];
+      shadows: unknown[];
+    };
     expect(shape.fills[0]!.colorVar).toBe('v1');
     expect(shape.fills[1]!.gradient!.stops[0]!.colorVar).toBe('v2');
     expect((shape.strokes[0] as { colorVar?: string }).colorVar).toBe('v3');
@@ -149,10 +164,23 @@ describe('shape resolution', () => {
     setVariable(ydoc, 'v1', 'Primary', '#FF0000');
     addShape(ydoc, 'rectangle', {
       fills: [{ color: '#000000', colorVar: 'v1', opacity: 1, visible: true }],
-      shadows: [{ type: 'drop', x: 0, y: 2, blur: 4, spread: 0, color: '#00000040', colorVar: 'v1', visible: true }],
+      shadows: [
+        {
+          type: 'drop',
+          x: 0,
+          y: 2,
+          blur: 4,
+          spread: 0,
+          color: '#00000040',
+          colorVar: 'v1',
+          visible: true,
+        },
+      ],
     } as Partial<Shape>);
 
-    const [shape] = getResolvedShapes(ydoc) as Array<Shape & { fills: Fill[]; shadows: Array<{ color: string }> }>;
+    const [shape] = getResolvedShapes(ydoc) as Array<
+      Shape & { fills: Fill[]; shadows: Array<{ color: string }> }
+    >;
     expect(shape!.fills[0]!.color).toBe('#FF0000');
     expect(shape!.shadows[0]!.color).toBe('#FF000040');
   });
