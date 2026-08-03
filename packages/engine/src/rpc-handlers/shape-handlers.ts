@@ -115,7 +115,7 @@ export function shapeHandlers(): Record<string, RpcHandler> {
       const ids: string[] = [];
 
       for (const shape of shapes) {
-        let props = { ...(shape.props ?? {}) } as Record<string, unknown>;
+        let props = sanitizeColorVars({ ...(shape.props ?? {}) } as Record<string, unknown>);
         if (typeof props['parentId'] === 'string' && props['parentId'].startsWith('$')) {
           const refIdx = parseInt(props['parentId'].slice(1), 10);
           if (refIdx >= 0 && refIdx < ids.length) {
@@ -157,7 +157,7 @@ export function shapeHandlers(): Record<string, RpcHandler> {
       }>;
       const resolved = updates.map((update) => {
         const shape = getShape(ydoc, update.shapeId);
-        const rawProps = update.props;
+        const rawProps = sanitizeColorVars(update.props);
         const props =
           shape?.parentId &&
           (typeof rawProps['x'] === 'number' || typeof rawProps['y'] === 'number')

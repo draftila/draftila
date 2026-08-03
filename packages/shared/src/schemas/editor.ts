@@ -160,7 +160,9 @@ export const strokeSchema = z.object({
 });
 
 export const shadowSchema = z.object({
-  type: z.enum(['drop', 'inner']),
+  // Defaulted because every renderer filters on `type`, so a shadow that
+  // arrives without one fails validation, persists raw, and never draws.
+  type: z.enum(['drop', 'inner']).default('drop'),
   x: z.number().default(0),
   y: z.number().default(4),
   blur: z.number().default(8),

@@ -126,3 +126,187 @@ describe('page background binding', () => {
     expect(getResolvedPageBackgroundColor(ydoc, pageId)).toBe(getPageBackgroundColor(ydoc, pageId));
   });
 });
+
+describe('bind_variable / unbind_variable', () => {
+  test('binds a fill without disturbing sibling items', async () => {
+    const ydoc = newDoc();
+    const primary = createVariable(ydoc, 'Primary', '#FF0000');
+    const { shapeId } = (await handlers['create_shape']!(ydoc, {
+      type: 'rectangle',
+      props: {
+        width: 10,
+        height: 10,
+        fills: [
+          { color: '#0000FF', opacity: 1, visible: true },
+          { color: '#00FF00', opacity: 0.5, visible: true },
+        ],
+      },
+    })) as { shapeId: string };
+
+    const result = (await handlers['bind_variable']!(ydoc, {
+      shapeId,
+      target: 'fill',
+      index: 0,
+      variableId: primary.id,
+    })) as { ok: boolean; resolvedColor?: string };
+
+    expect(result.ok).toBe(true);
+    expect(result.resolvedColor).toBe('#FF0000');
+
+    const shape = (await handlers['get_shape']!(ydoc, { shapeId })) as {
+      fills: Array<{ color: string; colorVar?: string; opacity: number }>;
+    };
+    expect(shape.fills[0]!.colorVar).toBe(primary.id);
+    // The untouched sibling must keep its own values — a whole-array rewrite
+    // would renormalise it.
+    expect(shape.fills[1]!.colorVar).toBeUndefined();
+    expect(shape.fills[1]!.opacity).toBe(0.5);
+    expect(shape.fills[1]!.color).toBe('#00FF00');
+  });
+
+  test('rejects an unknown global rather than writing a dead binding', async () => {
+    const ydoc = newDoc();
+    createVariable(ydoc, 'Primary', '#FF0000');
+    const { shapeId } = (await handlers['create_shape']!(ydoc, {
+      type: 'rectangle',
+      props: { width: 10, height: 10, fills: [{ color: '#0000FF', opacity: 1, visible: true }] },
+    })) as { shapeId: string };
+
+    const result = (await handlers['bind_variable']!(ydoc, {
+      shapeId,
+      target: 'fill',
+      variableId: 'does-not-exist',
+    })) as { ok: boolean; error?: string };
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('does-not-exist');
+
+    const shape = (await handlers['get_shape']!(ydoc, { shapeId })) as {
+      fills: Array<{ colorVar?: string }>;
+    };
+    expect(shape.fills[0]!.colorVar).toBeUndefined();
+  });
+
+  test('rejects a gradient fill and points at the stop-level route', async () => {
+    const ydoc = newDoc();
+    const primary = createVariable(ydoc, 'Primary', '#FF0000');
+    const { shapeId } = (await handlers['create_shape']!(ydoc, {
+      type: 'rectangle',
+      props: {
+        width: 10,
+        height: 10,
+        fills: [
+          {
+            color: '#000000',
+            opacity: 1,
+            visible: true,
+            gradient: {
+              type: 'linear',
+              angle: 0,
+              stops: [
+                { color: '#111111', position: 0 },
+                { color: '#222222', position: 1 },
+              ],
+            },
+          },
+        ],
+      },
+    })) as { shapeId: string };
+
+    const result = (await handlers['bind_variable']!(ydoc, {
+      shapeId,
+      target: 'fill',
+      variableId: primary.id,
+    })) as { ok: boolean; error?: string };
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('gradient');
+  });
+
+  test('unbind keeps the colour the shape currently shows', async () => {
+    const ydoc = newDoc();
+    const primary = createVariable(ydoc, 'Primary', '#FF0000');
+    const { shapeId } = (await handlers['create_shape']!(ydoc, {
+      type: 'rectangle',
+      props: {
+        width: 10,
+        height: 10,
+        // Bind-time literal deliberately differs from the global's value.
+        fills: [{ color: '#0000FF', colorVar: primary.id, opacity: 1, visible: true }],
+      },
+    })) as { shapeId: string };
+
+    await handlers['unbind_variable']!(ydoc, { shapeId, target: 'fill' });
+
+    const shape = (await handlers['get_shape']!(ydoc, { shapeId })) as {
+      fills: Array<{ color: string; colorVar?: string }>;
+    };
+    expect(shape.fills[0]!.color).toBe('#FF0000');
+    expect(shape.fills[0]!.colorVar).toBeUndefined();
+  });
+
+  test('list_variables returns the shapes using a global', async () => {
+    const ydoc = newDoc();
+    const primary = createVariable(ydoc, 'Primary', '#FF0000');
+    const { shapeId } = (await handlers['create_shape']!(ydoc, {
+      type: 'rectangle',
+      props: {
+        width: 10,
+        height: 10,
+        fills: [{ color: '#FF0000', colorVar: primary.id, opacity: 1, visible: true }],
+      },
+    })) as { shapeId: string };
+
+    const result = (await handlers['list_variables']!(ydoc, { variableId: primary.id })) as {
+      variables: Array<{ id: string; shapeIds: string[] }>;
+    };
+    expect(result.variables).toHaveLength(1);
+    expect(result.variables[0]!.shapeIds).toEqual([shapeId]);
+  });
+});
+
+describe('batch tools', () => {
+  test('strip malformed colorVar, like the single-shape tools', async () => {
+    const ydoc = newDoc();
+    const { shapeIds } = (await handlers['batch_create_shapes']!(ydoc, {
+      shapes: [
+        {
+          type: 'rectangle',
+          props: {
+            width: 10,
+            height: 10,
+            fills: [{ color: '#FF0000', colorVar: { evil: true }, opacity: 1, visible: true }],
+          },
+        },
+      ],
+    })) as { shapeIds: string[] };
+
+    const shape = (await handlers['get_shape']!(ydoc, { shapeId: shapeIds[0]! })) as {
+      fills: Array<{ colorVar?: unknown }>;
+    };
+    expect('colorVar' in shape.fills[0]!).toBe(false);
+  });
+});
+
+describe('shadows', () => {
+  test('a shadow with no explicit type defaults to drop and survives', async () => {
+    // Without the schema default this item failed validation, persisted raw,
+    // and was filtered out by every renderer — invisible.
+    const ydoc = newDoc();
+    const { shapeId } = (await handlers['create_shape']!(ydoc, {
+      type: 'rectangle',
+      props: {
+        width: 10,
+        height: 10,
+        shadows: [{ color: '#00000020', x: 0, y: 4, blur: 12 }],
+      },
+    })) as { shapeId: string };
+
+    const shape = (await handlers['get_shape']!(ydoc, { shapeId })) as {
+      shadows: Array<{ type: string; x: number; y: number; visible: boolean }>;
+    };
+    expect(shape.shadows[0]!.type).toBe('drop');
+    expect(shape.shadows[0]!.y).toBe(4);
+    expect(shape.shadows[0]!.visible).toBe(true);
+  });
+});
