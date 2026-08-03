@@ -22,7 +22,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -79,4 +78,4 @@ jobs:
         working-directory: apps/cli
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --tag "${{ inputs.npm_tag }}" --provenance
+        run: npm publish --tag "${{ inputs.npm_tag }}"
