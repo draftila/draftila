@@ -16,7 +16,8 @@ import {
   TAILWIND_CDN_URL,
 } from '@draftila/engine/codegen';
 import { buildEmbeddedFontCss, collectUsedCustomVariants } from '@draftila/engine/custom-fonts';
-import { getPageBackgroundColor } from '@draftila/engine/pages';
+import { getPageBackgroundColor, getPageBackgroundColorVar } from '@draftila/engine/pages';
+import { useVariables } from '../../hooks/use-variables';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -133,10 +134,17 @@ export function InspectCode({ ydoc, shapes }: InspectCodeProps) {
   const expandedShapes = useExpandedShapes(ydoc, shapes);
   const tailwindScript = useTailwindScript();
   const activePageId = useEditorStore((state) => state.activePageId);
+  const { table, resolve } = useVariables();
   const pageBackgroundColor = useMemo(() => {
     if (!activePageId) return null;
-    return getPageBackgroundColor(ydoc, activePageId);
-  }, [ydoc, activePageId]);
+    void table;
+    return (
+      resolve(
+        getPageBackgroundColor(ydoc, activePageId),
+        getPageBackgroundColorVar(ydoc, activePageId),
+      ) ?? null
+    );
+  }, [ydoc, activePageId, table, resolve]);
 
   const isHtmlMode = language === 'html-css' || language === 'html-tailwind';
 

@@ -1,12 +1,17 @@
 import { forwardRef, useCallback, useMemo, useState } from 'react';
 import type * as Y from 'yjs';
 import { ChevronRight } from 'lucide-react';
-import { createComponent, listComponents, removeGuide, removeAllGuides } from '@draftila/engine';
+import {
+  createComponent,
+  listComponents,
+  removeGuide,
+  removeAllGuides,
+  getResolvedShapes,
+} from '@draftila/engine';
 import { copyShapes, copyStyle, hasStyleClipboardContent } from '@draftila/engine/clipboard';
 import { handlePaste as handleExternalPaste } from '@draftila/engine/shape-import';
 import {
   canApplyBooleanOperation,
-  getAllShapes,
   getExpandedShapeIds,
   getSelectedContainer,
   getShape,
@@ -118,7 +123,7 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
       const ids = useEditorStore.getState().selectedIds;
       if (ids.length === 0) return [];
       const expandedIds = new Set(getExpandedShapeIds(ydoc, ids));
-      return getAllShapes(ydoc).filter((s) => expandedIds.has(s.id));
+      return getResolvedShapes(ydoc).filter((s) => expandedIds.has(s.id));
     }, [ydoc]);
 
     const canGroup = selectedIds.length > 1;

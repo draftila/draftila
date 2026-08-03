@@ -1,6 +1,6 @@
 import type * as Y from 'yjs';
 import type { Shape } from '@draftila/shared';
-import { getAllShapes, exportToPng } from '@draftila/engine';
+import { getResolvedShapes, exportToPng } from '@draftila/engine';
 import {
   type RpcHandler,
   createRpcHandlers,
@@ -18,7 +18,7 @@ async function blobToBase64(blob: Blob): Promise<string> {
 }
 
 const exportPngHandler: RpcHandler = async (ydoc: Y.Doc, args) => {
-  const allShapes = getAllShapes(ydoc);
+  const allShapes = getResolvedShapes(ydoc);
   const ids = args['shapeIds'] as string[] | undefined;
   const shapes = ids && ids.length > 0 ? collectShapesWithDescendants(allShapes, ids) : allShapes;
 

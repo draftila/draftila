@@ -63,8 +63,20 @@ export const subpathSchema = z.object({
 
 export const colorSchema = z.string().regex(/^#[0-9a-fA-F]{6,8}$/);
 
+export const colorVarSchema = z.string();
+
+export const variableColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+
+export const variableSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  type: z.literal('color'),
+  value: variableColorSchema,
+});
+
 export const gradientStopSchema = z.object({
   color: colorSchema,
+  colorVar: colorVarSchema.optional(),
   position: z.number().min(0).max(1),
 });
 
@@ -90,15 +102,23 @@ export const gradientSchema = z.discriminatedUnion('type', [
 export const fillSchema = z
   .object({
     color: colorSchema.optional(),
+    colorVar: colorVarSchema.optional(),
     opacity: z.number().min(0).max(1).default(1),
     visible: z.boolean().default(true),
     gradient: gradientSchema.optional(),
     imageSrc: z.string().optional(),
     imageFit: z.enum(['fill', 'fit', 'crop', 'tile']).optional(),
   })
-  .refine((fill) => fill.color !== undefined || fill.gradient !== undefined || !!fill.imageSrc, {
-    message: 'A fill must define a color, a gradient, or an image source',
-  });
+  .refine(
+    (fill) =>
+      fill.color !== undefined ||
+      fill.colorVar !== undefined ||
+      fill.gradient !== undefined ||
+      !!fill.imageSrc,
+    {
+      message: 'A fill must define a color, a color variable, a gradient, or an image source',
+    },
+  );
 
 export const strokeCapSchema = z.enum(['butt', 'round', 'square']);
 export const strokeJoinSchema = z.enum(['miter', 'round', 'bevel']);
@@ -125,6 +145,7 @@ export const strokeSidesSchema = z.object({
 
 export const strokeSchema = z.object({
   color: colorSchema,
+  colorVar: colorVarSchema.optional(),
   width: z.number().min(0).default(1),
   opacity: z.number().min(0).max(1).default(1),
   visible: z.boolean().default(true),
@@ -145,6 +166,7 @@ export const shadowSchema = z.object({
   blur: z.number().default(8),
   spread: z.number().default(0),
   color: colorSchema.default('#00000040'),
+  colorVar: colorVarSchema.optional(),
   visible: z.boolean().default(true),
 });
 
@@ -158,6 +180,7 @@ export const layoutGuideSchema = z.object({
   type: z.enum(['grid', 'columns', 'rows']),
   size: z.number().min(1).default(10),
   color: colorSchema.default('#FF000019'),
+  colorVar: colorVarSchema.optional(),
   visible: z.boolean().default(true),
 });
 
@@ -170,6 +193,7 @@ export const canvasGuideSchema = z.object({
 export const textSegmentSchema = z.object({
   text: z.string(),
   color: colorSchema.optional(),
+  colorVar: colorVarSchema.optional(),
   fontSize: z.number().min(1).optional(),
   fontFamily: z.string().optional(),
   fontWeight: z.number().optional(),

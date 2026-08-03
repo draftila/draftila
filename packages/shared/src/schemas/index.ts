@@ -127,6 +127,7 @@ export const exportPageSchema = z.object({
   id: z.string(),
   name: z.string(),
   backgroundColor: z.string(),
+  backgroundColorVar: z.string().optional(),
   shapes: z.array(z.record(z.string(), z.unknown())),
   zOrder: z.array(z.string()),
 });

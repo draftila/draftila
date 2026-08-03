@@ -3,6 +3,7 @@ import { ChevronDown, Eye, EyeOff, Minus, Plus, X } from 'lucide-react';
 import type { LayoutGuide, Shape } from '@draftila/shared';
 import type { PropertySectionProps } from '../types';
 import { ColorPicker } from '../../color-picker';
+import { useVariables } from '../../../hooks/use-variables';
 import { NumberInput } from '../number-input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
@@ -55,7 +56,7 @@ function GridIcon({ className }: { className?: string }) {
   );
 }
 
-export function LayoutGuideSection({ shape, onUpdate }: PropertySectionProps) {
+export function LayoutGuideSection({ shape, onUpdate, multiSelect }: PropertySectionProps) {
   const guides: LayoutGuide[] = useMemo(
     () => ('guides' in shape ? (shape as Shape & { guides: LayoutGuide[] }).guides : []),
     [shape],
@@ -65,6 +66,14 @@ export function LayoutGuideSection({ shape, onUpdate }: PropertySectionProps) {
   const updateGuide = useCallback(
     (index: number, patch: Partial<LayoutGuide>) => {
       const next = guides.map((g, i) => (i === index ? { ...g, ...patch } : g));
+      onUpdate({ guides: next } as Partial<Shape>);
+    },
+    [guides, onUpdate],
+  );
+
+  const replaceGuide = useCallback(
+    (index: number, guide: LayoutGuide) => {
+      const next = guides.map((g, i) => (i === index ? guide : g));
       onUpdate({ guides: next } as Partial<Shape>);
     },
     [guides, onUpdate],
@@ -140,7 +149,9 @@ export function LayoutGuideSection({ shape, onUpdate }: PropertySectionProps) {
             <GuideEntry
               key={index}
               guide={guide}
+              showGlobals={!multiSelect}
               onUpdate={(patch) => updateGuide(index, patch)}
+              onReplace={(next) => replaceGuide(index, next)}
               onRemove={() => removeGuide(index)}
             />
           );
@@ -152,11 +163,15 @@ export function LayoutGuideSection({ shape, onUpdate }: PropertySectionProps) {
 
 function GuideEntry({
   guide,
+  showGlobals,
   onUpdate,
+  onReplace,
   onRemove,
 }: {
   guide: LayoutGuide;
+  showGlobals: boolean;
   onUpdate: (patch: Partial<LayoutGuide>) => void;
+  onReplace: (guide: LayoutGuide) => void;
   onRemove: () => void;
 }) {
   const [detailOpen, setDetailOpen] = useState(false);
@@ -196,7 +211,9 @@ function GuideEntry({
         </div>
         <GuideDetailPopover
           guide={guide}
+          showGlobals={showGlobals}
           onUpdate={onUpdate}
+          onReplace={onReplace}
           onClose={() => setDetailOpen(false)}
         />
       </Popover>
@@ -206,16 +223,23 @@ function GuideEntry({
 
 function GuideDetailPopover({
   guide,
+  showGlobals,
   onUpdate,
+  onReplace,
   onClose,
 }: {
   guide: LayoutGuide;
+  showGlobals: boolean;
   onUpdate: (patch: Partial<LayoutGuide>) => void;
+  onReplace: (guide: LayoutGuide) => void;
   onClose: () => void;
 }) {
   const [typeOpen, setTypeOpen] = useState(false);
+  const { resolve, byId } = useVariables();
   const opacity = parseOpacity(guide.color);
-  const baseColor = stripAlpha(guide.color);
+  const baseColor = stripAlpha(resolve(guide.color, guide.colorVar) ?? guide.color);
+  const literalBase = stripAlpha(guide.color);
+  const boundName = guide.colorVar ? byId.get(guide.colorVar)?.name : undefined;
   const opacityPercent = Math.round(opacity * 100);
 
   const CHECKERBOARD = 'repeating-conic-gradient(#808080 0% 25%, transparent 0% 50%) 0 0 / 8px 8px';
@@ -275,8 +299,14 @@ function GuideDetailPopover({
             <ColorPicker
               color={baseColor}
               opacity={opacity}
-              onChange={(color) => onUpdate({ color: applyAlpha(color, opacity) })}
-              onOpacityChange={(op) => onUpdate({ color: applyAlpha(baseColor, op) })}
+              colorVar={guide.colorVar}
+              showGlobals={showGlobals}
+              onChange={(color, meta) => {
+                const { colorVar: _drop, ...rest } = guide;
+                const next = { ...rest, color: applyAlpha(color, opacity) };
+                onReplace(meta?.colorVar ? { ...next, colorVar: meta.colorVar } : next);
+              }}
+              onOpacityChange={(op) => onUpdate({ color: applyAlpha(literalBase, op) })}
             >
               <button className="hover:bg-muted/50 flex w-full items-center gap-2.5 rounded py-0.5">
                 <div className="border-border relative h-[36px] w-[36px] shrink-0 overflow-hidden rounded border">
@@ -294,8 +324,10 @@ function GuideDetailPopover({
                   />
                 </div>
                 <div className="flex min-w-0 flex-1 items-center gap-2">
-                  <span className="truncate font-mono text-[11px]">
-                    {baseColor.replace('#', '').toUpperCase()}
+                  <span
+                    className={`truncate text-[11px] ${boundName ? 'font-medium' : 'font-mono'}`}
+                  >
+                    {boundName ?? baseColor.replace('#', '').toUpperCase()}
                   </span>
                   <span className="text-muted-foreground text-[11px]">{opacityPercent}%</span>
                 </div>

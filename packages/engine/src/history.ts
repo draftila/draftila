@@ -8,8 +8,9 @@ export function initUndoManager(ydoc: Y.Doc): Y.UndoManager {
   const shapes = getShapesMap(ydoc);
   const zOrder = getZOrder(ydoc);
   const guides = getActivePageGuidesArray(ydoc);
+  const variables = ydoc.getMap('variables');
 
-  undoManager = new Y.UndoManager([shapes, zOrder, guides], {
+  undoManager = new Y.UndoManager([shapes, zOrder, guides, variables], {
     captureTimeout: 500,
   });
 

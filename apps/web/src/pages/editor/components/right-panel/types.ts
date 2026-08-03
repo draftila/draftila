@@ -7,6 +7,7 @@ export interface PropertySectionProps {
   shape: Shape;
   shapeScope: Shape[];
   onUpdate: (props: Partial<Shape>) => void;
+  multiSelect?: boolean;
 }
 
 export type PropertySection = ComponentType<PropertySectionProps>;

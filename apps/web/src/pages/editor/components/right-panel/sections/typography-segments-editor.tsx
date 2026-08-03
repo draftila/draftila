@@ -4,6 +4,7 @@ import { Bold, Italic, Minus, Plus, SplitSquareHorizontal } from 'lucide-react';
 import { getAvailableVariants } from '@draftila/engine';
 import { Button } from '@/components/ui/button';
 import { ColorPicker } from '../../color-picker';
+import { useVariables } from '../../../hooks/use-variables';
 import { NumberInput } from '../number-input';
 
 export function SegmentsEditor({
@@ -32,6 +33,16 @@ export function SegmentsEditor({
     (index: number, patch: Partial<TextSegment>) => {
       if (!segments) return;
       const next = segments.map((s, i) => (i === index ? { ...s, ...patch } : s));
+      const content = next.map((s) => s.text).join('');
+      onUpdate({ segments: next, content } as Partial<Shape>);
+    },
+    [segments, onUpdate],
+  );
+
+  const replaceSegment = useCallback(
+    (index: number, segment: TextSegment) => {
+      if (!segments) return;
+      const next = segments.map((s, i) => (i === index ? segment : s));
       const content = next.map((s) => s.text).join('');
       onUpdate({ segments: next, content } as Partial<Shape>);
     },
@@ -77,8 +88,10 @@ export function SegmentsEditor({
             <SegmentRow
               key={index}
               segment={segment}
+              showGlobals
               family={segment.fontFamily ?? shape.fontFamily}
               onUpdate={(patch) => updateSegment(index, patch)}
+              onReplace={(next) => replaceSegment(index, next)}
               onRemove={() => removeSegment(index)}
               canRemove={segments.length > 1}
             />
@@ -98,18 +111,24 @@ export function SegmentsEditor({
 
 function SegmentRow({
   segment,
+  showGlobals,
   family,
   onUpdate,
+  onReplace,
   onRemove,
   canRemove,
 }: {
   segment: TextSegment;
+  showGlobals: boolean;
   family: string;
   onUpdate: (patch: Partial<TextSegment>) => void;
+  onReplace: (segment: TextSegment) => void;
   onRemove: () => void;
   canRemove: boolean;
 }) {
-  const color = segment.color ?? '#000000';
+  const { resolve } = useVariables();
+  const literalColor = segment.color ?? '#000000';
+  const color = resolve(literalColor, segment.colorVar) ?? literalColor;
   const variants = getAvailableVariants(family); // null => not a custom family
   const boldAvailable = !variants || variants.some((v) => v.weight >= 700);
   const italicAvailable = !variants || variants.some((v) => v.style === 'italic');
@@ -136,7 +155,16 @@ function SegmentRow({
         <ColorPicker
           color={color}
           opacity={1}
-          onChange={(c) => onUpdate({ color: c })}
+          colorVar={segment.colorVar}
+          showGlobals={showGlobals}
+          onChange={(c, meta) => {
+            const { colorVar: _drop, ...rest } = segment;
+            onReplace(
+              meta?.colorVar
+                ? { ...rest, color: c, colorVar: meta.colorVar }
+                : { ...rest, color: c },
+            );
+          }}
           onOpacityChange={() => {}}
         >
           <button

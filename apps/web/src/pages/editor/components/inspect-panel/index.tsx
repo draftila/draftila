@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import type * as Y from 'yjs';
 import type { Shape } from '@draftila/shared';
-import { getAllShapes, getShape, observeShapes } from '@draftila/engine/scene-graph';
+import { getShape, observeShapes } from '@draftila/engine/scene-graph';
+import { observeVariables } from '@draftila/engine';
 import { useEditorStore } from '@/stores/editor-store';
 import { InspectTransform } from './inspect-transform';
 import { InspectAppearance } from './inspect-appearance';
@@ -46,7 +47,13 @@ export function InspectPanel({ ydoc }: InspectPanelProps) {
   const [revision, setRevision] = useState(0);
 
   useEffect(() => {
-    return observeShapes(ydoc, () => setRevision((r) => r + 1));
+    const bump = () => setRevision((r) => r + 1);
+    const unobserveShapes = observeShapes(ydoc, bump);
+    const unobserveVariables = observeVariables(ydoc, bump);
+    return () => {
+      unobserveShapes();
+      unobserveVariables();
+    };
   }, [ydoc]);
 
   const shapes = selectedIds.map((id) => getShape(ydoc, id)).filter((s): s is Shape => s !== null);

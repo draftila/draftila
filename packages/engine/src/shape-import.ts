@@ -9,6 +9,8 @@ import {
   generateSvg,
 } from './interchange';
 import type { ImportData, InterchangeDocument } from './interchange';
+import { stripShapeColorVars } from './variables';
+import { getDocId } from './clipboard-vars';
 
 export interface ExternalPasteOptions {
   targetParentId?: string | null;
@@ -181,8 +183,15 @@ function tryPasteDraftilaShapes(
 
   try {
     const parsed = JSON.parse(shapesJson);
-    const shapes = parsed.shapes as Shape[];
-    if (!Array.isArray(shapes) || shapes.length === 0) return null;
+    const rawShapes = parsed.shapes as Shape[];
+    if (!Array.isArray(rawShapes) || rawShapes.length === 0) return null;
+
+    const sourceDocId = typeof parsed.sourceDocId === 'string' ? parsed.sourceDocId : null;
+    const targetDocId = getDocId(ydoc);
+    const shapes =
+      sourceDocId !== null && sourceDocId === targetDocId
+        ? rawShapes
+        : rawShapes.map(stripShapeColorVars);
 
     const targetParentId = options?.targetParentId ?? null;
     const { offsetX, offsetY } = computeShapesOffset(shapes, options?.cursorPosition);

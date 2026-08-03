@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ChevronDown, Eye, EyeOff, Minus, X } from 'lucide-react';
 import type { Shadow } from '@draftila/shared';
 import { ColorPicker } from '../../color-picker';
+import { useVariables } from '../../../hooks/use-variables';
 import { NumberInput } from '../number-input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { BlurIcon } from './blur-editor';
@@ -79,16 +80,23 @@ function SpreadIcon({ className }: { className?: string }) {
 
 export function ShadowEntry({
   shadow,
+  showGlobals,
   onUpdate,
+  onReplace,
   onRemove,
 }: {
   shadow: Shadow;
+  showGlobals: boolean;
   onUpdate: (patch: Partial<Shadow>) => void;
+  onReplace: (shadow: Shadow) => void;
   onRemove: () => void;
 }) {
   const [detailOpen, setDetailOpen] = useState(false);
+  const { resolve, byId, isDangling } = useVariables();
   const opacity = parseOpacity(shadow.color);
-  const baseColor = stripAlpha(shadow.color);
+  const baseColor = stripAlpha(resolve(shadow.color, shadow.colorVar) ?? shadow.color);
+  const literalBase = stripAlpha(shadow.color);
+  const boundName = shadow.colorVar ? byId.get(shadow.colorVar)?.name : undefined;
   const visible = shadow.visible !== false;
 
   return (
@@ -127,7 +135,12 @@ export function ShadowEntry({
           shadow={shadow}
           opacity={opacity}
           baseColor={baseColor}
+          literalBase={literalBase}
+          boundName={boundName}
+          dangling={isDangling(shadow.colorVar)}
+          showGlobals={showGlobals}
           onUpdate={onUpdate}
+          onReplace={onReplace}
           onClose={() => setDetailOpen(false)}
         />
       </Popover>
@@ -139,13 +152,23 @@ function ShadowDetailPopover({
   shadow,
   opacity,
   baseColor,
+  literalBase,
+  boundName,
+  dangling,
+  showGlobals,
   onUpdate,
+  onReplace,
   onClose,
 }: {
   shadow: Shadow;
   opacity: number;
   baseColor: string;
+  literalBase: string;
+  boundName: string | undefined;
+  dangling: boolean;
+  showGlobals: boolean;
   onUpdate: (patch: Partial<Shadow>) => void;
+  onReplace: (shadow: Shadow) => void;
   onClose: () => void;
 }) {
   const [typeOpen, setTypeOpen] = useState(false);
@@ -284,8 +307,14 @@ function ShadowDetailPopover({
             <ColorPicker
               color={baseColor}
               opacity={opacity}
-              onChange={(color) => onUpdate({ color: applyAlpha(color, opacity) })}
-              onOpacityChange={(op) => onUpdate({ color: applyAlpha(baseColor, op) })}
+              colorVar={shadow.colorVar}
+              showGlobals={showGlobals}
+              onChange={(color, meta) => {
+                const { colorVar: _drop, ...rest } = shadow;
+                const next = { ...rest, color: applyAlpha(color, opacity) };
+                onReplace(meta?.colorVar ? { ...next, colorVar: meta.colorVar } : next);
+              }}
+              onOpacityChange={(op) => onUpdate({ color: applyAlpha(literalBase, op) })}
             >
               <button className="hover:bg-muted/50 flex w-full items-center gap-2.5 rounded py-0.5">
                 <div className="border-border relative h-[36px] w-[36px] shrink-0 overflow-hidden rounded border">
@@ -303,10 +332,15 @@ function ShadowDetailPopover({
                   />
                 </div>
                 <div className="flex min-w-0 flex-1 items-center gap-2">
-                  <span className="truncate font-mono text-[11px]">
-                    {baseColor.replace('#', '').toUpperCase()}
+                  <span
+                    className={`truncate text-[11px] ${boundName ? 'font-medium' : 'font-mono'}`}
+                  >
+                    {boundName ?? baseColor.replace('#', '').toUpperCase()}
                   </span>
                   <span className="text-muted-foreground text-[11px]">{opacityPercent}%</span>
+                  {dangling && (
+                    <span className="text-muted-foreground shrink-0 text-[10px]">Missing</span>
+                  )}
                 </div>
               </button>
             </ColorPicker>

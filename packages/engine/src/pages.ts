@@ -217,6 +217,22 @@ export function getPageBackgroundColor(ydoc: Y.Doc, pageId: string): string {
   return (page.get('backgroundColor') as string | undefined) ?? DEFAULT_PAGE_BACKGROUND;
 }
 
+export function setPageBackgroundColorVar(ydoc: Y.Doc, pageId: string, variableId: string | null) {
+  const page = getPagesMap(ydoc).get(pageId);
+  if (!page) return;
+  if (variableId === null) {
+    page.delete('backgroundColorVar');
+  } else {
+    page.set('backgroundColorVar', variableId);
+  }
+}
+
+export function getPageBackgroundColorVar(ydoc: Y.Doc, pageId: string): string | undefined {
+  const page = getPagesMap(ydoc).get(pageId);
+  if (!page) return undefined;
+  return page.get('backgroundColorVar') as string | undefined;
+}
+
 export function setActivePage(ydoc: Y.Doc, pageId: string): boolean {
   const pages = getPagesMap(ydoc);
   if (!pages.has(pageId)) return false;

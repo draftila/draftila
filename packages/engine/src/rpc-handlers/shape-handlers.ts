@@ -9,13 +9,13 @@ import {
 } from '../operations';
 import { getIconSvg } from '../icons';
 import type { RpcHandler } from './types';
-import { toAbsoluteProps, applyTextDefaults, toRelativeShape } from './utils';
+import { toAbsoluteProps, applyTextDefaults, toRelativeShape, sanitizeColorVars } from './utils';
 
 export function shapeHandlers(): Record<string, RpcHandler> {
   return {
     create_shape(ydoc, args) {
       const type = args['type'] as ShapeType;
-      let rawProps = (args['props'] ?? {}) as Record<string, unknown>;
+      let rawProps = sanitizeColorVars((args['props'] ?? {}) as Record<string, unknown>);
       if (type === 'text') rawProps = applyTextDefaults(rawProps);
       const props = toAbsoluteProps(ydoc, rawProps);
       const idx = args['childIndex'] as number | undefined;
@@ -31,7 +31,7 @@ export function shapeHandlers(): Record<string, RpcHandler> {
 
     update_shape(ydoc, args) {
       const shapeId = args['shapeId'] as string;
-      const rawProps = args['props'] as Record<string, unknown>;
+      const rawProps = sanitizeColorVars(args['props'] as Record<string, unknown>);
       const shape = getShape(ydoc, shapeId);
       if (!shape) return { error: 'Shape not found' };
       const props = (

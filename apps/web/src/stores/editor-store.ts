@@ -28,6 +28,7 @@ interface EditorState {
   rightPanelView: 'properties' | 'inspect';
   inspectTab: 'list' | 'code';
   versionHistoryOpen: boolean;
+  globalsOpen: boolean;
   previewSnapshotId: string | null;
   previewYdoc: Y.Doc | null;
   saveVersionDialogOpen: boolean;
@@ -62,6 +63,7 @@ interface EditorState {
   setRightPanelView: (view: 'properties' | 'inspect') => void;
   setInspectTab: (tab: 'list' | 'code') => void;
   setVersionHistoryOpen: (open: boolean) => void;
+  setGlobalsOpen: (open: boolean) => void;
   enterPreviewMode: (snapshotId: string, ydoc: Y.Doc) => void;
   exitPreviewMode: () => void;
   setSaveVersionDialogOpen: (open: boolean) => void;
@@ -92,6 +94,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   rightPanelView: 'properties',
   inspectTab: 'list',
   versionHistoryOpen: false,
+  globalsOpen: false,
   previewSnapshotId: null,
   previewYdoc: null,
   saveVersionDialogOpen: false,
@@ -190,6 +193,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setInspectTab: (tab) => set({ inspectTab: tab }),
 
   setVersionHistoryOpen: (open) => set({ versionHistoryOpen: open }),
+
+  setGlobalsOpen: (open) => set({ globalsOpen: open }),
 
   enterPreviewMode: (snapshotId, ydoc) =>
     set({

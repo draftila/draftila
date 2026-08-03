@@ -65,6 +65,37 @@ export function applyTextDefaults(props: Record<string, unknown>): Record<string
   return out;
 }
 
+const COLOR_VAR_ARRAY_KEYS = ['fills', 'strokes', 'shadows', 'guides', 'segments'];
+
+export function sanitizeColorVars(props: Record<string, unknown>): Record<string, unknown> {
+  const clean = (item: unknown): unknown => {
+    if (!item || typeof item !== 'object') return item;
+    const record = item as Record<string, unknown>;
+    let next = record;
+    if ('colorVar' in record && typeof record['colorVar'] !== 'string') {
+      const { colorVar: _drop, ...rest } = record;
+      next = rest;
+    }
+    const gradient = next['gradient'];
+    if (gradient && typeof gradient === 'object') {
+      const g = gradient as Record<string, unknown>;
+      if (Array.isArray(g['stops'])) {
+        next = { ...next, gradient: { ...g, stops: (g['stops'] as unknown[]).map(clean) } };
+      }
+    }
+    return next;
+  };
+
+  let out = props;
+  for (const key of COLOR_VAR_ARRAY_KEYS) {
+    const value = props[key];
+    if (!Array.isArray(value)) continue;
+    if (out === props) out = { ...props };
+    out[key] = value.map(clean);
+  }
+  return out;
+}
+
 export function toRelativeShape(ydoc: Y.Doc, shape: Shape): Shape {
   if (!shape.parentId) return shape;
   const parent = getShape(ydoc, shape.parentId);

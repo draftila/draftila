@@ -2,7 +2,12 @@ import * as Y from 'yjs';
 import type { Prisma } from '../../generated/prisma/postgresql-client';
 import type { SortOrder, DraftExport, ExportDraftData } from '@draftila/shared';
 import { sanitizeFilename } from '@draftila/shared';
-import { ymapToObject, valueToYjs, DEFAULT_PAGE_BACKGROUND } from '@draftila/engine';
+import {
+  ymapToObject,
+  valueToYjs,
+  DEFAULT_PAGE_BACKGROUND,
+  normalizeVariableValue,
+} from '@draftila/engine';
 import { NotFoundError } from '../../common/errors';
 import { getSortConfig, nextTimestamp, paginateResults } from '../../common/lib/pagination';
 import { extractStorageKey, getStorage, replaceStorageFile } from '../../common/lib/storage';
@@ -211,6 +216,7 @@ function ydocToExportData(name: string, ydoc: Y.Doc): ExportDraftData {
         id: pageId,
         name: (page.get('name') as string) ?? 'Untitled',
         backgroundColor: (page.get('backgroundColor') as string) ?? DEFAULT_PAGE_BACKGROUND,
+        backgroundColorVar: (page.get('backgroundColorVar') as string | undefined) ?? undefined,
         shapes,
         zOrder: zOrderYArr ? zOrderYArr.toArray() : [],
       };
@@ -223,6 +229,7 @@ function ydocToExportData(name: string, ydoc: Y.Doc): ExportDraftData {
       id: defaultId,
       name: 'Page 1',
       backgroundColor: DEFAULT_PAGE_BACKGROUND,
+      backgroundColorVar: undefined,
       shapes: [],
       zOrder: [],
     });
@@ -286,6 +293,36 @@ export async function exportDraft(id: string): Promise<DraftExport | null> {
   };
 }
 
+const COLOR_VAR_ARRAY_KEYS = ['fills', 'strokes', 'shadows', 'guides', 'segments'] as const;
+
+function remapShapeColorVars(
+  shape: Record<string, unknown>,
+  mapVarId: (id: string) => string,
+): Record<string, unknown> {
+  const remapItem = (item: unknown): unknown => {
+    if (!item || typeof item !== 'object') return item;
+    const record = { ...(item as Record<string, unknown>) };
+    if (typeof record['colorVar'] === 'string') {
+      record['colorVar'] = mapVarId(record['colorVar']);
+    }
+    const gradient = record['gradient'];
+    if (gradient && typeof gradient === 'object') {
+      const g = gradient as Record<string, unknown>;
+      if (Array.isArray(g['stops'])) {
+        record['gradient'] = { ...g, stops: (g['stops'] as unknown[]).map(remapItem) };
+      }
+    }
+    return record;
+  };
+
+  const next = { ...shape };
+  for (const key of COLOR_VAR_ARRAY_KEYS) {
+    const value = next[key];
+    if (Array.isArray(value)) next[key] = value.map(remapItem);
+  }
+  return next;
+}
+
 function remapIds(data: ExportDraftData): ExportDraftData {
   const idMap = new Map<string, string>();
 
@@ -298,8 +335,12 @@ function remapIds(data: ExportDraftData): ExportDraftData {
     return newId;
   };
 
+  const varIdMap = new Map<string, string>();
+  for (const variable of data.variables) varIdMap.set(variable.id, nanoid());
+  const mapVarId = (oldId: string): string => varIdMap.get(oldId) ?? oldId;
+
   const remapShape = (shape: Record<string, unknown>): Record<string, unknown> => {
-    const newShape = { ...shape };
+    const newShape = remapShapeColorVars(shape, mapVarId);
     newShape['id'] = mapId(newShape['id'] as string);
     if (newShape['parentId'] && typeof newShape['parentId'] === 'string') {
       newShape['parentId'] = idMap.get(newShape['parentId']) ?? mapId(newShape['parentId']);
@@ -311,14 +352,17 @@ function remapIds(data: ExportDraftData): ExportDraftData {
     const newPageId = mapId(page.id);
     const shapes = page.shapes.map(remapShape);
     const zOrder = page.zOrder.map((oldId) => idMap.get(oldId) ?? oldId);
-    return { ...page, id: newPageId, shapes, zOrder };
+    const backgroundColorVar = page.backgroundColorVar
+      ? mapVarId(page.backgroundColorVar)
+      : undefined;
+    return { ...page, id: newPageId, shapes, zOrder, backgroundColorVar };
   });
 
   const pageOrder = data.pageOrder.map((oldId) => idMap.get(oldId) ?? oldId);
 
   const variables = data.variables.map((v) => ({
     ...v,
-    id: mapId(v.id),
+    id: mapVarId(v.id),
   }));
 
   const components = data.components.map((comp) => {
@@ -355,6 +399,9 @@ function buildYDocFromExport(data: ExportDraftData): Uint8Array {
       pageYMap.set('id', page.id);
       pageYMap.set('name', page.name);
       pageYMap.set('backgroundColor', page.backgroundColor);
+      if (page.backgroundColorVar) {
+        pageYMap.set('backgroundColorVar', page.backgroundColorVar);
+      }
 
       const shapesYMap = new Y.Map<unknown>();
       for (const shape of page.shapes) {
@@ -379,7 +426,7 @@ function buildYDocFromExport(data: ExportDraftData): Uint8Array {
       const entry = new Y.Map<unknown>();
       entry.set('name', variable.name);
       entry.set('type', variable.type);
-      entry.set('value', variable.value);
+      entry.set('value', normalizeVariableValue(variable.value) ?? '#000000');
       variablesMap.set(variable.id, entry);
     }
 

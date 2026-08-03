@@ -1,6 +1,7 @@
 import type { Shape } from '@draftila/shared';
 import { InspectSection } from './inspect-section';
 import { InspectPropertyRow } from './inspect-property-row';
+import { useVariables } from '../../hooks/use-variables';
 
 type ShapeWithEffects = Shape & {
   shadows?: Array<{
@@ -10,12 +11,14 @@ type ShapeWithEffects = Shape & {
     blur: number;
     spread: number;
     color: string;
+    colorVar?: string;
     visible: boolean;
   }>;
   blurs?: Array<{ type: string; radius: number; visible: boolean }>;
 };
 
 export function InspectEffects({ shape }: { shape: Shape }) {
+  const { resolve, byId } = useVariables();
   const s = shape as ShapeWithEffects;
   const visibleShadows = s.shadows?.filter((sh) => sh.visible) ?? [];
   const visibleBlurs = s.blurs?.filter((b) => b.visible) ?? [];
@@ -24,18 +27,24 @@ export function InspectEffects({ shape }: { shape: Shape }) {
 
   return (
     <InspectSection title="Effects">
-      {visibleShadows.map((shadow, i) => (
-        <div key={`shadow-${i}`} className="flex flex-col gap-0.5">
-          <InspectPropertyRow
-            label={shadow.type === 'inner' ? 'Inner Shadow' : 'Drop Shadow'}
-            value={shadow.color.toUpperCase()}
-            colorSwatch={shadow.color.slice(0, 7)}
-          />
-          <InspectPropertyRow label="Offset" value={`${shadow.x}, ${shadow.y}`} />
-          <InspectPropertyRow label="Blur" value={`${shadow.blur}`} />
-          {shadow.spread !== 0 && <InspectPropertyRow label="Spread" value={`${shadow.spread}`} />}
-        </div>
-      ))}
+      {visibleShadows.map((shadow, i) => {
+        const color = resolve(shadow.color, shadow.colorVar) ?? shadow.color;
+        const name = shadow.colorVar ? byId.get(shadow.colorVar)?.name : undefined;
+        return (
+          <div key={`shadow-${i}`} className="flex flex-col gap-0.5">
+            <InspectPropertyRow
+              label={shadow.type === 'inner' ? 'Inner Shadow' : 'Drop Shadow'}
+              value={`${name ? `${name} \u00B7 ` : ''}${color.toUpperCase()}`}
+              colorSwatch={color.slice(0, 7)}
+            />
+            <InspectPropertyRow label="Offset" value={`${shadow.x}, ${shadow.y}`} />
+            <InspectPropertyRow label="Blur" value={`${shadow.blur}`} />
+            {shadow.spread !== 0 && (
+              <InspectPropertyRow label="Spread" value={`${shadow.spread}`} />
+            )}
+          </div>
+        );
+      })}
       {visibleBlurs.map((blur, i) => (
         <InspectPropertyRow
           key={`blur-${i}`}

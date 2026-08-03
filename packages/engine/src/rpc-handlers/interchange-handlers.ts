@@ -1,4 +1,5 @@
-import { getAllShapes, getShape } from '../scene-graph';
+import { getShape } from '../scene-graph';
+import { getResolvedShapes } from '../variables';
 import { isAutoLayoutFrame } from '../auto-layout';
 import { applyAutoLayout, applyAutoLayoutForAncestors } from '../scene-graph/layout-ops';
 import { exportToSvgAsync } from '../export';
@@ -17,7 +18,7 @@ import { collectShapesWithDescendants } from './utils';
 export function interchangeHandlers(): Record<string, RpcHandler> {
   return {
     export_svg(ydoc, args) {
-      const allShapes = getAllShapes(ydoc);
+      const allShapes = getResolvedShapes(ydoc);
       const ids = args['shapeIds'] as string[] | undefined;
       const shapes =
         ids && ids.length > 0 ? collectShapesWithDescendants(allShapes, ids) : allShapes;
@@ -27,7 +28,7 @@ export function interchangeHandlers(): Record<string, RpcHandler> {
     },
 
     export_css(ydoc, args) {
-      const allShapes = getAllShapes(ydoc);
+      const allShapes = getResolvedShapes(ydoc);
       const ids = args['shapeIds'] as string[] | undefined;
       const shapes =
         ids && ids.length > 0 ? collectShapesWithDescendants(allShapes, ids) : allShapes;
@@ -35,7 +36,7 @@ export function interchangeHandlers(): Record<string, RpcHandler> {
     },
 
     export_css_all_layers(ydoc, args) {
-      const allShapes = getAllShapes(ydoc);
+      const allShapes = getResolvedShapes(ydoc);
       const ids = args['shapeIds'] as string[] | undefined;
       const shapes =
         ids && ids.length > 0 ? collectShapesWithDescendants(allShapes, ids) : allShapes;
@@ -43,7 +44,7 @@ export function interchangeHandlers(): Record<string, RpcHandler> {
     },
 
     export_tailwind(ydoc, args) {
-      const allShapes = getAllShapes(ydoc);
+      const allShapes = getResolvedShapes(ydoc);
       const ids = args['shapeIds'] as string[] | undefined;
       const shapes =
         ids && ids.length > 0 ? collectShapesWithDescendants(allShapes, ids) : allShapes;
@@ -51,7 +52,7 @@ export function interchangeHandlers(): Record<string, RpcHandler> {
     },
 
     export_tailwind_all_layers(ydoc, args) {
-      const allShapes = getAllShapes(ydoc);
+      const allShapes = getResolvedShapes(ydoc);
       const ids = args['shapeIds'] as string[] | undefined;
       const shapes =
         ids && ids.length > 0 ? collectShapesWithDescendants(allShapes, ids) : allShapes;
@@ -59,7 +60,7 @@ export function interchangeHandlers(): Record<string, RpcHandler> {
     },
 
     export_swiftui(ydoc, args) {
-      const allShapes = getAllShapes(ydoc);
+      const allShapes = getResolvedShapes(ydoc);
       const ids = args['shapeIds'] as string[] | undefined;
       const shapes =
         ids && ids.length > 0 ? collectShapesWithDescendants(allShapes, ids) : allShapes;
@@ -67,7 +68,7 @@ export function interchangeHandlers(): Record<string, RpcHandler> {
     },
 
     export_compose(ydoc, args) {
-      const allShapes = getAllShapes(ydoc);
+      const allShapes = getResolvedShapes(ydoc);
       const ids = args['shapeIds'] as string[] | undefined;
       const shapes =
         ids && ids.length > 0 ? collectShapesWithDescendants(allShapes, ids) : allShapes;
