@@ -126,8 +126,6 @@ export const exportPageSchema = z.object({
   id: z.string(),
   name: z.string(),
   backgroundColor: z.string(),
-  // Optional: a required field here would make every previously exported
-  // draft file permanently unimportable (drafts.routes.ts rejects whole files).
   backgroundColorVar: z.string().optional(),
   shapes: z.array(z.record(z.string(), z.unknown())),
   zOrder: z.array(z.string()),

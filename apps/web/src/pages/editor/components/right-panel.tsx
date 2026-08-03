@@ -61,14 +61,15 @@ export function RightPanel({ ydoc, draftId }: RightPanelProps) {
     const refresh = () => {
       const currentPageId = useEditorStore.getState().activePageId ?? activePageId;
       setPageBgColor(
-        currentPageId ? getResolvedPageBackgroundColor(ydoc, currentPageId) : DEFAULT_PAGE_BACKGROUND,
+        currentPageId
+          ? getResolvedPageBackgroundColor(ydoc, currentPageId)
+          : DEFAULT_PAGE_BACKGROUND,
       );
       setPageBgColorVar(currentPageId ? getPageBackgroundColorVar(ydoc, currentPageId) : undefined);
     };
 
     refresh();
     const unobservePages = observePages(ydoc, refresh);
-    // The background may be bound to a global, which observePages never sees.
     const unobserveVariables = observeVariables(ydoc, refresh);
 
     return () => {
@@ -80,9 +81,10 @@ export function RightPanel({ ydoc, draftId }: RightPanelProps) {
   const handlePageBgColorChange = useCallback(
     (color: string, meta?: ColorChangeMeta) => {
       if (!activePageId) return;
-      // No meta means a plain edit, which detaches.
-      setPageBackgroundColorVar(ydoc, activePageId, meta?.colorVar ?? null);
-      setPageBackgroundColor(ydoc, activePageId, color);
+      ydoc.transact(() => {
+        setPageBackgroundColorVar(ydoc, activePageId, meta?.colorVar ?? null);
+        setPageBackgroundColor(ydoc, activePageId, color);
+      });
     },
     [ydoc, activePageId],
   );
@@ -94,8 +96,6 @@ export function RightPanel({ ydoc, draftId }: RightPanelProps) {
   const multiSelected = selectedShapes.length > 1;
 
   useEffect(() => {
-    // Resolved: this feeds the Export/Preview sections, which render. The
-    // selected shape below stays raw so the pickers can see their bindings.
     const allVisibleShapes = resolveShapesColors(
       buildVariableTable(ydoc),
       filterEffectivelyVisibleShapes(getAllShapes(ydoc)),
@@ -134,8 +134,6 @@ export function RightPanel({ ydoc, draftId }: RightPanelProps) {
   useEffect(() => {
     const bump = () => setRevision((r) => r + 1);
     const unobserve = observeShapes(ydoc, bump);
-    // `shapeScope` feeds the Export and Preview sections, which render colour —
-    // and a global lives outside the shapes map, so observeShapes never fires.
     const unobserveVariables = observeVariables(ydoc, bump);
     return () => {
       unobserve();
@@ -159,10 +157,6 @@ export function RightPanel({ ydoc, draftId }: RightPanelProps) {
 
   const handleBatchUpdate = useCallback(
     (props: Partial<Shape>) => {
-      // The array being fanned out belongs to selectedShapes[0]. Copying its
-      // colour bindings onto the others would create bindings the user never
-      // made — and would do so for non-colour edits too, like toggling a fill's
-      // visibility. The source shape keeps its own bindings.
       const strippedProps = stripShapeColorVars(props as Shape) as Partial<Shape>;
       opBatchUpdateShapes(
         ydoc,

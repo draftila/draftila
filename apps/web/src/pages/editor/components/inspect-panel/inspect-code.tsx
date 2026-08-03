@@ -132,9 +132,6 @@ export function InspectCode({ ydoc, shapes }: InspectCodeProps) {
   const expandedShapes = useExpandedShapes(ydoc, shapes);
   const tailwindScript = useTailwindScript();
   const activePageId = useEditorStore((state) => state.activePageId);
-  // Resolved through `table` rather than a ydoc read, so the memo recomputes
-  // when a global changes — the page background may be bound, and nothing else
-  // here would invalidate it.
   const { table, resolve } = useVariables();
   const pageBackgroundColor = useMemo(() => {
     if (!activePageId) return null;

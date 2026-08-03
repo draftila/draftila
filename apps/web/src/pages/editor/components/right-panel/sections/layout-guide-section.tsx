@@ -71,7 +71,6 @@ export function LayoutGuideSection({ shape, onUpdate, multiSelect }: PropertySec
     [guides, onUpdate],
   );
 
-  /** Whole-item replace — the merge above cannot express dropping `colorVar`. */
   const replaceGuide = useCallback(
     (index: number, guide: LayoutGuide) => {
       const next = guides.map((g, i) => (i === index ? guide : g));
@@ -237,8 +236,6 @@ function GuideDetailPopover({
 }) {
   const [typeOpen, setTypeOpen] = useState(false);
   const { resolve, byId } = useVariables();
-  // Like shadows, a guide bakes opacity into the hex, so the resolver keeps the
-  // local alpha and the slider still writes to the literal.
   const opacity = parseOpacity(guide.color);
   const baseColor = stripAlpha(resolve(guide.color, guide.colorVar) ?? guide.color);
   const literalBase = stripAlpha(guide.color);
@@ -327,7 +324,9 @@ function GuideDetailPopover({
                   />
                 </div>
                 <div className="flex min-w-0 flex-1 items-center gap-2">
-                  <span className={`truncate text-[11px] ${boundName ? 'font-medium' : 'font-mono'}`}>
+                  <span
+                    className={`truncate text-[11px] ${boundName ? 'font-medium' : 'font-mono'}`}
+                  >
                     {boundName ?? baseColor.replace('#', '').toUpperCase()}
                   </span>
                   <span className="text-muted-foreground text-[11px]">{opacityPercent}%</span>

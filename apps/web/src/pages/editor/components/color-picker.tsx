@@ -19,31 +19,16 @@ import {
   parseColorInput,
 } from './color-parsing';
 
-/**
- * Extra intent attached to a colour change.
- *
- * Bind and detach travel on the SAME callback as a plain edit, deliberately.
- * Every call site turns one emission into one whole-item write; splitting them
- * into two callbacks would mean two writes from the same stale closure, and
- * since `updateShape` replaces the entire array the second would revert the
- * first.
- *
- * - `undefined`  — plain edit; the call site drops any existing `colorVar`
- * - `{ colorVar }` — bind to that variable
- */
 export interface ColorChangeMeta {
   colorVar?: string;
 }
 
 interface ColorPickerProps {
-  /** The RESOLVED colour (6-digit). Seeds the picker's HSV state. */
   color: string;
   opacity: number;
-  /** Present when this colour is bound to a global. */
   colorVar?: string;
   onChange: (color: string, meta?: ColorChangeMeta) => void;
   onOpacityChange: (opacity: number) => void;
-  /** Hidden when false — e.g. multi-select, or an image fill. */
   showGlobals?: boolean;
   children: React.ReactNode;
 }

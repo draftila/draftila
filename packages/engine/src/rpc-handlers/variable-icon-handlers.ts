@@ -21,9 +21,6 @@ export function variableIconHandlers(): Record<string, RpcHandler> {
       const id = args['id'] as string;
       const name = args['name'] as string;
       const value = args['value'] as string;
-      // Reusing an existing id is the documented contract, but it is no longer
-      // inert: it repaints every shape bound to the variable, and the overwrite
-      // does not land in any user's undo stack. Report it so the caller can tell.
       const previous = getVariable(ydoc, id);
       const usageCount = previous ? countVariableUsage(ydoc, id) : 0;
       const variable = setVariable(ydoc, id, name, value);

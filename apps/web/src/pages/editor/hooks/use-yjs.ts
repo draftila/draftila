@@ -160,8 +160,6 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
     wsProvider.on('sync', (isSynced: boolean) => {
       setSynced(isSynced);
       if (isSynced) {
-        // Identifies the document for cross-draft paste detection. `ydoc.guid`
-        // can't serve: a fresh Y.Doc is minted on every mount.
         setDocId(ydoc, draftId);
         ensureDefaultPage(ydoc);
         const fonts = collectFontFamilies(getAllShapes(ydoc));

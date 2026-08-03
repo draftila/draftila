@@ -50,8 +50,6 @@ export function InspectFill({ shape }: { shape: Shape }) {
           );
         }
         const opacity = fill.opacity !== 1 ? ` ${Math.round(fill.opacity * 100)}%` : '';
-        // A fill may carry only a colorVar (see fillSchema's refine), so `color`
-        // can legitimately be absent once the variable is missing too.
         const resolved = resolve(fill.color, fill.colorVar);
         if (!resolved) return null;
         const name = fill.colorVar ? byId.get(fill.colorVar)?.name : undefined;

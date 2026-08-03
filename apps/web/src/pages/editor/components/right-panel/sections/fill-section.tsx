@@ -123,8 +123,6 @@ export function FillSection({ shape, onUpdate, multiSelect }: PropertySectionPro
             <FillRow
               key={index}
               fill={fill}
-              // Binding is per-shape; a batch update would push this shape's
-              // whole fills array onto every selection.
               showGlobals={!multiSelect}
               onUpdate={(patch) => updateFill(index, patch)}
               onReplace={(f) => replaceFill(index, f)}
@@ -157,7 +155,6 @@ function FillRow({
   const opacityPercent = Math.round(fill.opacity * 100);
   const fillType = getFillType(fill);
   const solidColor = fill.color ?? DEFAULT_FILL_COLOR;
-  // What the swatch, label and picker show — the literal is only the fallback.
   const displayColor = resolve(solidColor, fill.colorVar) ?? solidColor;
   const boundName = fill.colorVar ? byId.get(fill.colorVar)?.name : undefined;
 
@@ -165,7 +162,6 @@ function FillRow({
     if (newType === fillType) return;
     if (newType === 'solid') {
       const stop = fill.gradient?.stops[0];
-      // Carry the first stop's binding up onto the fill.
       onReplace({
         color: stop?.color ?? solidColor,
         opacity: fill.opacity,
@@ -174,8 +170,6 @@ function FillRow({
       });
       return;
     }
-    // Drop the solid binding: left in place it would lie dormant on a gradient
-    // fill and silently reactivate if the fill ever switched back to solid.
     const { colorVar: _drop, ...rest } = fill;
     onReplace({ ...rest, gradient: defaultGradient(newType, displayColor) });
   };
@@ -249,11 +243,11 @@ function FillRow({
           color={displayColor}
           opacity={fill.opacity}
           colorVar={fill.colorVar}
-          // Whole-item replace, not a merge: omitting `colorVar` is how a
-          // detach is expressed, and a merge would re-add it from `fill`.
           onChange={(color, meta) => {
             const { colorVar: _drop, ...rest } = fill;
-            onReplace(meta?.colorVar ? { ...rest, color, colorVar: meta.colorVar } : { ...rest, color });
+            onReplace(
+              meta?.colorVar ? { ...rest, color, colorVar: meta.colorVar } : { ...rest, color },
+            );
           }}
           onOpacityChange={(opacity) => onUpdate({ opacity })}
           showGlobals={showGlobals && !fill.imageSrc}

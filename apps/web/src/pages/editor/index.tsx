@@ -297,9 +297,7 @@ export function EditorPage() {
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => useEditorStore.getState().setGlobalsOpen(true)}
-              >
+              <DropdownMenuItem onClick={() => useEditorStore.getState().setGlobalsOpen(true)}>
                 <Palette className="mr-2 h-4 w-4" />
                 Globals
               </DropdownMenuItem>

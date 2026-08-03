@@ -29,7 +29,6 @@ export function EffectsSection({ shape, onUpdate, multiSelect }: PropertySection
     [shadows, onUpdate],
   );
 
-  /** Whole-item replace — the merge above cannot express dropping `colorVar`. */
   const replaceShadow = useCallback(
     (index: number, shadow: Shadow) => {
       const next = shadows.map((s, i) => (i === index ? shadow : s));

@@ -8,9 +8,6 @@ export function initUndoManager(ydoc: Y.Doc): Y.UndoManager {
   const shapes = getShapesMap(ydoc);
   const zOrder = getZOrder(ydoc);
   const guides = getActivePageGuidesArray(ydoc);
-  // Editing a global would otherwise be the only un-undoable action in the
-  // editor. Note the shapes map is active-page scoped, so a cross-page detach
-  // sweep is still only partially undoable — see the delete confirmation.
   const variables = ydoc.getMap('variables');
 
   undoManager = new Y.UndoManager([shapes, zOrder, guides, variables], {

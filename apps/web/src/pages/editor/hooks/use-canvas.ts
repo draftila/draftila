@@ -79,8 +79,6 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
 
     refresh();
     const unobservePages = observePages(ydoc, refresh);
-    // The background may be bound to a global, which lives in a separate root
-    // map that observePages never sees.
     const unobserveVariables = observeVariables(ydoc, refresh);
 
     return () => {
@@ -98,9 +96,6 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
     refresh();
 
     const unobserve = observeShapes(ydoc, refresh);
-    // Colour globals live in their own root map, so observeShapes never fires
-    // for them. Refilling the cache here is all the invalidation the canvas
-    // needs — the render loop is unconditional, so the next frame repaints.
     const unobserveVariables = observeVariables(ydoc, refresh);
 
     const unsubscribeFonts = onFontsLoaded(() => {

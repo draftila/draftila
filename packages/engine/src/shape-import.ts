@@ -186,11 +186,6 @@ function tryPasteDraftilaShapes(
     const rawShapes = parsed.shapes as Shape[];
     if (!Array.isArray(rawShapes) || rawShapes.length === 0) return null;
 
-    // This is the path a plain Ctrl+V takes, so it is where a colour binding
-    // would otherwise cross into another draft. Variable ids are caller-chosen
-    // slugs, so a same-id collision in the target would silently repaint the
-    // shape; drop the binding and keep the literal. Payloads written before
-    // this field existed have no sourceDocId and are treated as foreign.
     const sourceDocId = typeof parsed.sourceDocId === 'string' ? parsed.sourceDocId : null;
     const targetDocId = getDocId(ydoc);
     const shapes =

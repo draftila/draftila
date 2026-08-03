@@ -31,16 +31,18 @@ export function InspectEffects({ shape }: { shape: Shape }) {
         const color = resolve(shadow.color, shadow.colorVar) ?? shadow.color;
         const name = shadow.colorVar ? byId.get(shadow.colorVar)?.name : undefined;
         return (
-        <div key={`shadow-${i}`} className="flex flex-col gap-0.5">
-          <InspectPropertyRow
-            label={shadow.type === 'inner' ? 'Inner Shadow' : 'Drop Shadow'}
-            value={`${name ? `${name} \u00B7 ` : ''}${color.toUpperCase()}`}
-            colorSwatch={color.slice(0, 7)}
-          />
-          <InspectPropertyRow label="Offset" value={`${shadow.x}, ${shadow.y}`} />
-          <InspectPropertyRow label="Blur" value={`${shadow.blur}`} />
-          {shadow.spread !== 0 && <InspectPropertyRow label="Spread" value={`${shadow.spread}`} />}
-        </div>
+          <div key={`shadow-${i}`} className="flex flex-col gap-0.5">
+            <InspectPropertyRow
+              label={shadow.type === 'inner' ? 'Inner Shadow' : 'Drop Shadow'}
+              value={`${name ? `${name} \u00B7 ` : ''}${color.toUpperCase()}`}
+              colorSwatch={color.slice(0, 7)}
+            />
+            <InspectPropertyRow label="Offset" value={`${shadow.x}, ${shadow.y}`} />
+            <InspectPropertyRow label="Blur" value={`${shadow.blur}`} />
+            {shadow.spread !== 0 && (
+              <InspectPropertyRow label="Spread" value={`${shadow.spread}`} />
+            )}
+          </div>
         );
       })}
       {visibleBlurs.map((blur, i) => (

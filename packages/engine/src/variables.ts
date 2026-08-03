@@ -1,5 +1,14 @@
 import * as Y from 'yjs';
-import type { Fill, Gradient, LayoutGuide, Shadow, Shape, Stroke, TextSegment } from '@draftila/shared';
+import type {
+  Fill,
+  Gradient,
+  LayoutGuide,
+  Shadow,
+  Shape,
+  Stroke,
+  TextSegment,
+} from '@draftila/shared';
+import type { Variable } from '@draftila/shared';
 import { variableColorSchema } from '@draftila/shared';
 import { getAllShapes } from './scene-graph';
 import {
@@ -8,10 +17,8 @@ import {
   getPageBackgroundColorVar,
 } from './pages';
 
-export type { Variable } from '@draftila/shared';
-import type { Variable } from '@draftila/shared';
+export type { Variable };
 
-/** varId -> validated 6-digit hex. Built fresh per resolution pass; never cached. */
 export type VariableTable = Map<string, string>;
 
 const DEFAULT_VARIABLE_VALUE = '#000000';
@@ -20,20 +27,10 @@ function getVariablesMap(ydoc: Y.Doc): Y.Map<Y.Map<unknown>> {
   return ydoc.getMap('variables') as Y.Map<Y.Map<unknown>>;
 }
 
-/**
- * Coerce a stored variable value to `#RRGGBB`.
- *
- * `setVariable` shipped without validation, so existing drafts may hold 8-digit,
- * 3-digit or named values. Values also arrive over the collaboration websocket,
- * which cannot be validated at write time at all — so this runs on read, which
- * is the only choke point every resolving consumer passes through. It is also
- * what keeps unvalidated bytes out of the SVG generator's colour sinks.
- */
 export function normalizeVariableValue(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   if (variableColorSchema.safeParse(trimmed).success) return trimmed.toUpperCase();
-  // Tolerate the two shapes we know are already in the wild.
   if (/^#[0-9a-fA-F]{8}$/.test(trimmed)) return trimmed.slice(0, 7).toUpperCase();
   if (/^#[0-9a-fA-F]{3}$/.test(trimmed)) {
     const [r, g, b] = [trimmed[1]!, trimmed[2]!, trimmed[3]!];
@@ -117,25 +114,16 @@ export function buildVariableTable(ydoc: Y.Doc): VariableTable {
   return table;
 }
 
-export function observeVariables(ydoc: Y.Doc, callback: (variables: Variable[]) => void): () => void {
+export function observeVariables(
+  ydoc: Y.Doc,
+  callback: (variables: Variable[]) => void,
+): () => void {
   const map = getVariablesMap(ydoc);
   const handler = () => callback(getVariables(ydoc));
   map.observeDeep(handler);
   return () => map.unobserveDeep(handler);
 }
 
-/**
- * Resolve one colour reference.
- *
- * The variable supplies RGB only; whatever alpha the local literal carried is
- * preserved. Shadows and layout guides bake their opacity into the hex and have
- * no separate opacity field, so dropping it would silently disable their opacity
- * controls. Fills and strokes have a real `opacity` field, where the preserved
- * alpha is a harmless no-op.
- *
- * A missing variable falls back to the literal — dangling references are a
- * supported state, not an error.
- */
 export function resolveColorRef(
   literal: string | undefined,
   varId: string | undefined,
@@ -144,7 +132,6 @@ export function resolveColorRef(
   if (!varId) return literal;
   const value = table.get(varId);
   if (!value) return literal;
-  // `#RRGGBBAA` is 9 chars. colorSchema also admits 7, so test the length explicitly.
   if (literal && literal.length === 9) return `${value}${literal.slice(7)}`;
   return value;
 }
@@ -209,10 +196,6 @@ type StyledShape = Shape & {
   segments?: TextSegment[];
 };
 
-/**
- * Returns the same object reference when the shape carries no bindings, so an
- * unbound document pays only a shallow scan.
- */
 export function resolveShapeColors(table: VariableTable, shape: Shape): Shape {
   if (table.size === 0) return shape;
   const styled = shape as StyledShape;
@@ -239,7 +222,6 @@ export function resolveShapesColors(table: VariableTable, shapes: Shape[]): Shap
   return shapes.map((shape) => resolveShapeColors(table, shape));
 }
 
-/** Strip every colour binding from a shape, across the full traversal. */
 export function stripShapeColorVars(shape: Shape): Shape {
   const styled = shape as StyledShape;
   const dropVar = <T extends { colorVar?: string }>(item: T): T => {
@@ -283,7 +265,6 @@ export function stripShapeColorVars(shape: Shape): Shape {
   return changed ? (next as Shape) : shape;
 }
 
-/** Every colour binding a shape carries, across the full traversal. */
 export function collectShapeVariableRefs(shape: Shape, into: Set<string> = new Set()): Set<string> {
   const styled = shape as StyledShape;
   const add = (id: string | undefined) => {
@@ -314,11 +295,6 @@ export function collectVariableRefs(shapes: Shape[]): Set<string> {
   return refs;
 }
 
-/**
- * The standard entry point for anything that renders, exports or displays
- * shapes. Everything that only needs geometry should keep using `getAllShapes`;
- * anything that touches colour must come through here.
- */
 export function getResolvedShapes(ydoc: Y.Doc): Shape[] {
   return resolveShapesColors(buildVariableTable(ydoc), getAllShapes(ydoc));
 }

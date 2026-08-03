@@ -217,14 +217,6 @@ export function getPageBackgroundColor(ydoc: Y.Doc, pageId: string): string {
   return (page.get('backgroundColor') as string | undefined) ?? DEFAULT_PAGE_BACKGROUND;
 }
 
-/**
- * Unlike fills and strokes, the page background is a plain key on the page map
- * rather than an array item, so unbinding needs an explicit delete — setting
- * `undefined` would leave the key present.
- *
- * Deliberately literal-only: resolution lives in `variables.ts`, which imports
- * this module. Adding the reverse dependency would create a cycle.
- */
 export function setPageBackgroundColorVar(ydoc: Y.Doc, pageId: string, variableId: string | null) {
   const page = getPagesMap(ydoc).get(pageId);
   if (!page) return;

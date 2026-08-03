@@ -38,7 +38,6 @@ export function SegmentsEditor({
     [segments, onUpdate],
   );
 
-  /** Whole-item replace — the merge above cannot express dropping `colorVar`. */
   const replaceSegment = useCallback(
     (index: number, segment: TextSegment) => {
       if (!segments) return;
@@ -88,8 +87,6 @@ export function SegmentsEditor({
             <SegmentRow
               key={index}
               segment={segment}
-              // TypographySection is in MULTI_SELECT_EXCLUDED, so this only
-              // ever renders for a single shape.
               showGlobals
               onUpdate={(patch) => updateSegment(index, patch)}
               onReplace={(next) => replaceSegment(index, next)}
@@ -155,7 +152,11 @@ function SegmentRow({
           showGlobals={showGlobals}
           onChange={(c, meta) => {
             const { colorVar: _drop, ...rest } = segment;
-            onReplace(meta?.colorVar ? { ...rest, color: c, colorVar: meta.colorVar } : { ...rest, color: c });
+            onReplace(
+              meta?.colorVar
+                ? { ...rest, color: c, colorVar: meta.colorVar }
+                : { ...rest, color: c },
+            );
           }}
           onOpacityChange={() => {}}
         >

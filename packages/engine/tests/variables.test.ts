@@ -13,7 +13,12 @@ import {
   setVariable,
   stripShapeColorVars,
 } from '../src/variables';
-import { countVariableUsage, deleteVariable, forEachShapeAcrossPages } from '../src/variable-scan';
+import {
+  countVariableUsage,
+  deleteVariable,
+  detachVariableFromShape,
+  forEachShapeAcrossPages,
+} from '../src/variable-scan';
 
 function newDoc(): Y.Doc {
   const ydoc = new Y.Doc();
@@ -214,6 +219,24 @@ describe('cross-page walker', () => {
       return null;
     });
     expect(seen).toBe(2);
+  });
+
+  test('detaching only rewrites the arrays that referenced the variable', () => {
+    // Each written key rebuilds a whole Y.Array and resolves last-writer-wins,
+    // so rewriting an untouched array would let a delete clobber a
+    // collaborator's concurrent edit to it.
+    const table = new Map([['v1', '#FF0000']]);
+    const shape = {
+      id: 's1',
+      type: 'rectangle',
+      fills: [{ color: '#0000FF', colorVar: 'v1' }],
+      strokes: [{ color: '#00FF00' }],
+      shadows: [{ color: '#111111', colorVar: 'other' }],
+    } as unknown as Shape;
+
+    const patch = detachVariableFromShape(shape, 'v1', table)!;
+    expect(Object.keys(patch)).toEqual(['fills']);
+    expect((patch.fills as Array<{ color: string }>)[0]!.color).toBe('#FF0000');
   });
 
   test('deleting a global inlines its value first, so nothing changes visually', () => {

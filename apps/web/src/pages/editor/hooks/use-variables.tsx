@@ -13,9 +13,7 @@ interface VariablesContextValue {
   variables: Variable[];
   byId: Map<string, Variable>;
   table: VariableTable;
-  /** Resolve a colour for display. Mirrors the engine's render-time resolution. */
   resolve: (color: string | undefined, colorVar: string | undefined) => string | undefined;
-  /** A binding whose variable no longer exists. Renders its literal; shown as "Missing". */
   isDangling: (colorVar: string | undefined) => boolean;
 }
 
@@ -29,11 +27,6 @@ const EMPTY: VariablesContextValue = {
 
 const VariablesContext = createContext<VariablesContextValue>(EMPTY);
 
-/**
- * Mount on the active document (which may be a version-preview doc, not the
- * live one). Context crosses React portals, so pickers rendered inside Radix
- * popovers — including the nested one in the gradient editor — still see it.
- */
 export function VariablesProvider({ ydoc, children }: { ydoc: Y.Doc; children: React.ReactNode }) {
   const [variables, setVariables] = useState<Variable[]>(() => getVariables(ydoc));
 
@@ -52,7 +45,6 @@ export function VariablesProvider({ ydoc, children }: { ydoc: Y.Doc; children: R
       resolve: (color, colorVar) => resolveColorRef(color, colorVar, table),
       isDangling: (colorVar) => colorVar !== undefined && !byId.has(colorVar),
     };
-    // `variables` is the change signal; the table is derived from the same data.
   }, [variables, ydoc]);
 
   return <VariablesContext.Provider value={value}>{children}</VariablesContext.Provider>;

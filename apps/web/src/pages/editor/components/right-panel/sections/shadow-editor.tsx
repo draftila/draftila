@@ -93,9 +93,6 @@ export function ShadowEntry({
 }) {
   const [detailOpen, setDetailOpen] = useState(false);
   const { resolve, byId, isDangling } = useVariables();
-  // A shadow bakes its opacity into the hex and has no separate opacity field,
-  // so the resolver substitutes RGB and keeps the local alpha. `opacity` is
-  // therefore read from the literal, which is what the slider writes to.
   const opacity = parseOpacity(shadow.color);
   const baseColor = stripAlpha(resolve(shadow.color, shadow.colorVar) ?? shadow.color);
   const literalBase = stripAlpha(shadow.color);
@@ -165,9 +162,7 @@ function ShadowDetailPopover({
 }: {
   shadow: Shadow;
   opacity: number;
-  /** Resolved, alpha-stripped — what the picker and swatch display. */
   baseColor: string;
-  /** The stored literal, alpha-stripped — what the opacity slider writes to. */
   literalBase: string;
   boundName: string | undefined;
   dangling: boolean;
@@ -319,8 +314,6 @@ function ShadowDetailPopover({
                 const next = { ...rest, color: applyAlpha(color, opacity) };
                 onReplace(meta?.colorVar ? { ...next, colorVar: meta.colorVar } : next);
               }}
-              // Opacity never detaches, and must be applied to the LITERAL —
-              // writing the resolved colour back would overwrite the fallback.
               onOpacityChange={(op) => onUpdate({ color: applyAlpha(literalBase, op) })}
             >
               <button className="hover:bg-muted/50 flex w-full items-center gap-2.5 rounded py-0.5">
@@ -339,7 +332,9 @@ function ShadowDetailPopover({
                   />
                 </div>
                 <div className="flex min-w-0 flex-1 items-center gap-2">
-                  <span className={`truncate text-[11px] ${boundName ? 'font-medium' : 'font-mono'}`}>
+                  <span
+                    className={`truncate text-[11px] ${boundName ? 'font-medium' : 'font-mono'}`}
+                  >
                     {boundName ?? baseColor.replace('#', '').toUpperCase()}
                   </span>
                   <span className="text-muted-foreground text-[11px]">{opacityPercent}%</span>

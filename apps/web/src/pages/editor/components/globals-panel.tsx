@@ -16,18 +16,9 @@ import { useVariables } from '../hooks/use-variables';
 
 const DEFAULT_NEW_COLOR = '#6C3CE9';
 
-/**
- * Draft-scoped design globals.
- *
- * An overlay rather than a right-panel takeover: globals belong to the document,
- * not to the current selection, and the left rail is where typography and other
- * token types will land.
- */
 export function GlobalsPanel({ ydoc }: { ydoc: Y.Doc }) {
   const open = useEditorStore((s) => s.globalsOpen);
   const setOpen = useEditorStore((s) => s.setGlobalsOpen);
-  // Editing while previewing a snapshot would write to the wrong document:
-  // the preview swaps in its own Y.Doc but the undo manager tracks the live one.
   const isPreview = useEditorStore((s) => s.previewSnapshotId !== null);
   const { variables } = useVariables();
 
@@ -115,8 +106,8 @@ export function GlobalsPanel({ ydoc }: { ydoc: Y.Doc }) {
                 <Palette className="h-6 w-6 opacity-40" />
                 <p className="text-[12px]">No global colors yet.</p>
                 <p className="max-w-[280px] text-[11px] leading-snug">
-                  Add one, then bind it from any color picker. Changing it updates every layer
-                  that uses it.
+                  Add one, then bind it from any color picker. Changing it updates every layer that
+                  uses it.
                 </p>
               </div>
             ) : (
@@ -148,7 +139,6 @@ function VariableRow({
   readOnly: boolean;
 }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  // Counted lazily on intent: the walk covers every page and component.
   const [usage, setUsage] = useState(0);
 
   const startDelete = () => {
@@ -161,7 +151,6 @@ function VariableRow({
       <ColorPicker
         color={variable.value}
         opacity={1}
-        // A global has no binding of its own, so no Globals strip here.
         showGlobals={false}
         onChange={(color) => setVariableValue(ydoc, variable.id, color)}
         onOpacityChange={() => {}}

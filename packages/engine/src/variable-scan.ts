@@ -8,35 +8,21 @@ import {
   type VariableTable,
 } from './variables';
 
-/** Shape keys that can hold a colour binding. */
-const COLOR_ARRAY_KEYS = ['fills', 'strokes', 'shadows', 'guides', 'segments'] as const;
+type ColorArrayKey = 'fills' | 'strokes' | 'shadows' | 'guides' | 'segments';
 
-type ShapeVisitor = (shape: Shape) => Shape | null;
+type ShapePatch = Partial<Record<ColorArrayKey, unknown>>;
 
-/**
- * Walk every shape in the document, not just the active page.
- *
- * `getShapesMap` resolves to the *active* page (`getActivePageShapesMap`), which
- * is the wrong scope for document-wide operations — and on the API server, where
- * these run, `ensureDefaultPage` has never executed, so the active page is
- * whatever `ensureActivePage` happens to pick. This walks the raw maps instead.
- *
- * Covers: every page, the legacy top-level `shapes` map (un-migrated documents),
- * and component definitions, which store their shapes as a JSON string rather
- * than as Yjs structures.
- *
- * Returns the number of shapes the visitor changed.
- */
+type ShapeVisitor = (shape: Shape) => ShapePatch | null;
+
 export function forEachShapeAcrossPages(ydoc: Y.Doc, visit: ShapeVisitor): number {
   let changed = 0;
 
   const visitShapesMap = (shapes: Y.Map<Y.Map<unknown>>) => {
     shapes.forEach((shapeData) => {
       const shape = ymapToObject(shapeData) as Shape;
-      const next = visit(shape);
-      if (!next) return;
-      for (const key of COLOR_ARRAY_KEYS) {
-        const value = (next as unknown as Record<string, unknown>)[key];
+      const patch = visit(shape);
+      if (!patch) return;
+      for (const [key, value] of Object.entries(patch)) {
         if (value !== undefined) shapeData.set(key, valueToYjs(key, value));
       }
       changed++;
@@ -49,7 +35,6 @@ export function forEachShapeAcrossPages(ydoc: Y.Doc, visit: ShapeVisitor): numbe
     if (shapes) visitShapesMap(shapes);
   });
 
-  // Legacy documents keep shapes at the root until a client migrates them.
   visitShapesMap(ydoc.getMap('shapes') as Y.Map<Y.Map<unknown>>);
 
   const components = ydoc.getMap('components') as Y.Map<Y.Map<unknown>>;
@@ -65,11 +50,11 @@ export function forEachShapeAcrossPages(ydoc: Y.Doc, visit: ShapeVisitor): numbe
     if (!Array.isArray(parsed)) return;
     let componentChanged = false;
     const next = parsed.map((shape) => {
-      const updated = visit(shape);
-      if (!updated) return shape;
+      const patch = visit(shape);
+      if (!patch) return shape;
       componentChanged = true;
       changed++;
-      return updated;
+      return { ...shape, ...patch };
     });
     if (componentChanged) component.set('shapes', JSON.stringify(next));
   });
@@ -103,19 +88,11 @@ function detachGradient(
   return changed ? ({ ...gradient, stops } as Gradient) : null;
 }
 
-/**
- * Replace every reference to `variableId` with the value it currently resolves
- * to, then drop the binding. Inlining the *resolved* value (not the stale
- * literal) is what makes deleting a global visually lossless.
- */
 export function detachVariableFromShape(
   shape: Shape,
   variableId: string,
   table: VariableTable,
-): Shape | null {
-  // Work through an untyped record: `Shape` is a discriminated union, so
-  // assigning back into a spread of it produces an intersection of every
-  // member's array types.
+): ShapePatch | null {
   const styled = shape as unknown as {
     fills?: Fill[];
     strokes?: Array<{ color: string; colorVar?: string }>;
@@ -123,44 +100,48 @@ export function detachVariableFromShape(
     guides?: Array<{ color: string; colorVar?: string }>;
     segments?: TextSegment[];
   };
-  const next: Record<string, unknown> = { ...shape };
+  const patch: ShapePatch = {};
   let changed = false;
 
-  if (styled.fills) {
-    next.fills = styled.fills.map((fill) => {
-      const detached = detachItem(fill, variableId, table) ?? fill;
+  const withGradients = <T extends { colorVar?: string; color?: string; gradient?: Gradient }>(
+    items: T[],
+  ): T[] | null => {
+    let touched = false;
+    const next = items.map((item) => {
+      const detached = detachItem(item, variableId, table) ?? item;
       const gradient = detached.gradient
         ? detachGradient(detached.gradient, variableId, table)
         : null;
-      if (detached !== fill || gradient) changed = true;
+      if (detached !== item || gradient) touched = true;
       return gradient ? { ...detached, gradient } : detached;
     });
-  }
+    return touched ? next : null;
+  };
 
-  if (styled.segments) {
-    next.segments = styled.segments.map((segment) => {
-      const detached = detachItem(segment, variableId, table) ?? segment;
-      const gradient = detached.gradient
-        ? detachGradient(detached.gradient, variableId, table)
-        : null;
-      if (detached !== segment || gradient) changed = true;
-      return gradient ? { ...detached, gradient } : detached;
-    });
-  }
-
-  const detachAll = <T extends { color: string; colorVar?: string }>(items: T[]): T[] =>
-    items.map((item) => {
+  const plain = <T extends { color: string; colorVar?: string }>(items: T[]): T[] | null => {
+    let touched = false;
+    const next = items.map((item) => {
       const detached = detachItem(item, variableId, table);
       if (!detached) return item;
-      changed = true;
+      touched = true;
       return detached;
     });
+    return touched ? next : null;
+  };
 
-  if (styled.strokes) next.strokes = detachAll(styled.strokes);
-  if (styled.shadows) next.shadows = detachAll(styled.shadows);
-  if (styled.guides) next.guides = detachAll(styled.guides);
+  const put = (key: ColorArrayKey, value: unknown[] | null) => {
+    if (!value) return;
+    patch[key] = value;
+    changed = true;
+  };
 
-  return changed ? (next as unknown as Shape) : null;
+  if (styled.fills) put('fills', withGradients(styled.fills));
+  if (styled.segments) put('segments', withGradients(styled.segments));
+  if (styled.strokes) put('strokes', plain(styled.strokes));
+  if (styled.shadows) put('shadows', plain(styled.shadows));
+  if (styled.guides) put('guides', plain(styled.guides));
+
+  return changed ? patch : null;
 }
 
 export function countVariableUsage(ydoc: Y.Doc, variableId: string): number {
@@ -178,7 +159,6 @@ export function countVariableUsage(ydoc: Y.Doc, variableId: string): number {
   return count;
 }
 
-/** Inline a variable everywhere it is used, leaving the variable itself intact. */
 export function detachVariable(ydoc: Y.Doc, variableId: string): number {
   const table = buildVariableTable(ydoc);
   let changed = 0;
@@ -205,14 +185,6 @@ export function detachVariable(ydoc: Y.Doc, variableId: string): number {
   return changed;
 }
 
-/**
- * Detach first, then remove — so no shape visibly changes colour.
- *
- * Not atomic against concurrent edits: a peer binding to this variable while the
- * sweep runs can win last-writer on that shape's array and leave a live
- * reference to a deleted variable. That is a supported state — the reference
- * falls back to its literal.
- */
 export function deleteVariable(ydoc: Y.Doc, variableId: string): boolean {
   const map = ydoc.getMap('variables') as Y.Map<Y.Map<unknown>>;
   if (!map.has(variableId)) return false;

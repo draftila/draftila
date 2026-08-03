@@ -17,7 +17,6 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-/** Resolves a stop's colour for display; matches the engine's render-time rule. */
 type ResolveColor = (color: string | undefined, colorVar: string | undefined) => string | undefined;
 
 const identityResolve: ResolveColor = (color) => color;
@@ -36,7 +35,10 @@ function gradientToCss(gradient: Gradient, resolve: ResolveColor = identityResol
   return `radial-gradient(circle at ${(gradient.cx ?? 0.5) * 100}% ${(gradient.cy ?? 0.5) * 100}%, ${stopsCss})`;
 }
 
-export function gradientPreviewCss(gradient: Gradient, resolve: ResolveColor = identityResolve): string {
+export function gradientPreviewCss(
+  gradient: Gradient,
+  resolve: ResolveColor = identityResolve,
+): string {
   return gradientToCss(gradient, resolve);
 }
 
@@ -124,9 +126,6 @@ function GradientStopBar({
 
 export function GradientEditor({ gradient, onChange, children }: GradientEditorProps) {
   const [selectedStopIndex, setSelectedStopIndex] = useState(0);
-  // The gradient stays RAW here. Resolving it up front would be a data-loss bug:
-  // `updateStop` rewrites the whole stops array, so editing one stop would bake
-  // resolved colours into every other stop's literal.
   const { resolve } = useVariables();
 
   const selectedStop = gradient.stops[selectedStopIndex] ?? gradient.stops[0];
@@ -205,8 +204,6 @@ export function GradientEditor({ gradient, onChange, children }: GradientEditorP
               color={selectedStopColor}
               opacity={1}
               colorVar={selectedStop.colorVar}
-              // Rest-destructure rather than spreading `selectedStop`: a spread
-              // would carry `colorVar` back in and defeat the detach.
               onChange={(color, meta) => {
                 const { colorVar: _drop, ...rest } = selectedStop;
                 updateStop(

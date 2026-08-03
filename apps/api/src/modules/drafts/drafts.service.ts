@@ -293,16 +293,8 @@ export async function exportDraft(id: string): Promise<DraftExport | null> {
   };
 }
 
-/** Shape keys whose array items can carry a `colorVar` binding. */
 const COLOR_VAR_ARRAY_KEYS = ['fills', 'strokes', 'shadows', 'guides', 'segments'] as const;
 
-/**
- * Rewrite every `colorVar` in a shape through `mapVarId`.
- *
- * Covers the nested cases too — `fills[].gradient.stops[]` and
- * `segments[].gradient.stops[]` — which are easy to miss and would otherwise
- * leave a binding pointing at an id that no longer exists after import.
- */
 function remapShapeColorVars(
   shape: Record<string, unknown>,
   mapVarId: (id: string) => string,
@@ -343,10 +335,6 @@ function remapIds(data: ExportDraftData): ExportDraftData {
     return newId;
   };
 
-  // Variables get their own namespace, built eagerly. Sharing `idMap` would let
-  // an agent-chosen variable id ("primary") collide with a shape or page id and
-  // collapse both onto one new id. Unknown ids are preserved rather than minted,
-  // so a dangling reference stays recognisable instead of pointing at nothing.
   const varIdMap = new Map<string, string>();
   for (const variable of data.variables) varIdMap.set(variable.id, nanoid());
   const mapVarId = (oldId: string): string => varIdMap.get(oldId) ?? oldId;
@@ -438,10 +426,6 @@ function buildYDocFromExport(data: ExportDraftData): Uint8Array {
       const entry = new Y.Map<unknown>();
       entry.set('name', variable.name);
       entry.set('type', variable.type);
-      // Normalize here rather than tightening exportVariableSchema: import
-      // validates the whole file and rejects it outright, so a strict schema
-      // would make every previously exported draft containing a legacy
-      // 8-digit or named value permanently unimportable.
       entry.set('value', normalizeVariableValue(variable.value) ?? '#000000');
       variablesMap.set(variable.id, entry);
     }

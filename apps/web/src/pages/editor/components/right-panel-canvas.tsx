@@ -8,7 +8,6 @@ import { useVariables } from '../hooks/use-variables';
 
 interface RightPanelCanvasProps {
   ydoc: Y.Doc;
-  /** Already resolved by the parent. */
   pageBgColor: string;
   pageBgColorVar?: string;
   canvasShape: Shape;

@@ -63,15 +63,8 @@ export const subpathSchema = z.object({
 
 export const colorSchema = z.string().regex(/^#[0-9a-fA-F]{6,8}$/);
 
-/**
- * Reference to a draft-level color variable ("global"). When present it takes
- * precedence over the sibling `color` literal at render time; the literal is
- * kept as the bind-time fallback and is never written back when the variable
- * changes. Resolution happens at read boundaries — see engine `variables.ts`.
- */
 export const colorVarSchema = z.string();
 
-/** Variable values are 6-digit only; local alpha is preserved by the resolver. */
 export const variableColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 
 export const variableSchema = z.object({

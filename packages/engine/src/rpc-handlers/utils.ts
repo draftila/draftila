@@ -67,15 +67,6 @@ export function applyTextDefaults(props: Record<string, unknown>): Record<string
 
 const COLOR_VAR_ARRAY_KEYS = ['fills', 'strokes', 'shadows', 'guides', 'segments'];
 
-/**
- * Drop malformed `colorVar` values from agent-supplied props.
- *
- * MCP shape props are `z.record(z.unknown())` and reach the document largely
- * unchecked — and `normalizeArrayItem` returns the raw item when a parse fails,
- * so zod is not a barrier either. A non-string binding would survive into the
- * CRDT and replicate. Unknown-but-well-formed ids are left alone: a dangling
- * reference is a supported state that falls back to the literal.
- */
 export function sanitizeColorVars(props: Record<string, unknown>): Record<string, unknown> {
   const clean = (item: unknown): unknown => {
     if (!item || typeof item !== 'object') return item;

@@ -36,11 +36,6 @@ export function StrokeSection({ shape, onUpdate, multiSelect }: PropertySectionP
     [strokes, onUpdate],
   );
 
-  /**
-   * Whole-item replace. `updateStroke` merges, which cannot express a detach:
-   * omitting `colorVar` from the patch would just leave the original's value in
-   * place. Every colour emission goes through here instead.
-   */
   const replaceStroke = useCallback(
     (index: number, stroke: Stroke) => {
       if (!strokes) return;

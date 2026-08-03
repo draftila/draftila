@@ -49,7 +49,6 @@ export function InspectPanel({ ydoc }: InspectPanelProps) {
   useEffect(() => {
     const bump = () => setRevision((r) => r + 1);
     const unobserveShapes = observeShapes(ydoc, bump);
-    // Globals live outside the shapes map, so observeShapes never fires for them.
     const unobserveVariables = observeVariables(ydoc, bump);
     return () => {
       unobserveShapes();

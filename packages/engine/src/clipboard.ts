@@ -89,9 +89,6 @@ export function copyShapes(ydoc: Y.Doc, ids: string[]): Shape[] {
   clipboardSourceDocId = getDocId(ydoc);
 
   try {
-    // The JSON payload stays raw so bindings survive a same-draft paste; only
-    // the SVG flavour — what Figma/Illustrator/Slack actually receive — is
-    // resolved. Resolving `shapes` itself would bake literals into both.
     const json = JSON.stringify({
       type: 'draftila/shapes',
       sourceDocId: clipboardSourceDocId,
@@ -125,10 +122,6 @@ export function copyShapes(ydoc: Y.Doc, ids: string[]): Shape[] {
 export function pasteShapes(ydoc: Y.Doc, options: PasteOptions = {}): string[] {
   if (clipboardShapes.length === 0) return [];
 
-  // A colour binding is only meaningful inside the document that defines it.
-  // Variable ids are caller-chosen slugs ("primary", "bg-surface"), so pasting
-  // into a different draft that happens to define the same id would silently
-  // repaint the shape. Drop the binding and keep the literal instead.
   const foreign = clipboardSourceDocId === null || clipboardSourceDocId !== getDocId(ydoc);
   const sourceShapes = foreign ? clipboardShapes.map(stripShapeColorVars) : clipboardShapes;
 
@@ -245,8 +238,6 @@ export function copyStyle(ydoc: Y.Doc, shapeId: string): Record<string, unknown>
 export function pasteStyle(ydoc: Y.Doc, ids: string[]): string[] {
   if (!clipboardStyle || ids.length === 0) return [];
 
-  // Same reasoning as pasteShapes: `clipboardStyle` is module state and survives
-  // navigation between drafts, so bindings must not cross documents.
   const style =
     clipboardStyleSourceDocId !== null && clipboardStyleSourceDocId === getDocId(ydoc)
       ? clipboardStyle
