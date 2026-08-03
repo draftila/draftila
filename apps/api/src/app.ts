@@ -7,6 +7,7 @@ import { statSync } from 'node:fs';
 import { extname, join, resolve } from 'node:path';
 import { AppError, ValidationError } from './common/errors';
 import { env } from './common/lib/env';
+import { createFileResponse } from './common/lib/file-response';
 import { getStoragePath, initStorage } from './common/lib/storage';
 import type { AuthEnv } from './common/middleware/auth';
 import { checkRateLimit } from './common/middleware/rate-limit';
@@ -99,7 +100,7 @@ app.get('/storage/*', (c) => {
   const storagePrefix = `${getStoragePath()}/`;
   if (!filePath.startsWith(storagePrefix)) return c.notFound();
   if (!isFile(filePath)) return c.notFound();
-  return new Response(Bun.file(filePath), {
+  return createFileResponse(filePath, {
     headers: { 'Cache-Control': 'public, max-age=31536000, immutable' },
   });
 });
@@ -112,14 +113,14 @@ if (isFile(webIndexPath)) {
 
     const assetPath = resolveWebAssetPath(c.req.path);
     if (assetPath && isFile(assetPath)) {
-      return new Response(Bun.file(assetPath));
+      return createFileResponse(assetPath);
     }
 
     if (extname(c.req.path)) {
       return c.notFound();
     }
 
-    return new Response(Bun.file(webIndexPath));
+    return createFileResponse(webIndexPath);
   });
 }
 
