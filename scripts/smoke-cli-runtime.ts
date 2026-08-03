@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
@@ -17,6 +17,10 @@ if (!values.version) throw new Error('Missing required argument: --version');
 const runtimeDirectory = resolve(values['runtime-dir']);
 const executableName = process.platform === 'win32' ? 'draftila-runtime.exe' : 'draftila-runtime';
 const executablePath = join(runtimeDirectory, executableName);
+const queryEnginePath = join(runtimeDirectory, 'prisma-query-engine.node');
+if (!(await stat(queryEnginePath)).isFile()) {
+  throw new Error('The packaged Prisma query engine is missing');
+}
 const dataDirectory = await mkdtemp(join(tmpdir(), 'draftila-runtime-smoke-'));
 const runtimeEnvironment = {
   ...process.env,
@@ -31,6 +35,7 @@ const runtimeEnvironment = {
   STORAGE_DRIVER: 'local',
   STORAGE_PATH: join(dataDirectory, 'storage'),
   WEB_DIST_DIR: join(runtimeDirectory, 'web'),
+  PRISMA_QUERY_ENGINE_LIBRARY: queryEnginePath,
 };
 
 async function run(args: string[]): Promise<string> {

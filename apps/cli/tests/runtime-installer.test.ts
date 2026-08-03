@@ -20,12 +20,14 @@ describe('RuntimeInstaller', () => {
     const source = join(directory, 'source');
     const archivePath = join(directory, 'runtime.tar.gz');
     const executable = process.platform === 'win32' ? 'draftila-runtime.exe' : 'draftila-runtime';
+    const queryEngine = 'prisma-query-engine.node';
     const target = getRuntimeTarget();
     await mkdir(source, { recursive: true });
     await writeFile(join(source, executable), 'executable');
+    await writeFile(join(source, queryEngine), 'query-engine');
     await writeFile(
       join(source, 'manifest.json'),
-      JSON.stringify({ version: '0.6.1', target, executable }),
+      JSON.stringify({ version: '0.6.1', target, executable, queryEngine }),
     );
     await createTar({ cwd: source, file: archivePath, gzip: true }, ['.']);
     const archive = await readFile(archivePath);
@@ -45,6 +47,7 @@ describe('RuntimeInstaller', () => {
     const installed = await installer.ensureInstalled();
     expect(installed.version).toBe('0.6.1');
     expect(await readFile(installed.executablePath, 'utf8')).toBe('executable');
+    expect(await readFile(installed.queryEnginePath, 'utf8')).toBe('query-engine');
     expect(await installer.inspectInstalled()).toEqual(installed);
   });
 
@@ -77,6 +80,7 @@ describe('RuntimeInstaller', () => {
         version: '0.6.1',
         target: getRuntimeTarget(),
         executable: '../draftila-runtime',
+        queryEngine: 'prisma-query-engine.node',
       }),
     );
     const installer = new RuntimeInstaller(

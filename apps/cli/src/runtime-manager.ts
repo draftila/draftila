@@ -494,6 +494,7 @@ export class RuntimeManager implements AdminCommandRunner {
       STORAGE_DRIVER: 'local',
       STORAGE_PATH: this.paths.storageDirectory,
       WEB_DIST_DIR: join(runtime.directory, 'web'),
+      PRISMA_QUERY_ENGINE_LIBRARY: runtime.queryEnginePath,
       DRAFTILA_RUNTIME_INSTANCE_ID: instanceId,
     };
   }
@@ -523,6 +524,11 @@ export class RuntimeManager implements AdminCommandRunner {
         )
       ) {
         return;
+      }
+      if (!this.processController.isAlive(state.pid)) {
+        throw new RuntimeProcessError(
+          `Draftila exited before becoming healthy. Logs: ${this.paths.logPath}`,
+        );
       }
       await new Promise((resolve) => setTimeout(resolve, 500));
     }

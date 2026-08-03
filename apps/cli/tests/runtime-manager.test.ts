@@ -87,11 +87,13 @@ async function createRuntimeFixture(): Promise<{
   directories.push(directory);
   const runtimeDirectory = join(directory, 'fixture-runtime');
   const executable = process.platform === 'win32' ? 'draftila-runtime.exe' : 'draftila-runtime';
+  const queryEngine = 'prisma-query-engine.node';
   await mkdir(runtimeDirectory, { recursive: true });
   await writeFile(join(runtimeDirectory, executable), 'runtime');
+  await writeFile(join(runtimeDirectory, queryEngine), 'query-engine');
   await writeFile(
     join(runtimeDirectory, 'manifest.json'),
-    JSON.stringify({ version: '0.6.1', target: getRuntimeTarget(), executable }),
+    JSON.stringify({ version: '0.6.1', target: getRuntimeTarget(), executable, queryEngine }),
   );
   const paths = new RuntimePaths(join(directory, 'data'));
   return {
@@ -127,6 +129,9 @@ describe('RuntimeManager', () => {
     expect(spawn.options.env.DB_DRIVER).toBe('sqlite');
     expect(spawn.options.env.HOST).toBe('127.0.0.1');
     expect(spawn.options.env.DATABASE_URL).toBe(`file:${fixture.paths.databasePath}`);
+    expect(spawn.options.env.PRISMA_QUERY_ENGINE_LIBRARY).toBe(
+      join(fixture.directory, 'fixture-runtime', 'prisma-query-engine.node'),
+    );
     expect(spawn.command).not.toContain('docker');
     expect(await manager.inspect()).toMatchObject({ status: 'running', version: '0.6.1' });
 
@@ -283,6 +288,32 @@ describe('RuntimeManager', () => {
 
     expect(await manager.inspect()).toMatchObject({ status: 'unhealthy' });
     expect(Date.now() - startedAt).toBeLessThan(250);
+  });
+
+  test('fails startup promptly when the runtime process exits', async () => {
+    const fixture = await createRuntimeFixture();
+    const processes = new FakeProcessController();
+    const config = createDefaultConfig();
+    processes.onSpawn = async () => {
+      processes.alive = false;
+    };
+    const manager = new RuntimeManager(
+      fixture.paths,
+      fixture.installer,
+      new FakeRunner({ exitCode: 0, stdout: '', stderr: '' }),
+      {
+        processController: processes,
+        fetcher: async () => new Response('unavailable', { status: 503 }),
+        loadConfig: async () => config,
+      },
+    );
+    const startedAt = Date.now();
+
+    await expect(manager.start(config)).rejects.toThrow(
+      `Draftila exited before becoming healthy. Logs: ${fixture.paths.logPath}`,
+    );
+    expect(Date.now() - startedAt).toBeLessThan(250);
+    await expect(stat(fixture.paths.statePath)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
   test('terminates a spawned process when state persistence fails', async () => {

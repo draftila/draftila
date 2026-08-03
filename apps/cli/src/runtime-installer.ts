@@ -26,11 +26,13 @@ interface RuntimeManifest {
   version: string;
   target: string;
   executable: string;
+  queryEngine: string;
 }
 
 export interface InstalledRuntime {
   directory: string;
   executablePath: string;
+  queryEnginePath: string;
   version: string;
 }
 
@@ -74,17 +76,19 @@ function parseManifest(value: unknown, version: string, target: string): Runtime
   const expectedExecutable = target.startsWith('win32-')
     ? 'draftila-runtime.exe'
     : 'draftila-runtime';
+  const expectedQueryEngine = 'prisma-query-engine.node';
   if (
     !isRecord(value) ||
     value.version !== version ||
     value.target !== target ||
     typeof value.executable !== 'string' ||
     value.executable !== expectedExecutable ||
-    basename(value.executable) !== value.executable
+    basename(value.executable) !== value.executable ||
+    value.queryEngine !== expectedQueryEngine
   ) {
     throw new RuntimeInstallError('The downloaded Draftila runtime manifest is invalid');
   }
-  return { version, target, executable: value.executable };
+  return { version, target, executable: value.executable, queryEngine: expectedQueryEngine };
 }
 
 async function pathExists(path: string): Promise<boolean> {
@@ -117,8 +121,9 @@ export class RuntimeInstaller {
       );
       const manifest = parseManifest(manifestValue, this.version, this.target);
       const executablePath = join(directory, manifest.executable);
-      if (!(await pathExists(executablePath))) return null;
-      return { directory, executablePath, version: manifest.version };
+      const queryEnginePath = join(directory, manifest.queryEngine);
+      if (!(await pathExists(executablePath)) || !(await pathExists(queryEnginePath))) return null;
+      return { directory, executablePath, queryEnginePath, version: manifest.version };
     } catch (error) {
       if (isRecord(error) && error.code === 'ENOENT') return null;
       if (error instanceof SyntaxError) return null;
@@ -211,8 +216,12 @@ export class RuntimeInstaller {
       );
       const manifest = parseManifest(manifestValue, this.version, this.target);
       const executablePath = join(temporaryDirectory, manifest.executable);
+      const queryEnginePath = join(temporaryDirectory, manifest.queryEngine);
       if (!(await pathExists(executablePath))) {
         throw new RuntimeInstallError('The Draftila runtime executable is missing');
+      }
+      if (!(await pathExists(queryEnginePath))) {
+        throw new RuntimeInstallError('The Draftila Prisma query engine is missing');
       }
       if (process.platform !== 'win32') await chmod(executablePath, 0o755);
       await rm(destination, { recursive: true, force: true });
@@ -220,6 +229,7 @@ export class RuntimeInstaller {
       return {
         directory: destination,
         executablePath: join(destination, manifest.executable),
+        queryEnginePath: join(destination, manifest.queryEngine),
         version: manifest.version,
       };
     } catch (error) {
