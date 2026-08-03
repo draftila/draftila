@@ -35,7 +35,7 @@ const INSTRUCTIONS = `Draftila is a collaborative design tool. These tools drive
 - Prefer create_shape over batch_create_shapes. Use a batch only for a small tightly-coupled cluster — a button with an icon and label, a card with three to five elements — never a whole design or section.
 - Reach for auto-layout first. Set layoutMode "horizontal" or "vertical" on a frame with layoutGap and padding and its children position themselves; manual x/y should be the exception, for top-level containers and deliberate overlaps.
 - Render order is creation order: the newest shape sits on top. Create backgrounds before the things that sit on them, and use move_in_stack to fix mistakes.
-- Order INSIDE an auto-layout frame is child order, not z-order. Reorder those with move_by_drop ("before"/"after") — move_in_stack will not do it.
+- Inside an auto-layout frame, sibling order drives the layout. Reorder with move_by_drop ("before"/"after"), which repositions the children immediately. move_in_stack writes the same underlying order but does not trigger a relayout, so its effect appears only at the next change to that frame — avoid it on auto-layout children.
 - Frames default to a white fill. Pass fills: [] for a transparent layout wrapper.
 - Text auto-sizes to its content by default, so usually just set content and fontSize. For wrapping, set a width and textAutoResize: "height".
 - Bind colours that belong to the design system to globals via colorVar (keeping color as the fallback). Editing one global then repaints every shape bound to it, which is what makes a palette change a single call.

@@ -99,6 +99,30 @@ describe('create_component over RPC', () => {
     expect(byContent.get('Body')).toMatchObject({ x: 10, y: 40 });
   });
 
+  test('an instance placed inside a frame positions relative to it', async () => {
+    const ydoc = newDoc();
+    const { frameId } = await buildCard(ydoc);
+    const created = (await handlers['create_component']!(ydoc, {
+      shapeIds: [frameId],
+      name: 'Card',
+    })) as { componentId: string };
+
+    const host = await createShape(ydoc, 'frame', { x: 1000, y: 1000, width: 400, height: 400 });
+    const instance = (await handlers['create_instance']!(ydoc, {
+      componentId: created.componentId,
+      x: 20,
+      y: 20,
+      parentId: host,
+    })) as { rootIds: string[] };
+
+    const placed = (await handlers['list_shapes']!(ydoc, { parentId: host })) as {
+      shapes: Shape[];
+    };
+    expect(placed.shapes).toHaveLength(1);
+    expect(placed.shapes[0]).toMatchObject({ id: instance.rootIds[0], x: 20, y: 20 });
+    expect(getShape(ydoc, instance.rootIds[0]!)?.x).toBe(1020);
+  });
+
   test('instances keep their nesting even when IDs arrive child-first', async () => {
     const ydoc = newDoc();
     const { frameId, titleId, bodyId } = await buildCard(ydoc);

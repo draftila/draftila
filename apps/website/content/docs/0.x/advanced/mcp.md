@@ -119,20 +119,20 @@ Components are snapshots, not live definitions. `create_component` captures the 
 
 ### Export, Import, and Code Generation
 
-| Tool                    | Description                                              |
-| ----------------------- | -------------------------------------------------------- |
-| `export_svg`            | Export as SVG markup                                     |
-| `export_png`            | Export as base64 PNG (configurable scale and background) |
-| `export_css`            | Export as CSS code (dimensions, fills, borders, flexbox) |
-| `export_css_all_layers` | Export as CSS with rules for all descendant layers       |
-| `export_tailwind`       | Export as Tailwind utility classes                       |
-| `export_tailwind_all_layers` | Export Tailwind classes for all descendant layers   |
-| `export_swiftui`        | Export as SwiftUI code (HStack/VStack, modifiers)        |
-| `export_compose`        | Export as Jetpack Compose code (Row/Column, Modifiers)   |
-| `import_svg`            | Parse SVG and create shapes                              |
-| `list_icons`            | List available Lucide icons                              |
-| `insert_icon`           | Insert a Lucide icon as SVG                              |
-| `list_fonts`            | List custom font families uploaded by an admin           |
+| Tool                         | Description                                              |
+| ---------------------------- | -------------------------------------------------------- |
+| `export_svg`                 | Export as SVG markup                                     |
+| `export_png`                 | Export as base64 PNG (configurable scale and background) |
+| `export_css`                 | Export as CSS code (dimensions, fills, borders, flexbox) |
+| `export_css_all_layers`      | Export as CSS with rules for all descendant layers       |
+| `export_tailwind`            | Export as Tailwind utility classes                       |
+| `export_tailwind_all_layers` | Export Tailwind classes for all descendant layers        |
+| `export_swiftui`             | Export as SwiftUI code (HStack/VStack, modifiers)        |
+| `export_compose`             | Export as Jetpack Compose code (Row/Column, Modifiers)   |
+| `import_svg`                 | Parse SVG and create shapes                              |
+| `list_icons`                 | List available Lucide icons                              |
+| `insert_icon`                | Insert a Lucide icon as SVG                              |
+| `list_fonts`                 | List custom font families uploaded by an admin           |
 
 #### Images in PNG exports
 
@@ -148,16 +148,16 @@ Components are snapshots, not live definitions. `create_component` captures the 
 
 ### Guides and Globals
 
-| Tool               | Description                                          |
-| ------------------ | ---------------------------------------------------- |
-| `list_guides`      | List ruler guides                                    |
-| `add_guide`        | Add a guide line                                     |
-| `remove_guide`     | Remove a guide                                       |
-| `list_variables`   | List the draft's globals, with usage counts          |
-| `set_variable`     | Create or update a global                            |
-| `delete_variable`  | Delete a global (bound shapes keep their colour)     |
-| `bind_variable`    | Bind an existing shape's fill or stroke to a global  |
-| `unbind_variable`  | Remove a binding, keeping the colour it shows        |
+| Tool              | Description                                         |
+| ----------------- | --------------------------------------------------- |
+| `list_guides`     | List ruler guides                                   |
+| `add_guide`       | Add a guide line                                    |
+| `remove_guide`    | Remove a guide                                      |
+| `list_variables`  | List the draft's globals, with usage counts         |
+| `set_variable`    | Create or update a global                           |
+| `delete_variable` | Delete a global (bound shapes keep their colour)    |
+| `bind_variable`   | Bind an existing shape's fill or stroke to a global |
+| `unbind_variable` | Remove a binding, keeping the colour it shows       |
 
 Globals are the draft's named colour tokens ("Globals" in the editor). Bind a fill or stroke by setting `colorVar` to the global's **id** while creating the shape, keeping `color` set as the fallback; use `bind_variable` / `unbind_variable` to change a binding on a shape that already exists. Updating a global repaints every shape bound to it across the draft.
 

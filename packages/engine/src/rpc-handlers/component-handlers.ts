@@ -1,5 +1,6 @@
 import { createComponent, createInstance, listComponents, removeComponent } from '../components';
 import { getExpandedShapeIds } from '../scene-graph';
+import { toAbsoluteProps } from './utils';
 import type { RpcHandler } from './types';
 
 export function componentHandlers(): Record<string, RpcHandler> {
@@ -12,12 +13,17 @@ export function componentHandlers(): Record<string, RpcHandler> {
     },
 
     create_instance(ydoc, args) {
+      const props = toAbsoluteProps(ydoc, {
+        x: args['x'],
+        y: args['y'],
+        parentId: args['parentId'],
+      });
       return {
         rootIds: createInstance(
           ydoc,
           args['componentId'] as string,
-          args['x'] as number,
-          args['y'] as number,
+          props['x'] as number,
+          props['y'] as number,
           args['parentId'] as string | undefined,
         ),
       };

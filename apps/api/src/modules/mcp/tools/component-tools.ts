@@ -37,7 +37,7 @@ export function registerComponentTools(server: McpServer, getUserId: () => strin
       x: z
         .number()
         .describe(
-          "X position for the instance's top-left corner (the component's shapes are normalised to their bounding box, so this is where the whole instance starts). Relative to parentId when set.",
+          "X position for the instance's top-left corner — the component's shapes are normalised to their bounding box, so this is where the whole instance starts. Relative to parentId when set, otherwise canvas coordinates.",
         ),
       y: z.number().describe("Y position for the instance's top-left corner"),
       parentId: z.string().optional().describe('Optional parent frame to place instance in'),
@@ -59,12 +59,9 @@ export function registerComponentTools(server: McpServer, getUserId: () => strin
     'List the reusable components in a draft, as { id, name, shapeCount, shapes: [{type, name}] }. Call this before building a repeated pattern — reusing an existing component with create_instance is cheaper and more consistent than recreating its shapes.',
     draftId,
     async ({ draftId }) => {
-      const result = (await sendToolRpc(
-        draftId as string,
-        getUserId(),
-        'list_components',
-        {},
-      )) as { components?: ComponentSummarySource[] };
+      const result = (await sendToolRpc(draftId as string, getUserId(), 'list_components', {})) as {
+        components?: ComponentSummarySource[];
+      };
 
       const components = (result.components ?? []).map((component) => ({
         id: component.id,
