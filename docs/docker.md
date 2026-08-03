@@ -97,8 +97,8 @@ In GitHub repository settings, add these Actions secrets:
 
 - `DOCKERHUB_USERNAME`: your Docker Hub username.
 - `DOCKERHUB_TOKEN`: Docker Hub access token with read/write permissions.
-- `NPM_TOKEN`: granular npm access token with write access to the `draftila` package and
-  **Bypass 2FA** enabled for CI publishing.
+- `NPM_TOKEN`: granular npm access token with **Packages and scopes** set to **Read and write**,
+  **All Packages** selected for the first publish, and **Bypass 2FA** enabled for CI publishing.
 
 Recommended Docker Hub setup:
 

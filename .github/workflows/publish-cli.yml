@@ -79,4 +79,4 @@ jobs:
         working-directory: apps/cli
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public --tag "${{ inputs.npm_tag }}" --provenance
+        run: npm publish --tag "${{ inputs.npm_tag }}" --provenance
