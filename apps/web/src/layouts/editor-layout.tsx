@@ -1,5 +1,11 @@
 import { Outlet } from 'react-router-dom';
+import { CustomFontsLoader } from '@/api/fonts';
 
 export function EditorLayout() {
-  return <Outlet />;
+  return (
+    <>
+      <CustomFontsLoader />
+      <Outlet />
+    </>
+  );
 }

@@ -22,18 +22,20 @@ import {
   getEffectiveCornerRadii,
   buildShapeTree,
   indent,
+  slashCustomFontHeader,
 } from './helpers';
 
 export function generateCompose(shapes: Shape[]): string {
   if (shapes.length === 0) return '';
   const tree = buildShapeTree(shapes);
+  const header = slashCustomFontHeader(shapes);
 
   if (tree.length === 1) {
-    return nodeToCompose(tree[0]!, 0);
+    return header + nodeToCompose(tree[0]!, 0);
   }
 
   const children = tree.map((node) => nodeToCompose(node, 1)).join('\n');
-  return `Box {\n${children}\n}`;
+  return `${header}Box {\n${children}\n}`;
 }
 
 function nodeToCompose(node: ShapeTreeNode, level: number): string {

@@ -10,8 +10,9 @@ import {
   isVectorShape,
   shapeToInlineSvg,
 } from './helpers';
-import { shapeToProperties } from './css-generator';
+import { shapeToProperties, escapeCssSingleQuotedString } from './css-generator';
 import { shapeToClasses } from './tailwind-generator';
+import { isCustomFontFamily } from '../custom-fonts';
 
 interface CssContext {
   cssBlocks: string[];
@@ -43,6 +44,8 @@ function collectGoogleFontWeights(shapes: Shape[]): Map<string, Set<number>> {
   const familyWeights = new Map<string, Set<number>>();
   const addFamilyWeight = (family: string, weight: number) => {
     if (CSS_GENERIC_FAMILIES.has(family)) return;
+    // Custom families are served by the `@font-face` block, never by the Google <link>.
+    if (isCustomFontFamily(family)) return;
     const weights = familyWeights.get(family) ?? new Set<number>();
     weights.add(normalizeFontWeight(weight));
     familyWeights.set(family, weights);
@@ -74,7 +77,8 @@ function textSegmentToCssProperties(segment: TextSegment): string[] {
   const props: string[] = [];
   if (segment.color) props.push(`color: ${segment.color};`);
   if (segment.fontSize) props.push(`font-size: ${segment.fontSize}px;`);
-  if (segment.fontFamily) props.push(`font-family: '${segment.fontFamily}';`);
+  if (segment.fontFamily)
+    props.push(`font-family: '${escapeCssSingleQuotedString(segment.fontFamily)}';`);
   if (segment.fontWeight) props.push(`font-weight: ${segment.fontWeight};`);
   if (segment.fontStyle === 'italic') props.push('font-style: italic;');
   if (segment.textDecoration && segment.textDecoration !== 'none') {
@@ -279,7 +283,7 @@ function buildGoogleFontsLink(shapes: Shape[]): string {
   return `<link rel="stylesheet" href="${href}">`;
 }
 
-export function generateHtmlCssParts(shapes: Shape[]): HtmlCssOutput {
+export function generateHtmlCssParts(shapes: Shape[], customFontCss?: string): HtmlCssOutput {
   if (shapes.length === 0) return { html: '', css: '' };
 
   const tree = buildShapeTree(shapes);
@@ -294,7 +298,8 @@ export function generateHtmlCssParts(shapes: Shape[]): HtmlCssOutput {
     .filter(Boolean)
     .join('\n');
 
-  const css = ctx.cssBlocks.join('\n\n');
+  const blockCss = ctx.cssBlocks.join('\n\n');
+  const css = customFontCss ? `${customFontCss}\n\n${blockCss}` : blockCss;
 
   return { html, css };
 }
@@ -313,16 +318,27 @@ export function generateHtmlTailwindParts(shapes: Shape[]): HtmlTailwindOutput {
   return { html };
 }
 
-export function generateHtmlCss(shapes: Shape[], backgroundColor?: string | null): string {
+export function generateHtmlCss(
+  shapes: Shape[],
+  backgroundColor?: string | null,
+  customFontCss?: string,
+): string {
   const { html, css } = generateHtmlCssParts(shapes);
   if (!html) return '';
-  return assembleCssDocument(html, css, buildGoogleFontsLink(shapes), backgroundColor);
+  return assembleCssDocument(
+    html,
+    css,
+    buildGoogleFontsLink(shapes),
+    backgroundColor,
+    customFontCss,
+  );
 }
 
 export function generateHtmlTailwind(
   shapes: Shape[],
   inlineScript?: string,
   backgroundColor?: string | null,
+  customFontCss?: string,
 ): string {
   const { html } = generateHtmlTailwindParts(shapes);
   if (!html) return '';
@@ -331,7 +347,13 @@ export function generateHtmlTailwind(
     inlineScript,
     buildGoogleFontsLink(shapes),
     backgroundColor,
+    customFontCss,
   );
+}
+
+/** `<style>` block carrying the custom-font `@font-face` rules; empty when there are none. */
+function fontFaceStyleTag(customFontCss?: string): string {
+  return customFontCss ? `\n  <style>\n${customFontCss}\n  </style>` : '';
 }
 
 export function assembleHtmlWithCssLink(bodyHtml: string, cssFileName: string): string {
@@ -359,6 +381,7 @@ function assembleCssDocument(
   css: string,
   fontLinkTag: string,
   backgroundColor?: string | null,
+  customFontCss?: string,
 ): string {
   const resetCss = '* { margin: 0; padding: 0; box-sizing: border-box; }';
   const bodyBg = backgroundColor ? ` background: ${backgroundColor};` : '';
@@ -369,7 +392,7 @@ function assembleCssDocument(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  ${fontLinkTag}
+  ${fontLinkTag}${fontFaceStyleTag(customFontCss)}
   <style>
     ${styleContent}
   </style>
@@ -387,6 +410,7 @@ function assembleTailwindDocument(
   inlineScript?: string,
   fontLinkTag = '',
   backgroundColor?: string | null,
+  customFontCss?: string,
 ): string {
   const scriptTag = inlineScript
     ? `<script>${inlineScript}</script>`
@@ -397,7 +421,7 @@ function assembleTailwindDocument(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  ${fontLinkTag}
+  ${fontLinkTag}${fontFaceStyleTag(customFontCss)}
   ${scriptTag}
   <style type="text/tailwindcss">
     body { display: flex; justify-content: center; padding: 16px;${bodyBg} }

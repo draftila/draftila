@@ -8,6 +8,8 @@ export async function cleanDatabase() {
   await db.projectMember.deleteMany();
   await db.project.deleteMany();
   await db.apiKey.deleteMany();
+  await db.fontVariant.deleteMany();
+  await db.fontFamily.deleteMany();
   await db.session.deleteMany();
   await db.account.deleteMany();
   await db.verification.deleteMany();
@@ -21,6 +23,15 @@ export async function cleanApiKeys() {
 export async function cleanProjects() {
   await db.draft.deleteMany();
   await db.project.deleteMany();
+}
+
+export async function cleanFonts() {
+  await db.fontVariant.deleteMany();
+  await db.fontFamily.deleteMany();
+}
+
+export async function makeAdmin(userId: string) {
+  await db.user.update({ where: { id: userId }, data: { role: 'admin' } });
 }
 
 export async function cleanDrafts() {

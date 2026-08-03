@@ -1,5 +1,12 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FileIcon, FolderIcon, ShieldIcon, ChevronsUpDownIcon, PlusIcon } from 'lucide-react';
+import {
+  FileIcon,
+  FolderIcon,
+  ShieldIcon,
+  TypeIcon,
+  ChevronsUpDownIcon,
+  PlusIcon,
+} from 'lucide-react';
 import { useProjects } from '@/api/projects';
 import { useSession } from '@/lib/auth-client';
 import { CreateProjectDialog } from '@/pages/projects/components/create-project-dialog';
@@ -34,7 +41,10 @@ const NAV_ITEMS = [
   { label: 'All Projects', icon: FolderIcon, path: '/projects' },
 ] as const;
 
-const ADMIN_NAV_ITEMS = [{ label: 'Users', icon: ShieldIcon, path: '/admin/users' }] as const;
+const ADMIN_NAV_ITEMS = [
+  { label: 'Users', icon: ShieldIcon, path: '/admin/users' },
+  { label: 'Fonts', icon: TypeIcon, path: '/admin/fonts' },
+] as const;
 
 function ProjectSwitcher() {
   const navigate = useNavigate();

@@ -1,5 +1,16 @@
+import { useEffect, useState } from 'react';
 import type { TextShape, Shape, TextAutoResize } from '@draftila/shared';
 import {
+  getAvailableVariants,
+  isCustomFontFamily,
+  isCustomFontsReady,
+  isFontLoaded,
+  isGoogleFontFamily,
+  nearestAvailableVariant,
+  onFontsLoaded,
+} from '@draftila/engine';
+import {
+  AlertTriangleIcon,
   AlignLeft,
   AlignCenter,
   AlignRight,
@@ -42,14 +53,56 @@ const FONT_WEIGHTS = [
 export function TypographySection({ shape, onUpdate }: PropertySectionProps) {
   const text = shape as TextShape;
 
+  // Both readiness and load state change outside React; every settle path notifies here.
+  const [, setFontTick] = useState(0);
+  useEffect(() => onFontsLoaded(() => setFontTick((t) => t + 1)), []);
+
+  const variants = getAvailableVariants(text.fontFamily); // null => not a custom family
+  const italicAvailable = !variants || variants.some((v) => v.style === 'italic');
+  const boldAvailable = !variants || variants.some((v) => v.weight >= 700);
+  const inSelectedStyle = variants?.filter((v) => v.style === text.fontStyle) ?? [];
+  const availableWeights = variants
+    ? (inSelectedStyle.length > 0 ? inSelectedStyle : variants).map((v) => v.weight)
+    : null;
+  const weights = availableWeights
+    ? FONT_WEIGHTS.filter((w) => availableWeights.includes(w.value))
+    : FONT_WEIGHTS;
+
+  // Suppressed while the registry is unready (no false flash pre-fetch) and for non-curated names
+  // the Google path actually loaded.
+  const missingFont =
+    isCustomFontsReady() &&
+    !isCustomFontFamily(text.fontFamily) &&
+    !isGoogleFontFamily(text.fontFamily) &&
+    !isFontLoaded(text.fontFamily);
+
   return (
     <section className="space-y-2.5">
       <h4 className="text-muted-foreground text-[11px] font-medium">Typography</h4>
 
       <FontPicker
         value={text.fontFamily}
-        onChange={(family) => onUpdate({ fontFamily: family } as Partial<Shape>)}
+        onChange={(family) => {
+          const patch: Partial<TextShape> = { fontFamily: family };
+          if (getAvailableVariants(family)) {
+            // Snap onto a variant the family actually ships, so the canvas doesn't synthesize.
+            const snapped = nearestAvailableVariant(family, text.fontWeight, text.fontStyle);
+            patch.fontWeight = snapped.weight;
+            patch.fontStyle = snapped.style;
+          }
+          onUpdate(patch as Partial<Shape>);
+        }}
       />
+
+      {missingFont && (
+        <p className="text-muted-foreground flex items-start gap-1 text-[10px]">
+          <AlertTriangleIcon className="mt-px h-3 w-3 shrink-0" />
+          <span>
+            &ldquo;{text.fontFamily}&rdquo; is not installed on this instance — it renders with a
+            fallback font. Ask an admin to upload it under Admin &rsaquo; Fonts.
+          </span>
+        </p>
+      )}
 
       <Popover>
         <PopoverTrigger asChild>
@@ -62,7 +115,7 @@ export function TypographySection({ shape, onUpdate }: PropertySectionProps) {
         </PopoverTrigger>
         <PopoverContent className="w-40 p-1" side="left" align="start">
           <div className="max-h-60 overflow-auto">
-            {FONT_WEIGHTS.map((w) => (
+            {weights.map((w) => (
               <button
                 key={w.value}
                 className="hover:bg-accent w-full rounded-sm px-2 py-1 text-left text-[11px] transition-colors"
@@ -177,6 +230,8 @@ export function TypographySection({ shape, onUpdate }: PropertySectionProps) {
             variant={text.fontWeight >= 700 ? 'default' : 'outline'}
             size="icon"
             className="h-7 w-7"
+            disabled={!boldAvailable}
+            title={boldAvailable ? undefined : 'This family has no bold variant'}
             onClick={() =>
               onUpdate({
                 fontWeight: text.fontWeight >= 700 ? 400 : 700,
@@ -189,6 +244,8 @@ export function TypographySection({ shape, onUpdate }: PropertySectionProps) {
             variant={text.fontStyle === 'italic' ? 'default' : 'outline'}
             size="icon"
             className="h-7 w-7"
+            disabled={!italicAvailable}
+            title={italicAvailable ? undefined : 'This family has no italic variant'}
             onClick={() =>
               onUpdate({
                 fontStyle: text.fontStyle === 'italic' ? 'normal' : 'italic',

@@ -5,6 +5,8 @@ export class ApiError extends Error {
     public status: number,
     message: string,
     public fieldErrors?: Record<string, string[]>,
+    /** Parsed `Retry-After` (seconds) — set on 429s so callers can auto-resume. */
+    public retryAfterSeconds?: number,
   ) {
     super(message);
   }
@@ -48,6 +50,33 @@ async function uploadRequest<T>(path: string, body: Blob | File): Promise<T> {
   return res.json();
 }
 
+/**
+ * Multipart POST. Deliberately sets NO `Content-Type` — the browser has to write the header itself
+ * so it can include the multipart boundary (same as `useImportDraft` in `api/drafts.ts`).
+ */
+async function formRequest<T>(path: string, body: FormData): Promise<T> {
+  const res = await fetch(path, {
+    method: 'POST',
+    credentials: 'include',
+    body,
+  });
+
+  if (!res.ok) {
+    const errorBody: ApiErrorResponse = await res.json().catch(() => ({
+      error: 'Upload failed',
+    }));
+    const retryAfter = Number(res.headers.get('Retry-After'));
+    throw new ApiError(
+      res.status,
+      errorBody.error,
+      errorBody.fieldErrors,
+      Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : undefined,
+    );
+  }
+
+  return res.json();
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body: unknown) =>
@@ -58,4 +87,5 @@ export const api = {
     request<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
   upload: <T>(path: string, body: Blob | File) => uploadRequest<T>(path, body),
+  postForm: <T>(path: string, body: FormData) => formRequest<T>(path, body),
 };

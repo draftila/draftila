@@ -3,7 +3,7 @@ import { Check, ChevronDown, Download, Minus, MoreHorizontal, Plus } from 'lucid
 import {
   exportAndDownloadJpg,
   exportAndDownloadPng,
-  exportAndDownloadSvg,
+  exportAndDownloadSvgAsync,
 } from '@draftila/engine/export';
 import { getPageBackgroundColor } from '@draftila/engine';
 import { useEditorStore } from '@/stores/editor-store';
@@ -95,7 +95,7 @@ export function ExportSection({ ydoc, shape, shapeScope }: PropertySectionProps)
           isCanvasExport ? pageBg : null,
         );
       } else if (config.format === 'SVG') {
-        await exportAndDownloadSvg(exportShapes, `${baseName}${suffix}.svg`);
+        await exportAndDownloadSvgAsync(exportShapes, `${baseName}${suffix}.svg`);
       }
     },
     [ydoc, shape, shapeScope],

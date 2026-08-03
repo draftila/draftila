@@ -5,6 +5,7 @@ import { renderShape, getCornerRadii } from './shape-renderer';
 import { shapesToInterchange } from './interchange/converter';
 import { generateSvg } from './interchange/svg/svg-generator';
 import { collectFontFamilies, ensureFontsLoadedAsync } from './font-manager';
+import { buildEmbeddedFontCss } from './custom-fonts';
 import { collectImageSources, preloadImages } from './image-cache';
 
 function getShapesBounds(shapes: Shape[]): {
@@ -121,6 +122,19 @@ export function exportToSvg(shapes: Shape[]): string {
   return generateSvg(doc);
 }
 
+/**
+ * SVG with custom-font `@font-face` rules embedded in `<defs>`, so the file renders standalone.
+ * `exportToSvg` stays synchronous and unembedded — clipboard writes cannot await network fetches.
+ */
+export async function exportToSvgAsync(
+  shapes: Shape[],
+  opts?: { assetBaseUrl?: string; maxEmbedBytes?: number },
+): Promise<string> {
+  const doc = shapesToInterchange(shapes);
+  const fontFaceCss = await buildEmbeddedFontCss(shapes, opts);
+  return generateSvg(doc, '', fontFaceCss ? { fontFaceCss } : undefined);
+}
+
 export async function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -209,5 +223,12 @@ export async function exportAndDownloadJpg(
 
 export async function exportAndDownloadSvg(shapes: Shape[], filename: string) {
   const svg = exportToSvg(shapes);
+  await downloadSvg(svg, filename);
+}
+
+export async function exportAndDownloadSvgAsync(shapes: Shape[], filename: string) {
+  const svg = await exportToSvgAsync(shapes, {
+    assetBaseUrl: typeof location === 'undefined' ? undefined : location.origin,
+  });
   await downloadSvg(svg, filename);
 }
