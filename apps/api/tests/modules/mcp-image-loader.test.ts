@@ -113,6 +113,13 @@ describe('mcp image loader', () => {
       );
     });
 
+    test('stores browser-renderable formats as the original bytes', async () => {
+      const asset = await loadServerImageAsset(`data:image/png;base64,${PNG_BASE64}`);
+
+      expect(asset.extension).toBe('png');
+      expect(asset.bytes).toEqual(PNG_BYTES);
+    });
+
     test('loads app-owned storage URLs for server exports', async () => {
       const storageDirectory = await mkdtemp(join(tmpdir(), 'draftila-mcp-images-'));
       initStorage({ driver: 'local', path: storageDirectory });

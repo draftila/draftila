@@ -9,7 +9,7 @@ This guide walks you through setting up Draftila locally for development.
 
 ## Prerequisites
 
-- [Bun](https://bun.sh/) v1.1.38 or later
+- [Bun](https://bun.sh/) v1.3.5 or later
 - [Node.js](https://nodejs.org/) v18+ (for some tooling)
 - Git
 

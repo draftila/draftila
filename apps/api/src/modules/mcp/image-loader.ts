@@ -268,14 +268,16 @@ async function readImageBytes(src: string): Promise<Buffer> {
 export async function loadServerImageAsset(src: string): Promise<ServerImageAsset> {
   const bytes = await readImageBytes(src);
   const dimensions = getImageDimensions(bytes);
-  const image = await decodeImage(bytes);
   const extension = dimensions.type ? BROWSER_IMAGE_EXTENSIONS[dimensions.type] : undefined;
 
+  // Browsers render these formats from the original bytes, so we store them untouched. Decoding
+  // first would only throw the pixels away, and the native decode is the expensive part — keeping
+  // it out of the common ingest path also keeps that path off `@napi-rs/canvas`'s async decode.
   if (extension) {
     return { bytes, extension };
   }
 
-  return { bytes: rasterizeToPng(image), extension: 'png' };
+  return { bytes: rasterizeToPng(await decodeImage(bytes)), extension: 'png' };
 }
 
 export async function loadServerImage(src: string): Promise<HTMLImageElement> {

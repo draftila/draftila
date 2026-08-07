@@ -1,4 +1,4 @@
-FROM oven/bun:1.1.38 AS builder
+FROM oven/bun:1.3.5 AS builder
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ RUN cd apps/api && bunx prisma generate --schema prisma/postgresql/schema.prisma
 RUN bun run --filter @draftila/web build
 RUN bun run --filter @draftila/api build
 
-FROM oven/bun:1.1.38 AS runtime
+FROM oven/bun:1.3.5 AS runtime
 
 WORKDIR /app
 
