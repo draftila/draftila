@@ -24,6 +24,7 @@ function extractDraftId(pathname: string): string | null {
 }
 
 Bun.serve<WsData>({
+  hostname: env.HOST,
   port: env.PORT,
   async fetch(req, server) {
     const url = new URL(req.url);
@@ -78,4 +79,4 @@ Bun.serve<WsData>({
   },
 });
 
-console.log(`API server running at http://localhost:${env.PORT}`);
+console.log(`API server running at http://${env.HOST}:${env.PORT}`);

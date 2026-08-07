@@ -4,9 +4,10 @@ import { logger } from 'hono/logger';
 import { secureHeaders } from 'hono/secure-headers';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { statSync } from 'node:fs';
-import { extname, join, resolve } from 'node:path';
+import { extname, join, resolve, sep } from 'node:path';
 import { AppError, ValidationError } from './common/errors';
 import { env } from './common/lib/env';
+import { createFileResponse } from './common/lib/file-response';
 import { getStoragePath, initStorage } from './common/lib/storage';
 import type { AuthEnv } from './common/middleware/auth';
 import { checkRateLimit } from './common/middleware/rate-limit';
@@ -26,7 +27,7 @@ initStorage({ driver: env.STORAGE_DRIVER, path: resolve(process.cwd(), env.STORA
 
 const app = new Hono<AuthEnv>();
 const webDistDir = resolve(process.cwd(), process.env.WEB_DIST_DIR ?? '../web/dist');
-const webDistPrefix = `${webDistDir}/`;
+const webDistPrefix = `${webDistDir}${sep}`;
 const webIndexPath = join(webDistDir, 'index.html');
 
 function isFile(path: string): boolean {
@@ -50,7 +51,7 @@ app.use(logger());
 app.use(secureHeaders());
 app.use(
   cors({
-    origin: env.FRONTEND_URL,
+    origin: env.FRONTEND_URLS,
     credentials: true,
   }),
 );
@@ -96,10 +97,10 @@ app.get('/storage/*', (c) => {
   const key = c.req.path.slice('/storage/'.length);
   if (!key || key.includes('..') || key.includes('\0')) return c.notFound();
   const filePath = resolve(getStoragePath(), key);
-  const storagePrefix = `${getStoragePath()}/`;
+  const storagePrefix = `${getStoragePath()}${sep}`;
   if (!filePath.startsWith(storagePrefix)) return c.notFound();
   if (!isFile(filePath)) return c.notFound();
-  return new Response(Bun.file(filePath), {
+  return createFileResponse(filePath, {
     headers: { 'Cache-Control': 'public, max-age=31536000, immutable' },
   });
 });
@@ -112,14 +113,14 @@ if (isFile(webIndexPath)) {
 
     const assetPath = resolveWebAssetPath(c.req.path);
     if (assetPath && isFile(assetPath)) {
-      return new Response(Bun.file(assetPath));
+      return createFileResponse(assetPath);
     }
 
     if (extname(c.req.path)) {
       return c.notFound();
     }
 
-    return new Response(Bun.file(webIndexPath));
+    return createFileResponse(webIndexPath);
   });
 }
 

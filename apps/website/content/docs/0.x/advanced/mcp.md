@@ -51,7 +51,7 @@ You must have a draft open in the Draftila editor in your browser for MCP operat
 
 ## Available Tools
 
-The MCP server exposes 30+ tools organized into categories.
+The MCP server exposes around 50 tools organized into categories. It also sends the client a set of usage instructions on connect — the workflow to follow, how globals and auto-layout are meant to be used, and the gotchas worth knowing — so a capable agent does not need this page to work effectively.
 
 ### Draft Management
 
@@ -115,19 +115,24 @@ Remote imports use the same 20 MB file limit, 30 megapixel decode limit, 10 seco
 | `list_components`  | List all components         |
 | `remove_component` | Delete a component          |
 
+Components are snapshots, not live definitions. `create_component` captures the shapes you pass along with their descendants, and `create_instance` stamps out an independent copy with fresh shape IDs: editing an instance does not change the component, editing the component does not change existing instances, and there is no update, override, or detach. This matches the editor UI, which offers the same create, insert, rename, and delete actions and no way to push changes to existing instances. `remove_component` deletes the definition only; shapes already stamped out remain on the canvas.
+
 ### Export, Import, and Code Generation
 
-| Tool                    | Description                                              |
-| ----------------------- | -------------------------------------------------------- |
-| `export_svg`            | Export as SVG markup                                     |
-| `export_png`            | Export as base64 PNG (configurable scale and background) |
-| `export_css`            | Export as CSS code (dimensions, fills, borders, flexbox) |
-| `export_css_all_layers` | Export as CSS with rules for all descendant layers       |
-| `export_swiftui`        | Export as SwiftUI code (HStack/VStack, modifiers)        |
-| `export_compose`        | Export as Jetpack Compose code (Row/Column, Modifiers)   |
-| `import_svg`            | Parse SVG and create shapes                              |
-| `list_icons`            | List available Lucide icons                              |
-| `insert_icon`           | Insert a Lucide icon as SVG                              |
+| Tool                         | Description                                              |
+| ---------------------------- | -------------------------------------------------------- |
+| `export_svg`                 | Export as SVG markup                                     |
+| `export_png`                 | Export as base64 PNG (configurable scale and background) |
+| `export_css`                 | Export as CSS code (dimensions, fills, borders, flexbox) |
+| `export_css_all_layers`      | Export as CSS with rules for all descendant layers       |
+| `export_tailwind`            | Export as Tailwind utility classes                       |
+| `export_tailwind_all_layers` | Export Tailwind classes for all descendant layers        |
+| `export_swiftui`             | Export as SwiftUI code (HStack/VStack, modifiers)        |
+| `export_compose`             | Export as Jetpack Compose code (Row/Column, Modifiers)   |
+| `import_svg`                 | Parse SVG and create shapes                              |
+| `list_icons`                 | List available Lucide icons                              |
+| `insert_icon`                | Insert a Lucide icon as SVG                              |
+| `list_fonts`                 | List custom font families uploaded by an admin           |
 
 #### Images in PNG exports
 
@@ -141,16 +146,20 @@ Remote imports use the same 20 MB file limit, 30 megapixel decode limit, 10 seco
 - A single export loads at most 200 distinct images and spends at most 30 seconds loading them; anything beyond that is left unloaded
 - An image that cannot be loaded degrades gracefully: image layers show a grey placeholder and image fills are skipped, the rest of the export still renders
 
-### Guides and Variables
+### Guides and Globals
 
-| Tool              | Description                    |
-| ----------------- | ------------------------------ |
-| `list_guides`     | List ruler guides              |
-| `add_guide`       | Add a guide line               |
-| `remove_guide`    | Remove a guide                 |
-| `list_variables`  | List color tokens              |
-| `set_variable`    | Create or update a color token |
-| `delete_variable` | Delete a color token           |
+| Tool              | Description                                         |
+| ----------------- | --------------------------------------------------- |
+| `list_guides`     | List ruler guides                                   |
+| `add_guide`       | Add a guide line                                    |
+| `remove_guide`    | Remove a guide                                      |
+| `list_variables`  | List the draft's globals, with usage counts         |
+| `set_variable`    | Create or update a global                           |
+| `delete_variable` | Delete a global (bound shapes keep their colour)    |
+| `bind_variable`   | Bind an existing shape's fill or stroke to a global |
+| `unbind_variable` | Remove a binding, keeping the colour it shows       |
+
+Globals are the draft's named colour tokens ("Globals" in the editor). Bind a fill or stroke by setting `colorVar` to the global's **id** while creating the shape, keeping `color` set as the fallback; use `bind_variable` / `unbind_variable` to change a binding on a shape that already exists. Updating a global repaints every shape bound to it across the draft.
 
 ## Limitations
 

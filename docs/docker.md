@@ -62,21 +62,31 @@ Run with both compose files:
 docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build
 ```
 
-## GitHub Actions Docker publish
+## GitHub Actions releases
 
-Workflow file: `.github/workflows/docker-publish.yml`
+Application releases and CLI publishing use separate manually triggered workflows.
+
+### Application release
+
+Workflow file: `.github/workflows/release.yml`
 
 It runs manually from the Actions tab with three inputs:
 
-- `target`: branch name or version tag value.
-- `target_type`: `branch` or `version`.
-- `mark_latest`: if true, also pushes `latest`.
+- `version`: GitHub release and Docker image version.
+- `prerelease`: marks the GitHub release as a pre-release.
+- `latest`: publishes the Docker `latest` tag.
 
-Tag behavior:
+The workflow builds amd64 and arm64 images and publishes their multi-architecture manifest.
 
-- Branch example: `target=main`, `target_type=branch` pushes `draftila/draftila:main`.
-- Branch with latest: same as above plus `draftila/draftila:latest` when `mark_latest=true`.
-- Version example: `target=v1.2.0`, `target_type=version` checks out `refs/tags/v1.2.0` and pushes `draftila/draftila:v1.2.0`.
+### CLI publish
+
+Workflow file: `.github/workflows/publish-cli.yml`
+
+It builds and smoke-tests native production runtimes for supported macOS, Linux, and Windows
+platforms, creates a CLI-only `cli-v<version>` GitHub release with checksums, and publishes the
+version declared in `apps/cli/package.json` to npm. It does not create an application release, change
+the root version, or build or publish a Docker image. Select either the `latest` or `next` npm
+distribution tag when starting the workflow.
 
 ## GitHub secrets required
 
@@ -84,6 +94,8 @@ In GitHub repository settings, add these Actions secrets:
 
 - `DOCKERHUB_USERNAME`: your Docker Hub username.
 - `DOCKERHUB_TOKEN`: Docker Hub access token with read/write permissions.
+- `NPM_TOKEN`: granular npm access token with **Packages and scopes** set to **Read and write**,
+  **All Packages** selected for the first publish, and **Bypass 2FA** enabled for CI publishing.
 
 Recommended Docker Hub setup:
 

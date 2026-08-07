@@ -170,6 +170,10 @@ if [ "$failed" -eq 0 ]; then
 fi
 
 if [ "$failed" -eq 0 ]; then
+  run_step "Typecheck CLI" bun run --filter @draftila/cli typecheck || failed=1
+fi
+
+if [ "$failed" -eq 0 ]; then
   if [ "$FIX" -eq 1 ]; then
     run_step "Linting (fix)" bun run lint:fix || failed=1
   else
@@ -183,6 +187,10 @@ fi
 
 if [ "$failed" -eq 0 ]; then
   run_step "Web tests" bun run --filter @draftila/web test || failed=1
+fi
+
+if [ "$failed" -eq 0 ]; then
+  run_step "CLI tests" bun run --filter @draftila/cli test || failed=1
 fi
 
 if [ "$failed" -eq 0 ]; then

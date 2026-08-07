@@ -11,7 +11,7 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
-  trustedOrigins: [env.FRONTEND_URL],
+  trustedOrigins: env.FRONTEND_URLS,
   plugins: [admin()],
   databaseHooks: {
     user: {

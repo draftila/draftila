@@ -1,21 +1,29 @@
 import { createComponent, createInstance, listComponents, removeComponent } from '../components';
+import { getExpandedShapeIds } from '../scene-graph';
+import { toAbsoluteProps } from './utils';
 import type { RpcHandler } from './types';
 
 export function componentHandlers(): Record<string, RpcHandler> {
   return {
     create_component(ydoc, args) {
+      const shapeIds = getExpandedShapeIds(ydoc, args['shapeIds'] as string[]);
       return {
-        componentId: createComponent(ydoc, args['shapeIds'] as string[], args['name'] as string),
+        componentId: createComponent(ydoc, shapeIds, args['name'] as string),
       };
     },
 
     create_instance(ydoc, args) {
+      const props = toAbsoluteProps(ydoc, {
+        x: args['x'],
+        y: args['y'],
+        parentId: args['parentId'],
+      });
       return {
         rootIds: createInstance(
           ydoc,
           args['componentId'] as string,
-          args['x'] as number,
-          args['y'] as number,
+          props['x'] as number,
+          props['y'] as number,
           args['parentId'] as string | undefined,
         ),
       };

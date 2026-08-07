@@ -31,21 +31,28 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.3.5"
+          bun-version: '1.3.5'
 
-      - name: Bump version in package.json
+      - name: Bump package versions
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
         run: |
-          bun -e "
-            const pkg = await Bun.file('package.json').json();
-            pkg.version = '${{ inputs.version }}';
-            await Bun.write('package.json', JSON.stringify(pkg, null, 2) + '\n');
-          "
+          bun -e '
+            const version = process.env.RELEASE_VERSION;
+            if (!version || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z][0-9A-Za-z.-]*)?$/.test(version)) {
+              throw new Error("Version must be valid SemVer without build metadata");
+            }
+            const pkg = await Bun.file("package.json").json();
+            pkg.version = version;
+            await Bun.write("package.json", JSON.stringify(pkg, null, 2) + "\n");
+          '
+          bun install --lockfile-only
 
       - name: Commit version bump
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.json
+          git add package.json bun.lock
           git commit -m "release: v${{ inputs.version }}"
           git push
 

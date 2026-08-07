@@ -1,0 +1,45 @@
+{
+  "name": "@draftila/cli",
+  "version": "0.6.4",
+  "description": "Run and manage Draftila locally",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/draftila/draftila.git",
+    "directory": "apps/cli"
+  },
+  "homepage": "https://draftila.com",
+  "bugs": "https://github.com/draftila/draftila/issues",
+  "bin": {
+    "draftila": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20.17.0"
+  },
+  "scripts": {
+    "build": "bun run clean && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "bun test",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^8.5.2",
+    "commander": "^14.0.3",
+    "tar": "^7.5.22"
+  },
+  "devDependencies": {
+    "@draftila/eslint-config": "workspace:*",
+    "@draftila/typescript-config": "workspace:*",
+    "@types/bun": "^1.1.14",
+    "@types/node": "^25.1.0",
+    "eslint": "^9.16.0",
+    "typescript": "^5.7.2"
+  }
+}

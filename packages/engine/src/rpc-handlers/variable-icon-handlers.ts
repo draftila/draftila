@@ -1,6 +1,13 @@
 import type { Shape } from '@draftila/shared';
 import { getVariables, getVariable, setVariable } from '../variables';
-import { deleteVariable, countVariableUsage } from '../variable-scan';
+import {
+  deleteVariable,
+  countVariableUsage,
+  collectVariableUsage,
+  bindShapeColorVar,
+  unbindShapeColorVar,
+  type BindTarget,
+} from '../variable-scan';
 import { getIconNames, searchIcons, getIconSvg } from '../icons';
 import { opCreateShape } from '../operations';
 import type { RpcHandler } from './types';
@@ -8,13 +15,39 @@ import { toAbsoluteProps } from './utils';
 
 export function variableIconHandlers(): Record<string, RpcHandler> {
   return {
-    list_variables(ydoc) {
-      return {
-        variables: getVariables(ydoc).map((variable) => ({
-          ...variable,
-          usageCount: countVariableUsage(ydoc, variable.id),
-        })),
-      };
+    list_variables(ydoc, args) {
+      const only = args['variableId'] as string | undefined;
+      const usage = collectVariableUsage(ydoc);
+      const variables = getVariables(ydoc)
+        .filter((variable) => !only || variable.id === only)
+        .map((variable) => {
+          const used = usage.get(variable.id);
+          return {
+            ...variable,
+            usageCount: countVariableUsage(ydoc, variable.id),
+            ...(only ? { shapeIds: used?.shapeIds ?? [], pageIds: used?.pageIds ?? [] } : {}),
+          };
+        });
+      return { variables };
+    },
+
+    bind_variable(ydoc, args) {
+      return bindShapeColorVar(
+        ydoc,
+        args['shapeId'] as string,
+        (args['target'] as BindTarget) ?? 'fill',
+        (args['index'] as number | undefined) ?? 0,
+        args['variableId'] as string,
+      );
+    },
+
+    unbind_variable(ydoc, args) {
+      return unbindShapeColorVar(
+        ydoc,
+        args['shapeId'] as string,
+        (args['target'] as BindTarget) ?? 'fill',
+        (args['index'] as number | undefined) ?? 0,
+      );
     },
 
     set_variable(ydoc, args) {

@@ -18,6 +18,14 @@ docker compose up -d
 
 Migrations will run automatically on startup.
 
+## Local CLI
+
+Run the latest CLI version. It downloads the matching native runtime, stops the previous runtime, and starts the new one. Existing projects, uploaded files, and configuration are preserved:
+
+```bash
+npx draftila@latest restart
+```
+
 ## Backup Before Updating
 
 :::warning

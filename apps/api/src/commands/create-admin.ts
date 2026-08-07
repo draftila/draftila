@@ -1,5 +1,6 @@
 import { parseArgs } from 'node:util';
-import { auth } from '../modules/auth/auth.service';
+import { createAdminAccount, inspectAccount, promoteAdminAccount } from './admin-accounts';
+import { readSecretFromStdin } from './command-input';
 import { db } from '../db';
 
 const { values } = parseArgs({
@@ -7,6 +8,7 @@ const { values } = parseArgs({
   options: {
     email: { type: 'string', short: 'e' },
     password: { type: 'string', short: 'p' },
+    'password-stdin': { type: 'boolean' },
     name: { type: 'string', short: 'n' },
   },
 });
@@ -21,43 +23,29 @@ function requireArg(value: string | undefined, flag: string): string {
 }
 
 const email = requireArg(values.email, 'email');
-const password = requireArg(values.password, 'password');
 const name = values.name ?? 'Admin';
 
-if (password.length < 8) {
-  console.error('Password must be at least 8 characters');
-  process.exit(1);
-}
-
 async function createAdmin() {
-  const existing = await db.user.findUnique({ where: { email } });
+  const existing = await inspectAccount(email);
   if (existing) {
     if (existing.role === 'admin') {
       console.log(`Admin account already exists: ${email}`);
     } else {
-      await db.user.update({ where: { id: existing.id }, data: { role: 'admin' } });
+      await promoteAdminAccount(email);
       console.log(`Promoted existing user to admin: ${email}`);
     }
-    await db.$disconnect();
     return;
   }
-
-  const result = await auth.api.signUpEmail({
-    body: { email, password, name },
-  });
-
-  if (!result?.user) {
-    console.error('Failed to create admin account');
-    process.exit(1);
-  }
-
-  await db.user.update({ where: { id: result.user.id }, data: { role: 'admin' } });
+  const password = values['password-stdin']
+    ? await readSecretFromStdin()
+    : requireArg(values.password, 'password');
+  await createAdminAccount({ email, password, name });
   console.log(`Admin account created: ${email}`);
-
-  await db.$disconnect();
 }
 
-createAdmin().catch((err) => {
-  console.error('Failed to create admin:', err);
-  process.exit(1);
-});
+createAdmin()
+  .catch((err) => {
+    console.error('Failed to create admin:', err);
+    process.exitCode = 1;
+  })
+  .finally(() => db.$disconnect());

@@ -48,13 +48,21 @@ Remove a user account from the system. This action cannot be undone.
 
 ## Initial Admin Setup
 
-The first admin user is created automatically when you set the `ADMIN_EMAIL` and `ADMIN_PASSWORD` environment variables. See the [Installation](/docs/getting-started/installation) guide for details.
+For local CLI installations, run the guided administrator manager:
+
+```bash
+npx draftila config
+```
+
+It can create or promote administrators, reset passwords, and remove administrator access. It prevents removal of the final administrator and signs out affected accounts after password or role changes.
+
+For Docker Compose, the first admin user is created automatically when you set the `ADMIN_EMAIL` and `ADMIN_PASSWORD` environment variables. See the [Installation](/docs/getting-started/installation) guide for details.
 
 You can also create admin users from the command line:
 
 ```bash
-docker exec <container> bun run --filter @draftila/api db:create-admin -- \
-  --email admin@example.com \
-  --password your-password \
+printf '%s' 'your-password' | docker exec -i <container> \
+  bun run --filter @draftila/api db:create-admin -- \
+  --email admin@example.com --password-stdin \
   --name "Admin Name"
 ```

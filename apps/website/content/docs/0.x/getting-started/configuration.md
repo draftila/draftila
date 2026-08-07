@@ -5,7 +5,26 @@ description: Configure database, authentication, storage, and more.
 
 # Configuration
 
-Draftila is configured through environment variables. Below is a complete reference.
+Local installations are configured through the CLI. Docker Compose and server deployments use environment variables.
+
+## Local CLI
+
+```bash
+npx draftila config
+```
+
+The guided terminal flow configures:
+
+- Localhost-only or local-network access
+- The host port
+- The public hostname used by other devices
+- Administrator creation, promotion, password reset, and role removal
+
+The generated authentication secret is stored in the operating system's user configuration directory with owner-only permissions. Administrator passwords are never written to the configuration file.
+
+Changing network settings while Draftila is running offers to restart the native runtime immediately. Projects and uploaded files remain in Draftila's user data directory.
+
+## Environment Variables
 
 ## Database
 
@@ -57,9 +76,10 @@ Never reuse `BETTER_AUTH_SECRET` across environments. Changing it will invalidat
 
 ## Frontend
 
-| Variable       | Description                                              | Default                 |
-| -------------- | -------------------------------------------------------- | ----------------------- |
-| `FRONTEND_URL` | The URL where the frontend is accessible. Used for CORS. | `http://localhost:3001` |
+| Variable        | Description                                                        | Default                 |
+| --------------- | ------------------------------------------------------------------ | ----------------------- |
+| `FRONTEND_URL`  | Primary frontend origin.                                           | `http://localhost:3001` |
+| `FRONTEND_URLS` | Comma-separated trusted frontend origins for local-network access. | `FRONTEND_URL`          |
 
 In Docker, the frontend is bundled with the API and served from the same origin, so this typically matches `BETTER_AUTH_URL`.
 
@@ -127,6 +147,7 @@ BETTER_AUTH_URL=http://localhost:3001
 
 # Frontend
 FRONTEND_URL=http://localhost:3001
+# FRONTEND_URLS=http://localhost:3001,http://192.168.1.10:3001
 
 # Storage
 STORAGE_DRIVER=local
