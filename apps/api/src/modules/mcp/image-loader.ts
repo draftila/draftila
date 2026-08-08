@@ -268,14 +268,15 @@ async function readImageBytes(src: string): Promise<Buffer> {
 export async function loadServerImageAsset(src: string): Promise<ServerImageAsset> {
   const bytes = await readImageBytes(src);
   const dimensions = getImageDimensions(bytes);
-  const image = await decodeImage(bytes);
-  const extension = dimensions.type ? BROWSER_IMAGE_EXTENSIONS[dimensions.type] : undefined;
+  const browserRenderableExtension = dimensions.type
+    ? BROWSER_IMAGE_EXTENSIONS[dimensions.type]
+    : undefined;
 
-  if (extension) {
-    return { bytes, extension };
+  if (browserRenderableExtension) {
+    return { bytes, extension: browserRenderableExtension };
   }
 
-  return { bytes: rasterizeToPng(image), extension: 'png' };
+  return { bytes: rasterizeToPng(await decodeImage(bytes)), extension: 'png' };
 }
 
 export async function loadServerImage(src: string): Promise<HTMLImageElement> {
