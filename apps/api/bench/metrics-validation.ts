@@ -6,7 +6,6 @@ process.env['BETTER_AUTH_SECRET'] =
   process.env['BETTER_AUTH_SECRET'] ?? 'bench-secret-key-that-is-long-enough-32';
 process.env['BETTER_AUTH_URL'] = process.env['BETTER_AUTH_URL'] ?? 'http://localhost:3001';
 
-import * as Y from 'yjs';
 import { DEFAULT_GEN, docStateBytes, generateDoc } from './lib/gen-doc';
 
 const SIZES = [1000, 5000, 10000];

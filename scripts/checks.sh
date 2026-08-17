@@ -120,9 +120,13 @@ run_step_capture() {
   return "$exit_code"
 }
 
+coverage_base_ref() {
+  git merge-base HEAD "${COVERAGE_BASE_REF:-main}" 2>/dev/null
+}
+
 added_api_sources() {
   local base
-  base=$(git merge-base HEAD "${COVERAGE_BASE_REF:-main}" 2>/dev/null) || return 0
+  base=$(coverage_base_ref) || return 0
 
   {
     git diff --diff-filter=A --name-only "$base" -- apps/api/src 2>/dev/null
@@ -132,7 +136,7 @@ added_api_sources() {
 
 modified_api_sources() {
   local base
-  base=$(git merge-base HEAD "${COVERAGE_BASE_REF:-main}" 2>/dev/null) || return 0
+  base=$(coverage_base_ref) || return 0
 
   {
     git diff --diff-filter=M --name-only "$base" -- apps/api/src 2>/dev/null
@@ -145,6 +149,11 @@ check_api_coverage() {
 
   if echo "$CLEAN_OUTPUT" | grep -qE '[1-9][0-9]* fail'; then
     return 1
+  fi
+
+  if ! coverage_base_ref >/dev/null; then
+    echo "WARN COVERAGE: cannot resolve ${COVERAGE_BASE_REF:-main}; coverage is not being enforced." >&2
+    return 0
   fi
 
   local added modified

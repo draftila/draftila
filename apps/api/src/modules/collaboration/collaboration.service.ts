@@ -110,7 +110,7 @@ export async function getOrCreateRoom(draftId: string): Promise<Room> {
     'update',
     (
       { added, updated, removed }: { added: number[]; updated: number[]; removed: number[] },
-      origin: unknown,
+      _origin: unknown,
     ) => {
       const changedClients = [...added, ...updated, ...removed];
       const encoder = encoding.createEncoder();
@@ -204,7 +204,7 @@ export async function handleDisconnect(ws: WsLike, draftId: string) {
     if (room.snapshotTimer) clearInterval(room.snapshotTimer);
 
     await flushRoom(draftId, room);
-    if (room.loggedBytes > 0 || room.maxUpdateId > 0) {
+    if (room.loggedBytes > 0) {
       await compactRoom(draftId, room);
       const state = Buffer.from(Y.encodeStateAsUpdate(room.ydoc));
       await snapshotsService.createAutoSave(draftId, wsData?.userId ?? null, state);
@@ -255,26 +255,10 @@ async function compactRoom(draftId: string, room: Room): Promise<void> {
     await draftsService.compactYjsState(draftId, state, room.maxUpdateId);
     recordDuration('collab.save_state', performance.now() - writeStart);
     room.loggedBytes = 0;
+    room.maxUpdateId = 0;
     room.dirty = false;
   } catch (err) {
     console.error(`Failed to compact draft ${draftId}:`, err);
-  }
-}
-
-async function snapshotToDb(draftId: string, ydoc: Y.Doc) {
-  try {
-    const encodeStart = performance.now();
-    const state = Buffer.from(Y.encodeStateAsUpdate(ydoc));
-    recordDuration('collab.encode_state', performance.now() - encodeStart);
-    recordValue('collab.state_bytes', state.byteLength);
-    recordValue('collab.shape_count', countShapes(ydoc));
-
-    const writeStart = performance.now();
-    await draftsService.saveYjsState(draftId, state);
-    recordDuration('collab.save_state', performance.now() - writeStart);
-    increment('collab.autosave');
-  } catch (err) {
-    console.error(`Failed to snapshot draft ${draftId}:`, err);
   }
 }
 
@@ -355,7 +339,7 @@ export async function closeRoom(draftId: string) {
   if (room.connections.size > 0) return;
   if (room.snapshotTimer) clearInterval(room.snapshotTimer);
   await flushRoom(draftId, room);
-  if (room.loggedBytes > 0 || room.maxUpdateId > 0) await compactRoom(draftId, room);
+  if (room.loggedBytes > 0) await compactRoom(draftId, room);
   if (room.updateHandler) room.ydoc.off('update', room.updateHandler);
   room.awareness.destroy();
   room.ydoc.destroy();

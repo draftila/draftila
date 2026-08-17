@@ -124,6 +124,21 @@ describe('collaboration update log', () => {
     expect(shapeIds(Buffer.from(base!))).toEqual(['shape-a']);
   });
 
+  test('reopening and closing an unchanged room writes nothing further', async () => {
+    const room = await getOrCreateRoom(draftId);
+    addShapeTo(room.ydoc, 'shape-a');
+    await closeRoom(draftId);
+
+    const afterFirstClose = await draftsService.loadYjsState(draftId);
+
+    await getOrCreateRoom(draftId);
+    await closeRoom(draftId);
+
+    const afterSecondClose = await draftsService.loadYjsState(draftId);
+    expect(Array.from(afterSecondClose!)).toEqual(Array.from(afterFirstClose!));
+    expect(await draftsService.loadYjsUpdates(draftId)).toHaveLength(0);
+  });
+
   test('loadFullYjsState includes uncompacted log rows', async () => {
     const base = new Y.Doc();
     addShapeTo(base, 'shape-a');

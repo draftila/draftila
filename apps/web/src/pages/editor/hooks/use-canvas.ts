@@ -106,7 +106,7 @@ function bakeFrame(
   offscreen.resize(frame.width, frame.height, size.scale);
   offscreen.clear();
   offscreen.save();
-  offscreen.applyCamera({ x: -frame.x * 1, y: -frame.y * 1, zoom: 1 });
+  offscreen.applyCamera({ x: -frame.x, y: -frame.y, zoom: 1 });
 
   const subtree: Shape[] = [];
   for (const shape of shapes) {
@@ -417,12 +417,20 @@ export function useCanvas({ ydoc, sceneRef }: { ydoc: Y.Doc; sceneRef: RefObject
         isShapeVisible(shape) &&
         (shape as Shape & { clip?: boolean }).clip !== false
       ) {
-        const cached =
-          frameCacheRef.current.get(shape.id, bucket) ??
-          bakeFrame(shape, shapes, shapeMap, bucket, window.devicePixelRatio || 1, camera.zoom);
+        let cached = frameCacheRef.current.get(shape.id, bucket);
+        if (!cached) {
+          cached = bakeFrame(
+            shape,
+            shapes,
+            shapeMap,
+            bucket,
+            window.devicePixelRatio || 1,
+            camera.zoom,
+          );
+          if (cached) frameCacheRef.current.set(shape.id, bucket, cached.canvas, cached.scale);
+        }
 
         if (cached) {
-          frameCacheRef.current.set(shape.id, bucket, cached.canvas, cached.scale);
           renderer.drawCachedFrame(cached.canvas, shape.x, shape.y, shape.width, shape.height);
           drawnCount++;
           skipUntilOutsideFrame = shape.id;
