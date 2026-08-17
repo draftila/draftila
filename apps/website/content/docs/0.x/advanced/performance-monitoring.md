@@ -63,19 +63,23 @@ When enabled, the API records:
 Queries slower than `SLOW_QUERY_MS` and requests slower than `SLOW_REQUEST_MS` are also logged to
 stdout with a `[slow query]` / `[slow request]` prefix.
 
+Both metrics endpoints require an authenticated administrator, because the snapshot covers the
+whole server rather than any one project. Sign in first and send the session cookie:
+
 Read the aggregated snapshot (count, mean, p50, p95, p99, max) at:
 
 ```bash
-curl http://localhost:3001/api/health/metrics
+curl --cookie "$SESSION_COOKIE" http://localhost:3001/api/health/metrics
 ```
 
 Clear the collected samples with:
 
 ```bash
-curl -X POST http://localhost:3001/api/health/metrics/reset
+curl -X POST --cookie "$SESSION_COOKIE" http://localhost:3001/api/health/metrics/reset
 ```
 
-Both endpoints return `404` while metrics are disabled.
+They return `401` without a session, `403` for a non-administrator, and `404` while metrics are
+disabled. The `/api/health` liveness probe stays public.
 
 :::note
 Metrics are held in memory per process and are not persisted. Keep `METRICS_ENABLED` off in

@@ -1,5 +1,7 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeAll, describe, expect, test } from 'bun:test';
 import { app } from '../../src/app';
+import { resetRateLimitStore } from '../../src/common/middleware/rate-limit';
+import { cleanDatabase, createTestUser, getAuthHeaders, makeAdmin } from '../helpers';
 import {
   increment,
   metricsSnapshot,
@@ -24,8 +26,53 @@ afterEach(() => {
 });
 
 describe('metrics endpoint', () => {
+  let adminHeaders: Headers;
+  let memberHeaders: Headers;
+
+  beforeAll(async () => {
+    await cleanDatabase();
+    resetRateLimitStore('sign-in');
+    resetRateLimitStore('sign-up');
+
+    const admin = await createTestUser({
+      email: 'metrics-admin@draftila.test',
+      password: 'password123',
+      name: 'Metrics Admin',
+    });
+    await makeAdmin(admin.user.id);
+    adminHeaders = await getAuthHeaders('metrics-admin@draftila.test', 'password123');
+
+    await createTestUser({
+      email: 'metrics-member@draftila.test',
+      password: 'password123',
+      name: 'Metrics Member',
+    });
+    memberHeaders = await getAuthHeaders('metrics-member@draftila.test', 'password123');
+  });
+
+  test('rejects anonymous callers', async () => {
+    setMetricsEnabled(true);
+
+    expect((await app.request('/api/health/metrics')).status).toBe(401);
+    expect((await app.request('/api/health/metrics/reset', { method: 'POST' })).status).toBe(401);
+  });
+
+  test('rejects authenticated non-admin callers', async () => {
+    setMetricsEnabled(true);
+
+    expect((await app.request('/api/health/metrics', { headers: memberHeaders })).status).toBe(403);
+    expect(
+      (
+        await app.request('/api/health/metrics/reset', {
+          method: 'POST',
+          headers: memberHeaders,
+        })
+      ).status,
+    ).toBe(403);
+  });
+
   test('is disabled unless metrics are enabled', async () => {
-    const res = await app.request('/api/health/metrics');
+    const res = await app.request('/api/health/metrics', { headers: adminHeaders });
     expect(res.status).toBe(404);
 
     const body = (await res.json()) as { error: string };
@@ -34,9 +81,10 @@ describe('metrics endpoint', () => {
 
   test('exposes the snapshot once enabled', async () => {
     setMetricsEnabled(true);
+    resetMetrics();
     recordDuration('http.all', 12);
 
-    const res = await app.request('/api/health/metrics');
+    const res = await app.request('/api/health/metrics', { headers: adminHeaders });
     expect(res.status).toBe(200);
 
     const body = (await res.json()) as {
@@ -55,9 +103,17 @@ describe('metrics endpoint', () => {
     setMetricsEnabled(true);
     recordDuration('http.all', 12);
 
-    const res = await app.request('/api/health/metrics/reset', { method: 'POST' });
+    const res = await app.request('/api/health/metrics/reset', {
+      method: 'POST',
+      headers: adminHeaders,
+    });
     expect(res.status).toBe(200);
     expect(metricsSnapshot().durations['http.all']).toBeUndefined();
+  });
+
+  test('the liveness probe stays public', async () => {
+    const res = await app.request('/api/health');
+    expect(res.status).toBe(200);
   });
 });
 
