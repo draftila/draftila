@@ -8,6 +8,7 @@ import type { HandTool } from '@draftila/engine/tools/hand-tool';
 import { getAllShapes, observeShapes } from '@draftila/engine/scene-graph';
 import { SpatialIndex } from '@draftila/engine/spatial-index';
 import { useEditorStore } from '@/stores/editor-store';
+import { measure } from '@/lib/perf-metrics';
 
 interface UseToolOptions {
   ydoc: Y.Doc;
@@ -172,10 +173,12 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
 
   useEffect(() => {
     function rebuildSpatialCache() {
-      const shapes = getAllShapes(ydoc);
-      cachedShapesRef.current = shapes;
-      cachedSpatialIndexRef.current = new SpatialIndex();
-      cachedSpatialIndexRef.current.rebuild(shapes);
+      measure('yjs.rebuildSpatialCache', () => {
+        const shapes = getAllShapes(ydoc);
+        cachedShapesRef.current = shapes;
+        cachedSpatialIndexRef.current = new SpatialIndex();
+        cachedSpatialIndexRef.current.rebuild(shapes);
+      });
     }
 
     rebuildSpatialCache();

@@ -5,6 +5,7 @@ import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
 import * as draftsService from '../drafts/drafts.service';
 import * as snapshotsService from '../snapshots/snapshots.service';
+import { increment, recordDuration, recordValue } from '../../common/lib/metrics';
 import {
   sendRpc as sendRpcInternal,
   handleRpcResponse,
@@ -53,10 +54,17 @@ export async function getOrCreateRoom(draftId: string): Promise<Room> {
   const ydoc = new Y.Doc();
   const awareness = new awarenessProtocol.Awareness(ydoc);
 
+  const loadStart = performance.now();
   const savedState = await draftsService.loadYjsState(draftId);
+  recordDuration('collab.load_state', performance.now() - loadStart);
+
   if (savedState) {
+    recordValue('collab.loaded_bytes', savedState.byteLength);
+    const applyStart = performance.now();
     Y.applyUpdate(ydoc, new Uint8Array(savedState));
+    recordDuration('collab.apply_state', performance.now() - applyStart);
   }
+  increment('collab.room_created');
 
   const room: Room = {
     ydoc,
@@ -198,11 +206,33 @@ export async function handleDisconnect(ws: WsLike, draftId: string) {
 
 async function snapshotToDb(draftId: string, ydoc: Y.Doc) {
   try {
+    const encodeStart = performance.now();
     const state = Buffer.from(Y.encodeStateAsUpdate(ydoc));
+    recordDuration('collab.encode_state', performance.now() - encodeStart);
+    recordValue('collab.state_bytes', state.byteLength);
+    recordValue('collab.shape_count', countShapes(ydoc));
+
+    const writeStart = performance.now();
     await draftsService.saveYjsState(draftId, state);
+    recordDuration('collab.save_state', performance.now() - writeStart);
+    increment('collab.autosave');
   } catch (err) {
     console.error(`Failed to snapshot draft ${draftId}:`, err);
   }
+}
+
+function countShapes(ydoc: Y.Doc): number {
+  const pages = ydoc.getMap('pages') as Y.Map<Y.Map<unknown>>;
+  let total = 0;
+  for (const page of pages.values()) {
+    const shapes = page.get('shapes');
+    if (shapes instanceof Y.Map) total += shapes.size;
+  }
+  if (total === 0) {
+    const legacy = ydoc.getMap('shapes');
+    total = legacy.size;
+  }
+  return total;
 }
 
 function broadcastToRoom(room: Room, message: Uint8Array, exclude: WsLike | null) {

@@ -76,4 +76,7 @@ export const env = {
   STORAGE_PATH: process.env.STORAGE_PATH ?? './storage',
   TRUSTED_PROXY_IPS: parseTrustedProxies(process.env.TRUSTED_PROXY_IPS),
   RUNTIME_INSTANCE_ID: process.env.DRAFTILA_RUNTIME_INSTANCE_ID ?? null,
+  METRICS_ENABLED: process.env.METRICS_ENABLED === 'true',
+  SLOW_QUERY_MS: parseInt(process.env.SLOW_QUERY_MS ?? '50', 10),
+  SLOW_REQUEST_MS: parseInt(process.env.SLOW_REQUEST_MS ?? '250', 10),
 } as const;

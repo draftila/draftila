@@ -1,0 +1,145 @@
+{
+  "generatedAt": "2026-08-17T13:03:47.276Z",
+  "facts": [
+    "n=100: drawn now=100, drawn if culled=0",
+    "n=500: drawn now=500, drawn if culled=10",
+    "n=1000: drawn now=1000, drawn if culled=34",
+    "n=2500: drawn now=2500, drawn if culled=73",
+    "n=5000: drawn now=5000, drawn if culled=173",
+    "n=10000: drawn now=10000, drawn if culled=222"
+  ],
+  "rows": [
+    {
+      "label": "render frame: ALL shapes (current)",
+      "n": 100,
+      "runs": 30,
+      "meanMs": 0.8807083666666661,
+      "p50Ms": 0.8768749999999841,
+      "p95Ms": 0.9565420000000131,
+      "minMs": 0.8114170000000058,
+      "maxMs": 0.9571250000000191,
+      "totalMs": 26.421250999999984
+    },
+    {
+      "label": "render frame: viewport-culled only",
+      "n": 100,
+      "runs": 30,
+      "meanMs": 0.004620799999999766,
+      "p50Ms": 0.004041999999969903,
+      "p95Ms": 0.009000000000014552,
+      "minMs": 0.0030409999999960746,
+      "maxMs": 0.012958000000026004,
+      "totalMs": 0.13862399999999298
+    },
+    {
+      "label": "render frame: ALL shapes (current)",
+      "n": 500,
+      "runs": 30,
+      "meanMs": 5.764425066666669,
+      "p50Ms": 5.621082999999999,
+      "p95Ms": 7.1618330000000014,
+      "minMs": 5.154916999999955,
+      "maxMs": 7.474291999999991,
+      "totalMs": 172.93275200000005
+    },
+    {
+      "label": "render frame: viewport-culled only",
+      "n": 500,
+      "runs": 30,
+      "meanMs": 0.07357923333332791,
+      "p50Ms": 0.0727079999999205,
+      "p95Ms": 0.07799999999997453,
+      "minMs": 0.07000000000005002,
+      "maxMs": 0.08483400000000074,
+      "totalMs": 2.2073769999998376
+    },
+    {
+      "label": "render frame: ALL shapes (current)",
+      "n": 1000,
+      "runs": 30,
+      "meanMs": 11.068151399999987,
+      "p50Ms": 10.928875000000062,
+      "p95Ms": 11.39995900000008,
+      "minMs": 10.696665999999937,
+      "maxMs": 14.061874999999986,
+      "totalMs": 332.04454199999964
+    },
+    {
+      "label": "render frame: viewport-culled only",
+      "n": 1000,
+      "runs": 30,
+      "meanMs": 0.28292216666668535,
+      "p50Ms": 0.28091700000004494,
+      "p95Ms": 0.2937909999998283,
+      "minMs": 0.2736250000000382,
+      "maxMs": 0.30091600000014296,
+      "totalMs": 8.487665000000561
+    },
+    {
+      "label": "render frame: ALL shapes (current)",
+      "n": 2500,
+      "runs": 30,
+      "meanMs": 30.44820139999997,
+      "p50Ms": 30.480375000000095,
+      "p95Ms": 32.40620799999988,
+      "minMs": 28.20533300000011,
+      "maxMs": 34.926082999999835,
+      "totalMs": 913.4460419999991
+    },
+    {
+      "label": "render frame: viewport-culled only",
+      "n": 2500,
+      "runs": 30,
+      "meanMs": 0.5494084666666216,
+      "p50Ms": 0.5544999999997344,
+      "p95Ms": 0.5892919999996593,
+      "minMs": 0.516374999999698,
+      "maxMs": 0.5935840000001917,
+      "totalMs": 16.482253999998647
+    },
+    {
+      "label": "render frame: ALL shapes (current)",
+      "n": 5000,
+      "runs": 15,
+      "meanMs": 60.59088039999997,
+      "p50Ms": 61.63604200000009,
+      "p95Ms": 65.74104100000022,
+      "minMs": 54.9792080000002,
+      "maxMs": 65.74104100000022,
+      "totalMs": 908.8632059999995
+    },
+    {
+      "label": "render frame: viewport-culled only",
+      "n": 5000,
+      "runs": 15,
+      "meanMs": 1.9629137999999633,
+      "p50Ms": 1.9677919999999176,
+      "p95Ms": 2.038250000000062,
+      "minMs": 1.9268329999999878,
+      "maxMs": 2.038250000000062,
+      "totalMs": 29.44370699999945
+    },
+    {
+      "label": "render frame: ALL shapes (current)",
+      "n": 10000,
+      "runs": 15,
+      "meanMs": 123.1570529999999,
+      "p50Ms": 124.79812499999935,
+      "p95Ms": 138.92604200000005,
+      "minMs": 112.32562499999949,
+      "maxMs": 138.92604200000005,
+      "totalMs": 1847.3557949999986
+    },
+    {
+      "label": "render frame: viewport-culled only",
+      "n": 10000,
+      "runs": 15,
+      "meanMs": 2.043636200000037,
+      "p50Ms": 2.034375000000182,
+      "p95Ms": 2.1320409999998446,
+      "minMs": 1.9677920000003724,
+      "maxMs": 2.1320409999998446,
+      "totalMs": 30.654543000000558
+    }
+  ]
+}

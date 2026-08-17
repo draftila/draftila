@@ -15,6 +15,7 @@ import {
 import { renderShape, getCornerRadii } from '@draftila/engine/shape-renderer';
 import { getMoveTool, getNodeTool } from '@draftila/engine/tools/tool-manager';
 import { useEditorStore } from '@/stores/editor-store';
+import { measure, record, setValue } from '@/lib/perf-metrics';
 import {
   ensureFontsLoaded,
   onFontsLoaded,
@@ -89,8 +90,11 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
 
   useEffect(() => {
     const refresh = () => {
-      shapeCacheRef.current = getResolvedShapes(ydoc);
-      ensureFontsLoaded(collectFontFamilies(shapeCacheRef.current));
+      shapeCacheRef.current = measure('yjs.getResolvedShapes', () => getResolvedShapes(ydoc));
+      setValue('shapes.total', shapeCacheRef.current.length);
+      measure('fonts.ensureLoaded', () =>
+        ensureFontsLoaded(collectFontFamilies(shapeCacheRef.current)),
+      );
     };
 
     refresh();
@@ -171,6 +175,8 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
     const deferredShapes: Shape[] = [];
 
     const clipStack: string[] = [];
+    const shapeLoopStart = performance.now();
+    let drawnCount = 0;
 
     for (const shape of shapes) {
       while (clipStack.length > 0) {
@@ -210,6 +216,7 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
       }
 
       renderShape(renderer, displayShape);
+      drawnCount++;
 
       if (
         displayShape.type === 'frame' &&
@@ -237,7 +244,11 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
     for (const shape of deferredShapes) {
       const displayShape = applyTransforms(shape, tc);
       renderShape(renderer, displayShape);
+      drawnCount++;
     }
+
+    record('canvas.shapePass', performance.now() - shapeLoopStart);
+    setValue('shapes.drawn', drawnCount);
 
     const { aiActiveFrameIds } = useEditorStore.getState();
     renderAiShimmerOverlays(renderer, aiActiveFrameIds, shapeMap, isShapeVisible);
@@ -285,7 +296,7 @@ export function useCanvas({ ydoc }: { ydoc: Y.Doc }) {
 
   useEffect(() => {
     const renderLoop = () => {
-      draw();
+      measure('canvas.frame', draw);
       rafRef.current = requestAnimationFrame(renderLoop);
     };
 

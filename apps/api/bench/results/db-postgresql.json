@@ -1,0 +1,407 @@
+{
+  "generatedAt": "2026-08-17T09:54:40.408Z",
+  "driver": "postgresql",
+  "rows": [
+    {
+      "label": "saveYjsState (30s autosave UPDATE)",
+      "n": 100,
+      "runs": 20,
+      "meanMs": 3.831012349999986,
+      "p50Ms": 3.7304169999999885,
+      "p95Ms": 6.223667000000091,
+      "minMs": 2.85029099999997,
+      "maxMs": 6.223667000000091,
+      "totalMs": 76.62024699999972
+    },
+    {
+      "label": "loadYjsState (room open SELECT)",
+      "n": 100,
+      "runs": 20,
+      "meanMs": 0.5088147000000163,
+      "p50Ms": 0.4296669999999949,
+      "p95Ms": 1.1313329999999269,
+      "minMs": 0.3173750000000837,
+      "maxMs": 1.1313329999999269,
+      "totalMs": 10.176294000000325
+    },
+    {
+      "label": "open draft: load + Y.applyUpdate",
+      "n": 100,
+      "runs": 10,
+      "meanMs": 3.0223248999999783,
+      "p50Ms": 3.0121659999999792,
+      "p95Ms": 4.657124999999951,
+      "minMs": 2.2612910000000284,
+      "maxMs": 4.657124999999951,
+      "totalMs": 30.223248999999782
+    },
+    {
+      "label": "createAutoSave + pruneAutoSaves",
+      "n": 100,
+      "runs": 15,
+      "meanMs": 3.7810834000000115,
+      "p50Ms": 3.6186250000000655,
+      "p95Ms": 4.8309169999999995,
+      "minMs": 2.966166000000044,
+      "maxMs": 4.8309169999999995,
+      "totalMs": 56.71625100000017
+    },
+    {
+      "label": "listSnapshots (named only)",
+      "n": 100,
+      "runs": 20,
+      "meanMs": 0.33832289999999715,
+      "p50Ms": 0.26920799999993505,
+      "p95Ms": 0.8302909999999883,
+      "minMs": 0.15916700000002493,
+      "maxMs": 0.8302909999999883,
+      "totalMs": 6.766457999999943
+    },
+    {
+      "label": "saveYjsState (30s autosave UPDATE)",
+      "n": 500,
+      "runs": 20,
+      "meanMs": 16.481799899999963,
+      "p50Ms": 16.063957999999957,
+      "p95Ms": 22.147166999999854,
+      "minMs": 13.43770799999993,
+      "maxMs": 22.147166999999854,
+      "totalMs": 329.6359979999993
+    },
+    {
+      "label": "loadYjsState (room open SELECT)",
+      "n": 500,
+      "runs": 20,
+      "meanMs": 1.42709165,
+      "p50Ms": 1.3172919999999522,
+      "p95Ms": 2.146540999999843,
+      "minMs": 1.0652079999999842,
+      "maxMs": 2.146540999999843,
+      "totalMs": 28.541832999999997
+    },
+    {
+      "label": "open draft: load + Y.applyUpdate",
+      "n": 500,
+      "runs": 10,
+      "meanMs": 9.887441700000045,
+      "p50Ms": 10.024917000000187,
+      "p95Ms": 12.900792000000138,
+      "minMs": 8.135166000000027,
+      "maxMs": 12.900792000000138,
+      "totalMs": 98.87441700000045
+    },
+    {
+      "label": "createAutoSave + pruneAutoSaves",
+      "n": 500,
+      "runs": 15,
+      "meanMs": 14.684905399999964,
+      "p50Ms": 14.484249999999975,
+      "p95Ms": 17.291292000000112,
+      "minMs": 13.072333000000071,
+      "maxMs": 17.291292000000112,
+      "totalMs": 220.27358099999947
+    },
+    {
+      "label": "listSnapshots (named only)",
+      "n": 500,
+      "runs": 20,
+      "meanMs": 0.1770583499999816,
+      "p50Ms": 0.17045900000016445,
+      "p95Ms": 0.2620830000000751,
+      "minMs": 0.14579200000002857,
+      "maxMs": 0.2620830000000751,
+      "totalMs": 3.541166999999632
+    },
+    {
+      "label": "saveYjsState (30s autosave UPDATE)",
+      "n": 1000,
+      "runs": 20,
+      "meanMs": 28.45027080000002,
+      "p50Ms": 25.113832999999886,
+      "p95Ms": 49.765292000000045,
+      "minMs": 21.61412499999983,
+      "maxMs": 49.765292000000045,
+      "totalMs": 569.0054160000004
+    },
+    {
+      "label": "loadYjsState (room open SELECT)",
+      "n": 1000,
+      "runs": 20,
+      "meanMs": 2.4365478999999595,
+      "p50Ms": 2.401458000000275,
+      "p95Ms": 3.061666999999943,
+      "minMs": 2.1087079999997513,
+      "maxMs": 3.061666999999943,
+      "totalMs": 48.73095799999919
+    },
+    {
+      "label": "open draft: load + Y.applyUpdate",
+      "n": 1000,
+      "runs": 10,
+      "meanMs": 16.318425100000148,
+      "p50Ms": 15.967874999999822,
+      "p95Ms": 19.02300000000014,
+      "minMs": 15.402917000000343,
+      "maxMs": 19.02300000000014,
+      "totalMs": 163.1842510000015
+    },
+    {
+      "label": "createAutoSave + pruneAutoSaves",
+      "n": 1000,
+      "runs": 15,
+      "meanMs": 25.43841933333336,
+      "p50Ms": 25.638083999999708,
+      "p95Ms": 28.523709000000053,
+      "minMs": 23.093124999999873,
+      "maxMs": 28.523709000000053,
+      "totalMs": 381.5762900000004
+    },
+    {
+      "label": "listSnapshots (named only)",
+      "n": 1000,
+      "runs": 20,
+      "meanMs": 0.19318744999998216,
+      "p50Ms": 0.19291700000030687,
+      "p95Ms": 0.2357919999999467,
+      "minMs": 0.16625000000021828,
+      "maxMs": 0.2357919999999467,
+      "totalMs": 3.8637489999996433
+    },
+    {
+      "label": "saveYjsState (30s autosave UPDATE)",
+      "n": 2500,
+      "runs": 20,
+      "meanMs": 57.428039600000034,
+      "p50Ms": 57.740625000000364,
+      "p95Ms": 63.11241699999982,
+      "minMs": 49.7184170000005,
+      "maxMs": 63.11241699999982,
+      "totalMs": 1148.5607920000007
+    },
+    {
+      "label": "loadYjsState (room open SELECT)",
+      "n": 2500,
+      "runs": 20,
+      "meanMs": 5.066414450000048,
+      "p50Ms": 5.428625000000466,
+      "p95Ms": 6.46087499999976,
+      "minMs": 3.8027920000004087,
+      "maxMs": 6.46087499999976,
+      "totalMs": 101.32828900000095
+    },
+    {
+      "label": "open draft: load + Y.applyUpdate",
+      "n": 2500,
+      "runs": 10,
+      "meanMs": 51.949070500000104,
+      "p50Ms": 42.43170800000007,
+      "p95Ms": 92.91350000000057,
+      "minMs": 39.09379100000024,
+      "maxMs": 92.91350000000057,
+      "totalMs": 519.4907050000011
+    },
+    {
+      "label": "createAutoSave + pruneAutoSaves",
+      "n": 2500,
+      "runs": 15,
+      "meanMs": 64.91155566666639,
+      "p50Ms": 62.26258399999915,
+      "p95Ms": 100.62512499999957,
+      "minMs": 53.90691700000025,
+      "maxMs": 100.62512499999957,
+      "totalMs": 973.6733349999959
+    },
+    {
+      "label": "listSnapshots (named only)",
+      "n": 2500,
+      "runs": 20,
+      "meanMs": 0.1646936000000551,
+      "p50Ms": 0.16095800000039162,
+      "p95Ms": 0.22833300000002055,
+      "minMs": 0.1430419999996957,
+      "maxMs": 0.22833300000002055,
+      "totalMs": 3.2938720000011017
+    },
+    {
+      "label": "saveYjsState (30s autosave UPDATE)",
+      "n": 5000,
+      "runs": 20,
+      "meanMs": 124.34414370000013,
+      "p50Ms": 124.53395900000032,
+      "p95Ms": 165.6028750000005,
+      "minMs": 108.17754200000127,
+      "maxMs": 165.6028750000005,
+      "totalMs": 2486.8828740000026
+    },
+    {
+      "label": "loadYjsState (room open SELECT)",
+      "n": 5000,
+      "runs": 20,
+      "meanMs": 11.038758250000138,
+      "p50Ms": 11.104874999999083,
+      "p95Ms": 12.816375000000335,
+      "minMs": 8.455917000001136,
+      "maxMs": 12.816375000000335,
+      "totalMs": 220.77516500000274
+    },
+    {
+      "label": "open draft: load + Y.applyUpdate",
+      "n": 5000,
+      "runs": 10,
+      "meanMs": 83.58579989999961,
+      "p50Ms": 83.60774999999921,
+      "p95Ms": 89.43583299999955,
+      "minMs": 79.01274999999987,
+      "maxMs": 89.43583299999955,
+      "totalMs": 835.8579989999962
+    },
+    {
+      "label": "createAutoSave + pruneAutoSaves",
+      "n": 5000,
+      "runs": 15,
+      "meanMs": 120.41237206666665,
+      "p50Ms": 120.43433300000106,
+      "p95Ms": 133.34620800000084,
+      "minMs": 105.87087500000052,
+      "maxMs": 133.34620800000084,
+      "totalMs": 1806.1855809999997
+    },
+    {
+      "label": "listSnapshots (named only)",
+      "n": 5000,
+      "runs": 20,
+      "meanMs": 0.18891250000015133,
+      "p50Ms": 0.17937499999970896,
+      "p95Ms": 0.24033300000155577,
+      "minMs": 0.16112500000053842,
+      "maxMs": 0.24033300000155577,
+      "totalMs": 3.778250000003027
+    },
+    {
+      "label": "saveYjsState (30s autosave UPDATE)",
+      "n": 10000,
+      "runs": 20,
+      "meanMs": 260.6301041000005,
+      "p50Ms": 254.96758300000147,
+      "p95Ms": 321.59212500000103,
+      "minMs": 232.32908300000054,
+      "maxMs": 321.59212500000103,
+      "totalMs": 5212.60208200001
+    },
+    {
+      "label": "loadYjsState (room open SELECT)",
+      "n": 10000,
+      "runs": 20,
+      "meanMs": 21.99515835000002,
+      "p50Ms": 21.273709000000963,
+      "p95Ms": 26.3035830000008,
+      "minMs": 19.08324999999968,
+      "maxMs": 26.3035830000008,
+      "totalMs": 439.9031670000004
+    },
+    {
+      "label": "open draft: load + Y.applyUpdate",
+      "n": 10000,
+      "runs": 10,
+      "meanMs": 170.0222834000004,
+      "p50Ms": 174.33691700000054,
+      "p95Ms": 189.98891600000206,
+      "minMs": 149.2323749999996,
+      "maxMs": 189.98891600000206,
+      "totalMs": 1700.2228340000038
+    },
+    {
+      "label": "createAutoSave + pruneAutoSaves",
+      "n": 10000,
+      "runs": 15,
+      "meanMs": 280.65783899999974,
+      "p50Ms": 262.0953339999978,
+      "p95Ms": 488.69087500000023,
+      "minMs": 242.729292,
+      "maxMs": 488.69087500000023,
+      "totalMs": 4209.867584999996
+    },
+    {
+      "label": "listSnapshots (named only)",
+      "n": 10000,
+      "runs": 20,
+      "meanMs": 0.23483344999913242,
+      "p50Ms": 0.2288750000006985,
+      "p95Ms": 0.3111250000001746,
+      "minMs": 0.19350000000122236,
+      "maxMs": 0.3111250000001746,
+      "totalMs": 4.6966689999826485
+    },
+    {
+      "label": "listByProject (20 drafts, list select)",
+      "n": 0,
+      "runs": 20,
+      "meanMs": 0.22145420000015292,
+      "p50Ms": 0.20995899999979883,
+      "p95Ms": 0.29654200000004494,
+      "minMs": 0.18712500000037835,
+      "maxMs": 0.29654200000004494,
+      "totalMs": 4.4290840000030585
+    },
+    {
+      "label": "10 concurrent room autosaves (5k shapes each)",
+      "n": 5000,
+      "runs": 8,
+      "meanMs": 319.5323126249996,
+      "p50Ms": 338.1576669999995,
+      "p95Ms": 403.15550000000076,
+      "minMs": 254.7720420000005,
+      "maxMs": 403.15550000000076,
+      "totalMs": 2556.2585009999966
+    }
+  ],
+  "facts": [
+    "n=100: blob=77.7KB",
+    "n=100: snapshot rows retained=17, on-disk snapshot bytes≈1.3MB",
+    "n=500: blob=387.0KB",
+    "n=500: snapshot rows retained=17, on-disk snapshot bytes≈6.4MB",
+    "n=1000: blob=794.1KB",
+    "n=1000: snapshot rows retained=17, on-disk snapshot bytes≈13.2MB",
+    "n=2500: blob=2005.5KB",
+    "n=2500: snapshot rows retained=17, on-disk snapshot bytes≈33.3MB",
+    "n=5000: blob=4035.3KB",
+    "n=5000: snapshot rows retained=17, on-disk snapshot bytes≈67.0MB",
+    "n=10000: blob=8091.8KB",
+    "n=10000: snapshot rows retained=17, on-disk snapshot bytes≈134.3MB"
+  ],
+  "slowest": [
+    {
+      "query": "INSERT INTO \"public\".\"snapshot\" (\"id\",\"draft_id\",\"user_id\",\"name\",\"yjs_state\",\"created_at\") VALUES ($1,$2,$3,$4,$5,$6) RETURNING \"public\".\"snapshot\".\"id\", \"public\".\"snapshot\".\"draft_id\", \"public\".\"snapshot\".\"user_id\", \"public\".\"snapshot\".\"name\", \"public\".\"snapshot\".\"yjs_state\", \"public\".\"snapshot\".\"created_at\"",
+      "durationMs": 326
+    },
+    {
+      "query": "UPDATE \"public\".\"draft\" SET \"yjs_state\" = $1, \"updated_at\" = $2 WHERE (\"public\".\"draft\".\"id\" = $3 AND 1=1) RETURNING \"public\".\"draft\".\"id\", \"public\".\"draft\".\"name\", \"public\".\"draft\".\"project_id\", \"public\".\"draft\".\"yjs_state\", \"public\".\"draft\".\"thumbnail\", \"public\".\"draft\".\"created_at\", \"public\".\"draft\".\"updated_at\"",
+      "durationMs": 172
+    },
+    {
+      "query": "UPDATE \"public\".\"draft\" SET \"yjs_state\" = $1, \"updated_at\" = $2 WHERE (\"public\".\"draft\".\"id\" = $3 AND 1=1) RETURNING \"public\".\"draft\".\"id\", \"public\".\"draft\".\"name\", \"public\".\"draft\".\"project_id\", \"public\".\"draft\".\"yjs_state\", \"public\".\"draft\".\"thumbnail\", \"public\".\"draft\".\"created_at\", \"public\".\"draft\".\"updated_at\"",
+      "durationMs": 159
+    },
+    {
+      "query": "UPDATE \"public\".\"draft\" SET \"yjs_state\" = $1, \"updated_at\" = $2 WHERE (\"public\".\"draft\".\"id\" = $3 AND 1=1) RETURNING \"public\".\"draft\".\"id\", \"public\".\"draft\".\"name\", \"public\".\"draft\".\"project_id\", \"public\".\"draft\".\"yjs_state\", \"public\".\"draft\".\"thumbnail\", \"public\".\"draft\".\"created_at\", \"public\".\"draft\".\"updated_at\"",
+      "durationMs": 157
+    },
+    {
+      "query": "UPDATE \"public\".\"draft\" SET \"yjs_state\" = $1, \"updated_at\" = $2 WHERE (\"public\".\"draft\".\"id\" = $3 AND 1=1) RETURNING \"public\".\"draft\".\"id\", \"public\".\"draft\".\"name\", \"public\".\"draft\".\"project_id\", \"public\".\"draft\".\"yjs_state\", \"public\".\"draft\".\"thumbnail\", \"public\".\"draft\".\"created_at\", \"public\".\"draft\".\"updated_at\"",
+      "durationMs": 148
+    },
+    {
+      "query": "UPDATE \"public\".\"draft\" SET \"yjs_state\" = $1, \"updated_at\" = $2 WHERE (\"public\".\"draft\".\"id\" = $3 AND 1=1) RETURNING \"public\".\"draft\".\"id\", \"public\".\"draft\".\"name\", \"public\".\"draft\".\"project_id\", \"public\".\"draft\".\"yjs_state\", \"public\".\"draft\".\"thumbnail\", \"public\".\"draft\".\"created_at\", \"public\".\"draft\".\"updated_at\"",
+      "durationMs": 147
+    },
+    {
+      "query": "UPDATE \"public\".\"draft\" SET \"yjs_state\" = $1, \"updated_at\" = $2 WHERE (\"public\".\"draft\".\"id\" = $3 AND 1=1) RETURNING \"public\".\"draft\".\"id\", \"public\".\"draft\".\"name\", \"public\".\"draft\".\"project_id\", \"public\".\"draft\".\"yjs_state\", \"public\".\"draft\".\"thumbnail\", \"public\".\"draft\".\"created_at\", \"public\".\"draft\".\"updated_at\"",
+      "durationMs": 147
+    },
+    {
+      "query": "UPDATE \"public\".\"draft\" SET \"yjs_state\" = $1, \"updated_at\" = $2 WHERE (\"public\".\"draft\".\"id\" = $3 AND 1=1) RETURNING \"public\".\"draft\".\"id\", \"public\".\"draft\".\"name\", \"public\".\"draft\".\"project_id\", \"public\".\"draft\".\"yjs_state\", \"public\".\"draft\".\"thumbnail\", \"public\".\"draft\".\"created_at\", \"public\".\"draft\".\"updated_at\"",
+      "durationMs": 146
+    }
+  ],
+  "queryCount": 849
+}

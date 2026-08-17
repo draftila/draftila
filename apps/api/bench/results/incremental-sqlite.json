@@ -1,0 +1,76 @@
+{
+  "generatedAt": "2026-08-17T09:57:19.221Z",
+  "rows": [
+    {
+      "label": "CURRENT: full-state UPDATE",
+      "n": 1000,
+      "runs": 20,
+      "meanMs": 12.412252100000002,
+      "p50Ms": 12.301541999999984,
+      "p95Ms": 13.909707999999995,
+      "minMs": 12.079417000000007,
+      "maxMs": 13.909707999999995,
+      "totalMs": 248.24504200000004
+    },
+    {
+      "label": "PROPOSED: append merged delta",
+      "n": 1000,
+      "runs": 20,
+      "meanMs": 0.1434293000000025,
+      "p50Ms": 0.11649999999997362,
+      "p95Ms": 0.6051670000000513,
+      "minMs": 0.08625000000000682,
+      "maxMs": 0.6051670000000513,
+      "totalMs": 2.8685860000000503
+    },
+    {
+      "label": "CURRENT: full-state UPDATE",
+      "n": 5000,
+      "runs": 20,
+      "meanMs": 80.08634170000002,
+      "p50Ms": 79.88033300000006,
+      "p95Ms": 104.43620800000008,
+      "minMs": 70.02750000000015,
+      "maxMs": 104.43620800000008,
+      "totalMs": 1601.7268340000003
+    },
+    {
+      "label": "PROPOSED: append merged delta",
+      "n": 5000,
+      "runs": 20,
+      "meanMs": 0.11286249999996016,
+      "p50Ms": 0.11558299999978772,
+      "p95Ms": 0.1428329999998823,
+      "minMs": 0.07633399999986068,
+      "maxMs": 0.1428329999998823,
+      "totalMs": 2.2572499999992033
+    },
+    {
+      "label": "CURRENT: full-state UPDATE",
+      "n": 10000,
+      "runs": 20,
+      "meanMs": 165.71218534999997,
+      "p50Ms": 170.27250000000004,
+      "p95Ms": 175.95037499999944,
+      "minMs": 149.14445799999976,
+      "maxMs": 175.95037499999944,
+      "totalMs": 3314.2437069999996
+    },
+    {
+      "label": "PROPOSED: append merged delta",
+      "n": 10000,
+      "runs": 20,
+      "meanMs": 0.0899333000000297,
+      "p50Ms": 0.08220799999980954,
+      "p95Ms": 0.12995800000044255,
+      "minMs": 0.06808300000011513,
+      "maxMs": 0.12995800000044255,
+      "totalMs": 1.798666000000594
+    }
+  ],
+  "facts": [
+    "n=1000: full state=793.3KB, merged delta for 40 edits=0.59KB (1334x smaller)",
+    "n=5000: full state=4030.6KB, merged delta for 40 edits=0.59KB (6777x smaller)",
+    "n=10000: full state=8082.2KB, merged delta for 40 edits=0.59KB (13590x smaller)"
+  ]
+}

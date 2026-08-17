@@ -1,5 +1,7 @@
 import { Hono } from 'hono';
 import { env } from '../../common/lib/env';
+import { metricsEnabled, metricsSnapshot, resetMetrics } from '../../common/lib/metrics';
+import { getRoomCount } from '../collaboration/collaboration.service';
 
 const healthRoutes = new Hono();
 
@@ -9,6 +11,26 @@ healthRoutes.get('/', (c) => {
     timestamp: new Date().toISOString(),
     instanceId: env.RUNTIME_INSTANCE_ID,
   });
+});
+
+healthRoutes.get('/metrics', (c) => {
+  if (!metricsEnabled()) {
+    return c.json({ error: 'Metrics are disabled. Set METRICS_ENABLED=true.' }, 404);
+  }
+  return c.json({
+    timestamp: new Date().toISOString(),
+    driver: env.DB_DRIVER,
+    activeRooms: getRoomCount(),
+    ...metricsSnapshot(),
+  });
+});
+
+healthRoutes.post('/metrics/reset', (c) => {
+  if (!metricsEnabled()) {
+    return c.json({ error: 'Metrics are disabled. Set METRICS_ENABLED=true.' }, 404);
+  }
+  resetMetrics();
+  return c.json({ status: 'reset' });
 });
 
 export { healthRoutes };

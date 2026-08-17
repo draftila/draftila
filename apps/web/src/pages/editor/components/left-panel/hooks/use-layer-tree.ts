@@ -3,6 +3,7 @@ import type * as Y from 'yjs';
 import type { Shape } from '@draftila/shared';
 import { getLayerTree, observeShapes, type LayerTreeNode } from '@draftila/engine/scene-graph';
 import { useEditorStore } from '@/stores/editor-store';
+import { measure, setValue } from '@/lib/perf-metrics';
 import type { LayerRow } from '../types';
 
 function flattenRows(tree: LayerTreeNode[], collapsedIds: Set<string>): LayerRow[] {
@@ -48,9 +49,9 @@ export function useLayerTree(ydoc: Y.Doc) {
 
   useEffect(() => {
     setCollapsedIds(new Set());
-    setLayerTree(getLayerTree(ydoc));
+    setLayerTree(measure('yjs.getLayerTree', () => getLayerTree(ydoc)));
     const unobserve = observeShapes(ydoc, () => {
-      setLayerTree(getLayerTree(ydoc));
+      setLayerTree(measure('yjs.getLayerTree', () => getLayerTree(ydoc)));
     });
     return unobserve;
   }, [ydoc, activePageId]);
@@ -69,7 +70,11 @@ export function useLayerTree(ydoc: Y.Doc) {
     return map;
   }, [layerTree]);
 
-  const rows = useMemo(() => flattenRows(layerTree, collapsedIds), [layerTree, collapsedIds]);
+  const rows = useMemo(() => {
+    const flattened = measure('layers.flattenRows', () => flattenRows(layerTree, collapsedIds));
+    setValue('layers.rows', flattened.length);
+    return flattened;
+  }, [layerTree, collapsedIds]);
 
   const toggleExpanded = useCallback((id: string) => {
     setCollapsedIds((prev) => {

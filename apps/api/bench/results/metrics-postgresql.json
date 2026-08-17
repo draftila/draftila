@@ -1,0 +1,127 @@
+{
+  "generatedAt": "2026-08-17T10:02:58.963Z",
+  "driver": "postgresql",
+  "snapshot": {
+    "enabled": true,
+    "durations": {
+      "db.query.BEGIN unknown": {
+        "count": 3,
+        "meanMs": 0,
+        "p50Ms": 0,
+        "p95Ms": 0,
+        "p99Ms": 0,
+        "minMs": 0,
+        "maxMs": 0
+      },
+      "db.query.all": {
+        "count": 24,
+        "meanMs": 16.583,
+        "p50Ms": 0,
+        "p95Ms": 97,
+        "p99Ms": 148,
+        "minMs": 0,
+        "maxMs": 148
+      },
+      "db.query.SELECT draft": {
+        "count": 9,
+        "meanMs": 1.111,
+        "p50Ms": 0,
+        "p95Ms": 6,
+        "p99Ms": 6,
+        "minMs": 0,
+        "maxMs": 6
+      },
+      "db.query.INSERT draft": {
+        "count": 3,
+        "meanMs": 0.333,
+        "p50Ms": 0,
+        "p95Ms": 1,
+        "p99Ms": 1,
+        "minMs": 0,
+        "maxMs": 1
+      },
+      "db.query.COMMIT unknown": {
+        "count": 3,
+        "meanMs": 0,
+        "p50Ms": 0,
+        "p95Ms": 0,
+        "p99Ms": 0,
+        "minMs": 0,
+        "maxMs": 0
+      },
+      "db.query.UPDATE draft": {
+        "count": 6,
+        "meanMs": 64.5,
+        "p50Ms": 50,
+        "p95Ms": 148,
+        "p99Ms": 148,
+        "minMs": 21,
+        "maxMs": 148
+      },
+      "collab.load_state": {
+        "count": 3,
+        "meanMs": 9.775,
+        "p50Ms": 8.683,
+        "p95Ms": 17.691,
+        "p99Ms": 17.691,
+        "minMs": 2.95,
+        "maxMs": 17.691
+      },
+      "collab.apply_state": {
+        "count": 3,
+        "meanMs": 93.006,
+        "p50Ms": 82.117,
+        "p95Ms": 174.951,
+        "p99Ms": 174.951,
+        "minMs": 21.95,
+        "maxMs": 174.951
+      },
+      "collab.encode_state": {
+        "count": 3,
+        "meanMs": 23.657,
+        "p50Ms": 20.714,
+        "p95Ms": 44.224,
+        "p99Ms": 44.224,
+        "minMs": 6.032,
+        "maxMs": 44.224
+      },
+      "collab.save_state": {
+        "count": 3,
+        "meanMs": 150.972,
+        "p50Ms": 127.189,
+        "p95Ms": 288.54,
+        "p99Ms": 288.54,
+        "minMs": 37.186,
+        "maxMs": 288.54
+      }
+    },
+    "values": {
+      "collab.loaded_bytes": {
+        "count": 3,
+        "mean": 4405265,
+        "min": 812301,
+        "max": 8276138,
+        "last": 8276138
+      },
+      "collab.state_bytes": {
+        "count": 3,
+        "mean": 4405504,
+        "min": 812540,
+        "max": 8276377,
+        "last": 8276377
+      },
+      "collab.shape_count": {
+        "count": 3,
+        "mean": 5333.33,
+        "min": 1000,
+        "max": 10000,
+        "last": 10000
+      }
+    },
+    "counters": {
+      "collab.room_created": 3,
+      "collab.autosave": 3,
+      "db.slow_query": 4
+    }
+  }
+}
