@@ -136,6 +136,49 @@ being drawn out of the document total, and p50/p95 timings for the hot paths:
 
 Timings are colour-coded against a 60fps budget: green under 8ms, amber under 16.7ms, red above it.
 
+## Level of Detail
+
+When the canvas is zoomed out, shapes are drawn in a simplified form rather than in full detail.
+
+Text is replaced by a translucent block once a glyph would land on too few screen pixels. Above
+that the real glyphs are drawn, because they still carry shape and length a block cannot. Drawing
+text is the single most expensive thing on the canvas: on a 10,000-shape document, a viewport of
+real text costs roughly three times a viewport of blocks.
+
+How few pixels is "too few" depends on how much is on screen, because that is what the cost scales
+with. A quiet canvas can afford sharp text far longer than a crowded one:
+
+| Layers in view   | Text blurs below | For 16px body text |
+| ---------------- | ---------------- | ------------------ |
+| up to 3,000      | 2 px             | below 12.5% zoom   |
+| 3,000 – 10,000   | 4 px             | below 25% zoom     |
+| more than 10,000 | 5 px             | below 35% zoom     |
+
+Measured on a browser, keeping text sharp costs about 0.5 ms per redraw at 1,000 layers in view,
+3.3 ms at 2,500, and 8.5 ms at 5,000 — so the tiers hand out sharpness while it is close to free
+and withdraw it as the frame gets expensive. Even the sharpest tier stops at 2 px, because below
+that a glyph is thinner than a pixel and renders as mud rather than text.
+
+The threshold moves between tiers with a 15% dead band, so panning around a boundary does not flap
+between detail levels, and cached frame bitmaps are stored per detail level so a single screen
+never mixes the two. The tier in force is shown in the perf overlay as `text LOD`.
+
+The zoom column above is exact while the canvas draws shapes directly. Once frames are being
+cached as bitmaps, the test is applied against the bitmap's own resolution rather than the camera,
+because that is what decides whether glyphs survive rasterisation — drawing text into a bitmap
+too coarse to hold it produces a smear, not letters. Bitmaps are rendered at fixed zoom buckets,
+so the switch then lands on a bucket boundary. Everything on screen is judged the same way in a
+given frame, whether it arrived as a bitmap or was drawn directly, so a label inside a frame and
+a label loose on the canvas never disagree.
+
+Caching itself stops above 35% zoom, which is what the densest tier's figure reflects: 16px text
+there stays blocked for as long as frames are cached, rather than at the 31.25% the 5 px threshold
+alone would imply.
+
+Below 50% zoom, strokes, shadows and blurs are dropped from shapes that already have a visible
+fill, since none of them survive at that size. Strokes are kept on lines and on outline-only
+shapes, where the stroke _is_ the shape.
+
 ## On-Demand Rendering
 
 The canvas redraws only when something has actually changed, rather than on every animation frame.

@@ -14,12 +14,17 @@ import {
   observeGuides,
   setActivePageForGuides,
 } from '@draftila/engine';
-import { renderShape, getCornerRadii, simplifyShapeForZoom } from '@draftila/engine/shape-renderer';
+import {
+  renderShape,
+  getCornerRadii,
+  simplifyShapeForZoom,
+  textLegibilityForVisibleShapes,
+} from '@draftila/engine/shape-renderer';
 import { getMoveTool, getNodeTool } from '@draftila/engine/tools/tool-manager';
 import { useEditorStore } from '@/stores/editor-store';
 import { measure, record, setValue } from '@/lib/perf-metrics';
 import { type SceneCache } from './use-tool';
-import { FrameRasterCache, bitmapSizeFor, zoomBucketFor } from './canvas-frame-cache';
+import { FrameRasterCache, bitmapSizeFor, lodScaleFor, zoomBucketFor } from './canvas-frame-cache';
 import {
   ensureFontsLoaded,
   onFontsLoaded,
@@ -93,7 +98,7 @@ function bakeFrame(
   shapeMap: ReadonlyMap<string, Shape>,
   bucket: number,
   dpr: number,
-  zoom: number,
+  textLegibilityPx: number,
   isShapeVisible: (shape: Shape) => boolean,
 ): { canvas: HTMLCanvasElement; scale: number } | null {
   const size = bitmapSizeFor(frame.width, frame.height, bucket, dpr);
@@ -127,7 +132,7 @@ function bakeFrame(
     }
 
     if (!isShapeVisible(shape)) continue;
-    renderShape(offscreen, simplifyShapeForZoom(shape, zoom));
+    renderShape(offscreen, simplifyShapeForZoom(shape, bucket, textLegibilityPx));
 
     if (shape.type === 'frame' && (shape as Shape & { clip?: boolean }).clip !== false) {
       offscreen.beginClip(
@@ -163,6 +168,7 @@ export function useCanvas({ ydoc, sceneRef }: { ydoc: Y.Doc; sceneRef: RefObject
   const shapePositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
   const needsRedrawRef = useRef(true);
   const frameCacheRef = useRef(new FrameRasterCache());
+  const textLegibilityRef = useRef(0);
 
   const requestRedraw = useCallback(() => {
     needsRedrawRef.current = true;
@@ -403,6 +409,14 @@ export function useCanvas({ ydoc, sceneRef }: { ydoc: Y.Doc; sceneRef: RefObject
       !editingTextId &&
       !nodeEditingShapeId;
     const bucket = zoomBucketFor(camera.zoom);
+    const lodScale = lodScaleFor(cacheEngaged, bucket, camera.zoom);
+
+    const textLegibilityPx = textLegibilityForVisibleShapes(
+      visibleIds.size,
+      textLegibilityRef.current,
+    );
+    textLegibilityRef.current = textLegibilityPx;
+    setValue('canvas.textLegibilityPx', textLegibilityPx);
 
     const clipStack: string[] = [];
     const shapeLoopStart = performance.now();
@@ -444,7 +458,7 @@ export function useCanvas({ ydoc, sceneRef }: { ydoc: Y.Doc; sceneRef: RefObject
         isShapeVisible(shape) &&
         (shape as Shape & { clip?: boolean }).clip !== false
       ) {
-        let cached = frameCacheRef.current.get(shape.id, bucket);
+        let cached = frameCacheRef.current.get(shape.id, bucket, textLegibilityPx);
         if (!cached) {
           cached = bakeFrame(
             shape,
@@ -452,10 +466,18 @@ export function useCanvas({ ydoc, sceneRef }: { ydoc: Y.Doc; sceneRef: RefObject
             shapeMap,
             bucket,
             window.devicePixelRatio || 1,
-            camera.zoom,
+            textLegibilityPx,
             isShapeVisible,
           );
-          if (cached) frameCacheRef.current.set(shape.id, bucket, cached.canvas, cached.scale);
+          if (cached) {
+            frameCacheRef.current.set(
+              shape.id,
+              bucket,
+              textLegibilityPx,
+              cached.canvas,
+              cached.scale,
+            );
+          }
         }
 
         if (cached) {
@@ -484,7 +506,7 @@ export function useCanvas({ ydoc, sceneRef }: { ydoc: Y.Doc; sceneRef: RefObject
         } as Shape;
       }
 
-      renderShape(renderer, simplifyShapeForZoom(displayShape, camera.zoom));
+      renderShape(renderer, simplifyShapeForZoom(displayShape, lodScale, textLegibilityPx));
       drawnCount++;
 
       if (
