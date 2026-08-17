@@ -330,13 +330,58 @@ export function renderHoverForShape(renderer: Renderer, shape: Shape, zoom: numb
   renderer.drawHoverOutline(shape.x, shape.y, shape.width, shape.height, zoom, shape.rotation);
 }
 
-export const LOD_TEXT_LEGIBILITY_PX = 5;
+export const LOD_TEXT_LEGIBILITY_PX = 4;
 export const LOD_DETAIL_ZOOM = 0.5;
 
-export function simplifyShapeForZoom(shape: Shape, zoom: number): Shape {
+export interface TextLegibilityTier {
+  maxVisibleShapes: number;
+  legibilityPx: number;
+}
+
+export const LOD_TEXT_TIERS: readonly TextLegibilityTier[] = [
+  { maxVisibleShapes: 3000, legibilityPx: 2 },
+  { maxVisibleShapes: 10000, legibilityPx: 4 },
+  { maxVisibleShapes: Infinity, legibilityPx: 5 },
+];
+
+export const LOD_TIER_HYSTERESIS = 0.15;
+
+function tierIndexFor(visibleShapes: number): number {
+  const index = LOD_TEXT_TIERS.findIndex((tier) => visibleShapes <= tier.maxVisibleShapes);
+  return index === -1 ? LOD_TEXT_TIERS.length - 1 : index;
+}
+
+export function textLegibilityForVisibleShapes(
+  visibleShapes: number,
+  currentPx: number = 0,
+): number {
+  const targetIndex = tierIndexFor(visibleShapes);
+  const target = LOD_TEXT_TIERS[targetIndex]!.legibilityPx;
+
+  const currentIndex = LOD_TEXT_TIERS.findIndex((tier) => tier.legibilityPx === currentPx);
+  if (currentIndex === -1 || currentIndex === targetIndex) return target;
+
+  const crossedBoundary =
+    targetIndex > currentIndex
+      ? LOD_TEXT_TIERS[currentIndex]!.maxVisibleShapes
+      : LOD_TEXT_TIERS[currentIndex - 1]!.maxVisibleShapes;
+
+  const settled =
+    targetIndex > currentIndex
+      ? visibleShapes > crossedBoundary * (1 + LOD_TIER_HYSTERESIS)
+      : visibleShapes < crossedBoundary * (1 - LOD_TIER_HYSTERESIS);
+
+  return settled ? target : currentPx;
+}
+
+export function simplifyShapeForZoom(
+  shape: Shape,
+  zoom: number,
+  textLegibilityPx: number = LOD_TEXT_LEGIBILITY_PX,
+): Shape {
   if (shape.type === 'text') {
     const fontSize = (shape as Shape & { fontSize?: number }).fontSize ?? 16;
-    if (fontSize * zoom < LOD_TEXT_LEGIBILITY_PX) {
+    if (fontSize * zoom < textLegibilityPx) {
       return {
         ...shape,
         type: 'rectangle',

@@ -13,6 +13,14 @@ interface CacheEntry extends CachedFrame {
   pixels: number;
 }
 
+function cacheKey(frameId: string, bucket: number, textLegibilityPx: number): string {
+  return `${frameId}:${bucket}:${textLegibilityPx}`;
+}
+
+export function lodScaleFor(cacheEngaged: boolean, bucket: number, zoom: number): number {
+  return cacheEngaged ? bucket : zoom;
+}
+
 export function zoomBucketFor(zoom: number): number {
   for (const bucket of ZOOM_BUCKETS) {
     if (zoom >= bucket) return bucket;
@@ -25,8 +33,8 @@ export class FrameRasterCache {
   private byFrame = new Map<string, Set<string>>();
   private pixels = 0;
 
-  get(frameId: string, bucket: number): CachedFrame | null {
-    const key = `${frameId}:${bucket}`;
+  get(frameId: string, bucket: number, textLegibilityPx: number): CachedFrame | null {
+    const key = cacheKey(frameId, bucket, textLegibilityPx);
     const entry = this.entries.get(key);
     if (!entry) return null;
     this.entries.delete(key);
@@ -34,8 +42,14 @@ export class FrameRasterCache {
     return entry;
   }
 
-  set(frameId: string, bucket: number, canvas: HTMLCanvasElement, scale: number): void {
-    const key = `${frameId}:${bucket}`;
+  set(
+    frameId: string,
+    bucket: number,
+    textLegibilityPx: number,
+    canvas: HTMLCanvasElement,
+    scale: number,
+  ): void {
+    const key = cacheKey(frameId, bucket, textLegibilityPx);
     this.dropKey(key);
 
     const pixels = canvas.width * canvas.height;
