@@ -68,6 +68,7 @@ export function getSidebar(version: Version): SidebarItem[] {
           { type: 'doc', label: 'API Keys', id: 'advanced/api-keys' },
           { type: 'doc', label: 'MCP Integration', id: 'advanced/mcp' },
           { type: 'doc', label: 'Admin Panel', id: 'advanced/admin' },
+          { type: 'doc', label: 'Performance Monitoring', id: 'advanced/performance-monitoring' },
         ],
       },
       {

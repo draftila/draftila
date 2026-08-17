@@ -135,9 +135,21 @@ model Draft {
   project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   comments  Comment[]
   snapshots Snapshot[]
+  updates   DraftUpdate[]
 
   @@index([projectId], map: "draft_project_id_idx")
   @@map("draft")
+}
+
+model DraftUpdate {
+  id        Int      @id @default(autoincrement())
+  draftId   String   @map("draft_id")
+  payload   Bytes
+  createdAt DateTime @default(now()) @map("created_at")
+  draft     Draft    @relation(fields: [draftId], references: [id], onDelete: Cascade)
+
+  @@index([draftId, id], map: "draft_update_draft_id_idx")
+  @@map("draft_update")
 }
 
 model Snapshot {

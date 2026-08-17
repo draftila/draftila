@@ -27,6 +27,7 @@ export interface PreloadImagesResult {
 const cache = new Map<string, CacheEntry>();
 const pendingLoads = new Map<string, Promise<HTMLImageElement>>();
 const failedSources = new Set<string>();
+const imageLoadCallbacks = new Set<(src: string) => void>();
 
 let cacheLimitBytes = Number.POSITIVE_INFINITY;
 let cachedBytes = 0;
@@ -64,6 +65,19 @@ function evictOverflow() {
   }
 }
 
+export function onImageLoaded(callback: (src: string) => void): () => void {
+  imageLoadCallbacks.add(callback);
+  return () => {
+    imageLoadCallbacks.delete(callback);
+  };
+}
+
+function notifyImageCallbacks(src: string) {
+  for (const callback of imageLoadCallbacks) {
+    callback(src);
+  }
+}
+
 export function registerImage(src: string, image: HTMLImageElement) {
   const existing = cache.get(src);
   if (existing) cachedBytes -= existing.bytes;
@@ -73,6 +87,7 @@ export function registerImage(src: string, image: HTMLImageElement) {
   cachedBytes += bytes;
   failedSources.delete(src);
   evictOverflow();
+  notifyImageCallbacks(src);
 }
 
 export function getCachedImage(src: string): HTMLImageElement | null {

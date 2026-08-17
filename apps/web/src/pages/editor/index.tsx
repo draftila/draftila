@@ -33,6 +33,7 @@ import { useEditorStore } from '@/stores/editor-store';
 import { LeftPanel } from './components/left-panel';
 import { RightPanel } from './components/right-panel';
 import { Canvas } from './components/canvas';
+import { PerfOverlay } from './components/perf-overlay';
 import { useYjs } from './hooks/use-yjs';
 import { useKeyboard } from './hooks/use-keyboard';
 import { useCameraPersistence } from './hooks/use-camera-persistence';
@@ -442,6 +443,7 @@ export function EditorPage() {
           />
           <RightPanel ydoc={activeYdoc} draftId={draftId ?? ''} />
           <GlobalsPanel ydoc={activeYdoc} />
+          <PerfOverlay />
         </div>
       </VariablesProvider>
       <SaveVersionDialog draftId={draftId ?? ''} />

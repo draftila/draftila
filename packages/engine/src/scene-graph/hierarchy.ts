@@ -20,7 +20,19 @@ export function getShapeSnapshotMap(ydoc: Y.Doc): Map<string, Shape> {
   return result;
 }
 
-export function getOrderedIds(shapeMap: Map<string, Shape>, zOrderIds: string[]): string[] {
+export function getParentIdMap(ydoc: Y.Doc): Map<string, { parentId: string | null }> {
+  const shapes = getShapesMap(ydoc);
+  const result = new Map<string, { parentId: string | null }>();
+  shapes.forEach((shapeData, id) => {
+    result.set(id, { parentId: (shapeData.get('parentId') as string | null) ?? null });
+  });
+  return result;
+}
+
+export function getOrderedIds(
+  shapeMap: ReadonlyMap<string, unknown>,
+  zOrderIds: string[],
+): string[] {
   const seen = new Set<string>();
   const ordered: string[] = [];
 
@@ -40,7 +52,7 @@ export function getOrderedIds(shapeMap: Map<string, Shape>, zOrderIds: string[])
 }
 
 export function getValidParentId(
-  shapeMap: Map<string, Shape>,
+  shapeMap: ReadonlyMap<string, { parentId?: string | null }>,
   parentId: string | null,
 ): string | null {
   if (!parentId) return null;
@@ -49,7 +61,7 @@ export function getValidParentId(
 }
 
 export function buildChildrenByParent(
-  shapeMap: Map<string, Shape>,
+  shapeMap: ReadonlyMap<string, { parentId?: string | null }>,
   orderedIds: string[],
 ): Map<string | null, string[]> {
   const childrenByParent = new Map<string | null, string[]>();
@@ -195,13 +207,15 @@ export function getLastDescendantIndex(
   parentId: string,
   orderedIds: string[],
   childrenByParent: Map<string | null, string[]>,
+  indexById?: ReadonlyMap<string, number>,
 ): number {
-  let lastIndex = orderedIds.indexOf(parentId);
+  const indexOf = (id: string) => indexById?.get(id) ?? orderedIds.indexOf(id);
+  let lastIndex = indexOf(parentId);
 
   const walkDescendants = (id: string) => {
     const children = childrenByParent.get(id) ?? [];
     for (const childId of children) {
-      const idx = orderedIds.indexOf(childId);
+      const idx = indexOf(childId);
       if (idx > lastIndex) lastIndex = idx;
       walkDescendants(childId);
     }

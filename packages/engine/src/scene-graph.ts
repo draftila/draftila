@@ -43,9 +43,11 @@ export { canApplyBooleanOperation, applyBooleanOperation } from './scene-graph/b
 export {
   applyAutoLayout,
   applyAutoLayoutForAncestors,
+  applyAutoLayoutForShapes,
   reorderAutoLayoutChildren,
   computeAutoLayoutPreview,
   computeAutoLayoutResizePreview,
 } from './scene-graph/layout-ops';
 
-export { observeShapes } from './scene-graph/observe';
+export { observeShapes, isUpdateOnlyChange } from './scene-graph/observe';
+export type { ShapeChanges } from './scene-graph/types';

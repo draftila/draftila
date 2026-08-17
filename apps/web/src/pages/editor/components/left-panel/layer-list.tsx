@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import type * as Y from 'yjs';
 import type { Shape } from '@draftila/shared';
 import {
@@ -23,6 +24,8 @@ import { LayerContextMenu } from './layer-context-menu';
 import type { LayerRow as LayerRowData } from './types';
 import type { DragState } from './types';
 import type { ContextMenuState } from './types';
+
+const LAYER_ROW_HEIGHT = 32;
 
 interface LayerListProps {
   ydoc: Y.Doc;
@@ -137,6 +140,17 @@ export function LayerList({
     [rows, instanceShapeIds],
   );
 
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: rowsWithInstanceFlag.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => LAYER_ROW_HEIGHT,
+    overscan: 12,
+    getItemKey: (index) => rowsWithInstanceFlag[index]?.row.shape.id ?? index,
+  });
+
   const canBoolean = useMemo(
     () => canApplyBooleanOperation(ydoc, activeSelectionIds),
     [ydoc, activeSelectionIds],
@@ -212,31 +226,49 @@ export function LayerList({
 
   return (
     <>
-      <div className="flex-1 overflow-auto" onContextMenu={(e) => e.preventDefault()}>
-        {rowsWithInstanceFlag.map(({ row, isComponentInstance }) => (
-          <LayerRow
-            key={row.shape.id}
-            row={row}
-            isSelected={selectedIds.includes(row.shape.id)}
-            isComponentInstance={isComponentInstance}
-            dragState={dragState}
-            onSelect={handleSelect}
-            onContextMenu={onOpenContextMenu}
-            onToggleExpanded={onToggleExpanded}
-            onToggleVisibility={handleToggleVisibility}
-            onToggleLock={handleToggleLock}
-            onDragStart={onDragStart}
-            onDragOver={onDragOver}
-            onDrop={onDrop}
-            onDragEnd={onDragEnd}
-            isRenaming={renamingId === row.shape.id}
-            renameValue={renamingId === row.shape.id ? renameValue : row.shape.name}
-            onStartRename={startRename}
-            onRenameValueChange={setRenameValue}
-            onCommitRename={commitRename}
-            onCancelRename={cancelRename}
-          />
-        ))}
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-auto"
+        onContextMenu={(e) => e.preventDefault()}
+      >
+        <div className="relative w-full" style={{ height: `${virtualizer.getTotalSize()}px` }}>
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            const entry = rowsWithInstanceFlag[virtualRow.index];
+            if (!entry) return null;
+            const { row, isComponentInstance } = entry;
+            return (
+              <div
+                key={row.shape.id}
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+                className="absolute left-0 top-0 w-full"
+                style={{ transform: `translateY(${virtualRow.start}px)` }}
+              >
+                <LayerRow
+                  row={row}
+                  isSelected={selectedIdSet.has(row.shape.id)}
+                  isComponentInstance={isComponentInstance}
+                  dragState={dragState}
+                  onSelect={handleSelect}
+                  onContextMenu={onOpenContextMenu}
+                  onToggleExpanded={onToggleExpanded}
+                  onToggleVisibility={handleToggleVisibility}
+                  onToggleLock={handleToggleLock}
+                  onDragStart={onDragStart}
+                  onDragOver={onDragOver}
+                  onDrop={onDrop}
+                  onDragEnd={onDragEnd}
+                  isRenaming={renamingId === row.shape.id}
+                  renameValue={renamingId === row.shape.id ? renameValue : row.shape.name}
+                  onStartRename={startRename}
+                  onRenameValueChange={setRenameValue}
+                  onCommitRename={commitRename}
+                  onCancelRename={cancelRename}
+                />
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {contextMenu && (

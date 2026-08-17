@@ -4,6 +4,7 @@ import { db } from '../src/db';
 export async function cleanDatabase() {
   await db.commentRead.deleteMany();
   await db.comment.deleteMany();
+  await db.draftUpdate.deleteMany();
   await db.draft.deleteMany();
   await db.projectMember.deleteMany();
   await db.project.deleteMany();
@@ -21,6 +22,7 @@ export async function cleanApiKeys() {
 }
 
 export async function cleanProjects() {
+  await db.draftUpdate.deleteMany();
   await db.draft.deleteMany();
   await db.project.deleteMany();
 }
@@ -37,6 +39,7 @@ export async function makeAdmin(userId: string) {
 export async function cleanDrafts() {
   await db.commentRead.deleteMany();
   await db.comment.deleteMany();
+  await db.draftUpdate.deleteMany();
   await db.draft.deleteMany();
 }
 

@@ -8,6 +8,7 @@ import { auth } from './modules/auth/auth.service';
 import * as collaborationService from './modules/collaboration/collaboration.service';
 import type { WsData } from './modules/collaboration/collaboration.service';
 import * as draftsService from './modules/drafts/drafts.service';
+import { sqliteReady } from './db';
 
 const WS_PATH_PREFIX = '/api/collaboration/';
 
@@ -78,5 +79,7 @@ Bun.serve<WsData>({
     },
   },
 });
+
+await sqliteReady;
 
 console.log(`API server running at http://${env.HOST}:${env.PORT}`);

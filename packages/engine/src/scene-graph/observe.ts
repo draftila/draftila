@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
 import { getShapesMap, getZOrder } from './hierarchy';
-import type { ShapeChangeCallback } from './types';
+import type { ShapeChangeCallback, ShapeChanges } from './types';
 
 export function observeShapes(ydoc: Y.Doc, callback: ShapeChangeCallback): () => void {
   const shapes = getShapesMap(ydoc);
@@ -37,7 +37,7 @@ export function observeShapes(ydoc: Y.Doc, callback: ShapeChangeCallback): () =>
   };
 
   const handleZOrderChange = () => {
-    callback({ added: [], updated: zOrder.toArray(), deleted: [] });
+    callback({ added: [], updated: zOrder.toArray(), deleted: [], orderChanged: true });
   };
 
   shapes.observeDeep(handleShapeMapChange);
@@ -46,4 +46,8 @@ export function observeShapes(ydoc: Y.Doc, callback: ShapeChangeCallback): () =>
     shapes.unobserveDeep(handleShapeMapChange);
     zOrder.unobserve(handleZOrderChange);
   };
+}
+
+export function isUpdateOnlyChange(changes: ShapeChanges): boolean {
+  return !changes.orderChanged && changes.added.length === 0 && changes.deleted.length === 0;
 }

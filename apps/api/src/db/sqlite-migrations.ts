@@ -1,13 +1,17 @@
 import { Database } from 'bun:sqlite';
 import { isAbsolute, resolve } from 'node:path';
 import initialMigration from '../../prisma/sqlite/migrations/0001_initial.sql' with { type: 'text' };
+import draftUpdateMigration from '../../prisma/sqlite/migrations/0002_draft_update.sql' with { type: 'text' };
 
 interface Migration {
   id: string;
   sql: string;
 }
 
-const migrations: Migration[] = [{ id: '0001_initial', sql: initialMigration }];
+const migrations: Migration[] = [
+  { id: '0001_initial', sql: initialMigration },
+  { id: '0002_draft_update', sql: draftUpdateMigration },
+];
 
 function resolveDatabasePath(databaseUrl: string): string {
   if (!databaseUrl.startsWith('file:')) {

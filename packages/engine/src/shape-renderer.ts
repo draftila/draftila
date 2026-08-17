@@ -329,3 +329,46 @@ export function renderHoverForShape(renderer: Renderer, shape: Shape, zoom: numb
   }
   renderer.drawHoverOutline(shape.x, shape.y, shape.width, shape.height, zoom, shape.rotation);
 }
+
+export const LOD_TEXT_LEGIBILITY_PX = 5;
+export const LOD_DETAIL_ZOOM = 0.5;
+
+export function simplifyShapeForZoom(shape: Shape, zoom: number): Shape {
+  if (shape.type === 'text') {
+    const fontSize = (shape as Shape & { fontSize?: number }).fontSize ?? 16;
+    if (fontSize * zoom < LOD_TEXT_LEGIBILITY_PX) {
+      return {
+        ...shape,
+        type: 'rectangle',
+        svgPathData: undefined,
+        cornerRadius: 0,
+        opacity: (shape.opacity ?? 1) * 0.55,
+      } as unknown as Shape;
+    }
+    return shape;
+  }
+
+  if (zoom >= LOD_DETAIL_ZOOM) return shape;
+
+  const styled = shape as Shape & {
+    fills?: Array<{ visible?: boolean }>;
+    strokes?: unknown[];
+    shadows?: unknown[];
+    blurs?: unknown[];
+  };
+
+  const hasVisibleFill = styled.fills?.some((fill) => fill.visible !== false) ?? false;
+  const strokeIsTheShape = shape.type === 'line' || !hasVisibleFill;
+  const dropStrokes = !strokeIsTheShape && (styled.strokes?.length ?? 0) > 0;
+  const dropShadows = (styled.shadows?.length ?? 0) > 0;
+  const dropBlurs = (styled.blurs?.length ?? 0) > 0;
+
+  if (!dropStrokes && !dropShadows && !dropBlurs) return shape;
+
+  return {
+    ...shape,
+    ...(dropStrokes ? { strokes: [] } : {}),
+    ...(dropShadows ? { shadows: [] } : {}),
+    ...(dropBlurs ? { blurs: [] } : {}),
+  } as unknown as Shape;
+}

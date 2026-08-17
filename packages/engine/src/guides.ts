@@ -179,11 +179,8 @@ export function setActivePageForGuides(ydoc: Y.Doc, pageId: string): void {
   activePageByDoc.set(ydoc, pageId);
 }
 
-export function getActivePageGuidesArray(ydoc: Y.Doc): Y.Array<Y.Map<unknown>> {
+export function getActivePageGuidesArray(ydoc: Y.Doc): Y.Array<Y.Map<unknown>> | null {
   const pageId = getActivePageIdForGuides(ydoc);
-  if (pageId) {
-    const arr = getGuidesArray(ydoc, pageId);
-    if (arr) return arr;
-  }
-  return new Y.Array<Y.Map<unknown>>();
+  if (!pageId) return null;
+  return getGuidesArray(ydoc, pageId);
 }

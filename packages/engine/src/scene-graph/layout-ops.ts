@@ -9,6 +9,7 @@ import {
 import {
   getShapesMap,
   getShapeSnapshotMap,
+  getParentIdMap,
   getZOrder,
   getOrderedIds,
   buildChildrenByParent,
@@ -78,20 +79,31 @@ function offsetDescendants(
   }
 }
 
-export function applyAutoLayout(ydoc: Y.Doc, frameId: string) {
+export interface LayoutStructure {
+  childrenByParent: Map<string | null, string[]>;
+}
+
+export function buildLayoutStructure(ydoc: Y.Doc): LayoutStructure {
+  const parentMap = getParentIdMap(ydoc);
+  const orderedIds = getOrderedIds(parentMap, getZOrder(ydoc).toArray());
+  return { childrenByParent: buildChildrenByParent(parentMap, orderedIds) };
+}
+
+export function applyAutoLayout(ydoc: Y.Doc, frameId: string, structure?: LayoutStructure) {
   const frameShape = getShape(ydoc, frameId);
   if (!frameShape || !isAutoLayoutFrame(frameShape)) return;
 
-  const children = getChildShapes(ydoc, frameId);
+  const shapes = getShapesMap(ydoc);
+  const { childrenByParent } = structure ?? buildLayoutStructure(ydoc);
+
+  const children: Shape[] = [];
+  for (const childId of childrenByParent.get(frameId) ?? []) {
+    const child = getShape(ydoc, childId);
+    if (child) children.push(child);
+  }
   const layoutChildren: LayoutChild[] = children.map(toLayoutChild);
 
   const { childLayouts, parentSize } = computeAutoLayout(frameShape as FrameShape, layoutChildren);
-
-  const shapes = getShapesMap(ydoc);
-  const shapeMap = getShapeSnapshotMap(ydoc);
-  const zOrderIds = getZOrder(ydoc).toArray();
-  const orderedIds = getOrderedIds(shapeMap, zOrderIds);
-  const childrenByParent = buildChildrenByParent(shapeMap, orderedIds);
 
   ydoc.transact(() => {
     const frameData = shapes.get(frameId);
@@ -136,6 +148,42 @@ export function applyAutoLayout(ydoc: Y.Doc, frameId: string) {
       }
     }
   });
+}
+
+export function applyAutoLayoutForShapes(ydoc: Y.Doc, shapeIds: Iterable<string>): void {
+  const depthByFrameId = new Map<string, number>();
+
+  for (const shapeId of shapeIds) {
+    const shape = getShape(ydoc, shapeId);
+    if (!shape) continue;
+
+    const ancestorIds: string[] = [];
+    const autoLayoutIds = new Set<string>();
+    let parentId = shape.parentId ?? null;
+    while (parentId) {
+      const parent = getShape(ydoc, parentId);
+      if (!parent) break;
+      ancestorIds.push(parentId);
+      if (isAutoLayoutFrame(parent)) autoLayoutIds.add(parentId);
+      parentId = parent.parentId ?? null;
+    }
+
+    ancestorIds.forEach((ancestorId, position) => {
+      if (!autoLayoutIds.has(ancestorId)) return;
+      depthByFrameId.set(ancestorId, ancestorIds.length - position);
+    });
+  }
+
+  if (depthByFrameId.size === 0) return;
+
+  const frameIds = [...depthByFrameId.entries()]
+    .sort(([, depthA], [, depthB]) => depthB - depthA)
+    .map(([frameId]) => frameId);
+
+  const structure = buildLayoutStructure(ydoc);
+  for (const frameId of frameIds) {
+    applyAutoLayout(ydoc, frameId, structure);
+  }
 }
 
 export function applyAutoLayoutForAncestors(ydoc: Y.Doc, shapeId: string) {

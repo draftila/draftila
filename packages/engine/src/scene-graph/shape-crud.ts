@@ -15,6 +15,7 @@ import {
   getShapesMap,
   getZOrder,
   getShapeSnapshotMap,
+  getParentIdMap,
   getOrderedIds,
   buildChildrenByParent,
   flattenHierarchy,
@@ -102,9 +103,11 @@ export function addShape(
 
     const parentId = props.parentId ?? null;
     if (parentId) {
-      const shapeMap = getShapeSnapshotMap(ydoc);
-      const orderedIds = getOrderedIds(shapeMap, zOrder.toArray());
+      const shapeMap = getParentIdMap(ydoc);
+      const orderedIds = getOrderedIds(shapeMap, zOrder.toArray()).filter((entry) => entry !== id);
       const childrenByParent = buildChildrenByParent(shapeMap, orderedIds);
+      const indexById = new Map<string, number>();
+      orderedIds.forEach((orderedId, position) => indexById.set(orderedId, position));
 
       if (childIndex !== undefined && childIndex >= 0) {
         const siblings = childrenByParent.get(parentId) ?? [];
@@ -112,14 +115,20 @@ export function addShape(
           const targetSiblingId = childIndex < siblings.length ? siblings[childIndex] : undefined;
           let insertAt: number;
           if (targetSiblingId) {
-            insertAt = orderedIds.indexOf(targetSiblingId);
+            insertAt = indexById.get(targetSiblingId) ?? orderedIds.indexOf(targetSiblingId);
           } else {
-            insertAt = getLastDescendantIndex(parentId, orderedIds, childrenByParent) + 1;
+            insertAt =
+              getLastDescendantIndex(parentId, orderedIds, childrenByParent, indexById) + 1;
           }
           const nextOrder = [...orderedIds.slice(0, insertAt), id, ...orderedIds.slice(insertAt)];
           replaceZOrder(zOrder, nextOrder);
         } else {
-          const insertAfterIndex = getLastDescendantIndex(parentId, orderedIds, childrenByParent);
+          const insertAfterIndex = getLastDescendantIndex(
+            parentId,
+            orderedIds,
+            childrenByParent,
+            indexById,
+          );
           const nextOrder = [
             ...orderedIds.slice(0, insertAfterIndex + 1),
             id,
@@ -128,7 +137,12 @@ export function addShape(
           replaceZOrder(zOrder, nextOrder);
         }
       } else {
-        const insertAfterIndex = getLastDescendantIndex(parentId, orderedIds, childrenByParent);
+        const insertAfterIndex = getLastDescendantIndex(
+          parentId,
+          orderedIds,
+          childrenByParent,
+          indexById,
+        );
         const nextOrder = [
           ...orderedIds.slice(0, insertAfterIndex + 1),
           id,

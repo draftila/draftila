@@ -8,8 +8,11 @@ export interface LayerTreeNode {
 export type StackMoveDirection = 'forward' | 'backward' | 'front' | 'back';
 export type LayerDropPlacement = 'before' | 'after' | 'inside';
 
-export type ShapeChangeCallback = (changes: {
+export interface ShapeChanges {
   added: string[];
   updated: string[];
   deleted: string[];
-}) => void;
+  orderChanged?: boolean;
+}
+
+export type ShapeChangeCallback = (changes: ShapeChanges) => void;

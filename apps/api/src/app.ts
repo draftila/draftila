@@ -8,6 +8,7 @@ import { extname, join, resolve, sep } from 'node:path';
 import { AppError, ValidationError } from './common/errors';
 import { env } from './common/lib/env';
 import { createFileResponse } from './common/lib/file-response';
+import { increment, recordDuration } from './common/lib/metrics';
 import { getStoragePath, initStorage } from './common/lib/storage';
 import type { AuthEnv } from './common/middleware/auth';
 import { checkRateLimit } from './common/middleware/rate-limit';
@@ -49,6 +50,21 @@ function resolveWebAssetPath(pathname: string): string | null {
 
 app.use(logger());
 app.use(secureHeaders());
+
+if (env.METRICS_ENABLED) {
+  app.use(async (c, next) => {
+    const start = performance.now();
+    await next();
+    const durationMs = performance.now() - start;
+    const route = c.req.routePath ?? c.req.path;
+    recordDuration(`http.${c.req.method} ${route}`, durationMs);
+    recordDuration('http.all', durationMs);
+    if (durationMs >= env.SLOW_REQUEST_MS) {
+      increment('http.slow_request');
+      console.warn(`[slow request] ${durationMs.toFixed(1)}ms ${c.req.method} ${c.req.path}`);
+    }
+  });
+}
 app.use(
   cors({
     origin: env.FRONTEND_URLS,

@@ -159,6 +159,10 @@ export class Canvas2DRenderer implements Renderer {
     this.ctx.restore();
   }
 
+  drawCachedFrame(source: CanvasImageSource, x: number, y: number, width: number, height: number) {
+    this.ctx.drawImage(source, x, y, width, height);
+  }
+
   drawSelectionBox(
     x: number,
     y: number,

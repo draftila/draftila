@@ -1,4 +1,5 @@
 import type * as Y from 'yjs';
+import type { Shape } from '@draftila/shared';
 import {
   getShapeSnapshotMap,
   getZOrder,
@@ -80,8 +81,9 @@ export function resolveGroupTarget(
   ydoc: Y.Doc,
   shapeId: string,
   enteredGroupId: string | null,
+  cachedShapeMap?: ReadonlyMap<string, Shape>,
 ): string {
-  const shapeMap = getShapeSnapshotMap(ydoc);
+  const shapeMap = cachedShapeMap ?? getShapeSnapshotMap(ydoc);
   const ancestors: string[] = [];
   let current = shapeMap.get(shapeId)?.parentId ?? null;
   while (current) {

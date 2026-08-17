@@ -41,13 +41,10 @@ export function handleToolKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
     getPenTool().onKeyDown(key === 'escape' ? 'Escape' : 'Delete', {
       ydoc,
       camera: useEditorStore.getState().camera,
-      canvasPoint: useEditorStore.getState().cursorCanvasPoint ?? { x: 0, y: 0 },
-      screenPoint: { x: 0, y: 0 },
       shiftKey: e.shiftKey,
       altKey: e.altKey,
       metaKey: e.metaKey,
       ctrlKey: e.ctrlKey,
-      button: 0,
     });
     return true;
   }
@@ -57,13 +54,10 @@ export function handleToolKeyDown(e: KeyboardEvent, ydoc: Y.Doc): boolean {
     getPenTool().onKeyDown('Enter', {
       ydoc,
       camera: useEditorStore.getState().camera,
-      canvasPoint: useEditorStore.getState().cursorCanvasPoint ?? { x: 0, y: 0 },
-      screenPoint: { x: 0, y: 0 },
       shiftKey: e.shiftKey,
       altKey: e.altKey,
       metaKey: e.metaKey,
       ctrlKey: e.ctrlKey,
-      button: 0,
     });
     return true;
   }
