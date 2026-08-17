@@ -5,7 +5,12 @@ import { screenToCanvas } from '@draftila/engine/camera';
 import { getTool, getMoveTool } from '@draftila/engine/tools/tool-manager';
 import type { ToolContext } from '@draftila/engine/tools/base-tool';
 import type { HandTool } from '@draftila/engine/tools/hand-tool';
-import { getAllShapes, observeShapes } from '@draftila/engine/scene-graph';
+import {
+  getAllShapes,
+  getShape,
+  isUpdateOnlyChange,
+  observeShapes,
+} from '@draftila/engine/scene-graph';
 import { SpatialIndex } from '@draftila/engine/spatial-index';
 import { useEditorStore } from '@/stores/editor-store';
 import { measure } from '@/lib/perf-metrics';
@@ -13,6 +18,7 @@ import { measure } from '@/lib/perf-metrics';
 interface UseToolOptions {
   ydoc: Y.Doc;
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  sceneRef: React.RefObject<SceneCache>;
   onActiveInteraction?: (cursor: { x: number; y: number } | null) => void;
 }
 
@@ -28,6 +34,7 @@ function buildContext(
   },
   ydoc: Y.Doc,
   canvasRect: DOMRect,
+  scene: SceneCache,
 ): ToolContext {
   const camera = useEditorStore.getState().camera;
   const screenX = e.clientX - canvasRect.left;
@@ -44,10 +51,30 @@ function buildContext(
     metaKey: e.metaKey,
     ctrlKey: e.ctrlKey,
     button: e.button ?? 0,
+    shapes: scene.shapes,
+    shapeMap: scene.shapeMap,
+    spatialIndex: scene.spatialIndex,
   };
 }
 
-export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions) {
+export interface SceneCache {
+  shapes: Shape[];
+  shapeMap: Map<string, Shape>;
+  indexById: Map<string, number>;
+  spatialIndex: SpatialIndex;
+}
+
+export function createSceneCache(): SceneCache {
+  return {
+    shapes: [],
+    shapeMap: new Map(),
+    indexById: new Map(),
+    spatialIndex: new SpatialIndex(),
+  };
+}
+
+export function useTool({ ydoc, canvasRef, sceneRef, onActiveInteraction }: UseToolOptions) {
+  const activePageId = useEditorStore((s) => s.activePageId);
   const spaceHeldRef = useRef(false);
   const middleClickPanRef = useRef(false);
   const pointerDownRef = useRef(false);
@@ -55,9 +82,6 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
   onActiveInteractionRef.current = onActiveInteraction;
 
   const isPanningRef = useRef(false);
-  const cachedShapesRef = useRef<Shape[]>([]);
-  const cachedSpatialIndexRef = useRef(new SpatialIndex());
-
   const startPan = useCallback(() => {
     if (isPanningRef.current) return;
     isPanningRef.current = true;
@@ -77,7 +101,7 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
       const canvas = canvasRef.current;
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
-      const ctx = buildContext(e, ydoc, rect);
+      const ctx = buildContext(e, ydoc, rect, sceneRef.current);
       canvas.setPointerCapture(e.pointerId);
       pointerDownRef.current = true;
 
@@ -108,7 +132,7 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
       const canvas = canvasRef.current;
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
-      const ctx = buildContext(e, ydoc, rect);
+      const ctx = buildContext(e, ydoc, rect, sceneRef.current);
 
       useEditorStore.getState().setCursorCanvasPoint(ctx.canvasPoint);
 
@@ -137,7 +161,7 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
       const canvas = canvasRef.current;
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
-      const ctx = buildContext(e, ydoc, rect);
+      const ctx = buildContext(e, ydoc, rect, sceneRef.current);
       canvas.releasePointerCapture(e.pointerId);
       const wasManipulating = useEditorStore.getState().isDrawing || getMoveTool().isManipulating;
       pointerDownRef.current = false;
@@ -175,14 +199,40 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
     function rebuildSpatialCache() {
       measure('yjs.rebuildSpatialCache', () => {
         const shapes = getAllShapes(ydoc);
-        cachedShapesRef.current = shapes;
-        cachedSpatialIndexRef.current = new SpatialIndex();
-        cachedSpatialIndexRef.current.rebuild(shapes);
+        const spatialIndex = new SpatialIndex();
+        spatialIndex.rebuild(shapes);
+        const shapeMap = new Map<string, Shape>();
+        const indexById = new Map<string, number>();
+        shapes.forEach((shape, index) => {
+          shapeMap.set(shape.id, shape);
+          indexById.set(shape.id, index);
+        });
+        sceneRef.current = { shapes, shapeMap, indexById, spatialIndex };
       });
     }
 
+    function patchSpatialCache(updated: string[]): boolean {
+      const scene = sceneRef.current;
+      for (const id of updated) {
+        const index = scene.indexById.get(id);
+        if (index === undefined || scene.shapes[index]?.id !== id) return false;
+      }
+
+      for (const id of updated) {
+        const shape = getShape(ydoc, id);
+        if (!shape) return false;
+        scene.spatialIndex.update(shape);
+        scene.shapeMap.set(id, shape);
+        scene.shapes[scene.indexById.get(id)!] = shape;
+      }
+      return true;
+    }
+
     rebuildSpatialCache();
-    const unobserveShapes = observeShapes(ydoc, rebuildSpatialCache);
+    const unobserveShapes = observeShapes(ydoc, (changes) => {
+      if (isUpdateOnlyChange(changes) && patchSpatialCache(changes.updated)) return;
+      rebuildSpatialCache();
+    });
 
     const unsubscribe = useEditorStore.subscribe((state, prev) => {
       if (state.activeTool === prev.activeTool) return;
@@ -222,7 +272,7 @@ export function useTool({ ydoc, canvasRef, onActiveInteraction }: UseToolOptions
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [ydoc, startPan, stopPan]);
+  }, [ydoc, activePageId, startPan, stopPan]);
 
   return {
     handlePointerDown,

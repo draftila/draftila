@@ -3,7 +3,7 @@ import type { Shape } from '@draftila/shared';
 import { BaseTool, getToolStore, type ToolContext, type ToolResult } from './base-tool';
 import { hitTestPoint } from '../hit-test';
 import { hitTestGuide } from '../guides';
-import { getAllShapes, getExpandedShapeIds, resolveGroupTarget } from '../scene-graph';
+import { getExpandedShapeIds, resolveGroupTarget } from '../scene-graph';
 import { SpatialIndex } from '../spatial-index';
 import { getSelectionBounds, hitTestHandle, getResizeCursor } from '../selection';
 import { type SnapLine, type DistanceIndicator, type ParentFrameRect } from '../snap';
@@ -31,7 +31,6 @@ export class MoveTool extends BaseTool {
   readonly cursor = 'default';
 
   private state: MoveState = { type: 'idle' };
-  private spatialIndex = new SpatialIndex();
   marqueeRect: { x: number; y: number; width: number; height: number } | null = null;
   dragOffset: { dx: number; dy: number } | null = null;
   resizePreview: Map<string, import('./move-tool-utils').ResizePreviewEntry> | null = null;
@@ -46,8 +45,7 @@ export class MoveTool extends BaseTool {
   private parentFrameCache: ParentFrameRect | undefined = undefined;
 
   onPointerDown(ctx: ToolContext): ToolResult | void {
-    const shapes = getAllShapes(ctx.ydoc);
-    this.spatialIndex.rebuild(shapes);
+    const shapes = ctx.shapes;
     const store = getToolStore();
 
     if (ctx.metaKey) {
@@ -137,12 +135,12 @@ export class MoveTool extends BaseTool {
       ctx.canvasPoint.x,
       ctx.canvasPoint.y,
       shapes,
-      this.spatialIndex,
+      ctx.spatialIndex,
       ctx.camera.zoom,
     );
 
     if (hit) {
-      const targetId = resolveGroupTarget(ctx.ydoc, hit.id, store.enteredGroupId);
+      const targetId = resolveGroupTarget(ctx.ydoc, hit.id, store.enteredGroupId, ctx.shapeMap);
 
       if (ctx.shiftKey) {
         store.toggleSelection(targetId);
@@ -165,20 +163,19 @@ export class MoveTool extends BaseTool {
         }
       }
 
-      const refreshedShapes = getAllShapes(ctx.ydoc);
       const movableIds = getExpandedShapeIds(ctx.ydoc, selectedIds);
       const initialData = new Map<string, InitialShapeData>();
       for (const id of movableIds) {
-        const shape = refreshedShapes.find((s) => s.id === id);
+        const shape = ctx.shapeMap.get(id);
         if (shape) initialData.set(id, captureShapeData(shape));
       }
 
       this.dragInitialData = initialData;
       const selectedIdSet = new Set(movableIds);
-      this.dragShapesCache = refreshedShapes.filter(
+      this.dragShapesCache = ctx.shapes.filter(
         (s) => !selectedIdSet.has(s.id) && s.visible && !s.locked,
       );
-      this.parentFrameCache = this.resolveParentFrame(refreshedShapes, selectedIds);
+      this.parentFrameCache = this.resolveParentFrame(ctx.shapes, selectedIds);
       this.state = {
         type: 'dragging',
         startCanvas: { x: ctx.canvasPoint.x, y: ctx.canvasPoint.y },
@@ -310,22 +307,20 @@ export class MoveTool extends BaseTool {
       const result = handleMarqueeMove(this.state, ctx);
       this.marqueeRect = result.marqueeRect;
 
-      const shapes = getAllShapes(ctx.ydoc);
-      this.spatialIndex.rebuild(shapes);
-      const marqueeIds = this.getMarqueeHitIds(shapes, ctx.ydoc);
+      const shapes = ctx.shapes;
+      const marqueeIds = this.getMarqueeHitIds(shapes, ctx.ydoc, ctx.spatialIndex);
       const store = getToolStore();
       const combined = new Set([...this.state.preMarqueeIds, ...marqueeIds]);
       store.setSelectedIds(Array.from(combined));
       return;
     }
 
-    const shapes = getAllShapes(ctx.ydoc);
-    this.spatialIndex.rebuild(shapes);
+    const shapes = ctx.shapes;
 
     const store = getToolStore();
     if (store.selectedIds.length > 0) {
       const selectedShapes = store.selectedIds
-        .map((id) => shapes.find((s) => s.id === id))
+        .map((id) => ctx.shapeMap.get(id))
         .filter(Boolean) as Shape[];
       const bounds = getSelectionBounds(selectedShapes);
       if (bounds) {
@@ -340,10 +335,12 @@ export class MoveTool extends BaseTool {
       ctx.canvasPoint.x,
       ctx.canvasPoint.y,
       shapes,
-      this.spatialIndex,
+      ctx.spatialIndex,
       ctx.camera.zoom,
     );
-    const hoveredId = hit ? resolveGroupTarget(ctx.ydoc, hit.id, store.enteredGroupId) : null;
+    const hoveredId = hit
+      ? resolveGroupTarget(ctx.ydoc, hit.id, store.enteredGroupId, ctx.shapeMap)
+      : null;
     store.setHoveredId(hoveredId);
   }
 
@@ -443,12 +440,12 @@ export class MoveTool extends BaseTool {
     return null;
   }
 
-  private getMarqueeHitIds(shapes: Shape[], ydoc: Y.Doc): string[] {
+  private getMarqueeHitIds(shapes: Shape[], ydoc: Y.Doc, spatialIndex: SpatialIndex): string[] {
     if (!this.marqueeRect) return [];
     const { x, y, width, height } = this.marqueeRect;
     const mx = x + width;
     const my = y + height;
-    const hits = this.spatialIndex.queryRect(x, y, mx, my);
+    const hits = spatialIndex.queryRect(x, y, mx, my);
     const hitIds = new Set(hits.map((h) => h.id));
     const store = getToolStore();
 

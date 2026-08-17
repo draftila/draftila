@@ -1,7 +1,13 @@
 import * as Y from 'yjs';
 import type { Shape } from '@draftila/shared';
-import { getResolvedShapes } from '@draftila/engine';
-import { getLayerTree, getAllShapes, addShape, observeShapes } from '@draftila/engine/scene-graph';
+import { getResolvedShapes, getResolvedShape, buildVariableTable } from '@draftila/engine';
+import {
+  getLayerTree,
+  getAllShapes,
+  addShape,
+  observeShapes,
+  isUpdateOnlyChange,
+} from '@draftila/engine/scene-graph';
 import { SpatialIndex } from '@draftila/engine/spatial-index';
 import { hitTestPoint } from '@draftila/engine/hit-test';
 import { opUpdateShape } from '@draftila/engine/operations';
@@ -126,7 +132,24 @@ async function main() {
     );
 
     const dragTarget = shapes[Math.floor(shapes.length / 2)]!;
-    const unobserve = observeShapes(ydoc, () => {
+    const cache = getResolvedShapes(ydoc);
+    const cacheIndex = new Map(cache.map((entry, position) => [entry.id, position]));
+    const liveIndex = new SpatialIndex();
+    liveIndex.rebuild(getAllShapes(ydoc));
+    const variableTable = buildVariableTable(ydoc);
+
+    const unobserve = observeShapes(ydoc, (changes) => {
+      if (isUpdateOnlyChange(changes)) {
+        for (const changedId of changes.updated) {
+          const resolved = getResolvedShape(ydoc, changedId, variableTable);
+          const position = cacheIndex.get(changedId);
+          if (resolved && position !== undefined) {
+            cache[position] = resolved;
+            liveIndex.update(resolved);
+          }
+        }
+        return;
+      }
       getResolvedShapes(ydoc);
       getLayerTree(ydoc);
       const rebuilt = new SpatialIndex();
@@ -139,7 +162,7 @@ async function main() {
       dragSamples.push(performance.now() - start);
     }
     unobserve();
-    rows.push(summarize('drag tick: 1 move -> observers refresh', size, dragSamples));
+    rows.push(summarize('drag tick: 1 move -> incremental subscribers', size, dragSamples));
 
     ydoc.destroy();
   }

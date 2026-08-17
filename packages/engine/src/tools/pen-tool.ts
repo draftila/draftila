@@ -1,5 +1,11 @@
 import type { PressurePoint, VectorNode } from '@draftila/shared';
-import { BaseTool, getToolStore, type ToolContext, type ToolResult } from './base-tool';
+import {
+  BaseTool,
+  getToolStore,
+  type ToolContext,
+  type ToolKeyContext,
+  type ToolResult,
+} from './base-tool';
 import { findContainerAtPoint } from '../scene-graph';
 import { opCreateShape } from '../operations';
 import { vectorNodesToSvgPath } from '../vector-nodes';
@@ -185,7 +191,7 @@ export class PenTool extends BaseTool {
     this.dragMoved = false;
   }
 
-  onKeyDown(key: string, ctx: ToolContext): ToolResult | void {
+  onKeyDown(key: string, ctx: ToolKeyContext): ToolResult | void {
     if (this.freehandMode && key === 'Escape') {
       this.reset();
       return;
@@ -224,7 +230,7 @@ export class PenTool extends BaseTool {
     return distance <= CLOSE_DISTANCE / ctx.camera.zoom;
   }
 
-  private commit(ctx: ToolContext, closed: boolean) {
+  private commit(ctx: Pick<ToolContext, 'ydoc'>, closed: boolean) {
     if (this.nodes.length < 2) {
       this.reset();
       return;

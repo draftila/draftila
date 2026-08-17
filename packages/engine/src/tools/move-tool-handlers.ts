@@ -16,7 +16,7 @@ import {
   getAllShapes,
   getShape,
   updateShape,
-  applyAutoLayoutForAncestors,
+  applyAutoLayoutForShapes,
   reorderAutoLayoutChildren,
   computeAutoLayoutPreview,
   computeAutoLayoutResizePreview,
@@ -39,6 +39,46 @@ export interface DragMoveResult {
   activeDistanceIndicators: DistanceIndicator[];
   autoLayoutPreview: Map<string, { x: number; y: number }> | null;
   cursor: string;
+}
+
+const SNAP_NEIGHBOURHOOD_PX = 600;
+const MAX_SNAP_CANDIDATES = 64;
+
+function selectSnapCandidates(
+  shapes: Shape[],
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  zoom: number,
+): Shape[] {
+  const margin = SNAP_NEIGHBOURHOOD_PX / zoom;
+  const minX = x - margin;
+  const minY = y - margin;
+  const maxX = x + width + margin;
+  const maxY = y + height + margin;
+
+  const near: Shape[] = [];
+  for (const shape of shapes) {
+    if (shape.x > maxX || shape.x + shape.width < minX) continue;
+    if (shape.y > maxY || shape.y + shape.height < minY) continue;
+    near.push(shape);
+  }
+
+  if (near.length <= MAX_SNAP_CANDIDATES) return near;
+
+  const centerX = x + width / 2;
+  const centerY = y + height / 2;
+  return near
+    .map((shape) => ({
+      shape,
+      distance:
+        Math.abs(shape.x + shape.width / 2 - centerX) +
+        Math.abs(shape.y + shape.height / 2 - centerY),
+    }))
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, MAX_SNAP_CANDIDATES)
+    .map((entry) => entry.shape);
 }
 
 export function handleDragMove(
@@ -99,7 +139,7 @@ export function handleDragMove(
       boundsY,
       boundsW,
       boundsH,
-      dragShapesCache,
+      selectSnapCandidates(dragShapesCache, boundsX, boundsY, boundsW, boundsH, ctx.camera.zoom),
       ctx.camera.zoom,
       parentFrameCache,
       guides,
@@ -174,7 +214,14 @@ export function handleResizeMove(
     const resizeSnap = snapResize(
       newSelectionBounds,
       moving,
-      dragShapesCache,
+      selectSnapCandidates(
+        dragShapesCache,
+        newSelectionBounds.x,
+        newSelectionBounds.y,
+        newSelectionBounds.width,
+        newSelectionBounds.height,
+        ctx.camera.zoom,
+      ),
       ctx.camera.zoom,
       parentFrameCache,
       guides,
@@ -413,25 +460,25 @@ export function commitDrag(
   dragOffset: { dx: number; dy: number },
 ): void {
   const { dx, dy } = dragOffset;
-  if (exceedsDragThreshold(dx, dy)) {
-    const movedIds = Array.from(initialData.keys());
+  if (!exceedsDragThreshold(dx, dy)) return;
+
+  const movedIds = Array.from(initialData.keys());
+  ydoc.transact(() => {
     reorderAutoLayoutChildren(ydoc, movedIds, dragOffset);
     for (const [id, initial] of initialData) {
       updateShape(ydoc, id, buildMoveUpdate(initial, dx, dy));
     }
-    for (const [id] of initialData) {
-      applyAutoLayoutForAncestors(ydoc, id);
-    }
-  }
+    applyAutoLayoutForShapes(ydoc, movedIds);
+  });
 }
 
 export function commitResize(ydoc: Y.Doc, resizePreview: Map<string, ResizePreviewEntry>): void {
-  for (const [id, bounds] of resizePreview) {
-    updateShape(ydoc, id, bounds as Partial<Shape>);
-  }
-  for (const [id] of resizePreview) {
-    applyAutoLayoutForAncestors(ydoc, id);
-  }
+  ydoc.transact(() => {
+    for (const [id, bounds] of resizePreview) {
+      updateShape(ydoc, id, bounds as Partial<Shape>);
+    }
+    applyAutoLayoutForShapes(ydoc, resizePreview.keys());
+  });
 }
 
 export function commitEndpoint(
@@ -453,14 +500,14 @@ export function commitEndpoint(
     x2: ep.x2,
     y2: ep.y2,
   } as Partial<Shape>);
-  applyAutoLayoutForAncestors(ydoc, ep.shapeId);
+  applyAutoLayoutForShapes(ydoc, [ep.shapeId]);
 }
 
 export function commitRotation(ydoc: Y.Doc, rotationPreview: Map<string, number>): void {
-  for (const [id, angle] of rotationPreview) {
-    updateShape(ydoc, id, { rotation: angle } as Partial<Shape>);
-  }
-  for (const [id] of rotationPreview) {
-    applyAutoLayoutForAncestors(ydoc, id);
-  }
+  ydoc.transact(() => {
+    for (const [id, angle] of rotationPreview) {
+      updateShape(ydoc, id, { rotation: angle } as Partial<Shape>);
+    }
+    applyAutoLayoutForShapes(ydoc, rotationPreview.keys());
+  });
 }

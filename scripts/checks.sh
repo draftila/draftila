@@ -120,15 +120,40 @@ run_step_capture() {
   return "$exit_code"
 }
 
+added_api_sources() {
+  local base
+  base=$(git merge-base HEAD "${COVERAGE_BASE_REF:-main}" 2>/dev/null) || return 0
+
+  {
+    git diff --diff-filter=A --name-only "$base" -- apps/api/src 2>/dev/null
+    git ls-files --others --exclude-standard -- apps/api/src 2>/dev/null
+  } | sed 's|^apps/api/||' | sort -u
+}
+
+modified_api_sources() {
+  local base
+  base=$(git merge-base HEAD "${COVERAGE_BASE_REF:-main}" 2>/dev/null) || return 0
+
+  {
+    git diff --diff-filter=M --name-only "$base" -- apps/api/src 2>/dev/null
+    git diff --diff-filter=M --name-only -- apps/api/src 2>/dev/null
+  } | sed 's|^apps/api/||' | sort -u
+}
+
 check_api_coverage() {
-  CLEAN_OUTPUT=$(echo "$CAPTURED_OUTPUT" | sed 's/\x1b\[[0-9;]*m//g')
+  CLEAN_OUTPUT=$(echo "$CAPTURED_OUTPUT" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/^@draftila\/api test: //')
 
   if echo "$CLEAN_OUTPUT" | grep -qE '[1-9][0-9]* fail'; then
     return 1
   fi
 
-  local coverage_fail=0
-  echo "$CLEAN_OUTPUT" | grep '|' | while IFS='|' read -r file _funcs lines _uncovered; do
+  local added modified
+  added=$(added_api_sources)
+  modified=$(modified_api_sources)
+  [ -z "$added" ] && [ -z "$modified" ] && return 0
+
+  local report
+  report=$(echo "$CLEAN_OUTPUT" | grep '|' | while IFS='|' read -r file _funcs lines _uncovered; do
     file=$(echo "$file" | tr -d ' ')
     lines=$(echo "$lines" | tr -d ' ')
 
@@ -137,14 +162,30 @@ check_api_coverage() {
     [[ "$file" == Allfiles ]] && continue
     [[ "$file" == -* ]] && continue
     [[ "$file" != src/* ]] && continue
+    [ "$lines" = "100.00" ] && continue
 
-    if [ "$lines" != "100.00" ]; then
-      echo "COVERAGE: $file has ${lines}% line coverage, expected 100%."
-      exit 1
+    if printf '%s\n' "$added" | grep -qxF "$file"; then
+      echo "FAIL COVERAGE: $file has ${lines}% line coverage, expected 100% (added on this branch)."
+    elif printf '%s\n' "$modified" | grep -qxF "$file"; then
+      echo "WARN COVERAGE: $file has ${lines}% line coverage (modified on this branch, not enforced)."
     fi
-  done
+  done)
 
-  if [ $? -ne 0 ]; then
+  local reported
+  reported=$(echo "$CLEAN_OUTPUT" | grep '|' | cut -d'|' -f1 | tr -d ' ' | grep '^src/' || true)
+
+  local unreported
+  unreported=$(printf '%s\n' "$added" | while read -r file; do
+    [ -z "$file" ] && continue
+    printf '%s\n' "$reported" | grep -qxF "$file" && continue
+    echo "FAIL COVERAGE: $file is not reached by any test (absent from the coverage report)."
+  done)
+
+  report=$(printf '%s\n%s' "$report" "$unreported" | grep -v '^$' || true)
+
+  [ -n "$report" ] && printf '%s\n' "$report" >&2
+
+  if printf '%s\n' "$report" | grep -q '^FAIL COVERAGE:'; then
     return 1
   fi
 

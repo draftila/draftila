@@ -1,6 +1,7 @@
-import type { Point, Camera, CanvasGuide, ToolType } from '@draftila/shared';
+import type { Point, Camera, CanvasGuide, Shape, ToolType } from '@draftila/shared';
 import type * as Y from 'yjs';
 import type { GuideSnapTarget } from '../snap';
+import type { SpatialIndex } from '../spatial-index';
 
 export interface ToolStore {
   readonly selectedIds: string[];
@@ -46,7 +47,15 @@ export interface ToolContext {
   metaKey: boolean;
   ctrlKey: boolean;
   button: number;
+  shapes: Shape[];
+  shapeMap: ReadonlyMap<string, Shape>;
+  spatialIndex: SpatialIndex;
 }
+
+export type ToolKeyContext = Omit<
+  ToolContext,
+  'canvasPoint' | 'screenPoint' | 'button' | 'shapes' | 'shapeMap' | 'spatialIndex'
+>;
 
 export interface ToolResult {
   cursor?: string;
@@ -60,14 +69,8 @@ export abstract class BaseTool {
   onPointerDown(_ctx: ToolContext): ToolResult | void {}
   onPointerMove(_ctx: ToolContext): ToolResult | void {}
   onPointerUp(_ctx: ToolContext): ToolResult | void {}
-  onKeyDown(
-    _key: string,
-    _ctx: Omit<ToolContext, 'canvasPoint' | 'screenPoint' | 'button'>,
-  ): ToolResult | void {}
-  onKeyUp(
-    _key: string,
-    _ctx: Omit<ToolContext, 'canvasPoint' | 'screenPoint' | 'button'>,
-  ): ToolResult | void {}
+  onKeyDown(_key: string, _ctx: ToolKeyContext): ToolResult | void {}
+  onKeyUp(_key: string, _ctx: ToolKeyContext): ToolResult | void {}
   onActivate(): void {}
   onDeactivate(): void {}
 }

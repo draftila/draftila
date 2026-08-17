@@ -32,6 +32,7 @@ import {
   useToggleCommentResolved,
 } from '@/api/comments';
 import { useCanvas } from '../hooks/use-canvas';
+import { createSceneCache } from '../hooks/use-tool';
 import { getCursorForTool } from '../hooks/canvas-utils';
 import { useTool } from '../hooks/use-tool';
 import { useFileDrop } from '../hooks/use-file-drop';
@@ -127,11 +128,13 @@ export function Canvas({
   remoteUsers,
   onActiveInteraction,
 }: CanvasProps) {
-  const { canvasRef } = useCanvas({ ydoc });
+  const sceneRef = useRef(createSceneCache());
+  const { canvasRef } = useCanvas({ ydoc, sceneRef });
   const queryClient = useQueryClient();
   const { handlePointerDown, handlePointerMove, handlePointerUp } = useTool({
     ydoc,
     canvasRef,
+    sceneRef,
     onActiveInteraction,
   });
   const { isDragging } = useFileDrop({ ydoc, canvasRef });

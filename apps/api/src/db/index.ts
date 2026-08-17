@@ -72,9 +72,19 @@ function attachQueryMetrics(client: AppPrismaClient): void {
 
 const globalForDb = globalThis as { db?: AppPrismaClient };
 
+export let sqliteReady: Promise<void> | undefined;
+
 function initClient(): AppPrismaClient {
   const client = createClient();
   attachQueryMetrics(client);
+
+  if (env.DB_DRIVER === 'sqlite') {
+    sqliteReady = (async () => {
+      await client.$queryRawUnsafe('PRAGMA journal_mode = WAL');
+      await client.$executeRawUnsafe('PRAGMA synchronous = NORMAL');
+    })();
+  }
+
   return client;
 }
 

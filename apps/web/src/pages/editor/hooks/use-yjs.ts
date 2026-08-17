@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
+import type { Shape } from '@draftila/shared';
 import { WebsocketProvider } from 'y-websocket';
 import {
   initDocument,
   getAllShapes,
   updateShape,
-  applyAutoLayoutForAncestors,
+  applyAutoLayoutForShapes,
 } from '@draftila/engine/scene-graph';
 import { ensureDefaultPage, setDocId } from '@draftila/engine';
 import { applyTextAutoResize } from '@draftila/engine/text-measure';
@@ -118,18 +119,26 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
       // error) fire exactly one `notifyFontCallbacks`, and this function is subscribed below.
       if (requiresCustomFontRegistry(fonts) && !isCustomFontsReady()) return;
       const apply = () => {
-        const changedIds: string[] = [];
-        for (const shape of getAllShapes(ydoc)) {
+        const current = getAllShapes(ydoc);
+        const pending: { id: string; patch: Partial<Shape> }[] = [];
+
+        for (const shape of current) {
           if (shape.type !== 'text') continue;
           const patch = applyTextAutoResize(shape);
-          if (patch) {
-            updateShape(ydoc, shape.id, patch);
-            changedIds.push(shape.id);
+          if (patch) pending.push({ id: shape.id, patch });
+        }
+
+        if (pending.length === 0) return;
+
+        ydoc.transact(() => {
+          for (const entry of pending) {
+            updateShape(ydoc, entry.id, entry.patch);
           }
-        }
-        for (const id of changedIds) {
-          applyAutoLayoutForAncestors(ydoc, id);
-        }
+          applyAutoLayoutForShapes(
+            ydoc,
+            pending.map((entry) => entry.id),
+          );
+        });
       };
       if (fonts.length > 0) {
         ensureFontsLoadedAsync(fonts).then(apply);

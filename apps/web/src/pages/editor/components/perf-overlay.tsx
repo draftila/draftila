@@ -42,6 +42,9 @@ export function PerfOverlay() {
       <div className="mb-2 text-white/70">
         shapes {drawn}/{total} drawn · layer rows {snapshot.values['layers.rows'] ?? 0}
       </div>
+      <div className="mb-2 text-white/70">
+        frames drawn {((snapshot.values['canvas.drawRatio'] ?? 0) * 100).toFixed(0)}%
+      </div>
       <table className="w-full">
         <thead className="text-white/50">
           <tr>

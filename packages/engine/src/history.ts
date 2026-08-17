@@ -5,12 +5,16 @@ import { getActivePageGuidesArray } from './guides';
 let undoManager: Y.UndoManager | null = null;
 
 export function initUndoManager(ydoc: Y.Doc): Y.UndoManager {
-  const shapes = getShapesMap(ydoc);
-  const zOrder = getZOrder(ydoc);
   const guides = getActivePageGuidesArray(ydoc);
-  const variables = ydoc.getMap('variables');
+  type UndoScope = ConstructorParameters<typeof Y.UndoManager>[0];
+  const scope = [
+    getShapesMap(ydoc),
+    getZOrder(ydoc),
+    ydoc.getMap('variables'),
+  ] as unknown as UndoScope & unknown[];
+  if (guides) scope.push(guides);
 
-  undoManager = new Y.UndoManager([shapes, zOrder, guides, variables], {
+  undoManager = new Y.UndoManager(scope, {
     captureTimeout: 500,
   });
 

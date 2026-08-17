@@ -10,6 +10,7 @@ import {
   resolveImage,
   setImageCacheLimit,
   setImageLoader,
+  onImageLoaded,
   svgToDataUri,
 } from '../src/image-cache';
 
@@ -189,5 +190,36 @@ describe('image-cache', () => {
     expect(
       collectImageSources([shape({ type: 'image', src: '' }), shape({ type: 'svg' })]),
     ).toEqual([]);
+  });
+
+  test('notifies subscribers with the loaded src when an image is registered', () => {
+    const loaded: string[] = [];
+    const unsubscribe = onImageLoaded((src) => loaded.push(src));
+
+    registerImage('https://example.com/a.png', fakeImage());
+
+    expect(loaded).toEqual(['https://example.com/a.png']);
+    unsubscribe();
+  });
+
+  test('notifies subscribers when a preloaded image resolves', async () => {
+    const loaded: string[] = [];
+    const unsubscribe = onImageLoaded((src) => loaded.push(src));
+
+    await preloadImage('https://example.com/b.png');
+
+    expect(loaded).toEqual(['https://example.com/b.png']);
+    unsubscribe();
+  });
+
+  test('stops notifying after unsubscribe', () => {
+    const loaded: string[] = [];
+    const unsubscribe = onImageLoaded((src) => loaded.push(src));
+
+    registerImage('https://example.com/a.png', fakeImage());
+    unsubscribe();
+    registerImage('https://example.com/b.png', fakeImage());
+
+    expect(loaded).toEqual(['https://example.com/a.png']);
   });
 });

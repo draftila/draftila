@@ -62,6 +62,14 @@ export function updateLayoutAnimation(
   }
 }
 
+export function isLayoutAnimating(): boolean {
+  return animating.size > 0;
+}
+
+export function getAnimatingIds(): Iterable<string> {
+  return animating.keys();
+}
+
 export function getAnimatedPosition(id: string): { x: number; y: number } | null {
   const anim = animating.get(id);
   if (!anim) return null;

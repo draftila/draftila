@@ -2,7 +2,7 @@ import '../src/modules/mcp/dom-shim';
 import { createCanvas } from '@napi-rs/canvas';
 import type { Camera, Shape } from '@draftila/shared';
 import { Canvas2DRenderer } from '@draftila/engine/renderer/canvas2d';
-import { renderShape, getCornerRadii } from '@draftila/engine/shape-renderer';
+import { renderShape, getCornerRadii, simplifyShapeForZoom } from '@draftila/engine/shape-renderer';
 import { getAllShapes } from '@draftila/engine/scene-graph';
 import { SpatialIndex } from '@draftila/engine/spatial-index';
 import { DEFAULT_GEN, generateDoc } from './lib/gen-doc';
@@ -13,7 +13,6 @@ const VIEWPORT_W = 1600;
 const VIEWPORT_H = 900;
 const DPR = 2;
 const ZOOMS = [1, 0.5, 0.25, 0.1, 0.05];
-const TEXT_LEGIBILITY_PX = 5;
 
 function docBounds(shapes: Shape[]) {
   let minX = Infinity;
@@ -38,44 +37,6 @@ function cameraForZoom(shapes: Shape[], zoom: number): Camera {
     y: VIEWPORT_H / 2 - centerY * zoom,
     zoom,
   };
-}
-
-function simplifyForZoom(shapes: Shape[], zoom: number): Shape[] {
-  return shapes.map((shape) => {
-    const styled = shape as Shape & {
-      fontSize?: number;
-      strokes?: unknown[];
-      shadows?: unknown[];
-      blurs?: unknown[];
-    };
-
-    if (shape.type === 'text') {
-      const fontSize = styled.fontSize ?? 16;
-      if (fontSize * zoom < TEXT_LEGIBILITY_PX) {
-        return {
-          ...shape,
-          type: 'rectangle',
-          svgPathData: undefined,
-          cornerRadius: 0,
-          opacity: (shape.opacity ?? 1) * 0.55,
-        } as unknown as Shape;
-      }
-      return shape;
-    }
-
-    if (zoom >= 0.5) return shape;
-
-    const fills = (shape as Shape & { fills?: Array<{ visible?: boolean }> }).fills;
-    const hasVisibleFill = fills?.some((fill) => fill.visible !== false) ?? false;
-    const strokeIsTheShape = shape.type === 'line' || shape.type === 'arrow' || !hasVisibleFill;
-
-    return {
-      ...shape,
-      ...(strokeIsTheShape ? {} : { strokes: [] }),
-      shadows: [],
-      blurs: [],
-    } as unknown as Shape;
-  });
 }
 
 function renderFrame(renderer: Canvas2DRenderer, shapes: Shape[], camera: Camera) {
@@ -167,7 +128,7 @@ function main() {
     const viewport = renderer.getViewport(camera);
     const visibleIds = new Set(index.queryViewport(viewport).map((box) => box.id));
     const culled = shapes.filter((shape) => visibleIds.has(shape.id));
-    const simplified = simplifyForZoom(culled, zoom);
+    const simplified = culled.map((shape) => simplifyShapeForZoom(shape, zoom));
     const textDropped = culled.filter(
       (shape, i) => shape.type === 'text' && simplified[i]?.type !== 'text',
     ).length;

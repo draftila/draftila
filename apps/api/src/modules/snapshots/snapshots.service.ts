@@ -7,7 +7,7 @@ import { db } from '../../db';
 import * as draftsService from '../drafts/drafts.service';
 import { getRoomYDoc, destroyRoom } from '../collaboration/collaboration.service';
 
-const MAX_AUTO_SAVES = 50;
+const MAX_AUTO_SAVE_BYTES = 256 * 1024 * 1024;
 const MAX_LIST_RESULTS = 200;
 
 const snapshotListSelect = {
@@ -69,7 +69,7 @@ export async function createNamedVersion(
   if (roomDoc) {
     state = Y.encodeStateAsUpdate(roomDoc);
   } else {
-    const saved = await draftsService.loadYjsState(draftId);
+    const saved = await draftsService.loadFullYjsState(draftId);
     if (!saved) {
       state = Y.encodeStateAsUpdate(new Y.Doc());
     } else {
@@ -162,19 +162,25 @@ export async function getDraftIdForSnapshot(snapshotId: string): Promise<string 
 }
 
 async function pruneAutoSaves(draftId: string): Promise<void> {
-  const autoSaves = await db.snapshot.findMany({
-    where: { draftId, name: null },
-    select: { id: true },
-    orderBy: { createdAt: 'desc' },
+  const autoSaves = await db.$queryRaw<{ id: string; bytes: bigint | number }[]>`
+    SELECT id, length(yjs_state) AS bytes
+    FROM snapshot
+    WHERE draft_id = ${draftId} AND name IS NULL
+    ORDER BY created_at DESC
+  `;
+
+  let total = 0;
+  const toDelete: string[] = [];
+
+  autoSaves.forEach((row, position) => {
+    total += Number(row.bytes);
+    if (position === 0) return;
+    if (total > MAX_AUTO_SAVE_BYTES) toDelete.push(row.id);
   });
 
-  if (autoSaves.length <= MAX_AUTO_SAVES) return;
+  if (toDelete.length === 0) return;
 
-  const toDelete = autoSaves.slice(MAX_AUTO_SAVES).map((s) => s.id);
-
-  await db.snapshot.deleteMany({
-    where: { id: { in: toDelete } },
-  });
+  await db.snapshot.deleteMany({ where: { id: { in: toDelete } } });
 }
 
 export async function restoreSnapshot(
@@ -197,7 +203,7 @@ export async function restoreSnapshot(
   if (roomDoc) {
     currentState = Buffer.from(Y.encodeStateAsUpdate(roomDoc));
   } else {
-    const saved = await draftsService.loadYjsState(draftId);
+    const saved = await draftsService.loadFullYjsState(draftId);
     currentState = saved ? Buffer.from(saved) : Buffer.from(Y.encodeStateAsUpdate(new Y.Doc()));
   }
 
@@ -220,9 +226,9 @@ export async function restoreSnapshot(
     select: snapshotListSelect,
   });
 
-  await draftsService.saveYjsState(draftId, Buffer.from(snapshot.yjsState));
-
   destroyRoom(draftId);
+  await draftsService.purgeYjsUpdates(draftId);
+  await draftsService.saveYjsState(draftId, Buffer.from(snapshot.yjsState));
 
   return mapSnapshot(row);
 }

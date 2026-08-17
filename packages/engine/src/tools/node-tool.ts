@@ -1,5 +1,11 @@
 import type { Shape, Subpath, VectorNode } from '@draftila/shared';
-import { BaseTool, getToolStore, type ToolContext, type ToolResult } from './base-tool';
+import {
+  BaseTool,
+  getToolStore,
+  type ToolContext,
+  type ToolKeyContext,
+  type ToolResult,
+} from './base-tool';
 import { getShape, updateShape } from '../scene-graph';
 import {
   svgPathToVectorNodes,
@@ -293,10 +299,7 @@ export class NodeTool extends BaseTool {
     return { cursor: 'default' };
   }
 
-  onKeyDown(
-    key: string,
-    ctx: Omit<ToolContext, 'canvasPoint' | 'screenPoint' | 'button'>,
-  ): ToolResult | void {
+  onKeyDown(key: string, ctx: ToolKeyContext): ToolResult | void {
     if (key === 'Escape') {
       const store = getToolStore();
       store.setActiveTool('move');

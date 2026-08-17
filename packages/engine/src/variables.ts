@@ -10,7 +10,7 @@ import type {
 } from '@draftila/shared';
 import type { Variable } from '@draftila/shared';
 import { variableColorSchema } from '@draftila/shared';
-import { getAllShapes } from './scene-graph';
+import { getAllShapes, getShape } from './scene-graph';
 import {
   DEFAULT_PAGE_BACKGROUND,
   getPageBackgroundColor,
@@ -293,6 +293,12 @@ export function collectVariableRefs(shapes: Shape[]): Set<string> {
   const refs = new Set<string>();
   for (const shape of shapes) collectShapeVariableRefs(shape, refs);
   return refs;
+}
+
+export function getResolvedShape(ydoc: Y.Doc, id: string, table?: VariableTable): Shape | null {
+  const shape = getShape(ydoc, id);
+  if (!shape) return null;
+  return resolveShapeColors(table ?? buildVariableTable(ydoc), shape);
 }
 
 export function getResolvedShapes(ydoc: Y.Doc): Shape[] {

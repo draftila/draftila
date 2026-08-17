@@ -41,3 +41,6 @@ storage/
 .mcp.json
 .cache/
 
+
+# Benchmark output (regenerable)
+apps/api/bench/results/

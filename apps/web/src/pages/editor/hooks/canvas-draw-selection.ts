@@ -27,35 +27,35 @@ export function renderHover(
 
 export function renderSelection(
   renderer: Canvas2DRenderer,
-  shapes: readonly Shape[],
-  selectedSet: ReadonlySet<string>,
+  selectedIds: readonly string[],
+  shapeMap: ReadonlyMap<string, Shape>,
   tc: TransformContext,
   isShapeVisible: (shape: Shape) => boolean,
   zoom: number,
 ): Shape[] {
   const selectedShapes: Shape[] = [];
-  for (const shape of shapes) {
-    if (!isShapeVisible(shape)) continue;
-    if (selectedSet.has(shape.id)) {
-      const displayShape = applyTransforms(shape, tc);
-      renderSelectionForShape(renderer, displayShape, zoom);
-      selectedShapes.push(displayShape);
-    }
+  for (const id of selectedIds) {
+    const shape = shapeMap.get(id);
+    if (!shape || !isShapeVisible(shape)) continue;
+    const displayShape = applyTransforms(shape, tc);
+    renderSelectionForShape(renderer, displayShape, zoom);
+    selectedShapes.push(displayShape);
   }
   return selectedShapes;
 }
 
 export function renderFrameLabels(
   renderer: Canvas2DRenderer,
-  shapes: readonly Shape[],
+  frames: readonly Shape[],
   shapeMap: ReadonlyMap<string, Shape>,
   selectedSet: ReadonlySet<string>,
   tc: TransformContext,
   isShapeVisible: (shape: Shape) => boolean,
   zoom: number,
+  visibleIds: ReadonlySet<string>,
 ) {
-  for (const shape of shapes) {
-    if (shape.type !== 'frame') continue;
+  for (const shape of frames) {
+    if (!visibleIds.has(shape.id)) continue;
     if (!isShapeVisible(shape)) continue;
 
     const parentShape = shape.parentId ? shapeMap.get(shape.parentId) : null;

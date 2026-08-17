@@ -36,7 +36,22 @@ describe('migrateSqliteDatabase', () => {
       expect(tables).toContain('user');
       expect(tables).toContain('project');
       expect(tables).toContain('draft');
-      expect(migrations).toEqual([{ id: '0001_initial' }]);
+      expect(tables).toContain('draft_update');
+      expect(migrations).toEqual([{ id: '0001_initial' }, { id: '0002_draft_update' }]);
+
+      const indexes = database
+        .query<{ name: string }, []>(
+          "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'draft_update'",
+        )
+        .all()
+        .map(({ name }) => name);
+      expect(indexes).toContain('draft_update_draft_id_idx');
+
+      const columns = database
+        .query<{ name: string }, []>("SELECT name FROM pragma_table_info('draft_update')")
+        .all()
+        .map(({ name }) => name);
+      expect(columns).toEqual(['id', 'draft_id', 'payload', 'created_at']);
     } finally {
       database.close();
     }

@@ -13,6 +13,7 @@ import { getSortConfig, nextTimestamp, paginateResults } from '../../common/lib/
 import { extractStorageKey, getStorage, replaceStorageFile } from '../../common/lib/storage';
 import { nanoid } from '../../common/lib/utils';
 import { db } from '../../db';
+import { recordDuration, recordValue } from '../../common/lib/metrics';
 import { userAccessFilter } from '../projects/projects.service';
 
 const draftListSelect = {
@@ -188,6 +189,55 @@ export async function saveYjsState(id: string, state: Buffer) {
   await db.draft.update({ where: { id }, data: { yjsState: new Uint8Array(state) } });
 }
 
+export async function appendYjsUpdate(draftId: string, payload: Buffer): Promise<number> {
+  const start = performance.now();
+  const row = await db.draftUpdate.create({
+    data: { draftId, payload: new Uint8Array(payload) },
+    select: { id: true },
+  });
+  recordDuration('collab.append_update', performance.now() - start);
+  recordValue('collab.update_bytes', payload.byteLength);
+  return row.id;
+}
+
+export async function loadYjsUpdates(draftId: string) {
+  return db.draftUpdate.findMany({
+    where: { draftId },
+    select: { id: true, payload: true },
+    orderBy: { id: 'asc' },
+  });
+}
+
+export async function compactYjsState(
+  draftId: string,
+  state: Buffer,
+  throughUpdateId: number,
+): Promise<void> {
+  await db.$transaction([
+    db.draft.update({ where: { id: draftId }, data: { yjsState: new Uint8Array(state) } }),
+    db.draftUpdate.deleteMany({ where: { draftId, id: { lte: throughUpdateId } } }),
+  ]);
+}
+
+export async function purgeYjsUpdates(draftId: string): Promise<void> {
+  await db.draftUpdate.deleteMany({ where: { draftId } });
+}
+
+export async function loadFullYjsState(draftId: string): Promise<Buffer | null> {
+  const base = await loadYjsState(draftId);
+  const updates = await loadYjsUpdates(draftId);
+  if (!base && updates.length === 0) return null;
+
+  const doc = new Y.Doc();
+  if (base) Y.applyUpdate(doc, new Uint8Array(base));
+  for (const update of updates) {
+    Y.applyUpdate(doc, new Uint8Array(update.payload));
+  }
+  const encoded = Buffer.from(Y.encodeStateAsUpdate(doc));
+  doc.destroy();
+  return encoded;
+}
+
 function ydocToExportData(name: string, ydoc: Y.Doc): ExportDraftData {
   const pagesMap = ydoc.getMap('pages') as Y.Map<Y.Map<unknown>>;
   const pageOrder = ydoc.getArray<string>('pageOrder');
@@ -273,13 +323,14 @@ function ydocToExportData(name: string, ydoc: Y.Doc): ExportDraftData {
 export async function exportDraft(id: string): Promise<DraftExport | null> {
   const draft = await db.draft.findUnique({
     where: { id },
-    select: { id: true, name: true, yjsState: true },
+    select: { id: true, name: true },
   });
   if (!draft) return null;
 
   const ydoc = new Y.Doc();
-  if (draft.yjsState) {
-    Y.applyUpdate(ydoc, new Uint8Array(draft.yjsState));
+  const fullState = await loadFullYjsState(draft.id);
+  if (fullState) {
+    Y.applyUpdate(ydoc, new Uint8Array(fullState));
   }
 
   const data = ydocToExportData(draft.name, ydoc);
@@ -475,7 +526,7 @@ const MAX_EXPORT_DRAFTS = 100;
 export async function exportAllDrafts(projectId: string): Promise<DraftExport[]> {
   const drafts = await db.draft.findMany({
     where: { projectId },
-    select: { id: true, name: true, yjsState: true },
+    select: { id: true, name: true },
     orderBy: { updatedAt: 'desc' },
     take: MAX_EXPORT_DRAFTS,
   });
@@ -483,8 +534,9 @@ export async function exportAllDrafts(projectId: string): Promise<DraftExport[]>
   const results: DraftExport[] = [];
   for (const draft of drafts) {
     const ydoc = new Y.Doc();
-    if (draft.yjsState) {
-      Y.applyUpdate(ydoc, new Uint8Array(draft.yjsState));
+    const fullState = await loadFullYjsState(draft.id);
+    if (fullState) {
+      Y.applyUpdate(ydoc, new Uint8Array(fullState));
     }
     const data = ydocToExportData(draft.name, ydoc);
     ydoc.destroy();

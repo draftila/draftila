@@ -20,6 +20,7 @@ const MESSAGE_AWARENESS = 1;
 const MESSAGE_RPC = 2;
 
 const SNAPSHOT_INTERVAL_MS = 30_000;
+const COMPACTION_BYTES = 1_000_000;
 
 export interface WsData {
   draftId: string;
@@ -38,6 +39,9 @@ interface Room {
   snapshotTimer: ReturnType<typeof setInterval> | null;
   dirty: boolean;
   updateHandler: ((update: Uint8Array, origin: unknown) => void) | null;
+  pendingUpdates: Uint8Array[];
+  loggedBytes: number;
+  maxUpdateId: number;
 }
 
 const rooms = new Map<string, Room>();
@@ -64,6 +68,15 @@ export async function getOrCreateRoom(draftId: string): Promise<Room> {
     Y.applyUpdate(ydoc, new Uint8Array(savedState));
     recordDuration('collab.apply_state', performance.now() - applyStart);
   }
+
+  const logged = await draftsService.loadYjsUpdates(draftId);
+  if (logged.length > 0) {
+    const replayStart = performance.now();
+    for (const entry of logged) {
+      Y.applyUpdate(ydoc, new Uint8Array(entry.payload));
+    }
+    recordDuration('collab.apply_updates', performance.now() - replayStart);
+  }
   increment('collab.room_created');
 
   const room: Room = {
@@ -73,10 +86,14 @@ export async function getOrCreateRoom(draftId: string): Promise<Room> {
     snapshotTimer: null,
     dirty: false,
     updateHandler: null,
+    pendingUpdates: [],
+    loggedBytes: 0,
+    maxUpdateId: 0,
   };
 
   const updateHandler = (update: Uint8Array, origin: unknown) => {
     room.dirty = true;
+    room.pendingUpdates.push(update);
     const encoder = encoding.createEncoder();
     encoding.writeVarUint(encoder, MESSAGE_SYNC);
     syncProtocol.writeUpdate(encoder, update);
@@ -108,10 +125,7 @@ export async function getOrCreateRoom(draftId: string): Promise<Room> {
   );
 
   room.snapshotTimer = setInterval(() => {
-    if (room.dirty) {
-      snapshotToDb(draftId, ydoc);
-      room.dirty = false;
-    }
+    void flushRoom(draftId, room);
   }, SNAPSHOT_INTERVAL_MS);
 
   rooms.set(draftId, room);
@@ -189,9 +203,10 @@ export async function handleDisconnect(ws: WsLike, draftId: string) {
   if (room.connections.size === 0) {
     if (room.snapshotTimer) clearInterval(room.snapshotTimer);
 
-    if (room.dirty) {
+    await flushRoom(draftId, room);
+    if (room.loggedBytes > 0 || room.maxUpdateId > 0) {
+      await compactRoom(draftId, room);
       const state = Buffer.from(Y.encodeStateAsUpdate(room.ydoc));
-      await draftsService.saveYjsState(draftId, state);
       await snapshotsService.createAutoSave(draftId, wsData?.userId ?? null, state);
     }
 
@@ -201,6 +216,48 @@ export async function handleDisconnect(ws: WsLike, draftId: string) {
     room.awareness.destroy();
     room.ydoc.destroy();
     rooms.delete(draftId);
+  }
+}
+
+async function flushRoom(draftId: string, room: Room): Promise<void> {
+  if (room.pendingUpdates.length === 0) {
+    if (room.loggedBytes > COMPACTION_BYTES) await compactRoom(draftId, room);
+    return;
+  }
+
+  const batch = room.pendingUpdates;
+  room.pendingUpdates = [];
+
+  try {
+    const merged = Buffer.from(Y.mergeUpdates(batch));
+    const updateId = await draftsService.appendYjsUpdate(draftId, merged);
+    room.maxUpdateId = Math.max(room.maxUpdateId, updateId);
+    room.loggedBytes += merged.byteLength;
+    increment('collab.autosave');
+  } catch (err) {
+    room.pendingUpdates = [...batch, ...room.pendingUpdates];
+    console.error(`Failed to append update for draft ${draftId}:`, err);
+    return;
+  }
+
+  if (room.loggedBytes > COMPACTION_BYTES) await compactRoom(draftId, room);
+}
+
+async function compactRoom(draftId: string, room: Room): Promise<void> {
+  try {
+    const encodeStart = performance.now();
+    const state = Buffer.from(Y.encodeStateAsUpdate(room.ydoc));
+    recordDuration('collab.encode_state', performance.now() - encodeStart);
+    recordValue('collab.state_bytes', state.byteLength);
+    recordValue('collab.shape_count', countShapes(room.ydoc));
+
+    const writeStart = performance.now();
+    await draftsService.compactYjsState(draftId, state, room.maxUpdateId);
+    recordDuration('collab.save_state', performance.now() - writeStart);
+    room.loggedBytes = 0;
+    room.dirty = false;
+  } catch (err) {
+    console.error(`Failed to compact draft ${draftId}:`, err);
   }
 }
 
@@ -297,7 +354,8 @@ export async function closeRoom(draftId: string) {
   if (!room) return;
   if (room.connections.size > 0) return;
   if (room.snapshotTimer) clearInterval(room.snapshotTimer);
-  if (room.dirty) await snapshotToDb(draftId, room.ydoc);
+  await flushRoom(draftId, room);
+  if (room.loggedBytes > 0 || room.maxUpdateId > 0) await compactRoom(draftId, room);
   if (room.updateHandler) room.ydoc.off('update', room.updateHandler);
   room.awareness.destroy();
   room.ydoc.destroy();

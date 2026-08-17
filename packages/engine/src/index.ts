@@ -163,6 +163,7 @@ export {
   preloadImage,
   preloadImages,
   registerImage,
+  onImageLoaded,
   clearImageCache,
   collectImageSources,
   setImageLoader,
@@ -390,6 +391,7 @@ export {
   stripShapeColorVars,
   collectShapeVariableRefs,
   collectVariableRefs,
+  getResolvedShape,
   getResolvedShapes,
   getResolvedPageBackgroundColor,
 } from './variables';
