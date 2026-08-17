@@ -94,6 +94,7 @@ function bakeFrame(
   bucket: number,
   dpr: number,
   zoom: number,
+  isShapeVisible: (shape: Shape) => boolean,
 ): { canvas: HTMLCanvasElement; scale: number } | null {
   const size = bitmapSizeFor(frame.width, frame.height, bucket, dpr);
   if (!size) return null;
@@ -125,7 +126,7 @@ function bakeFrame(
       }
     }
 
-    if (!shape.visible) continue;
+    if (!isShapeVisible(shape)) continue;
     renderShape(offscreen, simplifyShapeForZoom(shape, zoom));
 
     if (shape.type === 'frame' && (shape as Shape & { clip?: boolean }).clip !== false) {
@@ -221,16 +222,21 @@ export function useCanvas({ ydoc, sceneRef }: { ydoc: Y.Doc; sceneRef: RefObject
     const patch = (updated: string[]): boolean => {
       const cache = shapeCacheRef.current;
       const index = shapeIndexRef.current;
+      const table = buildVariableTable(ydoc);
+      const resolvedById = new Map<string, Shape>();
+
       for (const id of updated) {
         const position = index.get(id);
-        if (position === undefined || cache[position]?.id !== id) return false;
-      }
-
-      const table = buildVariableTable(ydoc);
-      const patched: Shape[] = [];
-      for (const id of updated) {
+        const previous = position === undefined ? undefined : cache[position];
+        if (!previous || previous.id !== id) return false;
         const resolved = getResolvedShape(ydoc, id, table);
         if (!resolved) return false;
+        if ((resolved.parentId ?? null) !== (previous.parentId ?? null)) return false;
+        resolvedById.set(id, resolved);
+      }
+
+      const patched: Shape[] = [];
+      for (const [id, resolved] of resolvedById) {
         const position = index.get(id)!;
         cache[position] = resolved;
         shapeMapRef.current.set(id, resolved);
@@ -409,35 +415,6 @@ export function useCanvas({ ydoc, sceneRef }: { ydoc: Y.Doc; sceneRef: RefObject
         skipUntilOutsideFrame = null;
       }
 
-      if (
-        cacheEngaged &&
-        shape.type === 'frame' &&
-        !shape.parentId &&
-        visibleIds.has(shape.id) &&
-        isShapeVisible(shape) &&
-        (shape as Shape & { clip?: boolean }).clip !== false
-      ) {
-        let cached = frameCacheRef.current.get(shape.id, bucket);
-        if (!cached) {
-          cached = bakeFrame(
-            shape,
-            shapes,
-            shapeMap,
-            bucket,
-            window.devicePixelRatio || 1,
-            camera.zoom,
-          );
-          if (cached) frameCacheRef.current.set(shape.id, bucket, cached.canvas, cached.scale);
-        }
-
-        if (cached) {
-          renderer.drawCachedFrame(cached.canvas, shape.x, shape.y, shape.width, shape.height);
-          drawnCount++;
-          skipUntilOutsideFrame = shape.id;
-          continue;
-        }
-      }
-
       while (clipStack.length > 0) {
         const clipParentId = clipStack[clipStack.length - 1]!;
         let isDescendant = false;
@@ -455,6 +432,37 @@ export function useCanvas({ ydoc, sceneRef }: { ydoc: Y.Doc; sceneRef: RefObject
           clipStack.pop();
         } else {
           break;
+        }
+      }
+
+      if (
+        cacheEngaged &&
+        shape.type === 'frame' &&
+        !shape.parentId &&
+        !shape.rotation &&
+        visibleIds.has(shape.id) &&
+        isShapeVisible(shape) &&
+        (shape as Shape & { clip?: boolean }).clip !== false
+      ) {
+        let cached = frameCacheRef.current.get(shape.id, bucket);
+        if (!cached) {
+          cached = bakeFrame(
+            shape,
+            shapes,
+            shapeMap,
+            bucket,
+            window.devicePixelRatio || 1,
+            camera.zoom,
+            isShapeVisible,
+          );
+          if (cached) frameCacheRef.current.set(shape.id, bucket, cached.canvas, cached.scale);
+        }
+
+        if (cached) {
+          renderer.drawCachedFrame(cached.canvas, shape.x, shape.y, shape.width, shape.height);
+          drawnCount++;
+          skipUntilOutsideFrame = shape.id;
+          continue;
         }
       }
 

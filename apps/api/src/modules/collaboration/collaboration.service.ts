@@ -203,9 +203,12 @@ export async function handleDisconnect(ws: WsLike, draftId: string) {
   if (room.connections.size === 0) {
     if (room.snapshotTimer) clearInterval(room.snapshotTimer);
 
+    const hadUnsavedEdits = room.dirty;
     await flushRoom(draftId, room);
-    if (room.loggedBytes > 0) {
-      await compactRoom(draftId, room);
+    if (hadUnsavedEdits) {
+      if (room.loggedBytes > 0 || room.pendingUpdates.length > 0) {
+        await compactRoom(draftId, room);
+      }
       const state = Buffer.from(Y.encodeStateAsUpdate(room.ydoc));
       await snapshotsService.createAutoSave(draftId, wsData?.userId ?? null, state);
     }
@@ -339,7 +342,7 @@ export async function closeRoom(draftId: string) {
   if (room.connections.size > 0) return;
   if (room.snapshotTimer) clearInterval(room.snapshotTimer);
   await flushRoom(draftId, room);
-  if (room.loggedBytes > 0) await compactRoom(draftId, room);
+  if (room.loggedBytes > 0 || room.pendingUpdates.length > 0) await compactRoom(draftId, room);
   if (room.updateHandler) room.ydoc.off('update', room.updateHandler);
   room.awareness.destroy();
   room.ydoc.destroy();

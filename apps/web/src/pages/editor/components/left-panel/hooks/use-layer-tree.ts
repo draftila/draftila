@@ -76,6 +76,7 @@ function flattenRows(
 
 function patchTree(nodes: LayerTreeNode[], changed: ReadonlySet<string>, ydoc: Y.Doc) {
   let treeChanged = false;
+  let structuralChange = false;
   const seen = new Set<string>();
 
   const visit = (list: LayerTreeNode[]): LayerTreeNode[] => {
@@ -84,6 +85,10 @@ function patchTree(nodes: LayerTreeNode[], changed: ReadonlySet<string>, ydoc: Y
       const children = node.children.length > 0 ? visit(node.children) : node.children;
       if (changed.has(node.shape.id)) seen.add(node.shape.id);
       const shape = changed.has(node.shape.id) ? getShape(ydoc, node.shape.id) : null;
+
+      if (shape && (shape.parentId ?? null) !== (node.shape.parentId ?? null)) {
+        structuralChange = true;
+      }
 
       if (!shape && children === node.children) return node;
 
@@ -97,6 +102,7 @@ function patchTree(nodes: LayerTreeNode[], changed: ReadonlySet<string>, ydoc: Y
   };
 
   const result = visit(nodes);
+  if (structuralChange) return null;
   if (seen.size !== changed.size) return null;
   return treeChanged ? result : nodes;
 }

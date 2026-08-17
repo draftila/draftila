@@ -151,26 +151,34 @@ export function applyAutoLayout(ydoc: Y.Doc, frameId: string, structure?: Layout
 }
 
 export function applyAutoLayoutForShapes(ydoc: Y.Doc, shapeIds: Iterable<string>): void {
-  const frameIds: string[] = [];
-  const seen = new Set<string>();
+  const depthByFrameId = new Map<string, number>();
 
   for (const shapeId of shapeIds) {
     const shape = getShape(ydoc, shapeId);
     if (!shape) continue;
 
+    const ancestorIds: string[] = [];
+    const autoLayoutIds = new Set<string>();
     let parentId = shape.parentId ?? null;
     while (parentId) {
       const parent = getShape(ydoc, parentId);
       if (!parent) break;
-      if (isAutoLayoutFrame(parent) && !seen.has(parentId)) {
-        seen.add(parentId);
-        frameIds.push(parentId);
-      }
+      ancestorIds.push(parentId);
+      if (isAutoLayoutFrame(parent)) autoLayoutIds.add(parentId);
       parentId = parent.parentId ?? null;
     }
+
+    ancestorIds.forEach((ancestorId, position) => {
+      if (!autoLayoutIds.has(ancestorId)) return;
+      depthByFrameId.set(ancestorId, ancestorIds.length - position);
+    });
   }
 
-  if (frameIds.length === 0) return;
+  if (depthByFrameId.size === 0) return;
+
+  const frameIds = [...depthByFrameId.entries()]
+    .sort(([, depthA], [, depthB]) => depthB - depthA)
+    .map(([frameId]) => frameId);
 
   const structure = buildLayoutStructure(ydoc);
   for (const frameId of frameIds) {

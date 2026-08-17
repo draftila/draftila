@@ -4,6 +4,8 @@ import { db } from '../../src/db';
 import { cleanDatabase } from '../helpers';
 import * as draftsService from '../../src/modules/drafts/drafts.service';
 import {
+  handleConnection,
+  handleDisconnect,
   closeRoom,
   destroyRoom,
   getOrCreateRoom,
@@ -137,6 +139,32 @@ describe('collaboration update log', () => {
     const afterSecondClose = await draftsService.loadYjsState(draftId);
     expect(Array.from(afterSecondClose!)).toEqual(Array.from(afterFirstClose!));
     expect(await draftsService.loadYjsUpdates(draftId)).toHaveLength(0);
+  });
+
+  test('disconnecting after a session large enough to compact still records an auto-save', async () => {
+    const room = await getOrCreateRoom(draftId);
+    const ws = { send: () => {} };
+    handleConnection(ws, draftId, { draftId, userId: 'collab-user' });
+
+    const filler = 'x'.repeat(8_000);
+    const shapes = room.ydoc.getMap('shapes') as Y.Map<Y.Map<unknown>>;
+    room.ydoc.transact(() => {
+      for (let index = 0; index < 200; index += 1) {
+        const shape = new Y.Map<unknown>();
+        shape.set('id', `bulk-${index}`);
+        shape.set('type', 'rectangle');
+        shape.set('name', `${filler}-${index}`);
+        shapes.set(`bulk-${index}`, shape);
+      }
+    });
+
+    await handleDisconnect(ws, draftId);
+
+    const autoSaves = await db.snapshot.findMany({ where: { draftId, name: null } });
+    expect(autoSaves).toHaveLength(1);
+    expect(await draftsService.loadYjsUpdates(draftId)).toHaveLength(0);
+    const persisted = await draftsService.loadYjsState(draftId);
+    expect(shapeIds(Buffer.from(persisted!))).toContain('bulk-0');
   });
 
   test('loadFullYjsState includes uncompacted log rows', async () => {
