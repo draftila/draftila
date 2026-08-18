@@ -133,4 +133,63 @@ describe('mcp image assets', () => {
 
     expect(localized).toBe(args);
   });
+
+  test('localizes nested batch create children', async () => {
+    const source = 'https://images.example.com/nested.png';
+    const args = await localizeMcpToolImageSources(
+      'batch_create_shapes',
+      {
+        shapes: [
+          {
+            type: 'frame',
+            props: {},
+            children: [
+              {
+                type: 'frame',
+                props: {},
+                children: [{ type: 'image', props: { src: source } }],
+              },
+            ],
+          },
+        ],
+      },
+      async () => '/storage/nested.png',
+    );
+
+    expect(args).toEqual({
+      shapes: [
+        {
+          type: 'frame',
+          props: {},
+          children: [
+            {
+              type: 'frame',
+              props: {},
+              children: [{ type: 'image', props: { src: '/storage/nested.png' } }],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  test('rewrites img sources inside import_html markup', async () => {
+    const sources: string[] = [];
+    const args = await localizeMcpToolImageSources(
+      'import_html',
+      {
+        html: '<div class="flex"><img src="https://images.example.com/a.png" class="w-16" /><img src="/storage/existing.png" /></div>',
+      },
+      async (source) => {
+        sources.push(source);
+        return '/storage/imported.png';
+      },
+    );
+
+    expect(sources).toEqual(['https://images.example.com/a.png']);
+    const html = args['html'] as string;
+    expect(html).toContain('src="/storage/imported.png"');
+    expect(html).toContain('src="/storage/existing.png"');
+    expect(html).toContain('class="w-16"');
+  });
 });

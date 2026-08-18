@@ -16,7 +16,7 @@ const origCreateElement = document.createElement.bind(document);
 const fontsReady = Promise.resolve();
 (document as unknown as Record<string, unknown>)['fonts'] = {
   ready: fontsReady,
-  check: () => true,
+  check: () => false,
   load: () => fontsReady,
   // No-ops: the engine's custom-font paths are inert server-side (`FontFace` is undefined here,
   // so `canUseFontFace()` is false), but nothing should throw if one is reached anyway.

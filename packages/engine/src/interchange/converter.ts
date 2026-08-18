@@ -233,6 +233,17 @@ interface FlattenedShape {
   parentId: string | null;
 }
 
+function assignDefined(
+  target: Record<string, unknown>,
+  node: InterchangeNode,
+  keys: Array<keyof InterchangeNode>,
+): void {
+  for (const key of keys) {
+    const value = node[key];
+    if (value !== undefined) target[key as string] = value;
+  }
+}
+
 function nodeToFlatShapes(
   node: InterchangeNode,
   parentId: string | null,
@@ -263,6 +274,15 @@ function nodeToFlatShapes(
     name: node.name,
     blendMode: node.blendMode,
   };
+
+  assignDefined(base, node, [
+    'layoutSizingHorizontal',
+    'layoutSizingVertical',
+    'minWidth',
+    'maxWidth',
+    'minHeight',
+    'maxHeight',
+  ]);
 
   switch (node.type) {
     case 'rectangle':
@@ -297,6 +317,18 @@ function nodeToFlatShapes(
         cornerSmoothing: node.cornerSmoothing ?? 0,
         clip: node.clip ?? true,
       });
+      assignDefined(base, node, [
+        'layoutMode',
+        'layoutWrap',
+        'layoutGap',
+        'layoutGapColumn',
+        'paddingTop',
+        'paddingRight',
+        'paddingBottom',
+        'paddingLeft',
+        'layoutAlign',
+        'layoutJustify',
+      ]);
       break;
     case 'text':
       Object.assign(base, {
@@ -315,6 +347,7 @@ function nodeToFlatShapes(
         textDecoration: node.textDecoration ?? 'none',
         textTransform: node.textTransform ?? 'none',
       });
+      assignDefined(base, node, ['textAutoResize', 'segments']);
       break;
     case 'path':
       Object.assign(base, {

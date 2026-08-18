@@ -118,6 +118,8 @@ export {
 
 export {
   opCreateShape,
+  opBatchCreateShapes,
+  type BatchCreateItem,
   opUpdateShape,
   opBatchUpdateShapes,
   opDeleteShapes,
@@ -140,7 +142,9 @@ export {
 export {
   type PasteSource,
   type ExternalPasteOptions,
+  type HtmlImportResult,
   importSvgShapes,
+  importHtmlShapes,
   detectPasteSource,
   handlePaste,
   shapesToSvg,

@@ -16,6 +16,7 @@ import {
   moveShapesByDrop,
   applyAutoLayout,
   applyAutoLayoutForAncestors,
+  applyAutoLayoutForShapes,
   applyBooleanOperation,
 } from './scene-graph';
 import type { StackMoveDirection, LayerDropPlacement } from './scene-graph/types';
@@ -49,6 +50,46 @@ export function opCreateShape(
   }
   applyAutoLayoutForAncestors(ydoc, id);
   return id;
+}
+
+export interface BatchCreateItem {
+  type: ShapeType;
+  props: Partial<Shape>;
+  childIndex?: number;
+  parentRef?: number;
+}
+
+export function opBatchCreateShapes(ydoc: Y.Doc, items: BatchCreateItem[]): string[] {
+  const ids: string[] = [];
+  ydoc.transact(() => {
+    for (const item of items) {
+      let props = item.props;
+      if (item.parentRef !== undefined) {
+        const parentId = ids[item.parentRef];
+        if (parentId) {
+          props = { ...props, parentId };
+          const parent = getShape(ydoc, parentId);
+          if (parent) {
+            if (typeof props.x === 'number') props.x = props.x + parent.x;
+            if (typeof props.y === 'number') props.y = props.y + parent.y;
+          }
+        }
+      }
+      const id = addShape(ydoc, item.type, props, item.childIndex);
+      if (item.type === 'text') {
+        const shape = getShape(ydoc, id);
+        if (shape) {
+          const patch = applyTextAutoResize(shape);
+          if (patch) {
+            updateShape(ydoc, id, patch);
+          }
+        }
+      }
+      ids.push(id);
+    }
+    applyAutoLayoutForShapes(ydoc, ids);
+  });
+  return ids;
 }
 
 export function opUpdateShape(ydoc: Y.Doc, shapeId: string, props: Partial<Shape>): void {
