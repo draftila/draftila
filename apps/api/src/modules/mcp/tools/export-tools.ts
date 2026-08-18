@@ -28,18 +28,37 @@ export function registerExportTools(server: McpServer, getUserId: () => string) 
   defineTool(
     server,
     'export_png',
-    'Export shapes as a PNG screenshot to visually verify your design. Use this after batch_create_shapes and after major updates to catch layout, clipping, and z-order issues early. Pass specific shapeIds to screenshot just those shapes, or omit to capture everything.',
+    'Export shapes as a PNG screenshot to visually verify your design. Use this after batch_create_shapes, import_html, and major updates to catch layout, clipping, and z-order issues early. Pass specific shapeIds to screenshot just those shapes, pass x/y/width/height to capture an exact canvas region, or omit both to capture everything. The automatic crop accounts for rotation, shadows, and outside strokes; output is capped at 4096x4096 pixels (scale is reduced automatically above that).',
     {
       ...draftId,
       shapeIds: optionalShapeIds,
       scale: z.number().optional().describe('Pixel scale factor (default 1)'),
       backgroundColor: z.string().optional().describe('Background color hex (e.g. "#ffffff")'),
+      x: z.number().optional().describe('Region capture: left edge in canvas coordinates'),
+      y: z.number().optional().describe('Region capture: top edge in canvas coordinates'),
+      width: z
+        .number()
+        .optional()
+        .describe('Region capture: width in canvas units (requires x, y, and height)'),
+      height: z
+        .number()
+        .optional()
+        .describe('Region capture: height in canvas units (requires x, y, and width)'),
+      padding: z
+        .number()
+        .optional()
+        .describe('Extra canvas units of margin around the crop (default 0)'),
     },
-    async ({ draftId, shapeIds, scale, backgroundColor }) => {
+    async ({ draftId, shapeIds, scale, backgroundColor, x, y, width, height, padding }) => {
       const result = (await sendToolRpc(draftId as string, getUserId(), 'export_png', {
         shapeIds,
         scale,
         backgroundColor,
+        x,
+        y,
+        width,
+        height,
+        padding,
       })) as { base64?: string; mimeType?: string; error?: string };
       if (!result.base64 || !result.mimeType) {
         return {
@@ -180,6 +199,55 @@ export function registerExportTools(server: McpServer, getUserId: () => string) 
         y,
       });
       return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] };
+    },
+  );
+
+  defineTool(
+    server,
+    'import_html',
+    'Import HTML markup styled with Tailwind utility classes as native design shapes — the FASTEST way to build a whole screen or section in one call. Flex containers become auto-layout frames (flex/flex-col/gap/p-*/items-*/justify-* map to native layout), headings and paragraphs become text shapes (inline strong/em/span styling becomes rich-text segments), <img> becomes an image shape (src is downloaded into the draft), and inline <svg> becomes an svg shape. Sizing: w-*/h-* fix a dimension, w-full/flex-1/grow fill, everything else hugs content. Supported styling: Tailwind color palette + arbitrary values (bg-[#hex], w-[313px], text-[15px]), gradients (bg-linear-to-* with from-/via-/to-), borders, rounded-*, shadow-*, opacity, blur, and a small inline style="" fallback. NOT supported (approximated with a warning): grid, responsive sm:/md:/lg: prefixes (base classes only), hover:/dark: states, margins (use gap/padding), absolute inside flex, tables, form controls. Returns { shapeIds, count, warnings } — read warnings to see what was approximated, then export_png to verify visually.',
+    {
+      ...draftId,
+      html: z.string().min(1).max(512_000).describe('HTML markup with Tailwind utility classes'),
+      targetParentId: z.string().optional().describe('Optional parent frame to import into'),
+      x: z
+        .number()
+        .optional()
+        .describe('X position (relative to parent when targetParentId is set)'),
+      y: z
+        .number()
+        .optional()
+        .describe('Y position (relative to parent when targetParentId is set)'),
+    },
+    async ({ draftId, html, targetParentId, x, y }) => {
+      const result = await sendToolRpc(draftId as string, getUserId(), 'import_html', {
+        html,
+        targetParentId,
+        x,
+        y,
+      });
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] };
+    },
+  );
+
+  defineTool(
+    server,
+    'export_html',
+    'Export shapes as a complete standalone HTML document. format "tailwind" (default) produces HTML with Tailwind utility classes and the Tailwind CDN script; "css" produces HTML with an embedded stylesheet. Google Fonts links are included automatically; admin-uploaded custom fonts are not embedded.',
+    {
+      ...draftId,
+      shapeIds: optionalShapeIds,
+      format: z
+        .enum(['tailwind', 'css'])
+        .optional()
+        .describe('Output flavor: "tailwind" (default) or "css"'),
+    },
+    async ({ draftId, shapeIds, format }) => {
+      const result = await sendToolRpc(draftId as string, getUserId(), 'export_html', {
+        shapeIds,
+        format,
+      });
+      return { content: [{ type: 'text' as const, text: result as string }] };
     },
   );
 }

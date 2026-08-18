@@ -27,6 +27,15 @@ import {
   childContextForShape,
   cssCustomFontHeader,
 } from './helpers';
+import {
+  FONT_SIZE_MAP,
+  BORDER_RADIUS_MAP,
+  BORDER_WIDTH_MAP,
+  BLUR_MAP,
+  BACKDROP_BLUR_MAP,
+  LEADING_MAP,
+  FONT_WEIGHT_MAP,
+} from './tailwind-maps';
 
 function spacingClass(prefix: string, px: number): string {
   const rounded = roundTo(px, 1);
@@ -40,35 +49,9 @@ function spacingClass(prefix: string, px: number): string {
   return `${prefix}-[${rounded}px]`;
 }
 
-const FONT_SIZE_MAP: Record<number, string> = {
-  12: 'text-xs',
-  14: 'text-sm',
-  16: 'text-base',
-  18: 'text-lg',
-  20: 'text-xl',
-  24: 'text-2xl',
-  30: 'text-3xl',
-  36: 'text-4xl',
-  48: 'text-5xl',
-  60: 'text-6xl',
-  72: 'text-7xl',
-  96: 'text-8xl',
-  128: 'text-9xl',
-};
-
 function fontSizeClass(px: number): string {
   return FONT_SIZE_MAP[px] ?? `text-[${roundTo(px, 1)}px]`;
 }
-
-const BORDER_RADIUS_MAP: Record<number, string> = {
-  2: 'rounded-sm',
-  4: 'rounded',
-  6: 'rounded-md',
-  8: 'rounded-lg',
-  12: 'rounded-xl',
-  16: 'rounded-2xl',
-  24: 'rounded-3xl',
-};
 
 function radiusClass(prefix: string, px: number): string {
   if (prefix === 'rounded') {
@@ -82,14 +65,6 @@ function radiusClass(prefix: string, px: number): string {
   return `${prefix}-[${roundTo(px, 1)}px]`;
 }
 
-const BORDER_WIDTH_MAP: Record<number, string> = {
-  0: '0',
-  1: '',
-  2: '2',
-  4: '4',
-  8: '8',
-};
-
 function borderWidthClass(prefix: string, px: number): string {
   const mapped = BORDER_WIDTH_MAP[px];
   if (mapped !== undefined) {
@@ -97,37 +72,6 @@ function borderWidthClass(prefix: string, px: number): string {
   }
   return `${prefix}-[${px}px]`;
 }
-
-const BLUR_MAP: Record<number, string> = {
-  0: 'blur-none',
-  4: 'blur-xs',
-  8: 'blur-sm',
-  12: 'blur-md',
-  16: 'blur-lg',
-  24: 'blur-xl',
-  40: 'blur-2xl',
-  64: 'blur-3xl',
-};
-
-const BACKDROP_BLUR_MAP: Record<number, string> = {
-  0: 'backdrop-blur-none',
-  4: 'backdrop-blur-xs',
-  8: 'backdrop-blur-sm',
-  12: 'backdrop-blur-md',
-  16: 'backdrop-blur-lg',
-  24: 'backdrop-blur-xl',
-  40: 'backdrop-blur-2xl',
-  64: 'backdrop-blur-3xl',
-};
-
-const LEADING_MAP: Record<number, string> = {
-  1: 'leading-none',
-  1.25: 'leading-tight',
-  1.375: 'leading-snug',
-  1.5: 'leading-normal',
-  1.625: 'leading-relaxed',
-  2: 'leading-loose',
-};
 
 function leadingClass(value: number): string {
   return LEADING_MAP[value] ?? `leading-[${roundTo(value, 2)}]`;
@@ -604,18 +548,6 @@ function layoutJustifyToTailwind(justify: FrameShape['layoutJustify']): string {
       return 'justify-around';
   }
 }
-
-const FONT_WEIGHT_MAP: Record<number, string> = {
-  100: 'font-thin',
-  200: 'font-extralight',
-  300: 'font-light',
-  400: 'font-normal',
-  500: 'font-medium',
-  600: 'font-semibold',
-  700: 'font-bold',
-  800: 'font-extrabold',
-  900: 'font-black',
-};
 
 function textClasses(shape: TextShape, ctx?: ShapeContext): string[] {
   const classes = baseDimensionClasses(shape, ctx);

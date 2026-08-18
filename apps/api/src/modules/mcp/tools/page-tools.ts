@@ -63,4 +63,24 @@ export function registerPageTools(server: McpServer, getUserId: () => string) {
       return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] };
     },
   );
+
+  defineTool(
+    server,
+    'set_page_background',
+    'Set the background color of a page. Pass null to reset to the default background.',
+    {
+      ...draftAndPage,
+      color: z
+        .string()
+        .nullable()
+        .describe('Background color hex (e.g. "#f5f5f5"), or null to reset to the default'),
+    },
+    async ({ draftId, pageId, color }) => {
+      const result = await sendToolRpc(draftId as string, getUserId(), 'set_page_background', {
+        pageId,
+        color,
+      });
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] };
+    },
+  );
 }

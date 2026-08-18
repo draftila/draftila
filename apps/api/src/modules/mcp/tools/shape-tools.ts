@@ -16,7 +16,7 @@ export function registerShapeTools(server: McpServer, getUserId: () => string) {
   defineTool(
     server,
     'create_shape',
-    'Create a new shape on the active page. This is the RECOMMENDED way to build designs — create shapes one at a time so the user can see real-time progress. Use create_shape for each element in your design (frames, text, rectangles, etc.). For small groups of tightly related shapes (e.g. a button with an icon and label), you may use batch_create_shapes, but do NOT use batch_create_shapes for entire designs or large sections. Shapes are always created on the active page — use set_active_page first if needed. IMPORTANT: Shapes render in creation order (last created = on top). Create background shapes first, then foreground elements (e.g. background rectangle before text on top of it). Use move_in_stack to fix z-order after the fact. TIP: For containers that auto-position children (no manual x/y needed), set layoutMode on frames — see props description for details.',
+    'Create a single shape on the active page. Best for incremental edits — adding or tweaking individual elements in an existing design. When building a component, card or section, prefer batch_create_shapes with nested children (one call, one layout pass); for entire screens from HTML/Tailwind markup, prefer import_html. Shapes are always created on the active page — use set_active_page first if needed. IMPORTANT: Shapes render in creation order (last created = on top). Create background shapes first, then foreground elements (e.g. background rectangle before text on top of it). Use move_in_stack to fix z-order after the fact. TIP: For containers that auto-position children (no manual x/y needed), set layoutMode on frames — see props description for details.',
     {
       ...draftId,
       type: z.enum(SHAPE_TYPES).describe(SHAPE_TYPE_DOC),
@@ -26,13 +26,44 @@ export function registerShapeTools(server: McpServer, getUserId: () => string) {
         .describe(
           'Insert position among siblings (0 = first child, 1 = second, etc.). Only applies when parentId is set. Omit to append as last child.',
         ),
+      iconName: z
+        .string()
+        .optional()
+        .describe(
+          'Lucide icon name (e.g. "search", "user", "folder"). When set, creates an SVG icon shape — type is auto-set to "svg". Use list_icons to discover available names.',
+        ),
+      iconSize: z
+        .number()
+        .optional()
+        .describe('Icon size in pixels (default 24). Only used when iconName is set.'),
+      iconStrokeWidth: z
+        .number()
+        .optional()
+        .describe('Icon stroke width (default 2). Only used when iconName is set.'),
+      iconColor: z
+        .string()
+        .optional()
+        .describe('Icon color as hex (default "#000000"). Only used when iconName is set.'),
       props: z.record(z.unknown()).optional().describe(CREATE_PROPS_DOC),
     },
-    async ({ draftId, type, props, childIndex }) => {
+    async ({
+      draftId,
+      type,
+      props,
+      childIndex,
+      iconName,
+      iconSize,
+      iconStrokeWidth,
+      iconColor,
+    }) => {
       const result = await sendToolRpc(draftId as string, getUserId(), 'create_shape', {
         type,
         props,
         childIndex,
+        iconName,
+        iconSize,
+        iconStrokeWidth,
+        iconColor,
       });
       return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] };
     },
@@ -96,7 +127,7 @@ export function registerShapeTools(server: McpServer, getUserId: () => string) {
         .boolean()
         .optional()
         .describe(
-          'When true, returns only essential properties (id, type, name, x, y, width, height, parentId) instead of all shape properties. Much smaller output — use this for large designs to avoid token overflow.',
+          'When true, returns only essential properties (id, type, name, x, y, width, height, parentId, plus text content up to 80 chars, layoutMode on auto-layout frames, the first visible fill as a hex color or "gradient"/"image", and visible: false on hidden shapes) instead of all shape properties. Much smaller output — use this for large designs to avoid token overflow.',
         ),
     },
     async ({ draftId, parentId, recursive, compact }) => {
@@ -117,6 +148,37 @@ export function registerShapeTools(server: McpServer, getUserId: () => string) {
     async ({ draftId, shapeIds }) => {
       const result = await sendToolRpc(draftId as string, getUserId(), 'duplicate_shapes', {
         shapeIds,
+      });
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] };
+    },
+  );
+
+  defineTool(
+    server,
+    'find_shapes',
+    'Search shapes on the active page by name, type, or text content — much cheaper than dumping the whole page with list_shapes when you need specific shapes. At least one of query, type, or text is required. Returns compact shapes ({ matches, total }) sorted in document order, paginated with limit/offset.',
+    {
+      ...draftId,
+      query: z.string().optional().describe('Case-insensitive substring match on shape name'),
+      type: z.enum(SHAPE_TYPES).optional().describe('Filter to a single shape type'),
+      text: z
+        .string()
+        .optional()
+        .describe(
+          'Case-insensitive substring match on text content (including rich-text segments). Only matches text shapes.',
+        ),
+      parentId: z.string().optional().describe('Restrict the search to descendants of this shape'),
+      limit: z.number().optional().describe('Max results to return (default 50, max 200)'),
+      offset: z.number().optional().describe('Skip this many results for pagination'),
+    },
+    async ({ draftId, query, type, text, parentId, limit, offset }) => {
+      const result = await sendToolRpc(draftId as string, getUserId(), 'find_shapes', {
+        query,
+        type,
+        text,
+        parentId,
+        limit,
+        offset,
       });
       return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] };
     },

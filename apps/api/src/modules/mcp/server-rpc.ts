@@ -4,6 +4,7 @@ import type * as Y from 'yjs';
 import type { FontFamilyDto, Shape, TextShape } from '@draftila/shared';
 import {
   getResolvedShapes,
+  getShape,
   Canvas2DRenderer,
   collectFontFamilies,
   collectImageSources,
@@ -14,7 +15,6 @@ import {
   setCustomFontDataProvider,
   setImageCacheLimit,
   setImageLoader,
-  setTextMeasureEnabled,
   toNameKey,
 } from '@draftila/engine';
 import type { RpcHandler } from '@draftila/engine/rpc-handlers';
@@ -32,7 +32,6 @@ const IMAGE_CACHE_LIMIT_BYTES = 128 * 1024 * 1024;
 const IMAGE_PRELOAD_LIMIT = 200;
 const IMAGE_PRELOAD_TIMEOUT_MS = 30_000;
 
-setTextMeasureEnabled(false);
 setImageLoader(loadServerImage);
 setImageCacheLimit(IMAGE_CACHE_LIMIT_BYTES);
 
@@ -172,8 +171,7 @@ async function ensureCustomFamilyRegistered(name: string): Promise<boolean> {
   return true;
 }
 
-async function ensureServerFontsLoaded(shapes: Shape[]) {
-  const familyWeights = collectUsedWeights(shapes);
+async function ensureFontVariantsRegistered(familyWeights: Map<string, Set<number>>) {
   const toLoad: Array<{ family: string; weights: number[] }> = [];
 
   for (const [family, weights] of familyWeights) {
@@ -228,12 +226,221 @@ async function ensureServerFontsLoaded(shapes: Shape[]) {
   );
 }
 
+async function ensureServerFontsLoaded(shapes: Shape[]) {
+  await ensureFontVariantsRegistered(collectUsedWeights(shapes));
+}
+
+const TEXT_MEASURE_TOOLS = new Set([
+  'create_shape',
+  'batch_create_shapes',
+  'update_shape',
+  'batch_update_shapes',
+  'import_html',
+  'import_svg',
+]);
+
+const NAMED_FONT_WEIGHTS: Record<string, number> = {
+  thin: 100,
+  extralight: 200,
+  light: 300,
+  normal: 400,
+  medium: 500,
+  semibold: 600,
+  bold: 700,
+  extrabold: 800,
+  black: 900,
+};
+
+function mergeFamilyWeights(target: Map<string, Set<number>>, source: Map<string, Set<number>>) {
+  for (const [family, weights] of source) {
+    const existing = target.get(family);
+    if (existing) {
+      for (const weight of weights) existing.add(weight);
+    } else {
+      target.set(family, new Set(weights));
+    }
+  }
+}
+
+function collectFontRequestsFromMarkup(markup: string): Map<string, Set<number>> {
+  const families = new Set<string>(['Inter']);
+  for (const match of markup.matchAll(/font-\[['"]?([^'"\]]+)['"]?\]/g)) {
+    const family = match[1]?.trim();
+    if (family) families.add(family);
+  }
+  for (const match of markup.matchAll(/font-family\s*[:=]\s*["']?([^"';,<>]+)/g)) {
+    const family = match[1]?.trim();
+    if (family) families.add(family);
+  }
+
+  const weights = new Set<number>([400]);
+  for (const match of markup.matchAll(
+    /font-(thin|extralight|light|normal|medium|semibold|bold|extrabold|black)\b/g,
+  )) {
+    const weight = NAMED_FONT_WEIGHTS[match[1] ?? ''];
+    if (weight) weights.add(weight);
+  }
+  for (const match of markup.matchAll(/font-weight\s*[:=]\s*["']?(\d{3})\b/g)) {
+    weights.add(Number(match[1]));
+  }
+  if (/<(strong|b)[\s>]/.test(markup)) weights.add(700);
+
+  const familyWeights = new Map<string, Set<number>>();
+  for (const family of families) familyWeights.set(family, new Set(weights));
+  return familyWeights;
+}
+
+function collectFontRequestsFromArgs(args: Record<string, unknown>): Map<string, Set<number>> {
+  const familyWeights = new Map<string, Set<number>>();
+  const add = (family: unknown, weight: unknown) => {
+    if (typeof family !== 'string' || family.length === 0) return;
+    const resolvedWeight = typeof weight === 'number' ? weight : 400;
+    const weights = familyWeights.get(family);
+    if (weights) {
+      weights.add(resolvedWeight);
+    } else {
+      familyWeights.set(family, new Set([resolvedWeight]));
+    }
+  };
+
+  const visit = (value: unknown) => {
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item);
+      return;
+    }
+    if (!value || typeof value !== 'object') return;
+    const record = value as Record<string, unknown>;
+    const isTextLike =
+      record['type'] === 'text' ||
+      typeof record['content'] === 'string' ||
+      typeof record['fontFamily'] === 'string' ||
+      typeof record['fontWeight'] === 'number' ||
+      Array.isArray(record['segments']);
+    if (isTextLike) {
+      const family = typeof record['fontFamily'] === 'string' ? record['fontFamily'] : 'Inter';
+      const weight = typeof record['fontWeight'] === 'number' ? record['fontWeight'] : 400;
+      add(family, weight);
+      if (Array.isArray(record['segments'])) {
+        for (const segment of record['segments']) {
+          if (!segment || typeof segment !== 'object') continue;
+          const seg = segment as Record<string, unknown>;
+          add(seg['fontFamily'] ?? family, seg['fontWeight'] ?? weight);
+        }
+      }
+    }
+    for (const nested of Object.values(record)) visit(nested);
+  };
+
+  if (args['type'] === 'text') {
+    visit({ type: 'text', ...(args['props'] as Record<string, unknown> | undefined) });
+  }
+  visit(args['shapes']);
+  for (const key of ['html', 'svg']) {
+    const markup = args[key];
+    if (typeof markup === 'string' && markup.length > 0) {
+      mergeFamilyWeights(familyWeights, collectFontRequestsFromMarkup(markup));
+    }
+  }
+  return familyWeights;
+}
+
+function collectUpdateFontRequests(
+  ydoc: Y.Doc,
+  tool: string,
+  args: Record<string, unknown>,
+): Map<string, Set<number>> {
+  const updatedTextShapes: Shape[] = [];
+  const collect = (shapeId: unknown, props: unknown) => {
+    if (typeof shapeId !== 'string') return;
+    const shape = getShape(ydoc, shapeId);
+    if (!shape || shape.type !== 'text') return;
+    const patch = props && typeof props === 'object' ? (props as Record<string, unknown>) : {};
+    updatedTextShapes.push({ ...shape, ...patch } as Shape);
+  };
+
+  if (tool === 'update_shape') {
+    collect(args['shapeId'], args['props']);
+  }
+  if (tool === 'batch_update_shapes' && Array.isArray(args['updates'])) {
+    for (const update of args['updates']) {
+      if (!update || typeof update !== 'object') continue;
+      const entry = update as Record<string, unknown>;
+      collect(entry['shapeId'], entry['props']);
+    }
+  }
+  return collectUsedWeights(updatedTextShapes);
+}
+
 loadCachedFonts();
+
+const MAX_OUTPUT_PIXELS = 4096 * 4096;
+
+interface ExportRegion {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+function shapeEffectExpansion(shape: Shape): number {
+  let expansion = 0;
+  if ('strokes' in shape && Array.isArray(shape.strokes)) {
+    for (const stroke of shape.strokes) {
+      if (stroke.visible === false) continue;
+      if (stroke.align === 'outside') expansion = Math.max(expansion, stroke.width);
+      else if (stroke.align !== 'inside') expansion = Math.max(expansion, stroke.width / 2);
+    }
+  }
+  if ('shadows' in shape && Array.isArray(shape.shadows)) {
+    for (const shadow of shape.shadows) {
+      if (shadow.visible === false || shadow.type === 'inner') continue;
+      expansion = Math.max(
+        expansion,
+        Math.max(Math.abs(shadow.x), Math.abs(shadow.y)) + shadow.blur + Math.max(shadow.spread, 0),
+      );
+    }
+  }
+  return expansion;
+}
+
+function computeExportBounds(shapes: Shape[]): ExportRegion {
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
+
+  for (const s of shapes) {
+    const cx = s.x + s.width / 2;
+    const cy = s.y + s.height / 2;
+    const rad = ((s.rotation ?? 0) * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    const expansion = shapeEffectExpansion(s);
+    const corners: Array<[number, number]> = [
+      [s.x - expansion, s.y - expansion],
+      [s.x + s.width + expansion, s.y - expansion],
+      [s.x - expansion, s.y + s.height + expansion],
+      [s.x + s.width + expansion, s.y + s.height + expansion],
+    ];
+    for (const [x, y] of corners) {
+      const rotatedX = cx + (x - cx) * cos - (y - cy) * sin;
+      const rotatedY = cy + (x - cx) * sin + (y - cy) * cos;
+      minX = Math.min(minX, rotatedX);
+      minY = Math.min(minY, rotatedY);
+      maxX = Math.max(maxX, rotatedX);
+      maxY = Math.max(maxY, rotatedY);
+    }
+  }
+
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
 
 async function serverExportToPng(
   shapes: Shape[],
   scale = 2,
   backgroundColor?: string | null,
+  region?: ExportRegion,
+  padding = 0,
 ): Promise<{ base64: string; mimeType: string }> {
   if (shapes.length === 0) throw new Error('No shapes to export');
 
@@ -248,23 +455,24 @@ async function serverExportToPng(
     );
   }
 
-  let minX = Infinity,
-    minY = Infinity,
-    maxX = -Infinity,
-    maxY = -Infinity;
-  for (const s of shapes) {
-    minX = Math.min(minX, s.x);
-    minY = Math.min(minY, s.y);
-    maxX = Math.max(maxX, s.x + s.width);
-    maxY = Math.max(maxY, s.y + s.height);
+  const bounds = region ?? computeExportBounds(shapes);
+  const minX = bounds.x - padding;
+  const minY = bounds.y - padding;
+  const width = Math.max(1, bounds.width + padding * 2);
+  const height = Math.max(1, bounds.height + padding * 2);
+
+  let effectiveScale = scale;
+  if (width * height * scale * scale > MAX_OUTPUT_PIXELS) {
+    effectiveScale = Math.sqrt(MAX_OUTPUT_PIXELS / (width * height));
   }
 
-  const width = maxX - minX;
-  const height = maxY - minY;
-  const canvas = createCanvas(Math.ceil(width * scale), Math.ceil(height * scale));
+  const canvas = createCanvas(
+    Math.max(1, Math.ceil(width * effectiveScale)),
+    Math.max(1, Math.ceil(height * effectiveScale)),
+  );
   (canvas as unknown as Record<string, unknown>)['style'] = { width: '', height: '' };
   const renderer = new Canvas2DRenderer(canvas as unknown as HTMLCanvasElement);
-  renderer.resize(width, height, scale);
+  renderer.resize(width, height, effectiveScale);
   renderer.clear();
 
   if (backgroundColor) renderer.fillBackground(backgroundColor);
@@ -285,7 +493,16 @@ const exportPngHandler: RpcHandler = async (ydoc: Y.Doc, args) => {
   if (shapes.length === 0) return { error: 'No shapes to export' };
   const scale = (args['scale'] as number | undefined) ?? 1;
   const backgroundColor = args['backgroundColor'] as string | undefined;
-  return serverExportToPng(shapes, scale, backgroundColor);
+  const x = args['x'] as number | undefined;
+  const y = args['y'] as number | undefined;
+  const width = args['width'] as number | undefined;
+  const height = args['height'] as number | undefined;
+  const region =
+    x !== undefined && y !== undefined && width !== undefined && height !== undefined
+      ? { x, y, width, height }
+      : undefined;
+  const padding = (args['padding'] as number | undefined) ?? 0;
+  return serverExportToPng(shapes, scale, backgroundColor, region, padding);
 };
 
 const handlers = createRpcHandlers({ export_png: exportPngHandler });
@@ -331,6 +548,13 @@ async function serverRpcHandler(
   const handler = handlers[tool];
   if (!handler) throw new Error(`Unknown tool: ${tool}`);
   roomLastAccess.set(draftId, Date.now());
+  if (TEXT_MEASURE_TOOLS.has(tool)) {
+    const requests =
+      tool === 'update_shape' || tool === 'batch_update_shapes'
+        ? collectUpdateFontRequests(room.ydoc, tool, args)
+        : collectFontRequestsFromArgs(args);
+    if (requests.size > 0) await ensureFontVariantsRegistered(requests);
+  }
   return handler(room.ydoc, args);
 }
 

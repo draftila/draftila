@@ -10,11 +10,11 @@ Draftila implements a [Model Context Protocol](https://modelcontextprotocol.io/)
 ## How It Works
 
 1. The AI agent sends tool calls to the Draftila API via MCP
-2. The API proxies these operations to the browser editor via WebSocket
-3. The browser executes the operations on the canvas (for accurate text measurement, layout, and rendering)
-4. Results are streamed back to the AI agent
+2. The API executes each operation on the server against the draft's live collaborative document, including text measurement, auto-layout, and rendering
+3. Document changes are broadcast over WebSocket to every connected editor
+4. Results are returned to the AI agent
 
-All operations happen in real-time — you can watch the AI design in your editor as it works.
+All operations happen in real-time — if you have the draft open, you can watch the AI design in your editor as it works. No open browser tab is required for the operations to run.
 
 ## Setup
 
@@ -45,9 +45,9 @@ Add Draftila as an MCP server in your client's configuration. For Claude Desktop
 Replace the URL with your actual Draftila instance URL and use a real API key.
 :::
 
-### Opening a Draft
+### Choosing a Draft
 
-You must have a draft open in the Draftila editor in your browser for MCP operations to work. The AI agent operates on whichever draft is currently active.
+The AI agent picks a draft with `list_drafts` and passes its id to every tool. Keeping the draft open in your browser lets you watch the changes live, but it is not required.
 
 ## Available Tools
 
@@ -55,27 +55,31 @@ The MCP server exposes around 50 tools organized into categories. It also sends 
 
 ### Draft Management
 
-| Tool              | Description                     |
-| ----------------- | ------------------------------- |
-| `list_drafts`     | List all accessible drafts      |
-| `list_pages`      | List pages in the current draft |
-| `add_page`        | Create a new page               |
-| `remove_page`     | Delete a page                   |
-| `rename_page`     | Rename a page                   |
-| `set_active_page` | Switch the active page          |
+| Tool                  | Description                                 |
+| --------------------- | ------------------------------------------- |
+| `list_drafts`         | List all accessible drafts                  |
+| `list_pages`          | List pages in the current draft             |
+| `add_page`            | Create a new page                           |
+| `remove_page`         | Delete a page                               |
+| `rename_page`         | Rename a page                               |
+| `set_active_page`     | Switch the active page                      |
+| `set_page_background` | Set a page's background color (null resets) |
 
 ### Shape Creation
 
-| Tool                  | Description                                           |
-| --------------------- | ----------------------------------------------------- |
-| `create_shape`        | Create a single shape (recommended for live feedback) |
-| `batch_create_shapes` | Create multiple shapes at once (max 50)               |
-| `get_shape`           | Get a shape's properties                              |
-| `update_shape`        | Modify shape properties                               |
-| `batch_update_shapes` | Update multiple shapes at once                        |
-| `delete_shapes`       | Delete shapes                                         |
-| `list_shapes`         | List all shapes or children of a shape                |
-| `duplicate_shapes`    | Duplicate shapes                                      |
+| Tool                  | Description                                                                              |
+| --------------------- | ---------------------------------------------------------------------------------------- |
+| `create_shape`        | Create a single shape (best for incremental edits)                                       |
+| `batch_create_shapes` | Create a whole shape tree in one call via nested `children` (max 100 entries, 200 nodes) |
+| `get_shape`           | Get a shape's properties                                                                 |
+| `update_shape`        | Modify shape properties                                                                  |
+| `batch_update_shapes` | Update multiple shapes at once, with per-item results                                    |
+| `delete_shapes`       | Delete shapes                                                                            |
+| `list_shapes`         | List all shapes or children of a shape (compact mode includes text and fill summaries)   |
+| `find_shapes`         | Search shapes by name, type, or text content, with pagination                            |
+| `duplicate_shapes`    | Duplicate shapes                                                                         |
+
+`batch_create_shapes` creates the whole batch in a single document transaction with one layout pass. Hierarchy is expressed with nested `children` arrays — children are parented automatically and positioned relative to their parent — and the flat `"$0"`/`"$1"` parent-reference form is still accepted for backwards compatibility. Create and update tools also return a `warnings` array when props contain unknown keys, so typos surface instead of persisting silently.
 
 #### Images created through MCP
 
@@ -119,20 +123,34 @@ Components are snapshots, not live definitions. `create_component` captures the 
 
 ### Export, Import, and Code Generation
 
-| Tool                         | Description                                              |
-| ---------------------------- | -------------------------------------------------------- |
-| `export_svg`                 | Export as SVG markup                                     |
-| `export_png`                 | Export as base64 PNG (configurable scale and background) |
-| `export_css`                 | Export as CSS code (dimensions, fills, borders, flexbox) |
-| `export_css_all_layers`      | Export as CSS with rules for all descendant layers       |
-| `export_tailwind`            | Export as Tailwind utility classes                       |
-| `export_tailwind_all_layers` | Export Tailwind classes for all descendant layers        |
-| `export_swiftui`             | Export as SwiftUI code (HStack/VStack, modifiers)        |
-| `export_compose`             | Export as Jetpack Compose code (Row/Column, Modifiers)   |
-| `import_svg`                 | Parse SVG and create shapes                              |
-| `list_icons`                 | List available Lucide icons                              |
-| `insert_icon`                | Insert a Lucide icon as SVG                              |
-| `list_fonts`                 | List custom font families uploaded by an admin           |
+| Tool                         | Description                                                         |
+| ---------------------------- | ------------------------------------------------------------------- |
+| `export_svg`                 | Export as SVG markup                                                |
+| `export_png`                 | Export as base64 PNG (scale, background, region capture, auto-crop) |
+| `export_html`                | Export as a standalone HTML document (Tailwind or embedded CSS)     |
+| `export_css`                 | Export as CSS code (dimensions, fills, borders, flexbox)            |
+| `export_css_all_layers`      | Export as CSS with rules for all descendant layers                  |
+| `export_tailwind`            | Export as Tailwind utility classes                                  |
+| `export_tailwind_all_layers` | Export Tailwind classes for all descendant layers                   |
+| `export_swiftui`             | Export as SwiftUI code (HStack/VStack, modifiers)                   |
+| `export_compose`             | Export as Jetpack Compose code (Row/Column, Modifiers)              |
+| `import_svg`                 | Parse SVG and create shapes                                         |
+| `import_html`                | Convert Tailwind-styled HTML into a native shape tree in one call   |
+| `list_icons`                 | List available Lucide icons                                         |
+| `insert_icon`                | Insert a Lucide icon as SVG                                         |
+| `list_fonts`                 | List custom font families uploaded by an admin                      |
+
+#### Importing HTML with Tailwind classes
+
+`import_html` is the fastest way for an agent to build a whole screen or section: it takes HTML markup styled with Tailwind utility classes and converts it into native Draftila shapes in a single call.
+
+- Flex containers (`flex`, `flex-col`, `gap-*`, `p-*`, `items-*`, `justify-*`) become auto-layout frames
+- Headings, paragraphs, and labels become text shapes; inline `<strong>`/`<em>`/styled `<span>` runs become rich-text segments
+- `<img>` becomes an image shape (the `src` is downloaded, validated, and stored with the draft, like other MCP image imports); inline `<svg>` becomes an SVG shape
+- Sizing follows CSS semantics: `w-*`/`h-*` fix a dimension, `w-full`/`flex-1`/`grow` fill, everything else hugs its content
+- Supported styling includes the default Tailwind color palette, arbitrary values (`bg-[#hex]`, `w-[313px]`, `text-[15px]`), gradients (`bg-linear-to-*` with `from-`/`via-`/`to-`), borders, `rounded-*`, `shadow-*`, opacity, blur, and a small inline `style=""` fallback
+
+Unsupported constructs are approximated and reported in the returned `warnings` array rather than failing the import: CSS grid becomes a vertical stack, responsive prefixes (`sm:`/`md:`/`lg:`) are ignored in favor of the base classes, state prefixes (`hover:`/`dark:`) are dropped, margins are ignored (use gap and padding), and tables and form controls become placeholders.
 
 #### Images in PNG exports
 
@@ -163,7 +181,7 @@ Globals are the draft's named colour tokens ("Globals" in the editor). Bind a fi
 
 ## Limitations
 
-- Each MCP operation has a 30-second timeout
-- The draft must be open in a browser tab for operations to execute
-- Batch operations are limited to 50 shapes per call
+- The MCP endpoint is rate limited to 60 requests per minute per client — the bulk tools (`import_html`, `batch_create_shapes`) exist so agents rarely need more
+- `batch_create_shapes` accepts up to 100 top-level entries and 200 shapes in total per call; `batch_update_shapes` accepts up to 100 updates
+- `export_png` output is capped at 4096×4096 pixels; larger requests are downscaled automatically
 - The AI sees the same design state as your editor — changes are synced in real-time

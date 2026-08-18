@@ -72,6 +72,17 @@ export interface InterchangePathPoint {
   pressure: number;
 }
 
+export interface InterchangeTextSegment {
+  text: string;
+  color?: string;
+  fontSize?: number;
+  fontFamily?: string;
+  fontWeight?: number;
+  fontStyle?: 'normal' | 'italic';
+  textDecoration?: 'none' | 'underline' | 'strikethrough';
+  letterSpacing?: number;
+}
+
 export interface InterchangeClipPath {
   type: 'rect' | 'ellipse' | 'path';
   x?: number;
@@ -120,6 +131,25 @@ export interface InterchangeNode {
   letterSpacing?: number;
   textDecoration?: 'none' | 'underline' | 'strikethrough';
   textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+  textAutoResize?: 'none' | 'width' | 'height';
+  segments?: InterchangeTextSegment[];
+
+  layoutMode?: 'none' | 'horizontal' | 'vertical';
+  layoutWrap?: 'nowrap' | 'wrap';
+  layoutGap?: number;
+  layoutGapColumn?: number;
+  paddingTop?: number;
+  paddingRight?: number;
+  paddingBottom?: number;
+  paddingLeft?: number;
+  layoutAlign?: 'start' | 'center' | 'end' | 'stretch';
+  layoutJustify?: 'start' | 'center' | 'end' | 'space_between' | 'space_around';
+  layoutSizingHorizontal?: 'fixed' | 'hug' | 'fill';
+  layoutSizingVertical?: 'fixed' | 'hug' | 'fill';
+  minWidth?: number;
+  maxWidth?: number;
+  minHeight?: number;
+  maxHeight?: number;
 
   pathPoints?: InterchangePathPoint[];
   svgPathData?: string;

@@ -23,8 +23,16 @@ export type {
   InterchangeNode,
   InterchangeMetadata,
   InterchangeDocument,
+  InterchangeTextSegment,
 } from './interchange-format';
 export { createInterchangeNode, createInterchangeDocument } from './interchange-format';
+
+export { parseHtml, type HtmlParseResult } from './html/html-parser';
+export {
+  parseTailwindClasses,
+  type TailwindStyle,
+  type TailwindParseResult,
+} from './html/tailwind-class-parser';
 
 export {
   registerImportAdapter,

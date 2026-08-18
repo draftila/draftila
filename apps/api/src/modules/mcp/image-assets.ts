@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { parseHTML } from 'linkedom';
 import { getStorage } from '../../common/lib/storage';
 import { loadServerImageAsset } from './image-loader';
 
@@ -53,16 +54,30 @@ async function localizeCreateArgs(
   return { ...args, props: await localizeShapeProps(args['props'], importer) };
 }
 
+async function localizeBatchCreateEntry(
+  entry: unknown,
+  importer: ImageSourceImporter,
+): Promise<unknown> {
+  if (!isRecord(entry)) return entry;
+  const localized: Record<string, unknown> = {
+    ...entry,
+    props: await localizeShapeProps(entry['props'], importer),
+  };
+  if (Array.isArray(entry['children'])) {
+    localized['children'] = await Promise.all(
+      entry['children'].map((child) => localizeBatchCreateEntry(child, importer)),
+    );
+  }
+  return localized;
+}
+
 async function localizeBatchCreateArgs(
   args: Record<string, unknown>,
   importer: ImageSourceImporter,
 ): Promise<Record<string, unknown>> {
   if (!Array.isArray(args['shapes'])) return args;
   const shapes = await Promise.all(
-    args['shapes'].map(async (shape) => {
-      if (!isRecord(shape)) return shape;
-      return { ...shape, props: await localizeShapeProps(shape['props'], importer) };
-    }),
+    args['shapes'].map((shape) => localizeBatchCreateEntry(shape, importer)),
   );
   return { ...args, shapes };
 }
@@ -79,6 +94,32 @@ async function localizeBatchUpdateArgs(
     }),
   );
   return { ...args, updates };
+}
+
+async function localizeImportHtmlArgs(
+  args: Record<string, unknown>,
+  importer: ImageSourceImporter,
+): Promise<Record<string, unknown>> {
+  const html = args['html'];
+  if (typeof html !== 'string' || html.length === 0) return args;
+
+  const isFullDocument = /<body[\s>]/i.test(html);
+  const { document } = isFullDocument
+    ? parseHTML(html)
+    : parseHTML(`<!DOCTYPE html><html><body>${html}</body></html>`);
+
+  let changed = false;
+  for (const img of document.querySelectorAll('img')) {
+    const src = img.getAttribute('src');
+    if (src && shouldImportImageSource(src)) {
+      img.setAttribute('src', await importer(src));
+      changed = true;
+    }
+  }
+  if (!changed) return args;
+
+  const serialized = isFullDocument ? document.toString() : document.body.innerHTML;
+  return { ...args, html: serialized };
 }
 
 export async function storeMcpImageAsset(
@@ -114,6 +155,9 @@ export async function localizeMcpToolImageSources(
   }
   if (tool === 'batch_update_shapes') {
     return localizeBatchUpdateArgs(args, cachedImporter);
+  }
+  if (tool === 'import_html') {
+    return localizeImportHtmlArgs(args, cachedImporter);
   }
   return args;
 }

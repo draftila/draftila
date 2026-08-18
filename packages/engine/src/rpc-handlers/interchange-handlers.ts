@@ -10,8 +10,10 @@ import {
   generateTailwindAllLayers,
   generateSwiftUI,
   generateCompose,
+  generateHtmlCss,
+  generateHtmlTailwind,
 } from '../codegen';
-import { importSvgShapes } from '../shape-import';
+import { importSvgShapes, importHtmlShapes } from '../shape-import';
 import type { RpcHandler } from './types';
 import { collectShapesWithDescendants } from './utils';
 
@@ -95,6 +97,39 @@ export function interchangeHandlers(): Record<string, RpcHandler> {
         applyAutoLayoutForAncestors(ydoc, firstShapeId);
       }
       return { shapeIds };
+    },
+
+    import_html(ydoc, args) {
+      const targetParentId = (args['targetParentId'] as string | undefined) ?? undefined;
+      const result = importHtmlShapes(ydoc, args['html'] as string, {
+        targetParentId,
+        cursorPosition:
+          args['x'] !== undefined && args['y'] !== undefined
+            ? { x: args['x'] as number, y: args['y'] as number }
+            : undefined,
+      });
+
+      if (targetParentId) {
+        const parent = getShape(ydoc, targetParentId);
+        if (parent && isAutoLayoutFrame(parent)) {
+          applyAutoLayout(ydoc, targetParentId);
+        }
+      }
+      const firstShapeId = result.rootIds[0];
+      if (firstShapeId) {
+        applyAutoLayoutForAncestors(ydoc, firstShapeId);
+      }
+
+      return { shapeIds: result.rootIds, count: result.allIds.length, warnings: result.warnings };
+    },
+
+    export_html(ydoc, args) {
+      const allShapes = getResolvedShapes(ydoc);
+      const ids = args['shapeIds'] as string[] | undefined;
+      const shapes =
+        ids && ids.length > 0 ? collectShapesWithDescendants(allShapes, ids) : allShapes;
+      const format = (args['format'] as string | undefined) ?? 'tailwind';
+      return format === 'css' ? generateHtmlCss(shapes) : generateHtmlTailwind(shapes);
     },
   };
 }

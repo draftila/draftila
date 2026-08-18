@@ -427,3 +427,29 @@ export const shapeSchema = z.discriminatedUnion('type', [
   svgShapeSchema,
   groupShapeSchema,
 ]);
+
+const shapeSchemasByType = {
+  rectangle: rectangleShapeSchema,
+  ellipse: ellipseShapeSchema,
+  frame: frameShapeSchema,
+  text: textShapeSchema,
+  path: pathShapeSchema,
+  line: lineShapeSchema,
+  polygon: polygonShapeSchema,
+  star: starShapeSchema,
+  image: imageShapeSchema,
+  svg: svgShapeSchema,
+  group: groupShapeSchema,
+} as const;
+
+const shapeKnownKeysCache = new Map<string, ReadonlySet<string>>();
+
+export function getShapeKnownKeys(type: string): ReadonlySet<string> | null {
+  const cached = shapeKnownKeysCache.get(type);
+  if (cached) return cached;
+  const schema = shapeSchemasByType[type as keyof typeof shapeSchemasByType];
+  if (!schema) return null;
+  const keys: ReadonlySet<string> = new Set(Object.keys(schema.shape));
+  shapeKnownKeysCache.set(type, keys);
+  return keys;
+}

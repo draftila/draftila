@@ -1,12 +1,14 @@
 import type * as Y from 'yjs';
 import type { Point, Shape } from '@draftila/shared';
-import { addShape, getShape } from './scene-graph';
+import { addShape, getShape, updateShape, applyAutoLayoutForShapes } from './scene-graph';
+import { applyTextAutoResize } from './text-measure';
 import {
   initializeDefaultAdapters,
   detectImportAdapter,
   shapesToInterchange,
   interchangeToShapeData,
   generateSvg,
+  parseHtml,
 } from './interchange';
 import type { ImportData, InterchangeDocument } from './interchange';
 import { stripShapeColorVars } from './variables';
@@ -39,13 +41,18 @@ function computeShapesOffset(
   };
 }
 
+interface InterchangeInsertResult {
+  rootIds: string[];
+  allIds: string[];
+}
+
 function addInterchangeDocToYdoc(
   ydoc: Y.Doc,
   doc: InterchangeDocument,
   options?: ExternalPasteOptions,
-): string[] {
+): InterchangeInsertResult {
   const shapeData = interchangeToShapeData(doc);
-  if (shapeData.length === 0) return [];
+  if (shapeData.length === 0) return { rootIds: [], allIds: [] };
 
   const targetParentId = options?.targetParentId ?? null;
   const boundsItems = shapeData.map((s) => ({
@@ -95,29 +102,33 @@ function addInterchangeDocToYdoc(
   const { offsetX, offsetY } = computeShapesOffset(boundsItems, cursorPosition);
 
   const indexToId = new Map<number, string>();
-  const ids: string[] = [];
+  const rootIds: string[] = [];
+  const allIds: string[] = [];
 
-  for (let i = 0; i < shapeData.length; i++) {
-    const item = shapeData[i]!;
-    const parentId =
-      item.parentIndex !== null
-        ? (indexToId.get(item.parentIndex) ?? targetParentId)
-        : targetParentId;
+  ydoc.transact(() => {
+    for (let i = 0; i < shapeData.length; i++) {
+      const item = shapeData[i]!;
+      const parentId =
+        item.parentIndex !== null
+          ? (indexToId.get(item.parentIndex) ?? targetParentId)
+          : targetParentId;
 
-    const id = addShape(ydoc, item.type, {
-      ...item.props,
-      x: ((item.props['x'] as number) ?? 0) + offsetX + parentAbsoluteX,
-      y: ((item.props['y'] as number) ?? 0) + offsetY + parentAbsoluteY,
-      parentId,
-    });
-    indexToId.set(i, id);
+      const id = addShape(ydoc, item.type, {
+        ...item.props,
+        x: ((item.props['x'] as number) ?? 0) + offsetX + parentAbsoluteX,
+        y: ((item.props['y'] as number) ?? 0) + offsetY + parentAbsoluteY,
+        parentId,
+      });
+      indexToId.set(i, id);
+      allIds.push(id);
 
-    if (item.parentIndex === null) {
-      ids.push(id);
+      if (item.parentIndex === null) {
+        rootIds.push(id);
+      }
     }
-  }
+  });
 
-  return ids;
+  return { rootIds, allIds };
 }
 
 export function importSvgShapes(
@@ -130,7 +141,42 @@ export function importSvgShapes(
   if (!adapter) return [];
 
   const doc = adapter.import(svg.trim().startsWith('<svg') ? { text: svg } : { html: svg });
-  return addInterchangeDocToYdoc(ydoc, doc, options);
+  return addInterchangeDocToYdoc(ydoc, doc, options).rootIds;
+}
+
+export interface HtmlImportResult {
+  rootIds: string[];
+  allIds: string[];
+  warnings: string[];
+}
+
+export function importHtmlShapes(
+  ydoc: Y.Doc,
+  html: string,
+  options?: ExternalPasteOptions,
+): HtmlImportResult {
+  const { doc, warnings } = parseHtml(html);
+  const inserted: InterchangeInsertResult = { rootIds: [], allIds: [] };
+
+  ydoc.transact(() => {
+    const { rootIds, allIds } = addInterchangeDocToYdoc(ydoc, doc, options);
+    inserted.rootIds = rootIds;
+    inserted.allIds = allIds;
+
+    applyAutoLayoutForShapes(ydoc, allIds);
+    for (const id of allIds) {
+      const shape = getShape(ydoc, id);
+      if (shape && shape.type === 'text') {
+        const patch = applyTextAutoResize(shape);
+        if (patch) {
+          updateShape(ydoc, id, patch);
+        }
+      }
+    }
+    applyAutoLayoutForShapes(ydoc, allIds);
+  });
+
+  return { rootIds: inserted.rootIds, allIds: inserted.allIds, warnings };
 }
 
 export type PasteSource = 'svg' | 'draftila' | 'text' | 'unknown';
@@ -237,8 +283,8 @@ export function handlePaste(
 
   if (adapter && adapter.platform !== 'draftila') {
     const doc = adapter.import(data);
-    const ids = addInterchangeDocToYdoc(ydoc, doc, options);
-    if (ids.length > 0) return ids;
+    const { rootIds } = addInterchangeDocToYdoc(ydoc, doc, options);
+    if (rootIds.length > 0) return rootIds;
   }
 
   if (text) {
