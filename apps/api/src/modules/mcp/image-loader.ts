@@ -3,7 +3,8 @@ import { request as httpRequest } from 'node:http';
 import type { IncomingMessage, RequestOptions } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { createCanvas, loadImage, type Image } from '@napi-rs/canvas';
-import { imageSize } from 'image-size';
+import { DOMParser } from 'linkedom';
+import probeImageSize from 'probe-image-size';
 import { extractStorageKey, getStorage } from '../../common/lib/storage';
 
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
@@ -11,6 +12,14 @@ const MAX_IMAGE_PIXELS = 30_000_000;
 const REQUEST_TIMEOUT_MS = 10_000;
 const MAX_REDIRECTS = 3;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+const SVG_PIXELS_PER_ABSOLUTE_UNIT: Record<string, number> = {
+  cm: 96 / 2.54,
+  in: 96,
+  mm: 96 / 25.4,
+  pc: 16,
+  pt: 96 / 72,
+  px: 1,
+};
 const BROWSER_IMAGE_EXTENSIONS: Record<string, string> = {
   bmp: 'bmp',
   gif: 'gif',
@@ -157,21 +166,40 @@ async function readCappedBody(response: IncomingMessage): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
-function largestFramePixels(dimensions: ReturnType<typeof imageSize>): number {
-  return (dimensions.images ?? []).reduce(
+type ImageDimensions = NonNullable<ReturnType<typeof probeImageSize.sync>>;
+
+function pixelArea(width: number, height: number, widthUnits: string, heightUnits: string): number {
+  const widthScale = SVG_PIXELS_PER_ABSOLUTE_UNIT[widthUnits];
+  const heightScale = SVG_PIXELS_PER_ABSOLUTE_UNIT[heightUnits];
+  if (!widthScale || !heightScale) throw new Error('Unsupported or unreadable image format');
+  return width * widthScale * height * heightScale;
+}
+
+function largestFramePixels(dimensions: ImageDimensions): number {
+  return (dimensions.variants ?? []).reduce(
     (largest, frame) => Math.max(largest, frame.width * frame.height),
-    dimensions.width * dimensions.height,
+    pixelArea(dimensions.width, dimensions.height, dimensions.wUnits, dimensions.hUnits),
   );
 }
 
-function getImageDimensions(bytes: Buffer): ReturnType<typeof imageSize> {
-  let dimensions: ReturnType<typeof imageSize>;
+function validateSvgRoot(bytes: Buffer, dimensions: ImageDimensions) {
+  if (dimensions.type !== 'svg') return;
+
+  const document = new DOMParser().parseFromString(bytes.toString('utf8'), 'image/svg+xml');
+  const root = document.documentElement;
+  if (root.hasAttribute('style')) throw new Error('Unsupported or unreadable image format');
+}
+
+function getImageDimensions(bytes: Buffer): ImageDimensions {
+  let dimensions: ImageDimensions | null;
   try {
-    dimensions = imageSize(bytes);
+    dimensions = probeImageSize.sync(bytes);
   } catch {
     throw new Error('Unsupported or unreadable image format');
   }
 
+  if (!dimensions) throw new Error('Unsupported or unreadable image format');
+  validateSvgRoot(bytes, dimensions);
   if (largestFramePixels(dimensions) > MAX_IMAGE_PIXELS) {
     throw new Error('Image exceeds the maximum allowed pixel count');
   }

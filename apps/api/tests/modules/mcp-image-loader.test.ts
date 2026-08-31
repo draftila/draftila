@@ -145,6 +145,23 @@ describe('mcp image loader', () => {
       ).rejects.toThrow('Image exceeds the maximum allowed pixel count');
     });
 
+    test('rejects an svg with physical dimensions beyond the pixel budget', async () => {
+      const huge = '<svg xmlns="http://www.w3.org/2000/svg" width="1000in" height="1000in"></svg>';
+      const uri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(huge)}`;
+
+      await expect(loadServerImage(uri)).rejects.toThrow(
+        'Image exceeds the maximum allowed pixel count',
+      );
+    });
+
+    test('rejects svg root styles that can override the validated dimensions', async () => {
+      const styled =
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10" style="width:10in;height:10in"></svg>';
+      const uri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(styled)}`;
+
+      await expect(loadServerImage(uri)).rejects.toThrow('Unsupported or unreadable image format');
+    });
+
     test('rejects an svg that rasterises beyond the pixel budget', async () => {
       const huge = '<svg xmlns="http://www.w3.org/2000/svg" width="60000" height="60000"></svg>';
       const uri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(huge)}`;

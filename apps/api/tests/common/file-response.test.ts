@@ -6,7 +6,7 @@ describe('createFileResponse', () => {
     ['index.html', 'text/html; charset=utf-8'],
     ['application.js', 'text/javascript; charset=utf-8'],
     ['styles.css', 'text/css; charset=utf-8'],
-    ['favicon.svg', 'image/svg+xml'],
+    ['favicon.svg', 'image/svg+xml; charset=utf-8'],
     ['font.woff2', 'font/woff2'],
     ['module.wasm', 'application/wasm'],
     ['unknown.asset', 'application/octet-stream'],
