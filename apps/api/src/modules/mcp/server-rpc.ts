@@ -544,18 +544,23 @@ async function serverRpcHandler(
   args: Record<string, unknown>,
 ): Promise<unknown> {
   await hydrateCustomFontRegistry();
-  const room = await collaborationService.getOrCreateRoom(draftId);
-  const handler = handlers[tool];
-  if (!handler) throw new Error(`Unknown tool: ${tool}`);
-  roomLastAccess.set(draftId, Date.now());
-  if (TEXT_MEASURE_TOOLS.has(tool)) {
-    const requests =
-      tool === 'update_shape' || tool === 'batch_update_shapes'
-        ? collectUpdateFontRequests(room.ydoc, tool, args)
-        : collectFontRequestsFromArgs(args);
-    if (requests.size > 0) await ensureFontVariantsRegistered(requests);
-  }
-  return handler(room.ydoc, args);
+  return collaborationService.withRoom(
+    draftId,
+    async (ydoc) => {
+      const handler = handlers[tool];
+      if (!handler) throw new Error(`Unknown tool: ${tool}`);
+      roomLastAccess.set(draftId, Date.now());
+      if (TEXT_MEASURE_TOOLS.has(tool)) {
+        const requests =
+          tool === 'update_shape' || tool === 'batch_update_shapes'
+            ? collectUpdateFontRequests(ydoc, tool, args)
+            : collectFontRequestsFromArgs(args);
+        if (requests.size > 0) await ensureFontVariantsRegistered(requests);
+      }
+      return handler(ydoc, args);
+    },
+    { retainForMs: ROOM_IDLE_TIMEOUT_MS },
+  );
 }
 
 export function initServerRpc() {

@@ -1,4 +1,7 @@
 import * as Y from 'yjs';
+import { ensureDefaultPage } from '@draftila/engine';
+import { COLLABORATION_ACCESS_CHANGED, COLLABORATION_ACCESS_MESSAGE } from '@draftila/shared';
+import { getDraftAccess } from '../drafts/drafts.access';
 import * as syncProtocol from 'y-protocols/sync';
 import * as awarenessProtocol from 'y-protocols/awareness';
 import * as encoding from 'lib0/encoding';
@@ -25,11 +28,12 @@ const COMPACTION_BYTES = 1_000_000;
 export interface WsData {
   draftId: string;
   userId: string;
+  projectId: string;
 }
 
 interface WsLike {
   send(data: Uint8Array | ArrayBuffer | string): void;
-  close?(): void;
+  close?(code?: number, reason?: string): void;
 }
 
 interface Room {
@@ -42,19 +46,44 @@ interface Room {
   pendingUpdates: Uint8Array[];
   loggedBytes: number;
   maxUpdateId: number;
+  activeOperations: number;
+  closing: Promise<void> | null;
+  retainUntil: number;
+  autoSaveUserId: string | null;
 }
 
 const rooms = new Map<string, Room>();
-const connectionData = new Map<WsLike, WsData>();
+const loadingRooms = new Map<string, Promise<Room>>();
+interface Connection extends WsData {
+  canEdit: boolean;
+  revoked: boolean;
+  ready: Promise<void>;
+}
+
+const connectionData = new Map<WsLike, Connection>();
 
 function getRoomConnections(draftId: string): Set<WsLike> | undefined {
-  return rooms.get(draftId)?.connections;
+  const connections = rooms.get(draftId)?.connections;
+  if (!connections) return undefined;
+  return new Set([...connections].filter((ws) => connectionData.get(ws)?.canEdit));
 }
 
 export async function getOrCreateRoom(draftId: string): Promise<Room> {
   const existing = rooms.get(draftId);
   if (existing) return existing;
 
+  const pending = loadingRooms.get(draftId);
+  if (pending) return pending;
+  const loading = loadRoom(draftId);
+  loadingRooms.set(draftId, loading);
+  try {
+    return await loading;
+  } finally {
+    loadingRooms.delete(draftId);
+  }
+}
+
+async function loadRoom(draftId: string): Promise<Room> {
   const ydoc = new Y.Doc();
   const awareness = new awarenessProtocol.Awareness(ydoc);
 
@@ -89,6 +118,10 @@ export async function getOrCreateRoom(draftId: string): Promise<Room> {
     pendingUpdates: [],
     loggedBytes: 0,
     maxUpdateId: 0,
+    activeOperations: 0,
+    closing: null,
+    retainUntil: 0,
+    autoSaveUserId: null,
   };
 
   const updateHandler = (update: Uint8Array, origin: unknown) => {
@@ -132,33 +165,82 @@ export async function getOrCreateRoom(draftId: string): Promise<Room> {
   return room;
 }
 
-export function handleConnection(ws: WsLike, draftId: string, wsData?: WsData) {
-  const room = rooms.get(draftId);
-  if (!room) return;
+export function handleConnection(ws: WsLike, draftId: string, wsData: WsData): Promise<void> {
+  const connection: Connection = {
+    ...wsData,
+    canEdit: false,
+    revoked: false,
+    ready: Promise.resolve(),
+  };
+  connectionData.set(ws, connection);
+  connection.ready = initializeConnection(ws, draftId, connection).catch((error: unknown) => {
+    connection.revoked = true;
+    ws.close?.(1011, 'Unable to authorize connection');
+    console.error('Unable to authorize collaboration connection:', error);
+  });
+  return connection.ready;
+}
 
-  room.connections.add(ws);
-  if (wsData) {
-    connectionData.set(ws, wsData);
+async function initializeConnection(ws: WsLike, draftId: string, connection: Connection) {
+  const access = await getDraftAccess(draftId, connection.userId);
+  if (connectionData.get(ws) !== connection || connection.revoked) return;
+  if (!access || connection.draftId !== draftId || access.projectId !== connection.projectId) {
+    connection.revoked = true;
+    ws.close?.(COLLABORATION_ACCESS_CHANGED, 'Draft access denied');
+    return;
   }
+  const room = await acquireRoom(draftId);
+  try {
+    if (connectionData.get(ws) !== connection || connection.revoked) return;
+    ensureDefaultPage(room.ydoc);
+    connection.canEdit = access.canEdit;
+    room.connections.add(ws);
+    sendConnectionAccess(ws, access.canEdit);
 
-  const encoder = encoding.createEncoder();
-  encoding.writeVarUint(encoder, MESSAGE_SYNC);
-  syncProtocol.writeSyncStep1(encoder, room.ydoc);
-  ws.send(encoding.toUint8Array(encoder));
+    const encoder = encoding.createEncoder();
+    encoding.writeVarUint(encoder, MESSAGE_SYNC);
+    syncProtocol.writeSyncStep1(encoder, room.ydoc);
+    ws.send(encoding.toUint8Array(encoder));
 
-  const awarenessStates = room.awareness.getStates();
-  if (awarenessStates.size > 0) {
-    const awarenessEncoder = encoding.createEncoder();
-    encoding.writeVarUint(awarenessEncoder, MESSAGE_AWARENESS);
-    encoding.writeVarUint8Array(
-      awarenessEncoder,
-      awarenessProtocol.encodeAwarenessUpdate(room.awareness, Array.from(awarenessStates.keys())),
-    );
-    ws.send(encoding.toUint8Array(awarenessEncoder));
+    const awarenessStates = room.awareness.getStates();
+    if (awarenessStates.size > 0) {
+      const awarenessEncoder = encoding.createEncoder();
+      encoding.writeVarUint(awarenessEncoder, MESSAGE_AWARENESS);
+      encoding.writeVarUint8Array(
+        awarenessEncoder,
+        awarenessProtocol.encodeAwarenessUpdate(room.awareness, Array.from(awarenessStates.keys())),
+      );
+      ws.send(encoding.toUint8Array(awarenessEncoder));
+    }
+  } finally {
+    await releaseRoom(draftId, room);
   }
 }
 
-export function handleMessage(ws: WsLike, draftId: string, message: ArrayBuffer | Buffer) {
+function sendConnectionAccess(ws: WsLike, canEdit: boolean) {
+  const encoder = encoding.createEncoder();
+  encoding.writeVarUint(encoder, COLLABORATION_ACCESS_MESSAGE);
+  encoding.writeVarString(encoder, JSON.stringify({ canEdit }));
+  ws.send(encoding.toUint8Array(encoder));
+}
+
+export function revokeProjectConnections(projectId: string, userId: string) {
+  for (const [ws, connection] of connectionData) {
+    if (connection.projectId !== projectId || connection.userId !== userId) continue;
+    connection.canEdit = false;
+    connection.revoked = true;
+    rooms.get(connection.draftId)?.connections.delete(ws);
+    sendConnectionAccess(ws, false);
+    ws.close?.(COLLABORATION_ACCESS_CHANGED, 'Draft access changed');
+  }
+}
+
+export async function handleMessage(ws: WsLike, draftId: string, message: ArrayBuffer | Buffer) {
+  const connection = connectionData.get(ws);
+  if (!connection) return;
+  await connection.ready;
+  if (connectionData.get(ws) !== connection || connection.revoked || connection.draftId !== draftId)
+    return;
   const room = rooms.get(draftId);
   if (!room) return;
 
@@ -170,7 +252,14 @@ export function handleMessage(ws: WsLike, draftId: string, message: ArrayBuffer 
     case MESSAGE_SYNC: {
       const encoder = encoding.createEncoder();
       encoding.writeVarUint(encoder, MESSAGE_SYNC);
-      syncProtocol.readSyncMessage(decoder, encoder, room.ydoc, ws);
+      const syncType = decoding.readVarUint(decoder);
+      if (syncType === syncProtocol.messageYjsSyncStep1) {
+        syncProtocol.readSyncStep1(decoder, encoder, room.ydoc);
+      } else if (connection.canEdit && syncType === syncProtocol.messageYjsSyncStep2) {
+        syncProtocol.readSyncStep2(decoder, room.ydoc, ws);
+      } else if (connection.canEdit && syncType === syncProtocol.messageYjsUpdate) {
+        syncProtocol.readUpdate(decoder, room.ydoc, ws);
+      }
       if (encoding.length(encoder) > 1) {
         ws.send(encoding.toUint8Array(encoder));
       }
@@ -186,39 +275,48 @@ export function handleMessage(ws: WsLike, draftId: string, message: ArrayBuffer 
     }
     case MESSAGE_RPC: {
       const payload = decoding.readVarString(decoder);
-      handleRpcResponse(payload);
+      if (connection.canEdit) handleRpcResponse(payload);
       break;
     }
   }
 }
 
 export async function handleDisconnect(ws: WsLike, draftId: string) {
+  const wsData = connectionData.get(ws);
+  connectionData.delete(ws);
   const room = rooms.get(draftId);
   if (!room) return;
-
-  const wsData = connectionData.get(ws);
   room.connections.delete(ws);
-  connectionData.delete(ws);
 
-  if (room.connections.size === 0) {
-    if (room.snapshotTimer) clearInterval(room.snapshotTimer);
+  if (room.connections.size === 0 && wsData) room.autoSaveUserId = wsData.userId;
+  await closeIdleRoom(draftId, room);
+}
 
-    const hadUnsavedEdits = room.dirty;
-    await flushRoom(draftId, room);
-    if (hadUnsavedEdits) {
-      if (room.loggedBytes > 0 || room.pendingUpdates.length > 0) {
-        await compactRoom(draftId, room);
-      }
-      const state = Buffer.from(Y.encodeStateAsUpdate(room.ydoc));
-      await snapshotsService.createAutoSave(draftId, wsData?.userId ?? null, state);
-    }
+async function acquireRoom(draftId: string): Promise<Room> {
+  while (true) {
+    const room = await getOrCreateRoom(draftId);
+    if (rooms.get(draftId) !== room) continue;
+    room.activeOperations += 1;
+    return room;
+  }
+}
 
-    if (room.updateHandler) {
-      room.ydoc.off('update', room.updateHandler);
-    }
-    room.awareness.destroy();
-    room.ydoc.destroy();
-    rooms.delete(draftId);
+async function releaseRoom(draftId: string, room: Room) {
+  room.activeOperations -= 1;
+  if (rooms.get(draftId) === room) await closeIdleRoom(draftId, room);
+}
+
+export async function withRoom<T>(
+  draftId: string,
+  operation: (ydoc: Y.Doc) => Promise<T> | T,
+  options: { retainForMs?: number } = {},
+): Promise<T> {
+  const room = await acquireRoom(draftId);
+  room.retainUntil = Math.max(room.retainUntil, Date.now() + (options.retainForMs ?? 0));
+  try {
+    return await operation(room.ydoc);
+  } finally {
+    await releaseRoom(draftId, room);
   }
 }
 
@@ -328,6 +426,7 @@ export function destroyRoom(draftId: string) {
   if (room.updateHandler) room.ydoc.off('update', room.updateHandler);
 
   for (const conn of room.connections) {
+    connectionData.delete(conn);
     conn.close?.();
   }
 
@@ -336,17 +435,58 @@ export function destroyRoom(draftId: string) {
   rooms.delete(draftId);
 }
 
-export async function closeRoom(draftId: string) {
-  const room = rooms.get(draftId);
-  if (!room) return;
-  if (room.connections.size > 0) return;
-  if (room.snapshotTimer) clearInterval(room.snapshotTimer);
+async function closeIdleRoom(draftId: string, room: Room) {
+  if (room.connections.size > 0 || room.activeOperations > 0) return;
+  if (room.retainUntil > Date.now() && !room.autoSaveUserId) return;
+  if (room.closing) {
+    await room.closing;
+    if (rooms.get(draftId) === room) await closeIdleRoom(draftId, room);
+    return;
+  }
+  room.closing = persistAndCloseIdleRoom(draftId, room);
+  try {
+    await room.closing;
+  } finally {
+    room.closing = null;
+  }
+}
+
+async function persistAndCloseIdleRoom(draftId: string, room: Room) {
+  const autoSaveUserId = room.autoSaveUserId;
+  room.autoSaveUserId = null;
+  const hadUnsavedEdits = room.dirty;
   await flushRoom(draftId, room);
   if (room.loggedBytes > 0 || room.pendingUpdates.length > 0) await compactRoom(draftId, room);
+  if (autoSaveUserId && hadUnsavedEdits) {
+    try {
+      await snapshotsService.createAutoSave(
+        draftId,
+        autoSaveUserId,
+        Buffer.from(Y.encodeStateAsUpdate(room.ydoc)),
+      );
+    } catch (error) {
+      room.autoSaveUserId ??= autoSaveUserId;
+      throw error;
+    }
+  }
+  if (room.connections.size > 0 || room.activeOperations > 0 || rooms.get(draftId) !== room) return;
+  if (
+    room.pendingUpdates.length > 0 ||
+    room.dirty ||
+    room.autoSaveUserId ||
+    room.retainUntil > Date.now()
+  )
+    return;
+  if (room.snapshotTimer) clearInterval(room.snapshotTimer);
   if (room.updateHandler) room.ydoc.off('update', room.updateHandler);
   room.awareness.destroy();
   room.ydoc.destroy();
   rooms.delete(draftId);
+}
+
+export async function closeRoom(draftId: string) {
+  const room = rooms.get(draftId);
+  if (room) await closeIdleRoom(draftId, room);
 }
 
 export function closeAllRooms() {
@@ -358,6 +498,7 @@ export function closeAllRooms() {
     room.ydoc.destroy();
   }
   rooms.clear();
+  connectionData.clear();
 
   rejectAllPending();
 }

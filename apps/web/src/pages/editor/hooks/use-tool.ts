@@ -1,3 +1,5 @@
+import { isReadOnlyEditor } from '../lib/editor-permissions';
+import { handleReadOnlySelection } from '../lib/read-only-selection';
 import { useCallback, useEffect, useRef } from 'react';
 import type * as Y from 'yjs';
 import type { Shape } from '@draftila/shared';
@@ -120,7 +122,12 @@ export function useTool({ ydoc, canvasRef, sceneRef, onActiveInteraction }: UseT
         return;
       }
 
-      const activeTool = useEditorStore.getState().activeTool;
+      const state = useEditorStore.getState();
+      const activeTool = state.activeTool;
+      if (isReadOnlyEditor(state) && activeTool !== 'hand' && activeTool !== 'comment') {
+        handleReadOnlySelection(ctx, true);
+        return;
+      }
       const tool = getTool(activeTool);
       tool.onPointerDown(ctx);
     },
@@ -149,7 +156,12 @@ export function useTool({ ydoc, canvasRef, sceneRef, onActiveInteraction }: UseT
         return;
       }
 
-      const activeTool = useEditorStore.getState().activeTool;
+      const state = useEditorStore.getState();
+      const activeTool = state.activeTool;
+      if (isReadOnlyEditor(state) && activeTool !== 'hand' && activeTool !== 'comment') {
+        handleReadOnlySelection(ctx, false);
+        return;
+      }
       const tool = getTool(activeTool);
       tool.onPointerMove(ctx);
     },
@@ -188,7 +200,12 @@ export function useTool({ ydoc, canvasRef, sceneRef, onActiveInteraction }: UseT
         return;
       }
 
-      const activeTool = useEditorStore.getState().activeTool;
+      const state = useEditorStore.getState();
+      const activeTool = state.activeTool;
+      if (isReadOnlyEditor(state) && activeTool !== 'hand' && activeTool !== 'comment') {
+        getMoveTool().onDeactivate();
+        return;
+      }
       const tool = getTool(activeTool);
       tool.onPointerUp(ctx);
     },
@@ -235,7 +252,11 @@ export function useTool({ ydoc, canvasRef, sceneRef, onActiveInteraction }: UseT
     });
 
     const unsubscribe = useEditorStore.subscribe((state, prev) => {
-      if (state.activeTool === prev.activeTool) return;
+      if (
+        state.activeTool === prev.activeTool &&
+        isReadOnlyEditor(state) === isReadOnlyEditor(prev)
+      )
+        return;
       const prevTool = getTool(prev.activeTool);
       const nextTool = getTool(state.activeTool);
       prevTool.onDeactivate();

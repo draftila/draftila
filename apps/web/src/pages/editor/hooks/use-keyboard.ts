@@ -1,7 +1,9 @@
+import { isReadOnlyEditor } from '../lib/editor-permissions';
 import { useEffect } from 'react';
 import type * as Y from 'yjs';
 import { useEditorStore } from '@/stores/editor-store';
 import {
+  handleReadOnlyKeyDown,
   handleGuideKeyDown,
   handleToolKeyDown,
   handleCameraKeyDown,
@@ -21,6 +23,10 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (useEditorStore.getState().editingTextId) return;
 
+      if (isReadOnlyEditor(useEditorStore.getState())) {
+        handleReadOnlyKeyDown(e, ydoc);
+        return;
+      }
       if (handleVersionKeyDown(e)) return;
       if (handleGuideKeyDown(e, ydoc)) return;
       if (handleToolKeyDown(e, ydoc)) return;
@@ -32,6 +38,7 @@ export function useKeyboard({ ydoc }: UseKeyboardOptions) {
     const onPaste = (e: ClipboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (useEditorStore.getState().editingTextId) return;
+      if (isReadOnlyEditor(useEditorStore.getState())) return;
       handlePasteEvent(e, ydoc);
     };
 

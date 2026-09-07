@@ -144,7 +144,11 @@ describe('collaboration update log', () => {
   test('disconnecting after a session large enough to compact still records an auto-save', async () => {
     const room = await getOrCreateRoom(draftId);
     const ws = { send: () => {} };
-    handleConnection(ws, draftId, { draftId, userId: 'collab-user' });
+    await handleConnection(ws, draftId, {
+      draftId,
+      userId: 'collab-user',
+      projectId: 'collab-project',
+    });
 
     const filler = 'x'.repeat(8_000);
     const shapes = room.ydoc.getMap('shapes') as Y.Map<Y.Map<unknown>>;

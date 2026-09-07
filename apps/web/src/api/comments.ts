@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   CommentResponse,
+  CommentPlacement,
   CreateComment,
   MarkAllCommentsRead,
   UpdateComment,
@@ -93,5 +94,12 @@ export function useMarkAllCommentsRead(draftId: string) {
     onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({ queryKey: [...COMMENTS_KEY, draftId, variables.pageId] });
     },
+  });
+}
+
+export function useMoveCommentPin() {
+  return useMutation({
+    mutationFn: ({ commentId, placement }: { commentId: string; placement: CommentPlacement }) =>
+      api.patch<{ ok: true }>(`/api/comments/${commentId}/pin`, placement),
   });
 }

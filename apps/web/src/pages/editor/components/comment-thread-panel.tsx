@@ -8,6 +8,7 @@ interface CommentThreadPanelProps {
   y: number;
   thread: CommentResponse | null;
   isCreating: boolean;
+  readOnly: boolean;
   onCreate: (content: string) => Promise<void>;
   onReply: (parentId: string, content: string) => Promise<void>;
   onResolveToggle: (commentId: string) => Promise<void>;
@@ -37,6 +38,7 @@ export function CommentThreadPanel({
   y,
   thread,
   isCreating,
+  readOnly,
   onCreate,
   onReply,
   onResolveToggle,
@@ -79,7 +81,7 @@ export function CommentThreadPanel({
 
   const submitCreate = async () => {
     const content = newComment.trim();
-    if (!content) return;
+    if (!content || readOnly) return;
     setSubmitting(true);
     try {
       await onCreate(content);
@@ -92,7 +94,7 @@ export function CommentThreadPanel({
   const submitReply = async () => {
     if (!thread) return;
     const content = reply.trim();
-    if (!content) return;
+    if (!content || readOnly) return;
     setSubmitting(true);
     try {
       await onReply(thread.id, content);
@@ -127,12 +129,12 @@ export function CommentThreadPanel({
             placeholder="Add a comment…"
             className="bg-transparent px-3 py-2 text-sm outline-none placeholder:text-gray-500"
             style={{ width: 260 }}
-            disabled={submitting}
+            disabled={readOnly || submitting}
           />
           <button
             type="button"
             onClick={submitCreate}
-            disabled={submitting || newComment.trim().length === 0}
+            disabled={readOnly || submitting || newComment.trim().length === 0}
             className="mr-2 flex h-7 w-7 shrink-0 items-center justify-center bg-gray-500/30 text-gray-400 disabled:opacity-40"
           >
             <ArrowUp className="h-4 w-4" />
@@ -154,7 +156,7 @@ export function CommentThreadPanel({
       <div className="flex items-center justify-between px-4 py-3">
         <p className="text-sm font-semibold">Comment</p>
         <div className="flex items-center gap-1">
-          {thread && (
+          {thread && !readOnly && (
             <button
               type="button"
               onClick={() => onResolveToggle(thread.id)}
@@ -190,7 +192,7 @@ export function CommentThreadPanel({
                 </div>
                 <p className="mt-0.5 whitespace-pre-wrap text-sm">{message.content}</p>
               </div>
-              {message.userId === currentUserId && (
+              {!readOnly && message.userId === currentUserId && (
                 <button
                   type="button"
                   className="flex h-6 w-6 shrink-0 items-center justify-center opacity-0 transition-opacity hover:bg-white/10 group-hover:opacity-100"
@@ -204,7 +206,7 @@ export function CommentThreadPanel({
         ))}
       </div>
 
-      {thread && (
+      {thread && !readOnly && (
         <div className="flex items-center gap-3 border-t border-white/10 px-4 py-3">
           <div className="bg-primary text-primary-foreground flex h-8 w-8 shrink-0 items-center justify-center text-xs font-semibold">
             {currentUserName.slice(0, 1).toUpperCase()}
@@ -223,12 +225,12 @@ export function CommentThreadPanel({
               }}
               placeholder="Reply"
               className="flex-1 bg-transparent px-3 py-1.5 text-sm outline-none placeholder:text-gray-500"
-              disabled={submitting}
+              disabled={readOnly || submitting}
             />
             <button
               type="button"
               onClick={submitReply}
-              disabled={submitting || reply.trim().length === 0}
+              disabled={readOnly || submitting || reply.trim().length === 0}
               className="mr-1.5 flex h-6 w-6 shrink-0 items-center justify-center bg-gray-500/30 text-gray-400 disabled:opacity-40"
             >
               <ArrowUp className="h-3.5 w-3.5" />

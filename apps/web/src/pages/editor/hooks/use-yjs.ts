@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
+import * as decoding from 'lib0/decoding';
+import {
+  collaborationAccessSchema,
+  COLLABORATION_ACCESS_MESSAGE,
+  COLLABORATION_ACCESS_CHANGED,
+} from '@draftila/shared';
+import { useEditorStore } from '@/stores/editor-store';
+import { queryClient } from '@/lib/query-client';
+import { api } from '@/lib/api-client';
+import type { Draft } from '@draftila/shared';
 import type { Shape } from '@draftila/shared';
 import { WebsocketProvider } from 'y-websocket';
 import {
@@ -40,7 +50,7 @@ function getWebSocketUrl(): string {
   return `${protocol}//${window.location.host}/api/collaboration`;
 }
 
-function installDebouncedSync(provider: WebsocketProvider) {
+function installDebouncedSync(provider: WebsocketProvider, canEdit: () => boolean) {
   const doc = provider.doc;
 
   doc.off(
@@ -53,6 +63,7 @@ function installDebouncedSync(provider: WebsocketProvider) {
 
   const flush = () => {
     timer = null;
+    if (!canEdit()) pendingUpdates = [];
     if (pendingUpdates.length === 0) return;
     const merged = Y.mergeUpdatesV2(pendingUpdates.map((u) => Y.convertUpdateFormatV1ToV2(u)));
     const update = Y.convertUpdateFormatV2ToV1(merged);
@@ -63,7 +74,7 @@ function installDebouncedSync(provider: WebsocketProvider) {
   };
 
   const debouncedHandler = (update: Uint8Array, origin: unknown) => {
-    if (origin === provider) return;
+    if (origin === provider || !canEdit()) return;
     pendingUpdates.push(update);
     if (timer === null) {
       timer = setTimeout(flush, SYNC_DEBOUNCE_MS);
@@ -97,6 +108,9 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
   useEffect(() => {
     if (!enabled) return;
 
+    let canEdit = false;
+    let disposed = false;
+    useEditorStore.getState().setCanEditDocument(false);
     const ydoc = new Y.Doc();
     ydocRef.current = ydoc;
     initDocument(ydoc);
@@ -105,13 +119,38 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
     const wsProvider = new WebsocketProvider(wsUrl, draftId, ydoc, {
       connect: true,
       maxBackoffTime: 5000,
+      disableBc: true,
     });
     providerRef.current = wsProvider;
+    wsProvider.messageHandlers[COLLABORATION_ACCESS_MESSAGE] = (_encoder, decoder) => {
+      const access = collaborationAccessSchema.parse(JSON.parse(decoding.readVarString(decoder)));
+      canEdit = access.canEdit;
+      useEditorStore.getState().setCanEditDocument(canEdit);
+    };
+    wsProvider.on('connection-close', (event: CloseEvent | null) => {
+      canEdit = false;
+      useEditorStore.getState().setCanEditDocument(false);
+      if (event?.code === COLLABORATION_ACCESS_CHANGED) {
+        wsProvider.shouldConnect = false;
+        void queryClient
+          .fetchQuery({
+            queryKey: ['drafts', 'detail', draftId],
+            queryFn: () => api.get<Draft>(`/api/drafts/${draftId}`),
+            staleTime: 0,
+            retry: false,
+          })
+          .then(() => {
+            if (!disposed) reinitialize();
+          })
+          .catch(() => {});
+      }
+    });
 
     let remoteChangeTimer: ReturnType<typeof setTimeout> | null = null;
     let textReconcileTimer: ReturnType<typeof setTimeout> | null = null;
 
     const reconcileTextShapes = () => {
+      if (!canEdit) return;
       const shapes = getAllShapes(ydoc);
       const fonts = collectFontFamilies(shapes);
       // Ready gate: measuring before the registry settles would persist fallback auto-resize
@@ -119,6 +158,7 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
       // error) fire exactly one `notifyFontCallbacks`, and this function is subscribed below.
       if (requiresCustomFontRegistry(fonts) && !isCustomFontsReady()) return;
       const apply = () => {
+        if (!canEdit) return;
         const current = getAllShapes(ydoc);
         const pending: { id: string; patch: Partial<Shape> }[] = [];
 
@@ -166,7 +206,7 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
 
     ydoc.on('update', handleRemoteUpdate);
 
-    const cleanupDebounce = installDebouncedSync(wsProvider);
+    const cleanupDebounce = installDebouncedSync(wsProvider, () => canEdit);
 
     wsProvider.on('status', ({ status }: { status: string }) => {
       setConnected(status === 'connected');
@@ -176,7 +216,7 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
       setSynced(isSynced);
       if (isSynced) {
         setDocId(ydoc, draftId);
-        ensureDefaultPage(ydoc);
+        if (canEdit) ensureDefaultPage(ydoc);
         const fonts = collectFontFamilies(getAllShapes(ydoc));
         if (fonts.length > 0) {
           ensureFontsLoadedAsync(fonts).then(reconcileTextShapes);
@@ -187,7 +227,9 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
     });
 
     cleanupRef.current = () => {
+      disposed = true;
       cleanupDebounce();
+      canEdit = false;
       unsubscribeFonts();
       wsProvider.disconnect();
       wsProvider.destroy();
@@ -205,7 +247,7 @@ export function useYjs({ draftId, enabled = true }: UseYjsOptions): UseYjsReturn
       cleanupRef.current?.();
       cleanupRef.current = null;
     };
-  }, [draftId, enabled, reinitKey]);
+  }, [draftId, enabled, reinitKey, reinitialize]);
 
   return {
     ydoc: ydocRef.current,

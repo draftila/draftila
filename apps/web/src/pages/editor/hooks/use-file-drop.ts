@@ -1,3 +1,4 @@
+import { isReadOnlyEditor } from '../lib/editor-permissions';
 import { useCallback, useEffect, useState } from 'react';
 import type * as Y from 'yjs';
 import { useEditorStore } from '@/stores/editor-store';
@@ -24,6 +25,7 @@ export function useFileDrop({ ydoc, canvasRef }: UseFileDropOptions) {
       e.stopPropagation();
       setIsDragging(false);
 
+      if (isReadOnlyEditor(useEditorStore.getState())) return;
       const files = e.dataTransfer?.files;
       if (!files || files.length === 0) return;
 
@@ -52,6 +54,7 @@ export function useFileDrop({ ydoc, canvasRef }: UseFileDropOptions) {
 
       for (const svgFile of svgFiles) {
         const doc = await importSvgFile(svgFile);
+        if (isReadOnlyEditor(useEditorStore.getState())) return;
         const shapeData = interchangeToShapeData(doc);
         const indexToId = new Map<number, string>();
 
@@ -94,6 +97,7 @@ export function useFileDrop({ ydoc, canvasRef }: UseFileDropOptions) {
     (e: DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      if (isReadOnlyEditor(useEditorStore.getState())) return;
       setIsDragging(true);
 
       const canvasRect = canvasRef.current?.getBoundingClientRect();
@@ -114,6 +118,7 @@ export function useFileDrop({ ydoc, canvasRef }: UseFileDropOptions) {
   const handleDragEnter = useCallback((e: DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (isReadOnlyEditor(useEditorStore.getState())) return;
     setIsDragging(true);
   }, []);
 

@@ -1,3 +1,4 @@
+import { isReadOnlyEditor } from '@/pages/editor/lib/editor-permissions';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type * as Y from 'yjs';
@@ -115,7 +116,7 @@ export function LayerList({
   );
 
   const commitRename = useCallback(() => {
-    if (!renamingId) return;
+    if (!renamingId || isReadOnlyEditor(useEditorStore.getState())) return;
     const nextName = renameValue.trim();
     if (nextName.length > 0) {
       opUpdateShape(ydoc, renamingId, { name: nextName } as Partial<Shape>);

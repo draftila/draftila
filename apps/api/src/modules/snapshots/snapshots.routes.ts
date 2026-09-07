@@ -3,18 +3,22 @@ import { Hono } from 'hono';
 import { NotFoundError } from '../../common/errors';
 import { validateOrThrow } from '../../common/lib/validation';
 import { requireAuth, type AuthEnv } from '../../common/middleware/auth';
-import * as draftsService from '../drafts/drafts.service';
+import { requireDraftAccess } from '../drafts/drafts.access';
 import * as snapshotsService from './snapshots.service';
 
 const draftSnapshotRoutes = new Hono<AuthEnv>();
 const snapshotRoutes = new Hono<AuthEnv>();
 
-async function ensureSnapshotAccess(snapshotId: string, userId: string) {
+async function ensureSnapshotAccess(
+  snapshotId: string,
+  userId: string,
+  action: 'read' | 'edit' = 'read',
+) {
   const draftId = await snapshotsService.getDraftIdForSnapshot(snapshotId);
   if (!draftId) {
     throw new NotFoundError('Snapshot');
   }
-  await draftsService.ensureDraftAccess(draftId, userId);
+  await requireDraftAccess(draftId, userId, action);
   return draftId;
 }
 
@@ -22,7 +26,7 @@ draftSnapshotRoutes.get('/', requireAuth, async (c) => {
   const user = c.get('user');
   const draftId = c.req.param('draftId') as string;
 
-  await draftsService.ensureDraftAccess(draftId, user.id);
+  await requireDraftAccess(draftId, user.id);
 
   const autoSaves = c.req.query('autoSaves') !== 'false';
   const snapshots = await snapshotsService.listByDraft(draftId, autoSaves);
@@ -33,7 +37,7 @@ draftSnapshotRoutes.post('/', requireAuth, async (c) => {
   const user = c.get('user');
   const draftId = c.req.param('draftId') as string;
 
-  await draftsService.ensureDraftAccess(draftId, user.id);
+  await requireDraftAccess(draftId, user.id, 'edit');
 
   const body = await c.req.json();
   const parsed = validateOrThrow(createSnapshotSchema, body);
@@ -58,7 +62,7 @@ snapshotRoutes.patch('/:snapshotId', requireAuth, async (c) => {
   const user = c.get('user');
   const snapshotId = c.req.param('snapshotId');
 
-  await ensureSnapshotAccess(snapshotId, user.id);
+  await ensureSnapshotAccess(snapshotId, user.id, 'edit');
 
   const body = await c.req.json();
   const parsed = validateOrThrow(updateSnapshotSchema, body);
@@ -71,7 +75,7 @@ snapshotRoutes.post('/:snapshotId/restore', requireAuth, async (c) => {
   const user = c.get('user');
   const snapshotId = c.req.param('snapshotId');
 
-  const draftId = await ensureSnapshotAccess(snapshotId, user.id);
+  const draftId = await ensureSnapshotAccess(snapshotId, user.id, 'edit');
 
   const restored = await snapshotsService.restoreSnapshot(draftId, snapshotId, user.id);
   return c.json(restored);

@@ -1,3 +1,4 @@
+import { isReadOnlyEditor } from '../lib/editor-permissions';
 import { useCallback, useEffect, useRef, type RefObject } from 'react';
 import type * as Y from 'yjs';
 import type { FrameShape, Shape } from '@draftila/shared';
@@ -576,7 +577,9 @@ export function useCanvas({ ydoc, sceneRef }: { ydoc: Y.Doc; sceneRef: RefObject
       visibleIds,
     );
 
-    renderHandlesAndSizeLabel(renderer, selectedShapes, activeTool, editingTextId, camera.zoom);
+    if (!isReadOnlyEditor(useEditorStore.getState())) {
+      renderHandlesAndSizeLabel(renderer, selectedShapes, activeTool, editingTextId, camera.zoom);
+    }
 
     if (activeTool === 'node') {
       renderNodeEditing(renderer, camera, nodeTool, shapeMap);

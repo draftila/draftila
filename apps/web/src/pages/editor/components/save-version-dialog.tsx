@@ -1,3 +1,4 @@
+import { isReadOnlyEditor } from '@/pages/editor/lib/editor-permissions';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -28,7 +29,7 @@ export function SaveVersionDialog({ draftId }: SaveVersionDialogProps) {
 
   const handleSave = useCallback(async () => {
     const trimmed = name.trim();
-    if (!trimmed) return;
+    if (!trimmed || isReadOnlyEditor(useEditorStore.getState())) return;
 
     try {
       await createSnapshot.mutateAsync({ name: trimmed });

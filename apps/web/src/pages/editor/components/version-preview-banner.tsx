@@ -12,6 +12,7 @@ interface VersionPreviewBannerProps {
 }
 
 export function VersionPreviewBanner({ draftId, snapshot }: VersionPreviewBannerProps) {
+  const canEdit = useEditorStore((s) => s.canEditDocument);
   const restoreSnapshot = useRestoreSnapshot(draftId);
   const restoreRef = useRef(restoreSnapshot);
   restoreRef.current = restoreSnapshot;
@@ -22,7 +23,7 @@ export function VersionPreviewBanner({ draftId, snapshot }: VersionPreviewBanner
 
   const handleRestore = useCallback(async () => {
     const snapshotId = useEditorStore.getState().previewSnapshotId;
-    if (!snapshotId) return;
+    if (!snapshotId || !useEditorStore.getState().canEditDocument) return;
 
     try {
       await restoreRef.current.mutateAsync(snapshotId);
@@ -44,7 +45,7 @@ export function VersionPreviewBanner({ draftId, snapshot }: VersionPreviewBanner
     <div className="bg-card border-border absolute left-1/2 top-7 z-50 flex -translate-x-1/2 items-center gap-3 rounded-lg border px-4 py-2 shadow-sm">
       <span className="text-foreground text-xs font-medium">{label}</span>
       <div className="flex items-center gap-1.5">
-        <Button size="sm" className="h-7 text-xs" onClick={handleRestore}>
+        <Button size="sm" className="h-7 text-xs" onClick={handleRestore} disabled={!canEdit}>
           Restore
         </Button>
         <Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleBack}>

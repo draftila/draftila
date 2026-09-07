@@ -1,3 +1,4 @@
+import { isReadOnlyEditor } from '@/pages/editor/lib/editor-permissions';
 import { useCallback, useEffect, useState } from 'react';
 import type * as Y from 'yjs';
 import { Palette, Plus, Trash2, Type, X } from 'lucide-react';
@@ -19,7 +20,7 @@ const DEFAULT_NEW_COLOR = '#6C3CE9';
 export function GlobalsPanel({ ydoc }: { ydoc: Y.Doc }) {
   const open = useEditorStore((s) => s.globalsOpen);
   const setOpen = useEditorStore((s) => s.setGlobalsOpen);
-  const isPreview = useEditorStore((s) => s.previewSnapshotId !== null);
+  const readOnly = useEditorStore(isReadOnlyEditor);
   const { variables } = useVariables();
 
   useEffect(() => {
@@ -35,6 +36,7 @@ export function GlobalsPanel({ ydoc }: { ydoc: Y.Doc }) {
   }, [open, setOpen]);
 
   const handleAdd = useCallback(() => {
+    if (isReadOnlyEditor(useEditorStore.getState())) return;
     const taken = new Set(variables.map((v) => v.name));
     let name = 'New color';
     let n = 2;
@@ -78,7 +80,7 @@ export function GlobalsPanel({ ydoc }: { ydoc: Y.Doc }) {
               {variables.length} {variables.length === 1 ? 'global' : 'globals'}
             </span>
             <div className="flex-1" />
-            {!isPreview && (
+            {!readOnly && (
               <Button size="sm" variant="outline" className="h-7 gap-1.5" onClick={handleAdd}>
                 <Plus className="h-3.5 w-3.5" />
                 Add
@@ -96,10 +98,8 @@ export function GlobalsPanel({ ydoc }: { ydoc: Y.Doc }) {
           </header>
 
           <div className="min-h-0 flex-1 overflow-auto p-2">
-            {isPreview && (
-              <p className="text-muted-foreground mb-2 px-2 text-[11px]">
-                Viewing a snapshot — globals are read-only.
-              </p>
+            {readOnly && (
+              <p className="text-muted-foreground mb-2 px-2 text-[11px]">Globals are read-only.</p>
             )}
             {variables.length === 0 ? (
               <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-2 text-center">
@@ -117,7 +117,7 @@ export function GlobalsPanel({ ydoc }: { ydoc: Y.Doc }) {
                     key={variable.id}
                     ydoc={ydoc}
                     variable={variable}
-                    readOnly={isPreview}
+                    readOnly={readOnly}
                   />
                 ))}
               </ul>
@@ -148,20 +148,31 @@ function VariableRow({
 
   return (
     <li className="hover:bg-muted/40 flex items-center gap-3 rounded px-2 py-1.5">
-      <ColorPicker
-        color={variable.value}
-        opacity={1}
-        showGlobals={false}
-        onChange={(color) => setVariableValue(ydoc, variable.id, color)}
-        onOpacityChange={() => {}}
-      >
-        <button
-          disabled={readOnly}
-          className="border-border h-7 w-7 shrink-0 rounded border disabled:cursor-not-allowed"
+      {readOnly ? (
+        <span
+          className="border-border h-7 w-7 shrink-0 rounded border"
           style={{ backgroundColor: variable.value }}
-          aria-label={`Edit ${variable.name}`}
+          aria-label={variable.name}
         />
-      </ColorPicker>
+      ) : (
+        <ColorPicker
+          color={variable.value}
+          opacity={1}
+          showGlobals={false}
+          onChange={(color) => {
+            if (!isReadOnlyEditor(useEditorStore.getState()))
+              setVariableValue(ydoc, variable.id, color);
+          }}
+          onOpacityChange={() => {}}
+        >
+          <button
+            disabled={readOnly}
+            className="border-border h-7 w-7 shrink-0 rounded border disabled:cursor-not-allowed"
+            style={{ backgroundColor: variable.value }}
+            aria-label={`Edit ${variable.name}`}
+          />
+        </ColorPicker>
+      )}
 
       <div className="min-w-0 flex-1">
         {readOnly ? (
@@ -169,7 +180,10 @@ function VariableRow({
         ) : (
           <InlineEditableText
             value={variable.name}
-            onSave={(name) => renameVariable(ydoc, variable.id, name)}
+            onSave={(name) => {
+              if (!isReadOnlyEditor(useEditorStore.getState()))
+                renameVariable(ydoc, variable.id, name);
+            }}
             className="block truncate text-[12px]"
             inputClassName="w-full text-[12px]"
           />
@@ -193,6 +207,7 @@ function VariableRow({
               variant="destructive"
               className="h-6 px-2 text-[10px]"
               onClick={() => {
+                if (isReadOnlyEditor(useEditorStore.getState())) return;
                 deleteVariable(ydoc, variable.id);
                 setConfirmingDelete(false);
               }}

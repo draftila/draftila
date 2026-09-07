@@ -45,7 +45,11 @@ Bun.serve<WsData>({
       await collaborationService.getOrCreateRoom(draftId);
 
       const upgraded = server.upgrade(req, {
-        data: { draftId, userId: authResult.userId } satisfies WsData,
+        data: {
+          draftId,
+          userId: authResult.userId,
+          projectId: draftRecord.projectId,
+        } satisfies WsData,
       });
 
       if (upgraded) return undefined;
@@ -67,11 +71,17 @@ Bun.serve<WsData>({
     },
     message(ws, message) {
       if (message instanceof ArrayBuffer) {
-        collaborationService.handleMessage(ws, ws.data.draftId, message);
+        void collaborationService
+          .handleMessage(ws, ws.data.draftId, message)
+          .catch(() => ws.close(1003, 'Invalid collaboration message'));
       } else if (typeof message === 'string') {
-        collaborationService.handleMessage(ws, ws.data.draftId, Buffer.from(message));
+        void collaborationService
+          .handleMessage(ws, ws.data.draftId, Buffer.from(message))
+          .catch(() => ws.close(1003, 'Invalid collaboration message'));
       } else {
-        collaborationService.handleMessage(ws, ws.data.draftId, message as Buffer);
+        void collaborationService
+          .handleMessage(ws, ws.data.draftId, message as Buffer)
+          .catch(() => ws.close(1003, 'Invalid collaboration message'));
       }
     },
     close(ws) {

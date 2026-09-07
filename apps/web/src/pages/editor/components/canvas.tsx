@@ -1,3 +1,4 @@
+import { isReadOnlyEditor } from '../lib/editor-permissions';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type * as Y from 'yjs';
 import { useQueryClient } from '@tanstack/react-query';
@@ -5,13 +6,9 @@ import { useEditorStore } from '@/stores/editor-store';
 import { zoomAtPoint, panCamera, screenToCanvas, canvasToScreen } from '@draftila/engine/camera';
 import { hitTestGuide, observeShapes } from '@draftila/engine';
 import {
-  addCommentPin,
-  bumpCommentRevision,
-  deleteCommentPin,
   getCommentPinCanvasPosition,
   observeCommentPins,
   observeCommentRevision,
-  setCommentPinParent,
 } from '@draftila/engine';
 import { findContainerAtPoint, getShape, resolveGroupTarget } from '@draftila/engine/scene-graph';
 import { hitTestPoint } from '@draftila/engine/hit-test';
@@ -27,6 +24,7 @@ import { DEFAULT_PAGE_BACKGROUND } from '@draftila/engine';
 import {
   useComments,
   useCreateComment,
+  useMoveCommentPin,
   useDeleteComment,
   useMarkCommentRead,
   useToggleCommentResolved,
@@ -139,6 +137,7 @@ export function Canvas({
   });
   const { isDragging } = useFileDrop({ ydoc, canvasRef });
   const activeTool = useEditorStore((s) => s.activeTool);
+  const isPreview = useEditorStore((s) => s.previewSnapshotId !== null);
   const activePageId = useEditorStore((s) => s.activePageId);
   const commentsVisible = useEditorStore((s) => s.commentsVisible);
   const activeCommentId = useEditorStore((s) => s.activeCommentId);
@@ -171,6 +170,7 @@ export function Canvas({
   const { data: threads = [] } = useComments(draftId, activePageId);
   const createComment = useCreateComment(draftId);
   const deleteComment = useDeleteComment();
+  const moveCommentPin = useMoveCommentPin();
   const toggleResolved = useToggleCommentResolved();
   const markCommentRead = useMarkCommentRead();
 
@@ -324,6 +324,7 @@ export function Canvas({
         return;
       }
 
+      if (isReadOnlyEditor(state)) return;
       if (targetShape.type === 'text') {
         state.setSelectedIds([targetShape.id]);
         state.setEditingTextId(targetShape.id);
@@ -402,67 +403,45 @@ export function Canvas({
 
   const handleCommentCreate = useCallback(
     async (content: string) => {
-      if (!activePageId || !pendingPlacement) return;
+      if (!activePageId || !pendingPlacement || useEditorStore.getState().previewSnapshotId) return;
       const created = await createComment.mutateAsync({
         pageId: activePageId,
         content,
+        placement: pendingPlacement,
       });
 
-      let pinX = pendingPlacement.x;
-      let pinY = pendingPlacement.y;
-      const parentShapeId = pendingPlacement.parentShapeId;
-      if (parentShapeId) {
-        const parent = getShape(ydoc, parentShapeId);
-        if (parent) {
-          pinX = pendingPlacement.x - parent.x;
-          pinY = pendingPlacement.y - parent.y;
-        }
-      }
-
-      addCommentPin(ydoc, {
-        commentId: created.id,
-        pageId: activePageId,
-        x: pinX,
-        y: pinY,
-        parentShapeId,
-        userId,
-        userName,
-      });
-      bumpCommentRevision(ydoc);
       setPendingPlacement(null);
       useEditorStore.getState().setActiveCommentId(created.id);
       useEditorStore.getState().setActiveTool('move');
     },
-    [activePageId, createComment, pendingPlacement, userId, userName, ydoc],
+    [activePageId, createComment, pendingPlacement],
   );
 
   const handleReply = useCallback(
     async (parentId: string, content: string) => {
-      if (!activePageId) return;
+      if (!activePageId || useEditorStore.getState().previewSnapshotId) return;
       await createComment.mutateAsync({ pageId: activePageId, content, parentId });
-      bumpCommentRevision(ydoc);
     },
-    [activePageId, createComment, ydoc],
+    [activePageId, createComment],
   );
 
   const handleDeleteComment = useCallback(
     async (commentId: string) => {
+      if (useEditorStore.getState().previewSnapshotId) return;
       await deleteComment.mutateAsync({ commentId });
-      deleteCommentPin(ydoc, commentId);
-      bumpCommentRevision(ydoc);
       if (activeCommentId === commentId) {
         useEditorStore.getState().setActiveCommentId(null);
       }
     },
-    [activeCommentId, deleteComment, ydoc],
+    [activeCommentId, deleteComment],
   );
 
   const handleResolveToggle = useCallback(
     async (commentId: string) => {
+      if (useEditorStore.getState().previewSnapshotId) return;
       await toggleResolved.mutateAsync({ commentId });
-      bumpCommentRevision(ydoc);
     },
-    [toggleResolved, ydoc],
+    [toggleResolved],
   );
 
   const openThreadById = useCallback(
@@ -515,9 +494,12 @@ export function Canvas({
       const x = point.x + drag.offsetX;
       const y = point.y + drag.offsetY;
 
-      if (shouldCommit && drag.moved) {
+      if (shouldCommit && drag.moved && !useEditorStore.getState().previewSnapshotId) {
         const targetParentId = findCommentAttachmentTarget(ydoc, x, y, camera.zoom);
-        setCommentPinParent(ydoc, drag.pinId, targetParentId, x, y);
+        moveCommentPin.mutate({
+          commentId: drag.pinId,
+          placement: { parentShapeId: targetParentId, x, y },
+        });
       } else if (shouldCommit) {
         void openThreadById(drag.pinId);
       }
@@ -532,7 +514,7 @@ export function Canvas({
         return next;
       });
     },
-    [camera, canvasRef, openThreadById, ydoc],
+    [camera, canvasRef, openThreadById, ydoc, moveCommentPin],
   );
 
   const startPinDrag = useCallback(
@@ -705,6 +687,7 @@ export function Canvas({
             y={panelAnchor.y}
             thread={pendingPlacement ? null : activeThread}
             isCreating={!!pendingPlacement}
+            readOnly={isPreview}
             onCreate={handleCommentCreate}
             onReply={handleReply}
             onResolveToggle={handleResolveToggle}

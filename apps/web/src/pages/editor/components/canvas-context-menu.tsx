@@ -1,3 +1,4 @@
+import { isReadOnlyEditor } from '@/pages/editor/lib/editor-permissions';
 import { forwardRef, useCallback, useMemo, useState } from 'react';
 import type * as Y from 'yjs';
 import { ChevronRight } from 'lucide-react';
@@ -116,6 +117,7 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
     const selectedGuideId = useEditorStore((s) => s.selectedGuideId);
     const guides = useEditorStore((s) => s.guides);
     const activePageId = useEditorStore((s) => s.activePageId);
+    const readOnly = useEditorStore(isReadOnlyEditor);
     const hasSelection = selectedIds.length > 0;
     const hasGuides = guides.length > 0;
 
@@ -379,6 +381,29 @@ export const CanvasContextMenu = forwardRef<HTMLDivElement, CanvasContextMenuPro
 
     const isMac = navigator.platform.includes('Mac');
     const mod = isMac ? '\u2318' : 'Ctrl+';
+
+    if (readOnly) {
+      return (
+        <div
+          ref={ref}
+          className="bg-popover text-popover-foreground fixed z-50 min-w-52 rounded-md border p-1 shadow-lg"
+          style={{ left: position.x, top: position.y }}
+        >
+          <MenuItem onClick={handleCopy} disabled={!hasSelection}>
+            Copy
+          </MenuItem>
+          <MenuItem onClick={handleCopyAsSvg} disabled={!hasSelection}>
+            Copy as SVG
+          </MenuItem>
+          <MenuItem onClick={handleCopyAsPng} disabled={!hasSelection}>
+            Copy as PNG
+          </MenuItem>
+          <MenuItem onClick={() => handleCopyAsCode('css')} disabled={!hasSelection}>
+            Copy as CSS
+          </MenuItem>
+        </div>
+      );
+    }
 
     return (
       <div ref={ref}>

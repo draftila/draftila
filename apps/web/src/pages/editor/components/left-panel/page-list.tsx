@@ -1,3 +1,4 @@
+import { isReadOnlyEditor } from '@/pages/editor/lib/editor-permissions';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type * as Y from 'yjs';
 import { MoreHorizontal, Plus, Check, X } from 'lucide-react';
@@ -63,6 +64,7 @@ export function PageList({ ydoc }: PageListProps) {
   const [pages, setPages] = useState<PageData[]>([]);
   const activePageId = useEditorStore((s) => s.activePageId);
   const setActivePageId = useEditorStore((s) => s.setActivePageId);
+  const readOnly = useEditorStore(isReadOnlyEditor);
   const previewSnapshotId = useEditorStore((s) => s.previewSnapshotId);
   const [renamingPageId, setRenamingPageId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -87,6 +89,7 @@ export function PageList({ ydoc }: PageListProps) {
   );
 
   const handleAddPage = useCallback(() => {
+    if (isReadOnlyEditor(useEditorStore.getState())) return;
     const nextId = addPage(ydoc);
     switchToPage(ydoc, nextId, draftId, !!previewSnapshotId);
     setRenamingPageId(nextId);
@@ -94,12 +97,13 @@ export function PageList({ ydoc }: PageListProps) {
   }, [ydoc, pages, draftId, previewSnapshotId]);
 
   const startRename = useCallback((page: PageData) => {
+    if (isReadOnlyEditor(useEditorStore.getState())) return;
     setRenamingPageId(page.id);
     setRenameValue(page.name);
   }, []);
 
   const commitRename = useCallback(() => {
-    if (!renamingPageId) return;
+    if (!renamingPageId || isReadOnlyEditor(useEditorStore.getState())) return;
     const trimmed = renameValue.trim();
     if (trimmed.length > 0) {
       renamePage(ydoc, renamingPageId, trimmed);
@@ -115,12 +119,9 @@ export function PageList({ ydoc }: PageListProps) {
 
   const handleDeletePage = useCallback(
     (pageId: string) => {
+      if (isReadOnlyEditor(useEditorStore.getState())) return;
       removePage(ydoc, pageId);
 
-      // Only the storage cleanup is preview-guarded: during preview `ydoc` is the
-      // snapshot doc while `draftId` is the real draft, and shared page ids mean
-      // unguarded cleanup would evict a still-existing live page's camera.
-      // Deletion itself must keep working in preview.
       if (!previewSnapshotId && draftId && !getPages(ydoc).some((p) => p.id === pageId)) {
         // Drop first: a pan on this page may still be pending, and the flush
         // inside switchToPage's apply would otherwise resurrect the entry.
@@ -146,14 +147,20 @@ export function PageList({ ydoc }: PageListProps) {
         <span className="text-muted-foreground text-[10px] font-medium uppercase tracking-wide">
           Pages
         </span>
-        <Button variant="ghost" size="icon" className="ml-auto h-6 w-6" onClick={handleAddPage}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="ml-auto h-6 w-6"
+          onClick={handleAddPage}
+          disabled={readOnly}
+        >
           <Plus className="h-3.5 w-3.5" />
         </Button>
       </div>
       <div className="space-y-1">
         {pages.map((page) => {
           const isActive = page.id === activePageId;
-          const isRenaming = page.id === renamingPageId;
+          const isRenaming = !readOnly && page.id === renamingPageId;
 
           return (
             <div key={page.id} className="flex items-center gap-1">
@@ -208,7 +215,7 @@ export function PageList({ ydoc }: PageListProps) {
                   <span className="truncate">{page.name}</span>
                 </button>
               )}
-              {!isRenaming && (
+              {!isRenaming && !readOnly && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-7 w-7">

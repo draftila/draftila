@@ -1,10 +1,13 @@
 import { create } from 'zustand';
+import { isReadOnlyEditor, isReadOnlyTool } from '@/pages/editor/lib/editor-permissions';
 import type * as Y from 'yjs';
 import type { Camera, CanvasGuide, Point, ToolType } from '@draftila/shared';
 import type { GuideSnapTarget } from '@draftila/engine';
 import { DEFAULT_CAMERA, clampZoom, configureToolStore } from '@draftila/engine';
 
 interface EditorState {
+  canEditDocument: boolean;
+  setCanEditDocument: (canEdit: boolean) => void;
   activeTool: ToolType;
   activePageId: string | null;
   camera: Camera;
@@ -71,6 +74,20 @@ interface EditorState {
 }
 
 export const useEditorStore = create<EditorState>((set, get) => ({
+  canEditDocument: false,
+  setCanEditDocument: (canEditDocument) =>
+    set(
+      canEditDocument
+        ? { canEditDocument }
+        : {
+            canEditDocument,
+            activeTool: 'move',
+            editingTextId: null,
+            isDrawing: false,
+            draggingGuide: null,
+            saveVersionDialogOpen: false,
+          },
+    ),
   activeTool: 'move',
   activePageId: null,
   camera: DEFAULT_CAMERA,
@@ -100,7 +117,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   saveVersionDialogOpen: false,
   reinitializeYjs: null,
 
-  setActiveTool: (tool) => set({ activeTool: tool }),
+  setActiveTool: (tool) => {
+    if (isReadOnlyEditor(get()) && !isReadOnlyTool(tool)) return;
+    set({ activeTool: tool });
+  },
 
   setActivePageId: (pageId) => set({ activePageId: pageId }),
 
@@ -145,7 +165,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setHoveredId: (id) => set({ hoveredId: id }),
 
-  setEditingTextId: (id) => set({ editingTextId: id }),
+  setEditingTextId: (id) => {
+    if (id && isReadOnlyEditor(get())) return;
+    set({ editingTextId: id });
+  },
 
   setIsPanning: (isPanning) => set({ isPanning }),
 
@@ -216,7 +239,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     });
   },
 
-  setSaveVersionDialogOpen: (open) => set({ saveVersionDialogOpen: open }),
+  setSaveVersionDialogOpen: (open) => {
+    if (open && isReadOnlyEditor(get())) return;
+    set({ saveVersionDialogOpen: open });
+  },
 
   setReinitializeYjs: (fn) => set({ reinitializeYjs: fn }),
 }));

@@ -1,5 +1,6 @@
 import {
   createCommentSchema,
+  commentPlacementSchema,
   listCommentsQuerySchema,
   markAllCommentsReadSchema,
   updateCommentSchema,
@@ -57,6 +58,13 @@ commentRoutes.patch('/:id', requireAuth, async (c) => {
 
   const updated = await commentsService.update(commentId, user.id, parsed);
   return c.json(updated);
+});
+
+commentRoutes.patch('/:id/pin', requireAuth, async (c) => {
+  const user = c.get('user');
+  const parsed = validateOrThrow(commentPlacementSchema, await c.req.json());
+  const result = await commentsService.movePin(c.req.param('id'), user.id, parsed);
+  return c.json(result);
 });
 
 commentRoutes.delete('/:id', requireAuth, async (c) => {

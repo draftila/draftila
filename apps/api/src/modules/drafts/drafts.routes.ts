@@ -10,6 +10,7 @@ import { validateImageUpload, validateOrThrow } from '../../common/lib/validatio
 import { requireAuth, type AuthEnv } from '../../common/middleware/auth';
 import { canDelete, canEdit, getEffectiveMembership } from '../projects/members.service';
 import * as draftsService from './drafts.service';
+import { requireDraftAccess } from './drafts.access';
 
 type DraftEnv = AuthEnv & { Variables: AuthEnv['Variables'] };
 
@@ -237,6 +238,7 @@ allDraftsRoutes.put('/:draftId/thumbnail', requireAuth, async (c) => {
     throw new NotFoundError('Draft');
   }
 
+  await requireDraftAccess(draftId, user.id, 'edit');
   const imageData = await validateImageUpload(c.req, 'thumbnail');
   const url = await draftsService.saveThumbnail(draftId, imageData);
   return c.json({ url });
