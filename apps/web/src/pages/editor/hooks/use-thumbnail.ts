@@ -3,6 +3,8 @@ import type * as Y from 'yjs';
 import { getResolvedShapes } from '@draftila/engine';
 import { exportToPng } from '@draftila/engine/export';
 import { saveThumbnail } from '@/api/drafts';
+import { useEditorStore } from '@/stores/editor-store';
+import { saveSessionThumbnail } from '../lib/thumbnail-session';
 
 const MAX_THUMBNAIL_SIZE = 400;
 
@@ -30,23 +32,15 @@ async function generateThumbnail(ydoc: Y.Doc): Promise<Blob | null> {
 }
 
 export function useThumbnail(draftId: string, ydoc: Y.Doc, synced: boolean) {
-  const ydocRef = useRef(ydoc);
-  const draftIdRef = useRef(draftId);
-  const syncedRef = useRef(synced);
-  ydocRef.current = ydoc;
-  draftIdRef.current = draftId;
-  syncedRef.current = synced;
+  const canEdit = useEditorStore((state) => state.canEditDocument);
+  const sessionRef = useRef({ draftId, ydoc, synced, canEdit });
+  sessionRef.current = { draftId, ydoc, synced, canEdit };
 
   useEffect(() => {
     return () => {
-      if (!syncedRef.current) return;
-      generateThumbnail(ydocRef.current)
-        .then((blob) => {
-          if (blob) {
-            saveThumbnail(draftIdRef.current, blob);
-          }
-        })
-        .catch(() => {});
+      void saveSessionThumbnail(sessionRef.current, generateThumbnail, saveThumbnail).catch(
+        () => {},
+      );
     };
   }, []);
 }

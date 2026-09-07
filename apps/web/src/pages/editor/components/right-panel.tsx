@@ -1,3 +1,4 @@
+import { isReadOnlyEditor } from '@/pages/editor/lib/editor-permissions';
 import { useCallback, useEffect, useState } from 'react';
 import type * as Y from 'yjs';
 import type { Shape } from '@draftila/shared';
@@ -44,6 +45,7 @@ interface RightPanelProps {
 
 export function RightPanel({ ydoc, draftId }: RightPanelProps) {
   const selectedIds = useEditorStore((s) => s.selectedIds);
+  const readOnly = useEditorStore(isReadOnlyEditor);
   const activePageId = useEditorStore((s) => s.activePageId);
   const rightPanelOpen = useEditorStore((s) => s.rightPanelOpen);
   const rightPanelView = useEditorStore((s) => s.rightPanelView);
@@ -213,19 +215,20 @@ export function RightPanel({ ydoc, draftId }: RightPanelProps) {
       <ZoomControls ydoc={ydoc} />
       <div className="flex items-center gap-1 border-b px-3 py-1.5">
         <PanelViewTab
-          active={rightPanelView === 'properties'}
+          active={!readOnly && rightPanelView === 'properties'}
+          disabled={readOnly}
           onClick={() => setRightPanelView('properties')}
         >
           Properties
         </PanelViewTab>
         <PanelViewTab
-          active={rightPanelView === 'inspect'}
+          active={readOnly || rightPanelView === 'inspect'}
           onClick={() => setRightPanelView('inspect')}
         >
           Inspect
         </PanelViewTab>
       </div>
-      {rightPanelView === 'inspect' ? (
+      {readOnly || rightPanelView === 'inspect' ? (
         <div className="min-h-0 flex-1">
           <InspectPanel ydoc={ydoc} />
         </div>
@@ -281,10 +284,12 @@ export function RightPanel({ ydoc, draftId }: RightPanelProps) {
 
 function PanelViewTab({
   active,
+  disabled,
   onClick,
   children,
 }: {
   active: boolean;
+  disabled?: boolean;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -295,6 +300,7 @@ function PanelViewTab({
         active ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground'
       }`}
       onClick={onClick}
+      disabled={disabled}
     >
       {children}
     </button>

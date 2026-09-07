@@ -5,6 +5,7 @@ import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
 import { getAllShapes } from '@draftila/engine/scene-graph';
 import { useEditorStore } from '@/stores/editor-store';
+import { isReadOnlyEditor } from '../lib/editor-permissions';
 
 const MESSAGE_RPC = 2;
 const SHIMMER_IDLE_MS = 15_000;
@@ -114,6 +115,10 @@ export function useRpc({ provider, ydoc, enabled }: UseRpcOptions) {
 
       try {
         const { getRpcHandler } = await import('../rpc-handlers');
+        if (isReadOnlyEditor(useEditorStore.getState())) {
+          sendResponse(null, 'Editing this draft is not permitted');
+          return;
+        }
         const handler = getRpcHandler(tool);
 
         if (!handler) {

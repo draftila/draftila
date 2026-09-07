@@ -1,3 +1,5 @@
+import { useEditorStore } from '@/stores/editor-store';
+import { isReadOnlyEditor } from '@/pages/editor/lib/editor-permissions';
 import { memo } from 'react';
 import { ChevronDown, ChevronRight, Eye, EyeOff, Lock, Unlock } from 'lucide-react';
 import type { DragState, LayerRow as LayerRowData } from './types';
@@ -46,6 +48,7 @@ export const LayerRow = memo(function LayerRow({
   onCommitRename,
   onCancelRename,
 }: LayerRowProps) {
+  const readOnly = useEditorStore(isReadOnlyEditor);
   const isDropTarget = dragState?.overId === row.shape.id;
   const isDropBefore = isDropTarget && dragState?.placement === 'before';
   const isDropAfter = isDropTarget && dragState?.placement === 'after';
@@ -61,13 +64,18 @@ export const LayerRow = memo(function LayerRow({
         isDropAfter ? 'border-primary border-b-2' : ''
       }`}
       style={{ paddingLeft: 8 + row.depth * 14 }}
-      draggable={!isRenaming}
+      draggable={!isRenaming && !readOnly}
       onDragStart={(e) => onDragStart(row.shape.id, e)}
       onDragOver={(e) => onDragOver(row, e)}
-      onDrop={(e) => onDrop(row, e)}
+      onDrop={(e) => {
+        if (!readOnly) onDrop(row, e);
+      }}
       onDragEnd={onDragEnd}
       onClick={(e) => onSelect(row.shape.id, e)}
-      onContextMenu={(e) => onContextMenu(row.shape.id, e)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        if (!readOnly) onContextMenu(row.shape.id, e);
+      }}
     >
       <span
         className="text-muted-foreground flex h-4 w-4 shrink-0 items-center justify-center"
@@ -87,7 +95,7 @@ export const LayerRow = memo(function LayerRow({
       <span className="text-muted-foreground shrink-0">
         {isComponentInstance ? INSTANCE_ICON : SHAPE_ICONS[row.shape.type]}
       </span>
-      {isRenaming ? (
+      {isRenaming && !readOnly ? (
         <input
           autoFocus
           value={renameValue}
@@ -112,7 +120,7 @@ export const LayerRow = memo(function LayerRow({
           className="min-w-0 flex-1 truncate"
           onDoubleClick={(e) => {
             e.stopPropagation();
-            onStartRename(row.shape.id);
+            if (!readOnly) onStartRename(row.shape.id);
           }}
         >
           {row.shape.name}
@@ -122,7 +130,7 @@ export const LayerRow = memo(function LayerRow({
         className="text-muted-foreground shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
         onClick={(e) => {
           e.stopPropagation();
-          onToggleLock(row.shape.id, row.shape.locked);
+          if (!readOnly) onToggleLock(row.shape.id, row.shape.locked);
         }}
       >
         {row.effectiveLocked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
@@ -131,7 +139,7 @@ export const LayerRow = memo(function LayerRow({
         className="text-muted-foreground shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
         onClick={(e) => {
           e.stopPropagation();
-          onToggleVisibility(row.shape.id, row.shape.visible);
+          if (!readOnly) onToggleVisibility(row.shape.id, row.shape.visible);
         }}
       >
         {row.effectiveVisible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}

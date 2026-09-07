@@ -38,6 +38,12 @@ Drafts are shared through project membership. Each member is assigned a role:
 | Owner  | Full access, manage members, transfer ownership, delete draft |
 | Admin  | Full access, manage members                                   |
 | Editor | Edit draft content                                            |
-| Viewer | Read-only access                                              |
+| Viewer | View, inspect, export, and comment without editing the design |
+
+Viewers can select shapes, navigate pages, pan and zoom, inspect properties, copy or export designs, and preview version history. Design tools, property editing, imports, and version creation or restoration are unavailable. These restrictions are enforced by the API, MCP, and collaborative document server, not only by the interface.
+
+Comments remain available to viewers. Project members can create and reply to threads, move comment pins, and resolve threads. Only the author can edit or delete their own comments. Comment changes are applied by the server and shared with collaborators without granting permission to edit design content. Snapshot previews do not allow comment changes.
+
+Changing a member's role closes their existing draft connections. The editor rechecks access and reconnects with the new permissions. Removing a member blocks further updates and stops document broadcasts to their connections; already downloaded content cannot be revoked.
 
 See [Projects & Drafts](/docs/user-guide/projects) for details on managing access.

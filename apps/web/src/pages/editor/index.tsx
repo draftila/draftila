@@ -1,3 +1,4 @@
+import { isReadOnlyEditor } from '@/pages/editor/lib/editor-permissions';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { PanelLeft, Upload, Eye, Keyboard, History, Palette } from 'lucide-react';
@@ -92,6 +93,7 @@ export function EditorPage() {
 
   const updateDraft = useUpdateDraft(draft?.projectId ?? '');
   const activePageId = useEditorStore((s) => s.activePageId);
+  const readOnly = useEditorStore(isReadOnlyEditor);
   const setActivePageId = useEditorStore((s) => s.setActivePageId);
   const previewSnapshotId = useEditorStore((s) => s.previewSnapshotId);
   const previewYdoc = useEditorStore((s) => s.previewYdoc);
@@ -108,6 +110,7 @@ export function EditorPage() {
 
   const handleImportFile = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (isReadOnlyEditor(useEditorStore.getState())) return;
       const files = e.target.files;
       if (!files || files.length === 0) return;
 
@@ -117,6 +120,7 @@ export function EditorPage() {
       for (const file of files) {
         if (file.type === 'image/svg+xml' || file.name.endsWith('.svg')) {
           const doc = await importSvgFile(file);
+          if (isReadOnlyEditor(useEditorStore.getState())) return;
           const shapeData = interchangeToShapeData(doc);
           const indexToId = new Map<number, string>();
 
@@ -167,7 +171,7 @@ export function EditorPage() {
 
   const handleRenameDraft = useCallback(
     (name: string) => {
-      if (!draftId) return;
+      if (!draftId || isReadOnlyEditor(useEditorStore.getState())) return;
       updateDraft.mutate({ draftId, data: { name } });
     },
     [draftId, updateDraft],
@@ -299,7 +303,7 @@ export function EditorPage() {
             <DropdownMenuContent align="start">
               <DropdownMenuItem onClick={() => navigate('/')}>Drafts</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+              <DropdownMenuItem disabled={readOnly} onClick={() => fileInputRef.current?.click()}>
                 <Upload className="mr-2 h-4 w-4" />
                 Import SVG
               </DropdownMenuItem>
@@ -332,12 +336,16 @@ export function EditorPage() {
             </DropdownMenuContent>
           </DropdownMenu>
           <div className="flex min-w-0 flex-1 items-center gap-1.5">
-            <InlineEditableText
-              value={draft.name}
-              onSave={handleRenameDraft}
-              className="min-w-0 max-w-full truncate text-sm font-medium"
-              inputClassName="w-full"
-            />
+            {readOnly ? (
+              <span className="truncate text-sm font-medium">{draft.name}</span>
+            ) : (
+              <InlineEditableText
+                value={draft.name}
+                onSave={handleRenameDraft}
+                className="min-w-0 max-w-full truncate text-sm font-medium"
+                inputClassName="w-full"
+              />
+            )}
             <Tooltip>
               <TooltipTrigger>
                 <div
@@ -373,6 +381,9 @@ export function EditorPage() {
               </span>
               Applying changes...
             </div>
+          )}
+          {readOnly && !isPreview && (
+            <span className="text-muted-foreground text-xs">View only</span>
           )}
           <div className="flex-1" />
           {remoteUsers.length > 0 && (

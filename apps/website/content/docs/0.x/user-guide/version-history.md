@@ -7,6 +7,10 @@ description: Save, preview, and restore named versions and auto-saves of your dr
 
 Draftila automatically saves snapshots of your work and lets you create named versions you can preview and restore at any time.
 
+## Permissions
+
+Owners, admins, and editors can save, name, rename, and restore versions. Viewers can browse and preview versions, but cannot create versions, change their names, or restore a draft. Snapshot previews are read-only for everyone; editors can use **Restore** to apply a snapshot to the live draft.
+
 ## Auto-Saves
 
 Every time the last collaborator disconnects from a draft, an auto-save snapshot is created. Up to 50 auto-saves are kept per draft — older ones are pruned automatically.

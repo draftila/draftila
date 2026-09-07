@@ -1,3 +1,4 @@
+import { isReadOnlyEditor } from '@/pages/editor/lib/editor-permissions';
 import { useState } from 'react';
 import type * as Y from 'yjs';
 import { Search, X } from 'lucide-react';
@@ -14,6 +15,7 @@ interface LeftPanelProps {
 }
 
 export function LeftPanel({ ydoc }: LeftPanelProps) {
+  const readOnly = useEditorStore(isReadOnlyEditor);
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const setSelectedIds = useEditorStore((s) => s.setSelectedIds);
   const leftPanelOpen = useEditorStore((s) => s.leftPanelOpen);
@@ -38,7 +40,7 @@ export function LeftPanel({ ydoc }: LeftPanelProps) {
   return (
     <div className="relative flex h-full w-60 shrink-0 flex-col border-r">
       <PageList ydoc={ydoc} />
-      <ComponentsList ydoc={ydoc} />
+      {!readOnly && <ComponentsList ydoc={ydoc} />}
       <div className="flex h-8 items-center gap-2 border-b px-3">
         <span className="text-muted-foreground text-xs font-medium">Layers</span>
         <span className="text-muted-foreground ml-auto text-[10px]">{shapeById.size}</span>
@@ -62,7 +64,7 @@ export function LeftPanel({ ydoc }: LeftPanelProps) {
         rows={filteredRows}
         shapeById={shapeById}
         dragState={dragState}
-        contextMenu={contextMenu}
+        contextMenu={readOnly ? null : contextMenu}
         contextMenuRef={contextMenuRef}
         onToggleExpanded={toggleExpanded}
         onOpenContextMenu={openContextMenu}

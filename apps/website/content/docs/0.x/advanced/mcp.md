@@ -49,6 +49,12 @@ Replace the URL with your actual Draftila instance URL and use a real API key.
 
 The AI agent picks a draft with `list_drafts` and passes its id to every tool. Keeping the draft open in your browser lets you watch the changes live, but it is not required.
 
+## Permissions
+
+An API key uses its owner's current project permissions. Owners, admins, and editors can run design-writing tools. Viewers can read, list, search, and export content, but cannot create, update, delete, import, or rearrange design data. Page, component, guide, and variable changes also require edit permission.
+
+`set_active_page` requires edit permission because it changes the shared server-side context for subsequent tool calls. Navigating pages in the browser remains available to viewers. Unknown tools are not treated as read-only. A user without project access cannot read or modify its drafts through MCP.
+
 ## Available Tools
 
 The MCP server exposes around 50 tools organized into categories. It also sends the client a set of usage instructions on connect — the workflow to follow, how globals and auto-layout are meant to be used, and the gotchas worth knowing — so a capable agent does not need this page to work effectively.

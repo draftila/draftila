@@ -53,6 +53,15 @@ export const updateMemberRoleSchema = z.object({
   role: z.enum(['admin', 'editor', 'viewer']),
 });
 
+export const COLLABORATION_ACCESS_MESSAGE = 4;
+export const COLLABORATION_ACCESS_CHANGED = 4003;
+
+export const collaborationAccessSchema = z.object({
+  canEdit: z.boolean(),
+});
+
+export type CollaborationAccess = z.infer<typeof collaborationAccessSchema>;
+
 export const draftSchema = z.object({
   id: z.string(),
   name: z.string().trim().min(1).max(255),
@@ -101,10 +110,19 @@ export const commentResponseSchema: z.ZodType<CommentResponseSchemaValue> = comm
   replies: z.array(z.lazy((): z.ZodType<CommentResponseSchemaValue> => commentResponseSchema)),
 }) as z.ZodType<CommentResponseSchemaValue>;
 
+export const commentPlacementSchema = z.object({
+  x: z.number().finite(),
+  y: z.number().finite(),
+  parentShapeId: z.string().min(1).nullable(),
+});
+
+export type CommentPlacement = z.infer<typeof commentPlacementSchema>;
+
 export const createCommentSchema = z.object({
   pageId: z.string().min(1),
   content: z.string().trim().min(1).max(5000),
   parentId: z.string().optional(),
+  placement: commentPlacementSchema.optional(),
 });
 
 export const updateCommentSchema = z.object({

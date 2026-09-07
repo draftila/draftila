@@ -1,3 +1,4 @@
+import { isReadOnlyEditor } from '@/pages/editor/lib/editor-permissions';
 import { useState, useRef, useEffect } from 'react';
 import type { ToolType } from '@draftila/shared';
 import {
@@ -170,6 +171,7 @@ const PEN_TOOLS: ToolOption[] = [
 ];
 
 function Tools() {
+  const readOnly = useEditorStore(isReadOnlyEditor);
   return (
     <>
       <ToolButton
@@ -185,12 +187,21 @@ function Tools() {
         label="Comment"
         shortcut="C"
       />
-      <Separator orientation="vertical" className="mx-1 h-full" />
-      <ToolButton tool="frame" icon={<Frame className="h-4 w-4" />} label="Frame" shortcut="F" />
-      <ToolGroup options={SHAPE_TOOLS} />
-      <Separator orientation="vertical" className="mx-1 h-full" />
-      <ToolButton tool="text" icon={<Type className="h-4 w-4" />} label="Text" shortcut="T" />
-      <ToolGroup options={PEN_TOOLS} />
+      {!readOnly && (
+        <>
+          <Separator orientation="vertical" className="mx-1 h-full" />
+          <ToolButton
+            tool="frame"
+            icon={<Frame className="h-4 w-4" />}
+            label="Frame"
+            shortcut="F"
+          />
+          <ToolGroup options={SHAPE_TOOLS} />
+          <Separator orientation="vertical" className="mx-1 h-full" />
+          <ToolButton tool="text" icon={<Type className="h-4 w-4" />} label="Text" shortcut="T" />
+          <ToolGroup options={PEN_TOOLS} />
+        </>
+      )}
     </>
   );
 }

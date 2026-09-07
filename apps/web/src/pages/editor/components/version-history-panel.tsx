@@ -47,12 +47,13 @@ function VersionEntry({
   onRename: () => void;
   onRemoveName: () => void;
 }) {
+  const canEdit = useEditorStore((s) => s.canEditDocument);
   const previewSnapshotId = useEditorStore((s) => s.previewSnapshotId);
   const isActive = previewSnapshotId === snapshot.id;
 
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild>
+      <ContextMenuTrigger asChild disabled={!canEdit}>
         <button
           className={`hover:bg-muted/50 flex w-full flex-col gap-0.5 px-3 py-2 text-left ${isActive ? 'bg-muted' : ''}`}
           onClick={onPreview}
@@ -86,6 +87,7 @@ function VersionEntry({
 }
 
 export function VersionHistoryPanel({ draftId }: VersionHistoryPanelProps) {
+  const canEdit = useEditorStore((s) => s.canEditDocument);
   const [showAutoSaves, setShowAutoSaves] = useState(
     () => localStorage.getItem('draftila:showAutoSaves') !== 'false',
   );
@@ -107,19 +109,21 @@ export function VersionHistoryPanel({ draftId }: VersionHistoryPanelProps) {
   }, []);
 
   const handleStartRename = useCallback((snapshot: SnapshotWithAuthor) => {
+    if (!useEditorStore.getState().canEditDocument) return;
     setRenamingSnapshot(snapshot);
     setRenameValue(snapshot.name ?? '');
   }, []);
 
   const handleRemoveName = useCallback(
     (snapshot: SnapshotWithAuthor) => {
+      if (!useEditorStore.getState().canEditDocument) return;
       updateSnapshot.mutate({ snapshotId: snapshot.id, data: { name: null } });
     },
     [updateSnapshot],
   );
 
   const handleSubmitRename = useCallback(() => {
-    if (!renamingSnapshot) return;
+    if (!renamingSnapshot || !useEditorStore.getState().canEditDocument) return;
 
     const trimmed = renameValue.trim();
     const newName = trimmed || null;
@@ -212,7 +216,7 @@ export function VersionHistoryPanel({ draftId }: VersionHistoryPanelProps) {
         ))}
       </div>
 
-      {renamingSnapshot && (
+      {canEdit && renamingSnapshot && (
         <div className="border-t px-3 py-2">
           <input
             autoFocus
@@ -234,6 +238,7 @@ export function VersionHistoryPanel({ draftId }: VersionHistoryPanelProps) {
           variant="outline"
           size="sm"
           className="w-full text-xs"
+          disabled={!canEdit}
           onClick={() => useEditorStore.getState().setSaveVersionDialogOpen(true)}
         >
           <Plus className="mr-1 size-3" />

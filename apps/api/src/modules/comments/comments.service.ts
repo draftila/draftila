@@ -1,4 +1,17 @@
-import type { CommentResponse, CreateComment, UpdateComment } from '@draftila/shared';
+import type * as Y from 'yjs';
+import {
+  addCommentPin,
+  updateCommentPin,
+  deleteCommentPin,
+  bumpCommentRevision,
+} from '@draftila/engine';
+import { withRoom } from '../collaboration/collaboration.service';
+import type {
+  CommentPlacement,
+  CommentResponse,
+  CreateComment,
+  UpdateComment,
+} from '@draftila/shared';
 import { ForbiddenError, NotFoundError } from '../../common/errors';
 import { nextTimestamp } from '../../common/lib/pagination';
 import { nanoid } from '../../common/lib/utils';
@@ -136,6 +149,38 @@ export async function listByDraft(draftId: string, pageId: string, userId: strin
   return buildThread(comments, userId);
 }
 
+async function updateCommentDocument(draftId: string, update: (ydoc: Y.Doc) => void) {
+  await withRoom(draftId, (ydoc) => {
+    ydoc.transact(() => {
+      update(ydoc);
+      bumpCommentRevision(ydoc);
+    });
+  });
+}
+
+function resolvePlacement(ydoc: Y.Doc, pageId: string, placement: CommentPlacement) {
+  const pages = ydoc.getMap<Y.Map<unknown>>('pages');
+  const page = pages.get(pageId);
+  if (!page) throw new NotFoundError('Page');
+  const shapes = page.get('shapes') as Y.Map<Y.Map<unknown>> | undefined;
+  const parent = placement.parentShapeId ? shapes?.get(placement.parentShapeId) : null;
+  if (placement.parentShapeId && !parent) throw new NotFoundError('Shape');
+  return {
+    parentShapeId: placement.parentShapeId,
+    x: placement.x - ((parent?.get('x') as number | undefined) ?? 0),
+    y: placement.y - ((parent?.get('y') as number | undefined) ?? 0),
+  };
+}
+
+export async function movePin(commentId: string, userId: string, placement: CommentPlacement) {
+  const existing = await getCommentForUser(commentId, userId);
+  if (!existing || existing.parentId) throw new NotFoundError('Comment');
+  await updateCommentDocument(existing.draftId, (ydoc) => {
+    updateCommentPin(ydoc, commentId, resolvePlacement(ydoc, existing.pageId, placement));
+  });
+  return { ok: true };
+}
+
 export async function create(draftId: string, userId: string, payload: CreateComment) {
   await ensureDraftAccess(draftId, userId);
 
@@ -149,28 +194,48 @@ export async function create(draftId: string, userId: string, payload: CreateCom
     }
   }
 
-  const timestamp = nextTimestamp();
-  const created = await db.comment.create({
-    data: {
-      id: nanoid(),
-      draftId,
-      pageId: payload.pageId,
-      userId,
-      content: payload.content,
-      parentId: payload.parentId ?? null,
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    },
-    select: {
-      ...commentSelect,
-      reads: {
-        where: { userId },
-        select: { id: true },
-      },
-    },
-  });
+  if (payload.parentId && payload.placement) throw new ForbiddenError();
 
-  return mapComment(created, userId);
+  return withRoom(draftId, async (ydoc) => {
+    const placement = payload.placement
+      ? resolvePlacement(ydoc, payload.pageId, payload.placement)
+      : null;
+
+    const timestamp = nextTimestamp();
+    const created = await db.comment.create({
+      data: {
+        id: nanoid(),
+        draftId,
+        pageId: payload.pageId,
+        userId,
+        content: payload.content,
+        parentId: payload.parentId ?? null,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      select: {
+        ...commentSelect,
+        reads: {
+          where: { userId },
+          select: { id: true },
+        },
+      },
+    });
+
+    ydoc.transact(() => {
+      if (placement) {
+        addCommentPin(ydoc, {
+          commentId: created.id,
+          pageId: created.pageId,
+          userId,
+          userName: created.user.name,
+          ...placement,
+        });
+      }
+      bumpCommentRevision(ydoc);
+    });
+    return mapComment(created, userId);
+  });
 }
 
 export async function update(commentId: string, userId: string, payload: UpdateComment) {
@@ -197,6 +262,7 @@ export async function update(commentId: string, userId: string, payload: UpdateC
     },
   });
 
+  await updateCommentDocument(existing.draftId, () => {});
   return mapComment(updated, userId);
 }
 
@@ -210,6 +276,7 @@ export async function remove(commentId: string, userId: string) {
   }
 
   await db.comment.delete({ where: { id: commentId } });
+  await updateCommentDocument(existing.draftId, (ydoc) => deleteCommentPin(ydoc, commentId));
   return { ok: true };
 }
 
@@ -234,6 +301,7 @@ export async function toggleResolved(commentId: string, userId: string) {
     },
   });
 
+  await updateCommentDocument(existing.draftId, () => {});
   return mapComment(updated, userId);
 }
 

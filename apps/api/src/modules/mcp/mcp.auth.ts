@@ -1,6 +1,7 @@
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import * as apiKeysService from '../api-keys/api-keys.service';
 import * as draftsService from '../drafts/drafts.service';
+import { getDraftAccess } from '../drafts/drafts.access';
 import * as collaborationService from '../collaboration/collaboration.service';
 import { localizeMcpToolImageSources, storeMcpImageAsset } from './image-assets';
 
@@ -28,13 +29,39 @@ export function requireBrowser(draftId: string) {
   }
 }
 
+const READ_ONLY_TOOLS = new Set([
+  'get_shape',
+  'list_shapes',
+  'find_shapes',
+  'list_pages',
+  'list_components',
+  'list_guides',
+  'list_variables',
+  'list_icons',
+  'export_svg',
+  'export_png',
+  'export_html',
+  'export_css',
+  'export_css_all_layers',
+  'export_tailwind_all_layers',
+  'export_tailwind',
+  'export_swiftui',
+  'export_compose',
+]);
+
 export async function sendToolRpc(
   draftId: string,
   userId: string,
   tool: string,
   args: Record<string, unknown>,
 ): Promise<unknown> {
-  await assertDraftAccess(draftId, userId);
+  const access = await getDraftAccess(draftId, userId);
+  if (!access) {
+    throw new McpError(ErrorCode.InvalidRequest, 'Draft not found or access denied');
+  }
+  if (!READ_ONLY_TOOLS.has(tool) && !access.canEdit) {
+    throw new McpError(ErrorCode.InvalidRequest, 'Editing this draft is not permitted');
+  }
   requireBrowser(draftId);
   const localizedArgs = await localizeMcpToolImageSources(tool, args, (source) =>
     storeMcpImageAsset(draftId, source),

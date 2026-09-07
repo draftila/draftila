@@ -1,7 +1,10 @@
 import type { ProjectMemberRole } from '@draftila/shared';
+import { canInvite, canManageMembers } from './project-permissions';
+export { canInvite, canManageMembers, canEdit, canDelete } from './project-permissions';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../common/errors';
 import { nanoid } from '../../common/lib/utils';
 import { db } from '../../db';
+import { revokeProjectConnections } from '../collaboration/collaboration.service';
 
 const memberWithUser = {
   id: true,
@@ -90,11 +93,13 @@ export async function updateRole(
     throw new ForbiddenError();
   }
 
-  return db.projectMember.update({
+  const updated = await db.projectMember.update({
     where: { id: memberId },
     data: { role },
     select: memberWithUser,
   });
+  revokeProjectConnections(projectId, member.userId);
+  return updated;
 }
 
 export async function removeMember(projectId: string, memberId: string, actorId: string) {
@@ -123,6 +128,7 @@ export async function removeMember(projectId: string, memberId: string, actorId:
   }
 
   await db.projectMember.delete({ where: { id: memberId } });
+  revokeProjectConnections(projectId, member.userId);
   return member;
 }
 
@@ -151,20 +157,4 @@ export async function getEffectiveMembership(
     userId: membership.userId,
     projectId: membership.projectId,
   };
-}
-
-export function canInvite(role: ProjectMemberRole): boolean {
-  return role === 'owner' || role === 'admin';
-}
-
-export function canManageMembers(role: ProjectMemberRole): boolean {
-  return role === 'owner' || role === 'admin';
-}
-
-export function canEdit(role: ProjectMemberRole): boolean {
-  return role === 'owner' || role === 'admin' || role === 'editor';
-}
-
-export function canDelete(role: ProjectMemberRole): boolean {
-  return role === 'owner' || role === 'admin';
 }

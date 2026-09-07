@@ -1,3 +1,4 @@
+import { isReadOnlyEditor } from '../lib/editor-permissions';
 import { useCallback, useEffect, useRef } from 'react';
 import type * as Y from 'yjs';
 import type { Camera, CanvasGuide, Point, Shape } from '@draftila/shared';
@@ -260,7 +261,7 @@ export function Ruler({ orientation, ydoc }: RulerProps) {
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
-      if (!activePageId) return;
+      if (!activePageId || isReadOnlyEditor(useEditorStore.getState())) return;
 
       const rect = canvasRef.current?.getBoundingClientRect();
       if (!rect) return;
@@ -276,6 +277,7 @@ export function Ruler({ orientation, ydoc }: RulerProps) {
       useEditorStore.getState().setDraggingGuide({ axis, position: Math.round(canvasPos) });
 
       const handleMove = (moveEvent: PointerEvent) => {
+        if (isReadOnlyEditor(useEditorStore.getState())) return;
         const canvasEl = document.querySelector('canvas');
         if (!canvasEl) return;
         const canvasRect = canvasEl.getBoundingClientRect();
@@ -310,6 +312,7 @@ export function Ruler({ orientation, ydoc }: RulerProps) {
           upEvent.clientY <= canvasRect.bottom;
 
         if (isOverCanvas) {
+          if (isReadOnlyEditor(useEditorStore.getState())) return;
           addGuide(ydoc, activePageId, currentDragging.axis, currentDragging.position);
         }
       };
