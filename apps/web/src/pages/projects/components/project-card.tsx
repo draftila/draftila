@@ -1,5 +1,6 @@
 import type { Project } from '@draftila/shared';
 import { useNavigate } from 'react-router-dom';
+import { ImageWithFallback } from '@/components/image-with-fallback';
 import { formatDistanceToNow } from '@/lib/format';
 
 export function ProjectCard({ project }: { project: Project }) {
@@ -13,13 +14,16 @@ export function ProjectCard({ project }: { project: Project }) {
     >
       <div className="bg-muted border-border aspect-[4/3] overflow-hidden border transition-shadow group-hover:shadow-md">
         <div className="flex h-full items-center justify-center">
-          {project.logo ? (
-            <img src={project.logo} alt={project.name} className="h-full w-full object-cover" />
-          ) : (
-            <span className="text-muted-foreground text-2xl font-semibold">
-              {project.name.charAt(0).toUpperCase()}
-            </span>
-          )}
+          <ImageWithFallback
+            src={project.logo}
+            alt={project.name}
+            className="h-full w-full object-cover"
+            fallback={
+              <span className="text-muted-foreground text-2xl font-semibold">
+                {project.name.charAt(0).toUpperCase()}
+              </span>
+            }
+          />
         </div>
       </div>
       <div className="flex flex-col gap-0.5 px-1">

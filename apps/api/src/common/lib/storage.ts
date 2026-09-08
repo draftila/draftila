@@ -1,4 +1,5 @@
-import { mkdir, readFile, rm, unlink } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdir, readFile, rename, rm, unlink } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { nanoid } from './utils';
 
@@ -26,7 +27,13 @@ function createLocalDriver(basePath: string): StorageDriver {
     async put(key, data) {
       const filePath = resolveKey(key);
       await mkdir(dirname(filePath), { recursive: true });
-      await Bun.write(filePath, data);
+      const temporaryPath = `${filePath}.${nanoid()}.tmp`;
+      try {
+        await Bun.write(temporaryPath, data);
+        await rename(temporaryPath, filePath);
+      } finally {
+        await unlink(temporaryPath).catch(() => {});
+      }
       return `/storage/${key}`;
     },
     async get(key) {
@@ -66,7 +73,7 @@ export function generateStorageKey(prefix: string, ext: string): string {
 }
 
 export function extractStorageKey(url: string): string {
-  return url.replace(/^\/storage\//, '');
+  return url.split(/[?#]/, 1)[0]!.replace(/^\/storage\//, '');
 }
 
 export async function replaceStorageFile(
@@ -76,9 +83,8 @@ export async function replaceStorageFile(
   existingUrl?: string | null,
 ): Promise<string> {
   const storage = getStorage();
-  if (existingUrl) {
-    await storage.delete(extractStorageKey(existingUrl)).catch(() => {});
-  }
-  const key = generateStorageKey(prefix, ext);
-  return storage.put(key, data);
+  const key = existingUrl ? extractStorageKey(existingUrl) : generateStorageKey(prefix, ext);
+  const url = await storage.put(key, data);
+  const version = createHash('sha256').update(data).digest('hex');
+  return `${url}?v=${version}`;
 }

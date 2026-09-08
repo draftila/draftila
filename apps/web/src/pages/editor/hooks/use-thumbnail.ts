@@ -40,10 +40,11 @@ export function useThumbnail(draftId: string, ydoc: Y.Doc, synced: boolean) {
   useEffect(() => {
     return () => {
       if (!syncedRef.current) return;
+      const thumbnailDraftId = draftIdRef.current;
       generateThumbnail(ydocRef.current)
         .then((blob) => {
           if (blob) {
-            saveThumbnail(draftIdRef.current, blob);
+            return saveThumbnail(thumbnailDraftId, blob);
           }
         })
         .catch(() => {});
