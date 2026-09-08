@@ -116,8 +116,11 @@ app.get('/storage/*', (c) => {
   const storagePrefix = `${getStoragePath()}${sep}`;
   if (!filePath.startsWith(storagePrefix)) return c.notFound();
   if (!isFile(filePath)) return c.notFound();
+  const isPreview = key.startsWith('thumbnails/') || key.startsWith('logos/');
   return createFileResponse(filePath, {
-    headers: { 'Cache-Control': 'public, max-age=31536000, immutable' },
+    headers: {
+      'Cache-Control': isPreview ? 'public, no-cache' : 'public, max-age=31536000, immutable',
+    },
   });
 });
 
